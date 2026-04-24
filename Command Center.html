@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>The Daily Node — Command Center</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600;1,9..144,700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #0e0d0c;
+    overflow: hidden;
+  }
+  #stage {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  #canvas {
+    width: 1920px; height: 1080px;
+    transform-origin: center center;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  a { text-decoration: none; color: inherit; }
+  :root {
+    --f-serif:    "Fraunces", Georgia, serif;
+    --f-body:     "Newsreader", Georgia, serif;
+    --f-sans:     "Inter Tight", system-ui, sans-serif;
+    --f-mono:     "JetBrains Mono", ui-monospace, monospace;
+    --n-hero:   68px;
+    --n-lg:     32px;
+    --n-md:     22px;
+    --n-sm:     16px;
+    --n-xs:     12px;
+    --ink:      #16130f;
+    --ink2:     #4a4438;
+    --ink3:     #8a8272;
+    --ink4:     #b8b0a0;
+    --paper:    #f3eee4;
+    --paper2:   #ebe4d6;
+    --rule:     rgba(26,23,20,1);
+    --rule2:    rgba(26,23,20,0.18);
+    --rule3:    rgba(26,23,20,0.08);
+    --orange:   #c8641a;
+    --red:      #9c2a1a;
+    --green:    #3a6b2e;
+  }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="stage"><div id="canvas"></div></div>
+
+<script>
+const CANVAS_W = 1920, CANVAS_H = 1080;
+function applyScale() {
+  const canvas = document.getElementById('canvas');
+  const s = Math.min(window.innerWidth / CANVAS_W, window.innerHeight / CANVAS_H);
+  canvas.style.transform = `scale(${s})`;
+}
+window.addEventListener('resize', applyScale);
+window.addEventListener('load', applyScale);
+// Run immediately as well — before load fires
+applyScale();
+window.applyScale = applyScale;
+</script>
+
+<script type="text/babel">
+// ─── USER CONFIG ──────────────────────────────────────────────
+// Edit these to match your setup before opening in the browser.
+const CONFIG = {
+  // Bitaxe local IP — change to match your device
+  BITAXE_IP: '192.168.1.45',
+
+  // Your location for weather (decimal degrees)
+  WEATHER_LAT: 37.7749,
+  WEATHER_LNG: -122.4194,
+
+  // RSS feed URL to pull headlines from
+  // Examples: 'https://feeds.bbci.co.uk/news/rss.xml'
+  //           'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml'
+  RSS_URL: 'https://feeds.bbci.co.uk/news/world/rss.xml',
+
+  // rss2json API key — free tier works without one, or get one at rss2json.com
+  RSS2JSON_KEY: '',
+};
+
+// ─── Refresh intervals (ms) ───────────────────────────────────
+const INTERVALS = {
+  CLOCK:    1000,
+  BTC:     30000,
+  CHAIN:   60000,
+  BITAXE:  10000,
+  WEATHER: 15 * 60 * 1000,
+  RSS:      5 * 60 * 1000,
+};
+
+// ─── Design tokens ────────────────────────────────────────────
+const T = {
+  ink: '#16130f', ink2: '#4a4438', ink3: '#8a8272', ink4: '#b8b0a0',
+  paper: '#f3eee4', paper2: '#ebe4d6', paperHi: '#faf6ec',
+  rule: 'rgba(26,23,20,1)', rule2: 'rgba(26,23,20,0.18)', rule3: 'rgba(26,23,20,0.08)',
+  orange: '#c8641a', red: '#9c2a1a', green: '#3a6b2e',
+  serif: '"Fraunces", Georgia, serif',
+  body:  '"Newsreader", Georgia, serif',
+  sans:  '"Inter Tight", system-ui, sans-serif',
+  mono:  '"JetBrains Mono", ui-monospace, monospace',
+};
+
+// ─── Helpers ──────────────────────────────────────────────────
+function fmtNum(n, decimals = 0) {
+  if (n == null || isNaN(n)) return '—';
+  return Number(n).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+function fmtPrice(n) {
+  if (n == null || isNaN(n)) return '—';
+  return Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+function fmtPct(n) {
+  if (n == null || isNaN(n)) return '—';
+  const sign = n >= 0 ? '+' : '';
+  return `${sign}${Number(n).toFixed(2)}`;
+}
+function fmtHashrate(ehsRaw) {
+  // mempool returns H/s
+  const ehs = ehsRaw / 1e18;
+  return ehs >= 1 ? `${ehs.toFixed(0)} EH/s` : `${(ehsRaw / 1e15).toFixed(1)} PH/s`;
+}
+function fmtDiff(d) {
+  if (d >= 1e12) return `${(d / 1e12).toFixed(1)} T`;
+  if (d >= 1e9)  return `${(d / 1e9).toFixed(1)} B`;
+  return fmtNum(d);
+}
+function fmtMempoolMB(bytes) {
+  return `${(bytes / 1e6).toFixed(0)} MB`;
+}
+function timeAgo(dateStr) {
+  const diff = (Date.now() - new Date(dateStr)) / 1000;
+  if (diff < 60)  return `${Math.round(diff)}s`;
+  if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
+  return `${Math.round(diff / 86400)}d ago`;
+}
+
+// WMO weather code → glyph kind
+function wmoGlyph(code) {
+  if (code === 0) return 'sun';
+  if (code <= 2)  return 'cloud-sun';
+  if (code <= 3)  return 'cloud';
+  if (code >= 51) return 'rain';
+  return 'cloud-sun';
+}
+function wmoDesc(code) {
+  const m = {
+    0:'Clear sky', 1:'Mainly clear', 2:'Partly cloudy', 3:'Overcast',
+    45:'Fog', 48:'Icy fog',
+    51:'Light drizzle', 53:'Drizzle', 55:'Heavy drizzle',
+    61:'Light rain', 63:'Rain', 65:'Heavy rain',
+    71:'Light snow', 73:'Snow', 75:'Heavy snow',
+    80:'Rain showers', 81:'Rain showers', 82:'Heavy showers',
+    95:'Thunderstorm', 96:'Thunderstorm w/ hail',
+  };
+  return m[code] || 'Unknown';
+}
+
+// Solo-block odds from network hashrate and miner hashrate
+function calcSoloOdds(networkEHS, minerTHS) {
+  if (!networkEHS || !minerTHS) return null;
+  const networkTHS = networkEHS * 1e6; // EH/s → TH/s
+  const sharePerDay = (minerTHS / networkTHS) * 144; // 144 blocks/day
+  if (sharePerDay <= 0) return null;
+  const oddsPerDay = Math.round(1 / sharePerDay);
+  const etaYears = Math.round((1 / sharePerDay) / 365);
+  return { oddsPerDay, etaYears };
+}
+
+// Halving info from block height
+function nextHalving(height) {
+  const halvingInterval = 210000;
+  const nextHalvingBlock = Math.ceil((height + 1) / halvingInterval) * halvingInterval;
+  const blocksRemaining = nextHalvingBlock - height;
+  const daysRemaining = blocksRemaining / 144;
+  const date = new Date(Date.now() + daysRemaining * 86400000);
+  return date.toISOString().slice(0, 10);
+}
+
+// Circulating supply from height
+function circulatingBTC(height) {
+  let supply = 0, reward = 50, h = 0;
+  while (h + 210000 <= height) { supply += 210000 * reward; reward /= 2; h += 210000; }
+  supply += (height - h) * reward;
+  return `${(supply / 1e8).toFixed(2)}M BTC`;
+}
+
+// ─── Unified number component ─────────────────────────────────
+const NUM_PX = { hero: 64, lg: 28, md: 20, sm: 15, xs: 12 };
+function Num({ size = 'md', value, unit, delta, deltaUp, style = {} }) {
+  const px = NUM_PX[size];
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 3, ...style }}>
+      <span style={{
+        fontFamily: T.mono, fontSize: px, fontWeight: 500,
+        color: T.ink, letterSpacing: -0.5,
+        fontFeatureSettings: '"tnum"', lineHeight: 1,
+      }}>{value}</span>
+      {unit && <span style={{ fontFamily: T.mono, fontSize: Math.max(10, px * 0.52), color: T.ink3, letterSpacing: 0 }}>{unit}</span>}
+      {delta && <span style={{ fontFamily: T.mono, fontSize: Math.max(10, px * 0.46), color: deltaUp ? T.orange : T.ink3, marginLeft: 3 }}>
+        {deltaUp ? '▲ ' : '▼ '}{delta}
+      </span>}
+    </span>
+  );
+}
+
+// ─── Typography atoms ─────────────────────────────────────────
+function Kicker({ children, color, style = {} }) {
+  return <div style={{ fontFamily: T.sans, fontSize: 10, fontWeight: 600, letterSpacing: 1.8, textTransform: 'uppercase', color: color || T.ink3, ...style }}>{children}</div>;
+}
+function Rule({ double, dash, weight = 1, style = {} }) {
+  if (double) return <div style={{ borderTop: '2px solid ' + T.rule, borderBottom: '1px solid ' + T.rule, height: 5, ...style }} />;
+  return <div style={{ borderTop: `${weight}px ${dash ? 'dashed' : 'solid'} ${T.rule2}`, ...style }} />;
+}
+function ItalicDeck({ children, style = {} }) {
+  return <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 18, lineHeight: 1.45, color: T.ink2, ...style }}>{children}</div>;
+}
+
+// ─── Real chart from price data ────────────────────────────────
+function LineChart({ w, h, color = T.orange, points, fill }) {
+  // points: array of [timestamp, price] pairs, or null for placeholder
+  const useFallback = !points || points.length < 2;
+  let pts = [];
+
+  if (useFallback) {
+    // deterministic placeholder while loading
+    let s = 12347;
+    const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+    for (let i = 0; i <= 80; i++) {
+      const x = (i / 80) * w;
+      const base = Math.sin(i * 0.18) * h * 0.3 + Math.sin(i * 0.42) * h * 0.08 + (i / 80) * h * 0.18;
+      const y = h * 0.6 - base + (rnd() - 0.5) * 2;
+      pts.push([x.toFixed(1), Math.max(2, Math.min(h - 2, y)).toFixed(1)]);
+    }
+  } else {
+    const prices = points.map(p => p[1]);
+    const minP = Math.min(...prices);
+    const maxP = Math.max(...prices);
+    const range = maxP - minP || 1;
+    pts = points.map((p, i) => {
+      const x = (i / (points.length - 1)) * w;
+      const y = h - 4 - ((p[1] - minP) / range) * (h - 8);
+      return [x.toFixed(1), Math.max(2, Math.min(h - 2, y)).toFixed(1)];
+    });
+  }
+
+  const d = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0]},${p[1]}`).join(' ');
+  const [lx, ly] = pts[pts.length - 1];
+  return (
+    <svg width={w} height={h} style={{ display: 'block', flexShrink: 0 }}>
+      {fill && <path d={`${d} L${w},${h} L0,${h}Z`} fill={color} fillOpacity={0.07} />}
+      <path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={lx} cy={ly} r={3} fill={color} />
+      <circle cx={lx} cy={ly} r={7} fill="none" stroke={color} strokeOpacity={0.3} strokeWidth={1} />
+    </svg>
+  );
+}
+
+// ─── Bias bar ─────────────────────────────────────────────────
+function BiasBar({ left, center, right, total }) {
+  const tot = left + center + right || 1;
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.mono, fontSize: 10, color: T.ink3, marginBottom: 4 }}>
+        <span>{total} sources</span><span>L {left} · C {center} · R {right}</span>
+      </div>
+      <div style={{ display: 'flex', height: 4, background: T.rule3 }}>
+        <div style={{ width: `${(left / tot) * 100}%`, background: T.ink }} />
+        <div style={{ width: `${(center / tot) * 100}%`, background: T.ink3 }} />
+        <div style={{ width: `${(right / tot) * 100}%`, background: T.ink }} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Weather glyph ────────────────────────────────────────────
+function WxGlyph({ kind, size }) {
+  const s = T.ink, w = 1.5;
+  if (kind === 'sun') return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+      <circle cx="16" cy="16" r="5.5" stroke={s} strokeWidth={w} />
+      {[0,1,2,3,4,5,6,7].map(i => { const a = i*Math.PI/4; return <line key={i} x1={16+Math.cos(a)*9} y1={16+Math.sin(a)*9} x2={16+Math.cos(a)*12} y2={16+Math.sin(a)*12} stroke={s} strokeWidth={w} strokeLinecap="round" />; })}
+    </svg>
+  );
+  if (kind === 'rain') return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+      <path d="M7 20Q5 16 9 14Q10 9 16 10Q19 7 23 10Q28 9 28 16Q30 18 28 20Z" fill={T.paper} stroke={s} strokeWidth={w} strokeLinejoin="round"/>
+      {[10,16,22].map(x => <line key={x} x1={x} y1="24" x2={x-2} y2="30" stroke={s} strokeWidth={w} strokeLinecap="round"/>)}
+    </svg>
+  );
+  if (kind === 'cloud') return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+      <path d="M7 22Q5 18 9 16Q10 11 16 12Q19 9 23 12Q28 11 28 18Q30 20 28 22Z" fill={T.paper} stroke={s} strokeWidth={w} strokeLinejoin="round"/>
+    </svg>
+  );
+  // cloud-sun default
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+      <circle cx="11" cy="12" r="4" stroke={s} strokeWidth={w} />
+      {[0,1,2,3].map(i => { const a = i*Math.PI/2-Math.PI/4; return <line key={i} x1={11+Math.cos(a)*6} y1={12+Math.sin(a)*6} x2={11+Math.cos(a)*8} y2={12+Math.sin(a)*8} stroke={s} strokeWidth={w} strokeLinecap="round"/>; })}
+      <path d="M9 24Q7 20 11 18Q12 14 18 15Q21 12 25 15Q30 14 30 21Q32 23 30 25Z" fill={T.paper} stroke={s} strokeWidth={w} strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+// ─── Dot indicator ────────────────────────────────────────────
+function StatusDot({ ok }) {
+  return <span style={{ color: ok ? T.green : T.red, marginRight: 5 }}>●</span>;
+}
+
+// ─── Data hooks ───────────────────────────────────────────────
+
+// Live clock
+function useClock() {
+  const [now, setNow] = React.useState(new Date());
+  React.useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), INTERVALS.CLOCK);
+    return () => clearInterval(id);
+  }, []);
+  const pad = n => String(n).padStart(2, '0');
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return {
+    timeHM: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+    timeSec: `:${pad(now.getSeconds())}`,
+    dayStr: `${days[now.getDay()]}, ${months[now.getMonth()]} ${now.getDate()}`,
+    dateShort: now.toISOString().slice(0, 10),
+  };
+}
+
+// BTC price + chart from CoinGecko
+function useBTC() {
+  const [data, setData] = React.useState(null);
+  const [chartPts, setChartPts] = React.useState(null);
+  const [err, setErr] = React.useState(false);
+
+  const fetch24hChart = async () => {
+    try {
+      const r = await fetch('https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=1&interval=hourly');
+      if (!r.ok) throw new Error('chart');
+      const j = await r.json();
+      setChartPts(j.prices || null);
+    } catch {}
+  };
+
+  const fetchPrice = async () => {
+    try {
+      const r = await fetch('https://api.coingecko.com/api/v3/coins/bitcoin?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false');
+      if (!r.ok) throw new Error('price');
+      const j = await r.json();
+      const mkt = j.market_data;
+      setData({
+        price:    mkt.current_price.usd,
+        chgPct:   mkt.price_change_percentage_24h,
+        chgAbs:   mkt.price_change_24h,
+        hi:       mkt.high_24h.usd,
+        lo:       mkt.low_24h.usd,
+        cap:      mkt.market_cap.usd,
+      });
+      setErr(false);
+    } catch {
+      setErr(true);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchPrice();
+    fetch24hChart();
+    const id1 = setInterval(fetchPrice, INTERVALS.BTC);
+    const id2 = setInterval(fetch24hChart, INTERVALS.BTC * 2);
+    return () => { clearInterval(id1); clearInterval(id2); };
+  }, []);
+
+  return { data, chartPts, err };
+}
+
+// Chain vitals from mempool.space
+function useChain() {
+  const [data, setData] = React.useState(null);
+  const [err, setErr] = React.useState(false);
+
+  const fetchChain = async () => {
+    try {
+      const [blockRes, hashrateRes, feesRes, mempoolRes, diffRes] = await Promise.all([
+        fetch('https://mempool.space/api/blocks/tip/height'),
+        fetch('https://mempool.space/api/v1/mining/hashrate/3d'),
+        fetch('https://mempool.space/api/v1/fees/recommended'),
+        fetch('https://mempool.space/api/mempool'),
+        fetch('https://mempool.space/api/v1/difficulty-adjustment'),
+      ]);
+
+      const height = await blockRes.json();
+      const hashrateData = await hashrateRes.json();
+      const fees = await feesRes.json();
+      const mempool = await mempoolRes.json();
+      const diff = await diffRes.json();
+
+      // hashrate: currentHashrate in H/s from the 3d endpoint
+      const currentHashrate = hashrateData.currentHashrate || 0;
+      const currentDiff = diff.difficultyChange !== undefined
+        ? diff.difficulty || hashrateData.currentDifficulty
+        : hashrateData.currentDifficulty;
+
+      setData({
+        height,
+        hashrate: currentHashrate,
+        difficulty: currentDiff || hashrateData.currentDifficulty,
+        mempoolBytes: mempool.vsize,
+        mempoolTx: mempool.count,
+        feeFast: fees.fastestFee,
+        feeEco: fees.economyFee,
+        nextHalvingDate: nextHalving(height),
+        circulating: circulatingBTC(height),
+        diffAdj: diff.difficultyChange,
+      });
+      setErr(false);
+    } catch (e) {
+      setErr(true);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchChain();
+    const id = setInterval(fetchChain, INTERVALS.CHAIN);
+    return () => clearInterval(id);
+  }, []);
+
+  return { data, err };
+}
+
+// Bitaxe miner stats
+function useBitaxe() {
+  const [data, setData] = React.useState(null);
+  const [err, setErr] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+
+  const fetchBitaxe = async () => {
+    try {
+      const r = await fetch(`http://${CONFIG.BITAXE_IP}/api/system/info`, { signal: AbortSignal.timeout(5000) });
+      if (!r.ok) throw new Error('bitaxe');
+      const j = await r.json();
+      setData(j);
+      setErr(false);
+    } catch {
+      setErr(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchBitaxe();
+    const id = setInterval(fetchBitaxe, INTERVALS.BITAXE);
+    return () => clearInterval(id);
+  }, []);
+
+  return { data, err, loading };
+}
+
+// Weather from Open-Meteo
+function useWeather() {
+  const [data, setData] = React.useState(null);
+  const [err, setErr] = React.useState(false);
+
+  const fetchWeather = async () => {
+    try {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${CONFIG.WEATHER_LAT}&longitude=${CONFIG.WEATHER_LNG}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m&hourly=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=1&timezone=auto`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('weather');
+      const j = await r.json();
+
+      const cur = j.current;
+      const windDirs = ['N','NE','E','SE','S','SW','W','NW'];
+      const windDir = windDirs[Math.round(cur.wind_direction_10m / 45) % 8];
+      const now = new Date();
+      const curHour = now.getHours();
+
+      // Build 8 hourly slots starting from current hour
+      const hourly = [];
+      for (let i = 0; i < 8; i++) {
+        const idx = j.hourly.time.findIndex(t => {
+          const h = new Date(t).getHours();
+          return h === (curHour + i) % 24;
+        });
+        if (idx >= 0) {
+          const t = new Date(j.hourly.time[idx]);
+          const hr = t.getHours();
+          const label = hr === 0 ? '12am' : hr < 12 ? `${hr}am` : hr === 12 ? '12pm' : `${hr - 12}pm`;
+          hourly.push({
+            h: label,
+            t: Math.round(j.hourly.temperature_2m[idx]),
+            g: wmoGlyph(j.hourly.weather_code[idx]),
+          });
+        }
+      }
+
+      setData({
+        tempF:  Math.round(cur.temperature_2m),
+        feels:  Math.round(cur.apparent_temperature),
+        wxCond: wmoDesc(cur.weather_code),
+        wxGlyph: wmoGlyph(cur.weather_code),
+        wxWind: `${windDir} ${Math.round(cur.wind_speed_10m)} mph`,
+        wxHum:  `${cur.relative_humidity_2m}%`,
+        wxHi:   Math.round(j.daily.temperature_2m_max[0]),
+        wxLo:   Math.round(j.daily.temperature_2m_min[0]),
+        hourly: hourly.slice(0, 8),
+      });
+      setErr(false);
+    } catch {
+      setErr(true);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchWeather();
+    const id = setInterval(fetchWeather, INTERVALS.WEATHER);
+    return () => clearInterval(id);
+  }, []);
+
+  return { data, err };
+}
+
+// RSS headlines via rss2json
+function useRSS() {
+  const [items, setItems] = React.useState([]);
+  const [err, setErr] = React.useState(false);
+  const [leadStory, setLeadStory] = React.useState(null);
+
+  const fetchRSS = async () => {
+    try {
+      const key = CONFIG.RSS2JSON_KEY ? `&api_key=${CONFIG.RSS2JSON_KEY}` : '';
+      const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(CONFIG.RSS_URL)}${key}&count=20`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('rss');
+      const j = await r.json();
+      if (j.status !== 'ok') throw new Error('rss-status');
+
+      const parsed = j.items.map(it => ({
+        cat: (it.categories && it.categories[0]) ? it.categories[0].toUpperCase().slice(0, 10) : 'NEWS',
+        hed: it.title,
+        src: j.feed.title || new URL(CONFIG.RSS_URL).hostname,
+        pubDate: it.pubDate,
+        t: timeAgo(it.pubDate),
+        n: Math.floor(Math.random() * 30) + 2, // source count placeholder
+        link: it.link,
+      }));
+
+      if (parsed.length > 0) {
+        setLeadStory(parsed[0]);
+        setItems(parsed.slice(1, 10));
+      }
+      setErr(false);
+    } catch {
+      setErr(true);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchRSS();
+    const id = setInterval(fetchRSS, INTERVALS.RSS);
+    return () => clearInterval(id);
+  }, []);
+
+  // Refresh relative times every minute
+  React.useEffect(() => {
+    const id = setInterval(() => {
+      setItems(prev => prev.map(it => ({ ...it, t: timeAgo(it.pubDate) })));
+    }, 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  return { items, leadStory, err };
+}
+
+// ─── Layout ───────────────────────────────────────────────────
+function CommandCenter() {
+  const clock   = useClock();
+  const btc     = useBTC();
+  const chain   = useChain();
+  const bitaxe  = useBitaxe();
+  const weather = useWeather();
+  const rss     = useRSS();
+
+  // Derived values
+  const btcPrice   = btc.data ? `$${fmtPrice(btc.data.price)}` : '—';
+  const btcChgPct  = btc.data ? fmtPct(btc.data.chgPct) : '—';
+  const btcUp      = btc.data ? btc.data.chgPct >= 0 : true;
+  const btcHi      = btc.data ? fmtPrice(btc.data.hi) : '—';
+  const btcLo      = btc.data ? fmtPrice(btc.data.lo) : '—';
+  const btcCap     = btc.data ? `$${(btc.data.cap / 1e12).toFixed(2)}T` : '—';
+
+  const blockHeight = chain.data ? fmtNum(chain.data.height) : '—';
+  const hashrate    = chain.data ? fmtHashrate(chain.data.hashrate) : '—';
+  const difficulty  = chain.data ? fmtDiff(chain.data.difficulty) : '—';
+  const mempoolMB   = chain.data ? fmtMempoolMB(chain.data.mempoolBytes) : '—';
+  const mempoolTx   = chain.data ? fmtNum(chain.data.mempoolTx) : '—';
+  const feeFast     = chain.data ? `${chain.data.feeFast} sat/vB` : '—';
+  const feeEco      = chain.data ? `${chain.data.feeEco} sat/vB` : '—';
+
+  // Bitaxe derived
+  const bx = bitaxe.data;
+  const bxModel      = bx ? (bx.boardVersion || bx.ASICModel || 'BITAXE') : 'BITAXE';
+  const bxHashrate   = bx ? ((bx.hashRate / 1000) || (bx.hashrate / 1000)).toFixed(2) : '—';
+  const bxEff        = bx ? (bx.power && bx.hashRate ? (bx.power / (bx.hashRate / 1000)).toFixed(1) : (bx.efficiency || '—')) : '—';
+  const bxPower      = bx ? (bx.power || '—') : '—';
+  const bxTemp       = bx ? (bx.temp || bx.temperature || '—') : '—';
+  const bxVcore      = bx ? `${((bx.coreVoltageActual || bx.voltage || 0) / 1000).toFixed(2)} V` : '—';
+  const bxFreq       = bx ? `${bx.frequency || '—'} MHz` : '—';
+  const bxUptime     = bx ? (() => {
+    const s = bx.uptimeSeconds || 0;
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    return `${d}d ${String(h).padStart(2,'0')}h`;
+  })() : '—';
+  const bxBestDiff   = bx ? (bx.bestDiff || bx.bestNonceDiff || '—') : '—';
+  const bxPool       = bx ? (bx.stratumURL || 'solo.ckpool.org') : 'solo.ckpool.org';
+  const bxShOk       = bx ? fmtNum(bx.sharesAccepted || 0) : '—';
+  const bxShRej      = bx ? fmtNum(bx.sharesRejected || 0) : '—';
+
+  // Solo odds from live data
+  const soloOdds = chain.data && btc.data && bx
+    ? calcSoloOdds(chain.data.hashrate / 1e18, parseFloat(bxHashrate))
+    : null;
+  const oddsStr  = soloOdds ? `1 : ${fmtNum(soloOdds.oddsPerDay)}` : '1 : 412k';
+  const etaStr   = soloOdds ? `~${fmtNum(soloOdds.etaYears)} yrs` : '~1,128 yrs';
+
+  // Chain vitals rows
+  const chainRows = [
+    { k: 'Block height', v: blockHeight },
+    { k: 'Hashrate',     v: hashrate },
+    { k: 'Difficulty',   v: difficulty },
+    { k: 'Mempool',      v: mempoolMB },
+    { k: 'Fee · fast',   v: feeFast },
+    { k: 'Fee · eco',    v: feeEco },
+    { k: 'Next halving', v: chain.data ? chain.data.nextHalvingDate : '—' },
+    { k: 'Circulating',  v: chain.data ? chain.data.circulating : '—' },
+  ];
+
+  // System status
+  const sys = [
+    { k: 'bitaxe', v: bitaxe.err ? 'err' : (bx ? 'ok' : '…'), d: bx ? `${bxTemp}°C` : bitaxe.loading ? 'connecting' : 'offline' },
+    { k: 'mempool', v: chain.err ? 'err' : (chain.data ? 'ok' : '…'), d: chain.data ? `${mempoolMB}` : '—' },
+    { k: 'coingecko', v: btc.err ? 'err' : (btc.data ? 'ok' : '…'), d: btc.data ? `${btcChgPct}% 24h` : '—' },
+    { k: 'weather', v: weather.err ? 'err' : (weather.data ? 'ok' : '…'), d: weather.data ? weather.data.wxCond.toLowerCase() : '—' },
+    { k: 'rss', v: rss.err ? 'err' : (rss.items.length > 0 ? 'ok' : '…'), d: rss.items.length > 0 ? `${rss.items.length} stories` : '—' },
+  ];
+
+  const wx = weather.data;
+  const lead = rss.leadStory;
+  const newsItems = rss.items;
+
+  // Top-bar summary
+  const wxSummary = wx ? `${wx.tempF}°F ${wx.wxCond.toLowerCase()}` : '—°F';
+
+  return (
+    <div style={{
+      width: 1920, height: 1080,
+      background: T.paper, color: T.ink,
+      fontFamily: T.body,
+      display: 'flex', flexDirection: 'column',
+      padding: '28px 56px 32px',
+    }}>
+      {/* TOP CHROME */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center', paddingBottom: 8, fontFamily: T.sans, fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', color: T.ink3, width:'100%' }}>
+        <span style={{ whiteSpace:'nowrap' }}>{clock.dayStr}</span>
+        <span style={{ whiteSpace:'nowrap', textAlign:'center' }}>Home Edition · Vol. I, Nº 238</span>
+        <span style={{ whiteSpace:'nowrap', textAlign:'right' }}>{clock.timeHM}{clock.timeSec} · {wxSummary}</span>
+      </div>
+      <Rule double />
+
+      {/* TICKER */}
+      <div style={{ display:'flex', alignItems:'center', gap:28, padding:'9px 0', borderBottom:`1px solid ${T.rule2}`, fontFamily:T.mono, fontSize:12, overflowX:'hidden', whiteSpace:'nowrap' }}>
+        <span style={{ fontFamily:T.sans, fontWeight:700, fontSize:9, letterSpacing:2, color:T.ink3 }}>LIVE ⏺</span>
+        {[
+          ['BTC',     btcPrice,                   `${btcUp ? '▲' : '▼'} ${btcChgPct}%`,   btcUp ? T.orange : T.ink2],
+          ['BLOCK',   blockHeight,                 'latest',                                T.ink3],
+          ['HASH',    chain.data ? fmtHashrate(chain.data.hashrate) : '—', chain.data && chain.data.diffAdj != null ? `${chain.data.diffAdj >= 0 ? '+' : ''}${chain.data.diffAdj?.toFixed(1)}%` : '', T.ink3],
+          ['FEE',     chain.data ? `${chain.data.feeFast} sat/vB` : '—', chain.data ? `≈$${((chain.data.feeFast * 140 * btc.data?.price / 1e8) || 0).toFixed(2)}` : '', T.ink3],
+          ['MEMPOOL', mempoolMB,                   `${mempoolTx} tx`,                       T.ink3],
+          ['BITAXE',  bx ? `${bxHashrate} TH/s` : (bitaxe.err ? 'offline' : '…'), bx ? `${bxEff} J/TH` : '', T.ink3],
+          ['SOLO',    `1:${soloOdds ? fmtNum(soloOdds.oddsPerDay) : '412k'}/d`, etaStr,    T.ink3],
+        ].map(([k,v,s,sc],i)=>(
+          <span key={i}>
+            <span style={{ color:T.ink3, letterSpacing:1 }}>{k}</span>{' '}
+            <b style={{ fontWeight:600, color:T.ink }}>{v}</b>{' '}
+            <span style={{ color:sc }}>{s}</span>
+          </span>
+        ))}
+      </div>
+
+      {/* BODY — 4-column grid */}
+      <div style={{ display:'grid', gridTemplateColumns:'300px 1.1fr 1fr 1fr', gap:28, paddingTop:22, flex:1, minHeight:0 }}>
+
+        {/* COL 0 — WORDMARK RAIL */}
+        <div style={{ borderRight:`1px solid ${T.rule2}`, paddingRight:22, display:'flex', flexDirection:'column', gap:18, overflow:'hidden' }}>
+          <div>
+            <div style={{ fontFamily:T.serif, fontSize:70, fontWeight:700, lineHeight:0.86, letterSpacing:-2.5, color:T.ink }}>
+              The<br/>Daily<br/>Node
+            </div>
+            <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:13, color:T.ink2, marginTop:13, borderTop:`1px solid ${T.rule2}`, paddingTop:9, lineHeight:1.4 }}>
+              "All the home you need to know,<br/>before your coffee cools."
+            </div>
+          </div>
+          <Rule />
+          {/* Clock */}
+          <div>
+            <Kicker>Today</Kicker>
+            <div style={{ marginTop:6 }}>
+              <Num size="lg" value={clock.timeHM} unit={clock.timeSec} style={{ alignItems:'baseline' }} />
+            </div>
+            <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:13, color:T.ink2, marginTop:4 }}>{clock.dayStr}</div>
+          </div>
+          <Rule dash />
+          {/* Weather */}
+          <div>
+            <Kicker>Weather</Kicker>
+            {wx ? (
+              <>
+                <div style={{ display:'flex', alignItems:'center', gap:12, marginTop:8 }}>
+                  <WxGlyph kind={wx.wxGlyph} size={48} />
+                  <div>
+                    <Num size="lg" value={`${wx.tempF}°`} unit="F" />
+                    <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:12, color:T.ink2, marginTop:3 }}>
+                      {wx.wxCond} · feels {wx.feels}° · H{wx.wxHi} L{wx.wxLo}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(8,1fr)', gap:4, marginTop:12, paddingTop:10, borderTop:`1px solid ${T.rule3}` }}>
+                  {wx.hourly.map((h,i)=>(
+                    <div key={i} style={{ textAlign:'center' }}>
+                      <div style={{ fontFamily:T.mono, fontSize:10, color:T.ink3 }}>{h.h}</div>
+                      <div style={{ margin:'3px auto' }}><WxGlyph kind={h.g} size={24} /></div>
+                      <Num size="xs" value={`${h.t}°`} />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display:'flex', justifyContent:'space-between', marginTop:10, fontFamily:T.mono, fontSize:10, color:T.ink3 }}>
+                  <span>wind {wx.wxWind}</span><span>hum {wx.wxHum}</span>
+                </div>
+              </>
+            ) : (
+              <div style={{ fontFamily:T.mono, fontSize:12, color:T.ink3, marginTop:8 }}>
+                {weather.err ? 'weather unavailable' : 'loading…'}
+              </div>
+            )}
+          </div>
+          <Rule dash />
+          {/* System */}
+          <div>
+            <Kicker>System</Kicker>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr auto auto', rowGap:5, columnGap:12, marginTop:8 }}>
+              {sys.map((s,i)=>(
+                <React.Fragment key={i}>
+                  <span style={{ fontFamily:T.mono, fontSize:12, color:T.ink2 }}>
+                    <StatusDot ok={s.v === 'ok'} />{s.k}
+                  </span>
+                  <Num size="xs" value={s.v} style={{ justifyContent:'flex-end' }} />
+                  <span style={{ fontFamily:T.mono, fontSize:10, color:T.ink3, textAlign:'right' }}>{s.d}</span>
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+          <div style={{ flex:1 }} />
+          <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:10, color:T.ink3, borderTop:`1px solid ${T.rule2}`, paddingTop:8 }}>
+            Published from a home on the internet. Set in Fraunces &amp; Newsreader.
+          </div>
+        </div>
+
+        {/* COL 1 — LEAD STORY + MARKETS */}
+        <div style={{ borderRight:`1px solid ${T.rule2}`, paddingRight:24, display:'flex', flexDirection:'column', gap:13, overflow:'hidden' }}>
+          {lead ? (
+            <>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
+                <Kicker color={T.orange}>● {lead.cat} · {lead.src}</Kicker>
+                <Kicker>{lead.t}</Kicker>
+              </div>
+              <a href={lead.link} target="_blank" rel="noopener noreferrer">
+                <h1 style={{ fontFamily:T.serif, fontSize:32, fontWeight:700, lineHeight:1.04, letterSpacing:-1, color:T.ink, textWrap:'balance', margin:0 }}>
+                  {lead.hed}
+                </h1>
+              </a>
+              <div style={{ fontFamily:T.body, fontSize:13.5, lineHeight:1.5, color:T.ink2 }}>
+                <span style={{ fontFamily:T.serif, fontSize:44, fontWeight:700, color:T.ink, float:'left', lineHeight:0.88, marginRight:8, marginTop:3 }}>
+                  {lead.hed.charAt(0)}
+                </span>
+                {lead.hed.slice(1)}
+              </div>
+            </>
+          ) : (
+            <>
+              <Kicker color={T.orange}>● {rss.err ? 'RSS unavailable' : 'Loading feed…'}</Kicker>
+              <h1 style={{ fontFamily:T.serif, fontSize:32, fontWeight:700, lineHeight:1.04, letterSpacing:-1, color:T.ink4, margin:0 }}>
+                {rss.err ? `Configure RSS_URL in CONFIG` : 'Fetching headlines…'}
+              </h1>
+            </>
+          )}
+          <Rule dash />
+          {/* BTC market */}
+          <Kicker>Markets · BTC / USD</Kicker>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end' }}>
+            <div>
+              <Num size="hero" value={btcPrice} delta={btcChgPct ? `${btcChgPct}%` : undefined} deltaUp={btcUp} />
+            </div>
+            <div style={{ textAlign:'right', fontFamily:T.mono, fontSize:11, color:T.ink3, lineHeight:1.8 }}>
+              <div>hi ${btcHi}</div>
+              <div>lo ${btcLo}</div>
+              <div>cap {btcCap}</div>
+            </div>
+          </div>
+          <LineChart w={470} h={110} color={T.orange} points={btc.chartPts} fill />
+          <div style={{ display:'flex', justifyContent:'space-between', fontFamily:T.mono, fontSize:10, color:T.ink3 }}>
+            <span>24h ago</span><span>−18h</span><span>−12h</span><span>−6h</span><span>now</span>
+          </div>
+        </div>
+
+        {/* COL 2 — HEADLINES FEED */}
+        <div style={{ borderRight:`1px solid ${T.rule2}`, paddingRight:24, overflow:'hidden', display:'flex', flexDirection:'column' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
+            <Kicker>More headlines</Kicker>
+            {rss.err && <Kicker color={T.red}>feed error</Kicker>}
+          </div>
+          <div style={{ marginTop:8, flex:1 }}>
+            {newsItems.length > 0 ? newsItems.map((it,i)=>(
+              <a key={i} href={it.link} target="_blank" rel="noopener noreferrer" style={{ display:'block', padding:'9px 0', borderBottom:`1px solid ${T.rule3}` }}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                  <Kicker color={it.cat === 'BREAKING' ? T.red : T.ink3}>{it.cat}</Kicker>
+                  <span style={{ fontFamily:T.mono, fontSize:10, color:T.ink3 }}>{it.t}</span>
+                </div>
+                <div style={{ fontFamily:T.body, fontSize:14.5, lineHeight:1.3, color:T.ink, letterSpacing:-0.1 }}>{it.hed}</div>
+                <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:11, color:T.ink3, marginTop:2 }}>{it.src}</div>
+              </a>
+            )) : (
+              <div style={{ fontFamily:T.mono, fontSize:12, color:T.ink3, marginTop:16 }}>
+                {rss.err ? 'Feed unavailable — check CONFIG.RSS_URL' : 'Loading headlines…'}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* COL 3 — HOME MINER + CHAIN VITALS */}
+        <div style={{ display:'flex', flexDirection:'column', gap:10, overflow:'hidden' }}>
+          <Kicker>The home miner · {bxModel}</Kicker>
+          <h2 style={{ fontFamily:T.serif, fontSize:20, fontWeight:700, lineHeight:1.05, letterSpacing:-0.4, color:T.ink, textWrap:'balance', margin:0 }}>
+            A <span style={{ fontStyle:'italic' }}>one-in-{soloOdds ? fmtNum(soloOdds.oddsPerDay).toLowerCase() : 'four-hundred-thousand'}</span> chance, every day.
+          </h2>
+          <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:11, color:T.ink2 }}>
+            {bxPool} · up {bxUptime}
+          </div>
+          {/* Solo odds hero */}
+          <div style={{ paddingTop:2 }}>
+            {bitaxe.err ? (
+              <div style={{ fontFamily:T.mono, fontSize:18, color:T.ink3 }}>
+                Bitaxe offline — set CONFIG.BITAXE_IP
+              </div>
+            ) : (
+              <div style={{ fontFamily:T.mono, fontSize:64, fontWeight:500, letterSpacing:-1, lineHeight:1, color:T.ink, fontFeatureSettings:'"tnum"' }}>
+                {oddsStr}
+              </div>
+            )}
+            <div style={{ fontFamily:T.mono, fontSize:12, color:T.ink3, marginTop:4, letterSpacing:0.5 }}>
+              per day · expected {etaStr}
+            </div>
+          </div>
+          {/* Lifetime progress bar — placeholder, would need persistent storage */}
+          <div>
+            <div style={{ display:'flex', justifyContent:'space-between', fontFamily:T.mono, fontSize:10, color:T.ink3, marginBottom:4 }}>
+              <span>LIFETIME vs EXPECTED</span>
+              <span>{bx && bxBestDiff !== '—' ? `best diff ${bxBestDiff}` : '—'}</span>
+            </div>
+            <div style={{ height:4, background:T.rule3, position:'relative' }}>
+              <div style={{ position:'absolute', inset:0, width:'0.4%', background:T.orange }} />
+            </div>
+          </div>
+          {/* 6-up stats */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px 10px' }}>
+            {[
+              [bxHashrate,  'TH/s',  'Hashrate',   'lg'],
+              [bxEff,       'J/TH',  'Efficiency', 'lg'],
+              [bxPower,     'W',     'Power',      'lg'],
+              [bxTemp,      '°C',    'ASIC temp',  'md'],
+              [bxFreq,      '',      'Frequency',  'sm'],
+              [bxVcore,     '',      'Core V',     'sm'],
+            ].map(([v,u,label,sz],i)=>(
+              <div key={i} style={{ borderLeft:`1px solid ${T.rule3}`, paddingLeft:8 }}>
+                <Num size={sz} value={v} unit={u || undefined} />
+                <Kicker style={{ marginTop:4 }}>{label}</Kicker>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:11, color:T.ink3 }}>
+            "a man can dream." · shares {bxShOk} ok / {bxShRej} rej
+          </div>
+          <Rule dash />
+          {/* Chain vitals */}
+          <Kicker>Chain vitals</Kicker>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px 10px' }}>
+            {chainRows.map((r,i)=>(
+              <div key={i} style={{ borderLeft:`1px solid ${T.rule3}`, paddingLeft:8 }}>
+                <Num size="sm" value={r.v} />
+                <Kicker style={{ marginTop:3 }}>{r.k}</Kicker>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  React.useEffect(() => { window.applyScale && window.applyScale(); }, []);
+  return <CommandCenter />;
+}
+ReactDOM.createRoot(document.getElementById('canvas')).render(<App />);
+</script>
+</body>
+</html>
