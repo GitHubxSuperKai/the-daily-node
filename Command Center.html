@@ -11,13 +11,15 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
     width: 100%; height: 100%;
-    background: #0e0d0c;
+    background: #f3eee4;
     overflow: hidden;
+    transition: background 0.3s;
   }
   #stage {
     position: fixed; inset: 0;
     display: flex; align-items: center; justify-content: center;
     overflow: hidden;
+    background: inherit;
   }
   #canvas {
     width: 1920px; height: 1080px;
@@ -82,10 +84,12 @@ const CONFIG = {
   WEATHER_LAT: 37.7749,
   WEATHER_LNG: -122.4194,
 
-  // RSS feed URL to pull headlines from
-  // Examples: 'https://feeds.bbci.co.uk/news/rss.xml'
-  //           'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml'
-  RSS_URL: 'https://feeds.bbci.co.uk/news/world/rss.xml',
+  // Bitcoin news RSS feeds (all fetched and merged)
+  RSS_FEEDS: [
+    'https://bitcoinmagazine.com/.rss/full/',
+    'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml',
+    'https://news.bitcoin.com/feed/',
+  ],
 
   // rss2json API key — free tier works without one, or get one at rss2json.com
   RSS2JSON_KEY: '',
@@ -102,16 +106,28 @@ const INTERVALS = {
 };
 
 // ─── Design tokens ────────────────────────────────────────────
-const T = {
-  ink: '#16130f', ink2: '#4a4438', ink3: '#8a8272', ink4: '#b8b0a0',
-  paper: '#f3eee4', paper2: '#ebe4d6', paperHi: '#faf6ec',
-  rule: 'rgba(26,23,20,1)', rule2: 'rgba(26,23,20,0.18)', rule3: 'rgba(26,23,20,0.08)',
-  orange: '#c8641a', red: '#9c2a1a', green: '#3a6b2e',
+const FONTS = {
   serif: '"Fraunces", Georgia, serif',
   body:  '"Newsreader", Georgia, serif',
   sans:  '"Inter Tight", system-ui, sans-serif',
   mono:  '"JetBrains Mono", ui-monospace, monospace',
 };
+const LIGHT = {
+  ...FONTS,
+  ink: '#16130f', ink2: '#4a4438', ink3: '#8a8272', ink4: '#b8b0a0',
+  paper: '#f3eee4', paper2: '#ebe4d6', paperHi: '#faf6ec',
+  rule: 'rgba(26,23,20,1)', rule2: 'rgba(26,23,20,0.18)', rule3: 'rgba(26,23,20,0.08)',
+  orange: '#c8641a', red: '#9c2a1a', green: '#3a6b2e',
+};
+const DARK = {
+  ...FONTS,
+  ink: '#e8e2d6', ink2: '#a8a090', ink3: '#706858', ink4: '#504840',
+  paper: '#121110', paper2: '#1c1a17', paperHi: '#1f1d1a',
+  rule: 'rgba(232,226,214,0.85)', rule2: 'rgba(232,226,214,0.12)', rule3: 'rgba(232,226,214,0.06)',
+  orange: '#d4743a', red: '#c44040', green: '#5a9b4e',
+};
+const ThemeCtx = React.createContext(LIGHT);
+function useT() { return React.useContext(ThemeCtx); }
 
 // ─── Helpers ──────────────────────────────────────────────────
 function fmtNum(n, decimals = 0) {
@@ -201,6 +217,7 @@ function circulatingBTC(height) {
 // ─── Unified number component ─────────────────────────────────
 const NUM_PX = { hero: 64, lg: 28, md: 20, sm: 15, xs: 12 };
 function Num({ size = 'md', value, unit, delta, deltaUp, style = {} }) {
+  const T = useT();
   const px = NUM_PX[size];
   return (
     <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 3, ...style }}>
@@ -219,18 +236,23 @@ function Num({ size = 'md', value, unit, delta, deltaUp, style = {} }) {
 
 // ─── Typography atoms ─────────────────────────────────────────
 function Kicker({ children, color, style = {} }) {
+  const T = useT();
   return <div style={{ fontFamily: T.sans, fontSize: 10, fontWeight: 600, letterSpacing: 1.8, textTransform: 'uppercase', color: color || T.ink3, ...style }}>{children}</div>;
 }
 function Rule({ double, dash, weight = 1, style = {} }) {
+  const T = useT();
   if (double) return <div style={{ borderTop: '2px solid ' + T.rule, borderBottom: '1px solid ' + T.rule, height: 5, ...style }} />;
   return <div style={{ borderTop: `${weight}px ${dash ? 'dashed' : 'solid'} ${T.rule2}`, ...style }} />;
 }
 function ItalicDeck({ children, style = {} }) {
+  const T = useT();
   return <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 18, lineHeight: 1.45, color: T.ink2, ...style }}>{children}</div>;
 }
 
 // ─── Real chart from price data ────────────────────────────────
-function LineChart({ w, h, color = T.orange, points, fill }) {
+function LineChart({ w, h, color, points, fill }) {
+  const T = useT();
+  color = color ?? T.orange;
   // points: array of [timestamp, price] pairs, or null for placeholder
   const useFallback = !points || points.length < 2;
   let pts = [];
@@ -271,6 +293,7 @@ function LineChart({ w, h, color = T.orange, points, fill }) {
 
 // ─── Bias bar ─────────────────────────────────────────────────
 function BiasBar({ left, center, right, total }) {
+  const T = useT();
   const tot = left + center + right || 1;
   return (
     <div>
@@ -288,6 +311,7 @@ function BiasBar({ left, center, right, total }) {
 
 // ─── Weather glyph ────────────────────────────────────────────
 function WxGlyph({ kind, size }) {
+  const T = useT();
   const s = T.ink, w = 1.5;
   if (kind === 'sun') return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
@@ -318,6 +342,7 @@ function WxGlyph({ kind, size }) {
 
 // ─── Dot indicator ────────────────────────────────────────────
 function StatusDot({ ok }) {
+  const T = useT();
   return <span style={{ color: ok ? T.green : T.red, marginRight: 5 }}>●</span>;
 }
 
@@ -540,30 +565,36 @@ function useRSS() {
   const [leadStory, setLeadStory] = React.useState(null);
 
   const fetchRSS = async () => {
-    try {
-      const key = CONFIG.RSS2JSON_KEY ? `&api_key=${CONFIG.RSS2JSON_KEY}` : '';
-      const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(CONFIG.RSS_URL)}${key}&count=20`;
+    const key = CONFIG.RSS2JSON_KEY ? `&api_key=${CONFIG.RSS2JSON_KEY}` : '';
+    const feeds = CONFIG.RSS_FEEDS || [];
+
+    const results = await Promise.allSettled(feeds.map(async feedUrl => {
+      const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}${key}`;
       const r = await fetch(url);
       if (!r.ok) throw new Error('rss');
       const j = await r.json();
       if (j.status !== 'ok') throw new Error('rss-status');
-
-      const parsed = j.items.map(it => ({
-        cat: (it.categories && it.categories[0]) ? it.categories[0].toUpperCase().slice(0, 10) : 'NEWS',
+      const src = j.feed.title || new URL(feedUrl).hostname;
+      return j.items.map(it => ({
+        cat: (it.categories && it.categories[0]) ? it.categories[0].toUpperCase().slice(0, 10) : 'BITCOIN',
         hed: it.title,
-        src: j.feed.title || new URL(CONFIG.RSS_URL).hostname,
+        src,
         pubDate: it.pubDate,
         t: timeAgo(it.pubDate),
-        n: Math.floor(Math.random() * 30) + 2, // source count placeholder
         link: it.link,
       }));
+    }));
 
-      if (parsed.length > 0) {
-        setLeadStory(parsed[0]);
-        setItems(parsed.slice(1, 10));
-      }
+    const all = results
+      .filter(r => r.status === 'fulfilled')
+      .flatMap(r => r.value)
+      .sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+
+    if (all.length > 0) {
+      setLeadStory(all[0]);
+      setItems(all.slice(1, 15));
       setErr(false);
-    } catch {
+    } else {
       setErr(true);
     }
   };
@@ -586,7 +617,8 @@ function useRSS() {
 }
 
 // ─── Layout ───────────────────────────────────────────────────
-function CommandCenter() {
+function CommandCenter({ dark, onToggleDark }) {
+  const T = useT();
   const clock   = useClock();
   const btc     = useBTC();
   const chain   = useChain();
@@ -674,10 +706,13 @@ function CommandCenter() {
       padding: '28px 56px 32px',
     }}>
       {/* TOP CHROME */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center', paddingBottom: 8, fontFamily: T.sans, fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', color: T.ink3, width:'100%' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr auto 1fr auto', alignItems:'center', paddingBottom: 8, fontFamily: T.sans, fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', color: T.ink3, width:'100%' }}>
         <span style={{ whiteSpace:'nowrap' }}>{clock.dayStr}</span>
         <span style={{ whiteSpace:'nowrap', textAlign:'center' }}>Home Edition · Vol. I, Nº 238</span>
         <span style={{ whiteSpace:'nowrap', textAlign:'right' }}>{clock.timeHM}{clock.timeSec} · {wxSummary}</span>
+        <button onClick={onToggleDark} style={{ background:'none', border:'none', cursor:'pointer', fontFamily:T.sans, fontSize:10, fontWeight:600, letterSpacing:1.8, textTransform:'uppercase', color:T.ink3, marginLeft:20, padding:0 }}>
+          {dark ? '◑ Light' : '◐ Dark'}
+        </button>
       </div>
       <Rule double />
 
@@ -803,7 +838,7 @@ function CommandCenter() {
             <>
               <Kicker color={T.orange}>● {rss.err ? 'RSS unavailable' : 'Loading feed…'}</Kicker>
               <h1 style={{ fontFamily:T.serif, fontSize:32, fontWeight:700, lineHeight:1.04, letterSpacing:-1, color:T.ink4, margin:0 }}>
-                {rss.err ? `Configure RSS_URL in CONFIG` : 'Fetching headlines…'}
+                {rss.err ? 'All feeds unavailable' : 'Fetching headlines…'}
               </h1>
             </>
           )}
@@ -829,7 +864,7 @@ function CommandCenter() {
         {/* COL 2 — HEADLINES FEED */}
         <div style={{ borderRight:`1px solid ${T.rule2}`, paddingRight:24, overflow:'hidden', display:'flex', flexDirection:'column' }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
-            <Kicker>More headlines</Kicker>
+            <Kicker>Bitcoin news</Kicker>
             {rss.err && <Kicker color={T.red}>feed error</Kicker>}
           </div>
           <div style={{ marginTop:8, flex:1 }}>
@@ -844,7 +879,7 @@ function CommandCenter() {
               </a>
             )) : (
               <div style={{ fontFamily:T.mono, fontSize:12, color:T.ink3, marginTop:16 }}>
-                {rss.err ? 'Feed unavailable — check CONFIG.RSS_URL' : 'Loading headlines…'}
+                {rss.err ? 'All feeds unavailable' : 'Loading headlines…'}
               </div>
             )}
           </div>
@@ -922,8 +957,21 @@ function CommandCenter() {
 }
 
 function App() {
+  const [dark, setDark] = React.useState(false);
+  const theme = dark ? DARK : LIGHT;
+
   React.useEffect(() => { window.applyScale && window.applyScale(); }, []);
-  return <CommandCenter />;
+
+  React.useEffect(() => {
+    document.body.style.background = theme.paper;
+    document.body.style.transition = 'background 0.3s';
+  }, [dark]);
+
+  return (
+    <ThemeCtx.Provider value={theme}>
+      <CommandCenter dark={dark} onToggleDark={() => setDark(d => !d)} />
+    </ThemeCtx.Provider>
+  );
 }
 ReactDOM.createRoot(document.getElementById('canvas')).render(<App />);
 </script>
