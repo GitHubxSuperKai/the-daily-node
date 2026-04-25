@@ -73,8 +73,8 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-    server = HTTPServer(('localhost', PORT), BitaxeAPIHandler)
-    print(f'BitAxe Fleet API  →  http://localhost:{PORT}/api/miners')
+    server = HTTPServer(('0.0.0.0', PORT), BitaxeAPIHandler)
+    print(f'BitAxe Fleet API  →  http://0.0.0.0:{PORT}/api/miners')
     print(f'Monitoring: {", ".join(BITAXE_IPS)}')
     print('Press Ctrl+C to stop.\n')
     server.serve_forever()
