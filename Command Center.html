@@ -1042,8 +1042,19 @@ function App() {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
 
   const loadSaved = () => { try { return JSON.parse(localStorage.getItem('dailynode-bitaxe') || '{}'); } catch { return {}; } };
+  const loadPrefs = () => { try { return JSON.parse(localStorage.getItem('dailynode-prefs') || '{}'); } catch { return {}; } };
   const [bitaxeApiUrl, setBitaxeApiUrl] = React.useState(() => { const s = loadSaved(); return s.apiUrl !== undefined ? s.apiUrl : CONFIG.BITAXE_API_URL; });
   const [bitaxeIps, setBitaxeIps]       = React.useState(() => { const s = loadSaved(); return s.ips   !== undefined ? s.ips   : CONFIG.BITAXE_IPS; });
+  const [prefs, setPrefs] = React.useState(() => {
+    const s = loadPrefs();
+    return {
+      lat:        s.lat        ?? CONFIG.WEATHER_LAT,
+      lng:        s.lng        ?? CONFIG.WEATHER_LNG,
+      cityName:   s.cityName   ?? '',
+      timeFormat: s.timeFormat ?? '12h',
+      tempUnit:   s.tempUnit   ?? 'fahrenheit',
+    };
+  });
 
   const theme = dark ? DARK : LIGHT;
 
