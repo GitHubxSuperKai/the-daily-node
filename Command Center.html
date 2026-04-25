@@ -80,7 +80,7 @@ const CONFIG = {
   BITAXE_IPS: ['192.168.1.6', '192.168.1.7'],
 
   // BitAxe fleet API — run bitaxe_api.py then set this URL (leave '' to poll miners directly)
-  BITAXE_API_URL: 'http://localhost:3001/api/miners',
+  BITAXE_API_URL: 'http://192.168.1.59:3001/api/miners',
 
   // Your location for weather (decimal degrees)
   WEATHER_LAT: 37.7749,
@@ -469,25 +469,25 @@ function useChain() {
 }
 
 // BitAxe fleet stats — polls via API proxy or directly per-IP
-function useBitaxe() {
+function useBitaxe(apiUrl, ips) {
   const [miners, setMiners] = React.useState([]);
   const [err, setErr] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
 
   const fetchBitaxe = async () => {
     let next;
-    if (CONFIG.BITAXE_API_URL) {
+    if (apiUrl) {
       try {
-        const r = await fetch(CONFIG.BITAXE_API_URL, { signal: AbortSignal.timeout(5000) });
+        const r = await fetch(apiUrl, { signal: AbortSignal.timeout(5000) });
         if (!r.ok) throw new Error('api');
         const body = await r.json();
         next = body.miners;
       } catch {
-        next = CONFIG.BITAXE_IPS.map(ip => ({ ip, online: false }));
+        next = ips.map(ip => ({ ip, online: false }));
       }
     } else {
       const results = await Promise.allSettled(
-        CONFIG.BITAXE_IPS.map(async ip => {
+        ips.map(async ip => {
           const r = await fetch(`http://${ip}/api/system/info`, { signal: AbortSignal.timeout(5000) });
           if (!r.ok) throw new Error('bitaxe');
           const data = await r.json();
@@ -495,7 +495,7 @@ function useBitaxe() {
         })
       );
       next = results.map((r, i) =>
-        r.status === 'fulfilled' ? r.value : { ip: CONFIG.BITAXE_IPS[i], online: false }
+        r.status === 'fulfilled' ? r.value : { ip: ips[i], online: false }
       );
     }
     setMiners(next);
@@ -507,7 +507,7 @@ function useBitaxe() {
     fetchBitaxe();
     const id = setInterval(fetchBitaxe, INTERVALS.BITAXE);
     return () => clearInterval(id);
-  }, []);
+  }, [apiUrl, ips.join(',')]);
 
   return { miners, err, loading };
 }
@@ -633,13 +633,69 @@ function useRSS() {
   return { items, leadStory, err };
 }
 
+// ─── Fleet settings panel ─────────────────────────────────────
+function SettingsPanel({ apiUrl, ips, onSave, onClose }) {
+  const T = useT();
+  const [url, setUrl] = React.useState(apiUrl);
+  const [ipsText, setIpsText] = React.useState(ips.join(', '));
+
+  const handleSave = () => {
+    const newIps = ipsText.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+    onSave(url.trim(), newIps);
+  };
+
+  const inp = {
+    display: 'block', width: '100%',
+    fontFamily: T.mono, fontSize: 13, color: T.ink,
+    background: T.paper2, border: `1px solid ${T.rule2}`,
+    padding: '8px 10px', outline: 'none', boxSizing: 'border-box', marginTop: 6,
+  };
+
+  const btnStyle = (primary) => ({
+    fontFamily: T.sans, fontSize: 10, fontWeight: 700,
+    letterSpacing: 1.8, textTransform: 'uppercase',
+    padding: '9px 22px', cursor: 'pointer', border: 'none',
+    background: primary ? T.ink : 'transparent',
+    color: primary ? T.paper : T.ink3,
+  });
+
+  return (
+    <div style={{ position:'absolute', inset:0, zIndex:10, background:'rgba(0,0,0,0.55)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ background:T.paper, width:520, border:`1px solid ${T.rule}`, padding:'28px 32px 24px' }}>
+        <div style={{ borderTop:'3px solid '+T.rule, borderBottom:'1px solid '+T.rule, height:6, marginBottom:18 }} />
+        <div style={{ fontFamily:T.serif, fontSize:20, fontWeight:700, letterSpacing:-0.5, marginBottom:20 }}>Fleet Settings</div>
+
+        <Kicker>BitAxe API URL</Kicker>
+        <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:11, color:T.ink3, marginTop:3 }}>
+          Run bitaxe_api.py on a local server. Leave blank to poll miners directly.
+        </div>
+        <input style={inp} value={url} onChange={e => setUrl(e.target.value)}
+          placeholder="http://192.168.1.59:3001/api/miners" spellCheck={false} />
+
+        <div style={{ height:18 }} />
+        <Kicker>Miner IPs (direct polling fallback)</Kicker>
+        <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:11, color:T.ink3, marginTop:3 }}>
+          Used when API URL is blank or unreachable. Comma-separated.
+        </div>
+        <input style={inp} value={ipsText} onChange={e => setIpsText(e.target.value)}
+          placeholder="192.168.1.6, 192.168.1.7" spellCheck={false} />
+
+        <div style={{ display:'flex', gap:10, marginTop:24, borderTop:`1px solid ${T.rule2}`, paddingTop:18 }}>
+          <button style={btnStyle(true)} onClick={handleSave}>Save</button>
+          <button style={btnStyle(false)} onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Layout ───────────────────────────────────────────────────
-function CommandCenter({ dark, onToggleDark }) {
+function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, settingsOpen, onOpenSettings, onSaveSettings, onCloseSettings }) {
   const T = useT();
   const clock   = useClock();
   const btc     = useBTC();
   const chain   = useChain();
-  const bitaxe  = useBitaxe();
+  const bitaxe  = useBitaxe(bitaxeApiUrl, bitaxeIps);
   const weather = useWeather();
   const rss     = useRSS();
 
@@ -708,6 +764,7 @@ function CommandCenter({ dark, onToggleDark }) {
 
   return (
     <div style={{
+      position: 'relative',
       width: 1920, height: 1080,
       background: T.paper, color: T.ink,
       fontFamily: T.body,
@@ -719,9 +776,12 @@ function CommandCenter({ dark, onToggleDark }) {
         <span style={{ whiteSpace:'nowrap' }}>{clock.dayStr}</span>
         <span style={{ whiteSpace:'nowrap', textAlign:'center' }}>Home Edition · Vol. I, Nº 238</span>
         <span style={{ whiteSpace:'nowrap', textAlign:'right' }}>{clock.timeHM}{clock.timeSec} · {wxSummary}</span>
-        <button onClick={onToggleDark} style={{ background:'none', border:'none', cursor:'pointer', fontFamily:T.sans, fontSize:10, fontWeight:600, letterSpacing:1.8, textTransform:'uppercase', color:T.ink3, marginLeft:20, padding:0 }}>
-          {dark ? '◑ Light' : '◐ Dark'}
-        </button>
+        <div style={{ display:'flex', gap:16, marginLeft:20 }}>
+          <button onClick={onOpenSettings} style={{ background:'none', border:'none', cursor:'pointer', fontFamily:T.sans, fontSize:10, fontWeight:600, letterSpacing:1.8, textTransform:'uppercase', color:T.ink3, padding:0 }}>⚙ Fleet</button>
+          <button onClick={onToggleDark} style={{ background:'none', border:'none', cursor:'pointer', fontFamily:T.sans, fontSize:10, fontWeight:600, letterSpacing:1.8, textTransform:'uppercase', color:T.ink3, padding:0 }}>
+            {dark ? '◑ Light' : '◐ Dark'}
+          </button>
+        </div>
       </div>
       <Rule double />
 
@@ -972,12 +1032,19 @@ function CommandCenter({ dark, onToggleDark }) {
         </div>
 
       </div>
+      {settingsOpen && <SettingsPanel apiUrl={bitaxeApiUrl} ips={bitaxeIps} onSave={onSaveSettings} onClose={onCloseSettings} />}
     </div>
   );
 }
 
 function App() {
   const [dark, setDark] = React.useState(false);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
+
+  const loadSaved = () => { try { return JSON.parse(localStorage.getItem('dailynode-bitaxe') || '{}'); } catch { return {}; } };
+  const [bitaxeApiUrl, setBitaxeApiUrl] = React.useState(() => { const s = loadSaved(); return s.apiUrl !== undefined ? s.apiUrl : CONFIG.BITAXE_API_URL; });
+  const [bitaxeIps, setBitaxeIps]       = React.useState(() => { const s = loadSaved(); return s.ips   !== undefined ? s.ips   : CONFIG.BITAXE_IPS; });
+
   const theme = dark ? DARK : LIGHT;
 
   React.useEffect(() => { window.applyScale && window.applyScale(); }, []);
@@ -991,9 +1058,23 @@ function App() {
     });
   };
 
+  const saveSettings = (url, ips) => {
+    setBitaxeApiUrl(url);
+    setBitaxeIps(ips);
+    localStorage.setItem('dailynode-bitaxe', JSON.stringify({ apiUrl: url, ips }));
+    setSettingsOpen(false);
+  };
+
   return (
     <ThemeCtx.Provider value={theme}>
-      <CommandCenter dark={dark} onToggleDark={toggleDark} />
+      <CommandCenter
+        dark={dark} onToggleDark={toggleDark}
+        bitaxeApiUrl={bitaxeApiUrl} bitaxeIps={bitaxeIps}
+        settingsOpen={settingsOpen}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onSaveSettings={saveSettings}
+        onCloseSettings={() => setSettingsOpen(false)}
+      />
     </ThemeCtx.Provider>
   );
 }
