@@ -921,7 +921,7 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, prefs, set
         <span style={{ whiteSpace:'nowrap', textAlign:'center' }}>Home Edition · Vol. I, Nº 238</span>
         <span style={{ whiteSpace:'nowrap', textAlign:'right' }}>{clock.timeHM}{clock.timeSec}{clock.amPm ? ` ${clock.amPm}` : ''} · {wxSummary}</span>
         <div style={{ display:'flex', gap:16, marginLeft:20 }}>
-          <button onClick={onOpenSettings} style={{ background:'none', border:'none', cursor:'pointer', fontFamily:T.sans, fontSize:10, fontWeight:600, letterSpacing:1.8, textTransform:'uppercase', color:T.ink3, padding:0 }}>⚙ Fleet</button>
+          <button onClick={onOpenSettings} style={{ fontFamily:T.sans, fontSize:10, fontWeight:700, letterSpacing:1.5, textTransform:'uppercase', padding:'4px 12px', cursor:'pointer', border:'none', background:T.paper2, color:T.ink }}>⚙ Masthead</button>
           <button onClick={onToggleDark} style={{ background:'none', border:'none', cursor:'pointer', fontFamily:T.sans, fontSize:10, fontWeight:600, letterSpacing:1.8, textTransform:'uppercase', color:T.ink3, padding:0 }}>
             {dark ? '◑ Light' : '◐ Dark'}
           </button>
@@ -1179,7 +1179,7 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, prefs, set
         </div>
 
       </div>
-      {settingsOpen && <SettingsPanel apiUrl={bitaxeApiUrl} ips={bitaxeIps} onSave={onSaveSettings} onClose={onCloseSettings} />}
+      {settingsOpen && <MastheadPanel apiUrl={bitaxeApiUrl} ips={bitaxeIps} prefs={prefs} onSave={onSaveSettings} onClose={onCloseSettings} />}
     </div>
   );
 }
@@ -1216,10 +1216,12 @@ function App() {
     });
   };
 
-  const saveSettings = (url, ips) => {
+  const saveSettings = (url, ips, newPrefs) => {
     setBitaxeApiUrl(url);
     setBitaxeIps(ips);
     localStorage.setItem('dailynode-bitaxe', JSON.stringify({ apiUrl: url, ips }));
+    setPrefs(newPrefs);
+    localStorage.setItem('dailynode-prefs', JSON.stringify(newPrefs));
     setSettingsOpen(false);
   };
 
