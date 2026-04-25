@@ -351,7 +351,7 @@ function StatusDot({ ok }) {
 // ─── Data hooks ───────────────────────────────────────────────
 
 // Live clock
-function useClock() {
+function useClock(timeFormat) {
   const [now, setNow] = React.useState(new Date());
   React.useEffect(() => {
     const id = setInterval(() => setNow(new Date()), INTERVALS.CLOCK);
@@ -360,10 +360,14 @@ function useClock() {
   const pad = n => String(n).padStart(2, '0');
   const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const h = now.getHours(), m = now.getMinutes();
+  const amPm  = timeFormat === '12h' ? (h < 12 ? 'AM' : 'PM') : '';
+  const dispH = timeFormat === '12h' ? String(h % 12 || 12) : pad(h);
   return {
-    timeHM: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
-    timeSec: `:${pad(now.getSeconds())}`,
-    dayStr: `${days[now.getDay()]}, ${months[now.getMonth()]} ${now.getDate()}`,
+    timeHM:   `${dispH}:${pad(m)}`,
+    timeSec:  `:${pad(now.getSeconds())}`,
+    amPm,
+    dayStr:   `${days[now.getDay()]}, ${months[now.getMonth()]} ${now.getDate()}`,
     dateShort: now.toISOString().slice(0, 10),
   };
 }
@@ -698,13 +702,13 @@ function SettingsPanel({ apiUrl, ips, onSave, onClose }) {
 }
 
 // ─── Layout ───────────────────────────────────────────────────
-function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, settingsOpen, onOpenSettings, onSaveSettings, onCloseSettings }) {
+function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, prefs, settingsOpen, onOpenSettings, onSaveSettings, onCloseSettings }) {
   const T = useT();
-  const clock   = useClock();
+  const clock   = useClock(prefs.timeFormat);
   const btc     = useBTC();
   const chain   = useChain();
   const bitaxe  = useBitaxe(bitaxeApiUrl, bitaxeIps);
-  const weather = useWeather(CONFIG.WEATHER_LAT, CONFIG.WEATHER_LNG, 'fahrenheit');
+  const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
   const rss     = useRSS();
 
   // Derived values
@@ -768,7 +772,8 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, settingsOp
   const newsItems = rss.items;
 
   // Top-bar summary
-  const wxSummary = wx ? `${wx.temp}°F ${wx.wxCond.toLowerCase()}` : '—°F';
+  const tempUnitLabel = prefs.tempUnit === 'celsius' ? '°C' : '°F';
+  const wxSummary = wx ? `${wx.temp}${tempUnitLabel} ${wx.wxCond.toLowerCase()}` : `—${tempUnitLabel}`;
 
   return (
     <div style={{
@@ -783,7 +788,7 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, settingsOp
       <div style={{ display:'grid', gridTemplateColumns:'1fr auto 1fr auto', alignItems:'center', paddingBottom: 8, fontFamily: T.sans, fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', color: T.ink3, width:'100%' }}>
         <span style={{ whiteSpace:'nowrap' }}>{clock.dayStr}</span>
         <span style={{ whiteSpace:'nowrap', textAlign:'center' }}>Home Edition · Vol. I, Nº 238</span>
-        <span style={{ whiteSpace:'nowrap', textAlign:'right' }}>{clock.timeHM}{clock.timeSec} · {wxSummary}</span>
+        <span style={{ whiteSpace:'nowrap', textAlign:'right' }}>{clock.timeHM}{clock.timeSec}{clock.amPm ? ` ${clock.amPm}` : ''} · {wxSummary}</span>
         <div style={{ display:'flex', gap:16, marginLeft:20 }}>
           <button onClick={onOpenSettings} style={{ background:'none', border:'none', cursor:'pointer', fontFamily:T.sans, fontSize:10, fontWeight:600, letterSpacing:1.8, textTransform:'uppercase', color:T.ink3, padding:0 }}>⚙ Fleet</button>
           <button onClick={onToggleDark} style={{ background:'none', border:'none', cursor:'pointer', fontFamily:T.sans, fontSize:10, fontWeight:600, letterSpacing:1.8, textTransform:'uppercase', color:T.ink3, padding:0 }}>
@@ -831,7 +836,10 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, settingsOp
           <div>
             <Kicker>Today</Kicker>
             <div style={{ marginTop:6 }}>
-              <Num size="lg" value={clock.timeHM} unit={clock.timeSec} style={{ alignItems:'baseline' }} />
+              <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
+                <Num size="lg" value={clock.timeHM} unit={clock.timeSec} style={{ alignItems:'baseline' }} />
+                {clock.amPm && <span style={{ fontFamily:T.mono, fontSize:16, color:T.ink2, lineHeight:1 }}>{clock.amPm}</span>}
+              </div>
             </div>
             <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:13, color:T.ink2, marginTop:4 }}>{clock.dayStr}</div>
           </div>
@@ -844,7 +852,7 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, settingsOp
                 <div style={{ display:'flex', alignItems:'center', gap:12, marginTop:8 }}>
                   <WxGlyph kind={wx.wxGlyph} size={48} />
                   <div>
-                    <Num size="lg" value={`${wx.temp}°`} unit="F" />
+                    <Num size="lg" value={`${wx.temp}°`} unit={prefs.tempUnit === 'celsius' ? 'C' : 'F'} />
                     <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:12, color:T.ink2, marginTop:3 }}>
                       {wx.wxCond} · feels {wx.feels}° · H{wx.wxHi} L{wx.wxLo}
                     </div>
@@ -853,7 +861,7 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, settingsOp
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(8,1fr)', gap:4, marginTop:12, paddingTop:10, borderTop:`1px solid ${T.rule3}` }}>
                   {wx.hourly.map((h,i)=>(
                     <div key={i} style={{ textAlign:'center' }}>
-                      <div style={{ fontFamily:T.mono, fontSize:10, color:T.ink3 }}>{h.h}</div>
+                      <div style={{ fontFamily:T.mono, fontSize:10, color:T.ink3 }}>{fmtHour(h.hr, prefs.timeFormat)}</div>
                       <div style={{ margin:'3px auto' }}><WxGlyph kind={h.g} size={24} /></div>
                       <Num size="xs" value={`${h.t}°`} />
                     </div>
@@ -1089,6 +1097,7 @@ function App() {
       <CommandCenter
         dark={dark} onToggleDark={toggleDark}
         bitaxeApiUrl={bitaxeApiUrl} bitaxeIps={bitaxeIps}
+        prefs={prefs}
         settingsOpen={settingsOpen}
         onOpenSettings={() => setSettingsOpen(true)}
         onSaveSettings={saveSettings}
