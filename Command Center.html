@@ -1206,7 +1206,6 @@ function App() {
   const theme = dark ? DARK : LIGHT;
 
   React.useEffect(() => { window.applyScale && window.applyScale(); }, []);
-  React.useEffect(() => { document.body.style.background = dark ? DARK.paper : LIGHT.paper; }, []);
 
   const toggleDark = () => {
     setDark(prev => {
