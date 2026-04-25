@@ -26,6 +26,10 @@
     flex-shrink: 0;
     overflow: hidden;
   }
+  @keyframes live-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.25; }
+  }
   a { text-decoration: none; color: inherit; }
   :root {
     --f-serif:    "Fraunces", Georgia, serif;
@@ -377,6 +381,7 @@ function useBTC() {
   const [data, setData] = React.useState(null);
   const [chartPts, setChartPts] = React.useState(null);
   const [err, setErr] = React.useState(false);
+  const [lastOk, setLastOk] = React.useState(null);
 
   const fetch24hChart = async () => {
     try {
@@ -402,6 +407,7 @@ function useBTC() {
         cap:      mkt.market_cap.usd,
       });
       setErr(false);
+      setLastOk(Date.now());
     } catch {
       setErr(true);
     }
@@ -415,13 +421,14 @@ function useBTC() {
     return () => { clearInterval(id1); clearInterval(id2); };
   }, []);
 
-  return { data, chartPts, err };
+  return { data, chartPts, err, lastOk };
 }
 
 // Chain vitals from mempool.space
 function useChain() {
   const [data, setData] = React.useState(null);
   const [err, setErr] = React.useState(false);
+  const [lastOk, setLastOk] = React.useState(null);
 
   const fetchChain = async () => {
     try {
@@ -458,6 +465,7 @@ function useChain() {
         diffAdj: diff.difficultyChange,
       });
       setErr(false);
+      setLastOk(Date.now());
     } catch (e) {
       setErr(true);
     }
@@ -469,7 +477,7 @@ function useChain() {
     return () => clearInterval(id);
   }, []);
 
-  return { data, err };
+  return { data, err, lastOk };
 }
 
 // BitAxe fleet stats — polls via API proxy or directly per-IP
@@ -477,6 +485,7 @@ function useBitaxe(apiUrl, ips) {
   const [miners, setMiners] = React.useState([]);
   const [err, setErr] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
+  const [lastOk, setLastOk] = React.useState(null);
 
   const fetchBitaxe = async () => {
     let next;
@@ -505,6 +514,7 @@ function useBitaxe(apiUrl, ips) {
     setMiners(next);
     setErr(next.every(m => !m.online));
     setLoading(false);
+    setLastOk(Date.now());
   };
 
   React.useEffect(() => {
@@ -513,7 +523,7 @@ function useBitaxe(apiUrl, ips) {
     return () => clearInterval(id);
   }, [apiUrl, ips.join(',')]);
 
-  return { miners, err, loading };
+  return { miners, err, loading, lastOk };
 }
 
 // Hour formatter for 12h/24h time formats
@@ -529,6 +539,7 @@ function fmtHour(hr, timeFormat) {
 function useWeather(lat, lng, tempUnit) {
   const [data, setData] = React.useState(null);
   const [err, setErr] = React.useState(false);
+  const [lastOk, setLastOk] = React.useState(null);
 
   const fetchWeather = async () => {
     try {
@@ -573,6 +584,7 @@ function useWeather(lat, lng, tempUnit) {
         hourly: hourly.slice(0, 8),
       });
       setErr(false);
+      setLastOk(Date.now());
     } catch {
       setErr(true);
     }
@@ -584,7 +596,7 @@ function useWeather(lat, lng, tempUnit) {
     return () => clearInterval(id);
   }, [lat, lng, tempUnit]);
 
-  return { data, err };
+  return { data, err, lastOk };
 }
 
 // RSS headlines via rss2json
@@ -592,6 +604,7 @@ function useRSS() {
   const [items, setItems] = React.useState([]);
   const [err, setErr] = React.useState(false);
   const [leadStory, setLeadStory] = React.useState(null);
+  const [lastOk, setLastOk] = React.useState(null);
 
   const fetchRSS = async () => {
     const key = CONFIG.RSS2JSON_KEY ? `&api_key=${CONFIG.RSS2JSON_KEY}` : '';
@@ -623,6 +636,7 @@ function useRSS() {
       setLeadStory(all[0]);
       setItems(all.slice(1, 15));
       setErr(false);
+      setLastOk(Date.now());
     } else {
       setErr(true);
     }
@@ -642,7 +656,27 @@ function useRSS() {
     return () => clearInterval(id);
   }, []);
 
-  return { items, leadStory, err };
+  return { items, leadStory, err, lastOk };
+}
+
+// Feed health: 'loading' | 'live' | 'degraded' | 'offline'
+function useFeedHealth(feeds) {
+  const [status, setStatus] = React.useState('loading');
+  const ref = React.useRef(feeds);
+  ref.current = feeds;
+  React.useEffect(() => {
+    const check = () => {
+      const now = Date.now();
+      const stale = ref.current.filter(f => !f.lastOk || now - f.lastOk > f.interval * 2).length;
+      if (stale === 0) setStatus('live');
+      else if (stale < ref.current.length) setStatus('degraded');
+      else setStatus('offline');
+    };
+    check();
+    const id = setInterval(check, 5000);
+    return () => clearInterval(id);
+  }, []);
+  return status;
 }
 
 // ─── Masthead panel ───────────────────────────────────────────
@@ -841,6 +875,13 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, prefs, set
   const bitaxe  = useBitaxe(bitaxeApiUrl, bitaxeIps);
   const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
   const rss     = useRSS();
+  const feedHealth = useFeedHealth([
+    { lastOk: btc.lastOk,     interval: INTERVALS.BTC },
+    { lastOk: chain.lastOk,   interval: INTERVALS.CHAIN },
+    { lastOk: bitaxe.lastOk,  interval: INTERVALS.BITAXE },
+    { lastOk: weather.lastOk, interval: INTERVALS.WEATHER },
+    { lastOk: rss.lastOk,     interval: INTERVALS.RSS },
+  ]);
 
   // Derived values
   const btcPrice   = btc.data ? `$${fmtPrice(btc.data.price)}` : '—';
@@ -931,7 +972,15 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, prefs, set
 
       {/* TICKER */}
       <div style={{ display:'flex', alignItems:'center', gap:28, padding:'9px 0', borderBottom:`1px solid ${T.rule2}`, fontFamily:T.mono, fontSize:12, overflowX:'hidden', whiteSpace:'nowrap' }}>
-        <span style={{ fontFamily:T.sans, fontWeight:700, fontSize:9, letterSpacing:2, color:T.ink3 }}>LIVE ⏺</span>
+        <span style={{ fontFamily:T.sans, fontWeight:700, fontSize:9, letterSpacing:2, color:T.ink3, display:'flex', alignItems:'center', gap:4 }}>
+          LIVE
+          <span style={{
+            color: feedHealth === 'live' ? '#d63030' : feedHealth === 'degraded' ? T.orange : T.ink4,
+            animation: feedHealth === 'live' ? 'live-pulse 1.4s ease-in-out infinite' : 'none',
+            display: 'inline-block',
+            lineHeight: 1,
+          }}>⏺</span>
+        </span>
         {[
           ['BTC',     btcPrice,                   `${btcUp ? '▲' : '▼'} ${btcChgPct}%`,   btcUp ? T.orange : T.ink2],
           ['BLOCK',   blockHeight,                 'latest',                                T.ink3],
