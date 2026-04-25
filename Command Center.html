@@ -720,7 +720,7 @@ function CommandCenter({ dark, onToggleDark }) {
           ['FEE',     chain.data ? `${chain.data.feeFast} sat/vB` : '—', chain.data ? `≈$${((chain.data.feeFast * 140 * btc.data?.price / 1e8) || 0).toFixed(2)}` : '', T.ink3],
           ['MEMPOOL', mempoolMB,                   `${mempoolTx} tx`,                       T.ink3],
           ['FLEET',   onlineCount > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s` : (bitaxe.err ? 'offline' : '…'), onlineCount > 0 ? `${combinedEff} J/TH` : '', T.ink3],
-          ['SOLO',    `1:${soloOdds ? fmtNum(soloOdds.oddsPerDay) : '412k'}/d`, etaStr,    T.ink3],
+          ['SOLO',    `1:${soloOdds ? fmtNum(soloOdds.oddsPerDay) : '—'}/d`, etaStr,    T.ink3],
         ].map(([k,v,s,sc],i)=>(
           <span key={i}>
             <span style={{ color:T.ink3, letterSpacing:1 }}>{k}</span>{' '}
@@ -966,11 +966,14 @@ function App() {
   const theme = dark ? DARK : LIGHT;
 
   React.useEffect(() => { window.applyScale && window.applyScale(); }, []);
+  React.useEffect(() => { document.body.style.background = dark ? DARK.paper : LIGHT.paper; }, []);
 
   const toggleDark = () => {
-    const next = !dark;
-    document.body.style.background = next ? DARK.paper : LIGHT.paper;
-    setDark(next);
+    setDark(prev => {
+      const next = !prev;
+      document.body.style.background = next ? DARK.paper : LIGHT.paper;
+      return next;
+    });
   };
 
   return (
