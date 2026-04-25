@@ -512,14 +512,23 @@ function useBitaxe(apiUrl, ips) {
   return { miners, err, loading };
 }
 
+// Hour formatter for 12h/24h time formats
+function fmtHour(hr, timeFormat) {
+  if (timeFormat === '24h') return `${String(hr).padStart(2, '0')}:00`;
+  if (hr === 0)  return '12am';
+  if (hr < 12)   return `${hr}am`;
+  if (hr === 12) return '12pm';
+  return `${hr - 12}pm`;
+}
+
 // Weather from Open-Meteo
-function useWeather() {
+function useWeather(lat, lng, tempUnit) {
   const [data, setData] = React.useState(null);
   const [err, setErr] = React.useState(false);
 
   const fetchWeather = async () => {
     try {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${CONFIG.WEATHER_LAT}&longitude=${CONFIG.WEATHER_LNG}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m&hourly=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=1&timezone=auto`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m&hourly=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&temperature_unit=${tempUnit}&wind_speed_unit=mph&forecast_days=1&timezone=auto`;
       const r = await fetch(url);
       if (!r.ok) throw new Error('weather');
       const j = await r.json();
@@ -540,9 +549,8 @@ function useWeather() {
         if (idx >= 0) {
           const t = new Date(j.hourly.time[idx]);
           const hr = t.getHours();
-          const label = hr === 0 ? '12am' : hr < 12 ? `${hr}am` : hr === 12 ? '12pm' : `${hr - 12}pm`;
           hourly.push({
-            h: label,
+            hr,
             t: Math.round(j.hourly.temperature_2m[idx]),
             g: wmoGlyph(j.hourly.weather_code[idx]),
           });
@@ -550,7 +558,7 @@ function useWeather() {
       }
 
       setData({
-        tempF:  Math.round(cur.temperature_2m),
+        temp:   Math.round(cur.temperature_2m),
         feels:  Math.round(cur.apparent_temperature),
         wxCond: wmoDesc(cur.weather_code),
         wxGlyph: wmoGlyph(cur.weather_code),
@@ -570,7 +578,7 @@ function useWeather() {
     fetchWeather();
     const id = setInterval(fetchWeather, INTERVALS.WEATHER);
     return () => clearInterval(id);
-  }, []);
+  }, [lat, lng, tempUnit]);
 
   return { data, err };
 }
@@ -696,7 +704,7 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, settingsOp
   const btc     = useBTC();
   const chain   = useChain();
   const bitaxe  = useBitaxe(bitaxeApiUrl, bitaxeIps);
-  const weather = useWeather();
+  const weather = useWeather(CONFIG.WEATHER_LAT, CONFIG.WEATHER_LNG, 'fahrenheit');
   const rss     = useRSS();
 
   // Derived values
@@ -760,7 +768,7 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, settingsOp
   const newsItems = rss.items;
 
   // Top-bar summary
-  const wxSummary = wx ? `${wx.tempF}°F ${wx.wxCond.toLowerCase()}` : '—°F';
+  const wxSummary = wx ? `${wx.temp}°F ${wx.wxCond.toLowerCase()}` : '—°F';
 
   return (
     <div style={{
@@ -836,7 +844,7 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, settingsOp
                 <div style={{ display:'flex', alignItems:'center', gap:12, marginTop:8 }}>
                   <WxGlyph kind={wx.wxGlyph} size={48} />
                   <div>
-                    <Num size="lg" value={`${wx.tempF}°`} unit="F" />
+                    <Num size="lg" value={`${wx.temp}°`} unit="F" />
                     <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:12, color:T.ink2, marginTop:3 }}>
                       {wx.wxCond} · feels {wx.feels}° · H{wx.wxHi} L{wx.wxLo}
                     </div>
