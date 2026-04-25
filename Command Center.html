@@ -76,8 +76,11 @@ window.applyScale = applyScale;
 // ─── USER CONFIG ──────────────────────────────────────────────
 // Edit these to match your setup before opening in the browser.
 const CONFIG = {
-  // BitAxe miners — direct local IPs (no backend server needed)
+  // BitAxe miners — set IPs here or leave empty if using the API proxy
   BITAXE_IPS: ['192.168.1.6', '192.168.1.7'],
+
+  // BitAxe fleet API — run bitaxe_api.py then set this URL (leave '' to poll miners directly)
+  BITAXE_API_URL: 'http://localhost:3001/api/miners',
 
   // Your location for weather (decimal degrees)
   WEATHER_LAT: 37.7749,
@@ -465,26 +468,38 @@ function useChain() {
   return { data, err };
 }
 
-// BitAxe fleet stats — polls each miner directly
+// BitAxe fleet stats — polls via API proxy or directly per-IP
 function useBitaxe() {
   const [miners, setMiners] = React.useState([]);
   const [err, setErr] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
 
   const fetchBitaxe = async () => {
-    const results = await Promise.allSettled(
-      CONFIG.BITAXE_IPS.map(async ip => {
-        const r = await fetch(`http://${ip}/api/system/info`, { signal: AbortSignal.timeout(5000) });
-        if (!r.ok) throw new Error('bitaxe');
-        const data = await r.json();
-        return { ip, online: true, data };
-      })
-    );
-    const miners = results.map((r, i) =>
-      r.status === 'fulfilled' ? r.value : { ip: CONFIG.BITAXE_IPS[i], online: false }
-    );
-    setMiners(miners);
-    setErr(miners.every(m => !m.online));
+    let next;
+    if (CONFIG.BITAXE_API_URL) {
+      try {
+        const r = await fetch(CONFIG.BITAXE_API_URL, { signal: AbortSignal.timeout(5000) });
+        if (!r.ok) throw new Error('api');
+        const body = await r.json();
+        next = body.miners;
+      } catch {
+        next = CONFIG.BITAXE_IPS.map(ip => ({ ip, online: false }));
+      }
+    } else {
+      const results = await Promise.allSettled(
+        CONFIG.BITAXE_IPS.map(async ip => {
+          const r = await fetch(`http://${ip}/api/system/info`, { signal: AbortSignal.timeout(5000) });
+          if (!r.ok) throw new Error('bitaxe');
+          const data = await r.json();
+          return { ip, online: true, data };
+        })
+      );
+      next = results.map((r, i) =>
+        r.status === 'fulfilled' ? r.value : { ip: CONFIG.BITAXE_IPS[i], online: false }
+      );
+    }
+    setMiners(next);
+    setErr(next.every(m => !m.online));
     setLoading(false);
   };
 
