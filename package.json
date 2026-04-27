@@ -1,0 +1,13 @@
+{
+  "name": "the-daily-node",
+  "version": "1.0.0",
+  "description": "Single-file React dashboard: Bitcoin price, news, weather, mining stats",
+  "scripts": {
+    "build": "node build.js",
+    "dev": "python -m http.server 3000",
+    "serve": "npm run build && npm run dev"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0"
+  }
+}
