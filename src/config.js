@@ -38,6 +38,9 @@ const CONFIG = {
   },
 };
 
+// ES6 export
+export default CONFIG;
+
 // CommonJS export (for Node.js testability, removed during build)
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = CONFIG;
