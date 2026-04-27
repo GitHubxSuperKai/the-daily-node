@@ -1,34 +1,919 @@
 import React from 'react';
+import { useT } from '../theme';
+import { Masthead } from './Masthead';
+import { MastheadPanel } from './MastheadPanel';
+import { Rule } from './Rule';
+import { Kicker } from './Kicker';
+import { Num } from './Num';
+import { StatusDot } from './StatusDot';
+import { WxGlyph } from './WxGlyph';
+import { LineChart } from './LineChart';
+import {
+  useClock,
+  useBTC,
+  useChain,
+  useBitaxe,
+  useWeather,
+  useRSS,
+  useFeedHealth,
+} from '../hooks';
+import {
+  INTERVALS,
+  fmtPrice,
+  fmtPct,
+  fmtNum,
+  fmtVolUsd,
+  fmtHashrate,
+  fmtDiff,
+  fmtMempoolMB,
+  fmtBlockTime,
+  calcSoloOdds,
+  fmtHour,
+  wmoIcon,
+  wmoDesc,
+  wmoSpeed,
+  timeAgo,
+} from '../utils';
 
 /**
- * CommandCenter - Main application component
- *
- * This is a placeholder. The full implementation will be created in a subsequent task.
+ * CommandCenter — Main layout orchestrator (1920x1080)
+ * Displays:
+ *   - Top chrome (Masthead with time, weather, settings)
+ *   - Scrolling ticker with chain vitals
+ *   - 4-column grid:
+ *     0: Logo, clock, weather, system status sidebar
+ *     1: BTC price, chart, lead story
+ *     2: Headlines feed
+ *     3: Home fleet, solo odds, miners, chain vitals
+ *   - Settings modal (MastheadPanel)
  *
  * Props:
  *   - dark: boolean
- *   - onToggleDark: function
+ *   - onToggleDark: () => void
  *   - bitaxeApiUrl: string
- *   - bitaxeIps: array
- *   - prefs: object { lat, lng, cityName, timeFormat, tempUnit }
+ *   - bitaxeIps: string[]
+ *   - prefs: { lat, lng, cityName, timeFormat, tempUnit }
  *   - settingsOpen: boolean
- *   - onOpenSettings: function
- *   - onSaveSettings: function
- *   - onCloseSettings: function
- *   - clock: object from useClock
- *   - btc: object from useBTC
- *   - chain: object from useChain
- *   - bitaxe: object from useBitaxe
- *   - weather: object from useWeather
- *   - rss: object from useRSS
- *   - feedHealth: string from useFeedHealth
+ *   - onOpenSettings: () => void
+ *   - onSaveSettings: (url, ips[], prefs) => void
+ *   - onCloseSettings: () => void
  */
-export function CommandCenter(props) {
+export function CommandCenter({
+  dark,
+  onToggleDark,
+  bitaxeApiUrl,
+  bitaxeIps,
+  prefs,
+  settingsOpen,
+  onOpenSettings,
+  onSaveSettings,
+  onCloseSettings,
+}) {
+  const T = useT();
+  const clock = useClock(prefs.timeFormat);
+  const btc = useBTC();
+  const chain = useChain();
+  const bitaxe = useBitaxe(bitaxeApiUrl, bitaxeIps);
+  const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
+  const rss = useRSS();
+
+  // Auto dark mode — fires once when sunrise/sunset first loads; respects manual toggle after
+  const autoThemeDone = React.useRef(false);
+  React.useEffect(() => {
+    if (autoThemeDone.current) return;
+    const wx = weather.data;
+    if (!wx?.wxSunriseHr && wx?.wxSunriseHr !== 0) return;
+    const hr = new Date().getHours();
+    const shouldBeDark = hr < wx.wxSunriseHr || hr >= wx.wxSunsetHr;
+    if (shouldBeDark !== dark) onToggleDark();
+    autoThemeDone.current = true;
+  }, [weather.data?.wxSunriseHr]);
+
+  const feedHealth = useFeedHealth([
+    { lastOk: btc.lastOk, interval: INTERVALS.BTC },
+    { lastOk: chain.lastOk, interval: INTERVALS.CHAIN },
+    { lastOk: bitaxe.lastOk, interval: INTERVALS.BITAXE },
+    { lastOk: weather.lastOk, interval: INTERVALS.WEATHER },
+    { lastOk: rss.lastOk, interval: INTERVALS.RSS },
+  ]);
+
+  // Derived values
+  const btcPrice = btc.data ? `$${fmtPrice(btc.data.price)}` : '—';
+  const btcChgPct = btc.data ? fmtPct(btc.data.chgPct) : '—';
+  const btcUp = btc.data ? btc.data.chgPct >= 0 : true;
+  const btcHi = btc.data ? fmtPrice(btc.data.hi) : '—';
+  const btcLo = btc.data ? fmtPrice(btc.data.lo) : '—';
+  const btcCap = btc.data?.cap != null ? `$${(btc.data.cap / 1e12).toFixed(2)}T` : '—';
+  const btcVol = btc.data ? fmtVolUsd(btc.data.volBtc * btc.data.price) : '—';
+
+  const blockHeight = chain.data ? fmtNum(chain.data.height) : '—';
+  const hashrate = chain.data ? fmtHashrate(chain.data.hashrate) : '—';
+  const difficulty = chain.data ? fmtDiff(chain.data.difficulty) : '—';
+  const mempoolMB = chain.data ? fmtMempoolMB(chain.data.mempoolBytes) : '—';
+  const mempoolTx = chain.data ? fmtNum(chain.data.mempoolTx) : '—';
+  const feeFast = chain.data ? `${chain.data.feeFast} sat/vB` : '—';
+  const feeEco = chain.data ? `${chain.data.feeEco} sat/vB` : '—';
+
+  // BitAxe fleet derived
+  const onlineMiners = bitaxe.miners.filter((m) => m.online && m.data);
+  const minerCount = bitaxe.miners.length;
+  const onlineCount = onlineMiners.length;
+  const totalHashrateTHS = onlineMiners.reduce((sum, m) => sum + ((m.data.hashRate || 0) / 1000), 0);
+  const totalPower = onlineMiners.reduce((sum, m) => sum + (m.data.power || 0), 0);
+  const combinedEff = totalHashrateTHS > 0 ? (totalPower / totalHashrateTHS).toFixed(1) : '—';
+  const totalShOk = onlineMiners.reduce((sum, m) => sum + (m.data.sharesAccepted || 0), 0);
+  const totalShRej = onlineMiners.reduce((sum, m) => sum + (m.data.sharesRejected || 0), 0);
+  const firstMiner = onlineMiners[0]?.data;
+  const bxPool = firstMiner ? firstMiner.stratumURL || 'solo.ckpool.org' : 'solo.ckpool.org';
+
+  // Solo odds from combined fleet hashrate
+  const soloOdds =
+    chain.data && totalHashrateTHS > 0 ? calcSoloOdds(chain.data.hashrate / 1e18, totalHashrateTHS) : null;
+  const oddsStr = soloOdds ? `1 : ${fmtNum(soloOdds.oddsPerDay)}` : '—';
+  const etaStr = soloOdds ? `~${fmtNum(soloOdds.etaYears)} yrs` : '—';
+
+  // Chain vitals rows
+  const diffAdjVal = chain.data?.diffAdj;
+  const diffAdjStr = diffAdjVal != null ? `${diffAdjVal >= 0 ? '+' : ''}${diffAdjVal.toFixed(2)}%` : '—';
+  const diffAdjCol = diffAdjVal != null ? (diffAdjVal >= 0 ? T.green : T.red) : T.ink;
+  const epochPct = chain.data?.epochProgress;
+  const epochBlocks = chain.data ? Math.round((epochPct / 100) * 2016) : null;
+  const epochStr = epochPct != null ? `${epochPct.toFixed(0)}% · ${epochBlocks}/2016` : '—';
+  const retargetDate = chain.data?.retargetDate
+    ? new Date(chain.data.retargetDate).toISOString().slice(0, 10)
+    : '—';
+  const blockTimeSec = chain.data?.blockTimeMs ? chain.data.blockTimeMs / 1000 : null;
+  const blockTimeCol =
+    blockTimeSec == null ? T.ink : blockTimeSec < 570 ? T.orange : blockTimeSec <= 630 ? T.green : T.red;
+  const blocksToClr = chain.data ? Math.ceil(chain.data.mempoolBytes / 1_000_000) : null;
+  const blocksToClrCol = blocksToClr == null ? T.ink : blocksToClr <= 2 ? T.green : blocksToClr <= 8 ? T.ink : T.red;
+  const rawFeeFast = chain.data?.feeFast;
+  const rawFeeEco = chain.data?.feeEco;
+  const feeFastCol = rawFeeFast == null ? T.ink : rawFeeFast < 10 ? T.green : rawFeeFast < 50 ? T.ink : T.red;
+  const feeEcoCol = rawFeeEco == null ? T.ink : rawFeeEco < 5 ? T.green : rawFeeEco < 20 ? T.ink : T.red;
+  const rawMempoolMB = chain.data ? chain.data.mempoolBytes / 1e6 : null;
+  const mempoolCol =
+    rawMempoolMB == null ? T.ink : rawMempoolMB < 10 ? T.green : rawMempoolMB < 50 ? T.ink : T.red;
+  const rawMempoolTx = chain.data?.mempoolTx;
+  const mempoolTxCol =
+    rawMempoolTx == null ? T.ink : rawMempoolTx < 5000 ? T.green : rawMempoolTx < 20000 ? T.ink : T.red;
+
+  const miningRows = [
+    { k: 'Hashrate', v: hashrate },
+    { k: 'Difficulty', v: difficulty },
+    { k: 'Avg block', v: chain.data?.blockTimeMs ? fmtBlockTime(chain.data.blockTimeMs) : '—', c: blockTimeCol },
+    { k: 'Diff retarget', v: diffAdjStr, c: diffAdjCol },
+    {
+      k: 'Retarget in',
+      v: chain.data?.remainingBlocks != null ? `${fmtNum(chain.data.remainingBlocks)} blk` : '—',
+    },
+    { k: 'Retarget date', v: retargetDate },
+    { k: 'Epoch', v: epochStr },
+  ];
+  const chainStatRows = [
+    { k: 'Block height', v: blockHeight },
+    { k: 'Circulating', v: chain.data ? chain.data.circulating : '—' },
+    { k: 'Next halving', v: chain.data ? chain.data.nextHalvingDate : '—' },
+  ];
+  const mempoolRows = [
+    { k: 'Size', v: mempoolMB, c: mempoolCol },
+    { k: 'Tx count', v: mempoolTx, c: mempoolTxCol },
+    { k: 'Blocks to clear', v: blocksToClr != null ? `${blocksToClr} blk` : '—', c: blocksToClrCol },
+    { k: 'Fee · fast', v: feeFast, c: feeFastCol },
+    { k: 'Fee · eco', v: feeEco, c: feeEcoCol },
+  ];
+
+  // System status
+  const sys = [
+    {
+      k: 'miners',
+      v: bitaxe.err ? 'err' : onlineCount > 0 ? 'ok' : bitaxe.loading ? '…' : 'err',
+      d: bitaxe.loading ? 'connecting' : `${onlineCount}/${minerCount} online`,
+    },
+    { k: 'mempool', v: chain.err ? 'err' : chain.data ? 'ok' : '…', d: chain.data ? `${mempoolMB}` : '—' },
+    { k: 'kraken', v: btc.err ? 'err' : btc.data ? 'ok' : '…', d: btc.data ? `${btcChgPct}% 24h` : '—' },
+    {
+      k: 'weather',
+      v: weather.err ? 'err' : weather.data ? 'ok' : '…',
+      d: weather.data ? weather.data.wxCond.toLowerCase() : '—',
+    },
+    { k: 'rss', v: rss.err ? 'err' : rss.items.length > 0 ? 'ok' : '…', d: rss.items.length > 0 ? `${rss.items.length} stories` : '—' },
+  ];
+
+  const wx = weather.data;
+  const lead = rss.leadStory;
+  const newsItems = rss.items;
+
+  // Top-bar summary
+  const tempUnitLabel = prefs.tempUnit === 'celsius' ? '°C' : '°F';
+  const wxSummary = wx ? `${wx.temp}${tempUnitLabel} ${wx.wxCond.toLowerCase()}` : `—${tempUnitLabel}`;
+
   return (
-    <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-      <h1>Command Center</h1>
-      <p>Placeholder — full implementation coming soon</p>
-      <pre>{JSON.stringify(props, null, 2)}</pre>
+    <div
+      style={{
+        position: 'relative',
+        width: 1920,
+        height: 1080,
+        background: T.paper,
+        color: T.ink,
+        fontFamily: T.body,
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '28px 56px 32px',
+      }}
+    >
+      {/* TOP CHROME */}
+      <Masthead
+        clock={clock}
+        wxSummary={wxSummary}
+        dark={dark}
+        onToggleDark={onToggleDark}
+        onOpenSettings={onOpenSettings}
+      />
+      <Rule double />
+
+      {/* TICKER */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          padding: '9px 0',
+          borderBottom: `1px solid ${T.rule2}`,
+          fontFamily: T.mono,
+          fontSize: 12,
+          overflow: 'hidden',
+        }}
+      >
+        <span
+          style={{
+            fontFamily: T.sans,
+            fontWeight: 700,
+            fontSize: 9,
+            letterSpacing: 2,
+            color: T.ink3,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            flexShrink: 0,
+            marginRight: 20,
+          }}
+        >
+          LIVE
+          <span
+            style={{
+              color: feedHealth === 'live' ? '#d63030' : feedHealth === 'degraded' ? T.orange : T.ink4,
+              animation: feedHealth === 'live' ? 'live-pulse 1.4s ease-in-out infinite' : 'none',
+              display: 'inline-block',
+              lineHeight: 1,
+            }}
+          >
+            ⏺
+          </span>
+        </span>
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              whiteSpace: 'nowrap',
+              animation: 'ticker-scroll 100s linear infinite',
+            }}
+          >
+            {(() => {
+              const halvingBlocksLeft = chain.data
+                ? fmtNum(Math.ceil((chain.data.height + 1) / 210000) * 210000 - chain.data.height)
+                : '—';
+              const items = [
+                ['BLOCK', blockHeight, 'latest', T.ink3],
+                [
+                  'HASH',
+                  chain.data ? fmtHashrate(chain.data.hashrate) : '—',
+                  chain.data && chain.data.diffAdj != null
+                    ? `${chain.data.diffAdj >= 0 ? '+' : ''}${chain.data.diffAdj.toFixed(1)}%`
+                    : '',
+                  T.ink3,
+                ],
+                ['TIME', chain.data ? fmtBlockTime(chain.data.blockTimeMs) : '—', 'avg', blockTimeCol],
+                [
+                  'EPOCH',
+                  epochPct != null ? `${epochPct.toFixed(0)}%` : '—',
+                  chain.data ? `${fmtNum(chain.data.remainingBlocks)} blk left` : '',
+                  T.ink3,
+                ],
+                [
+                  'FEE',
+                  chain.data ? `${chain.data.feeFast} sat/vB` : '—',
+                  chain.data ? `eco ${chain.data.feeEco}` : '',
+                  T.ink3,
+                ],
+                ['MEMPOOL', mempoolMB, `${mempoolTx} tx`, mempoolCol],
+                ['CLR', blocksToClr != null ? `${blocksToClr} blk` : '—', 'to clear', blocksToClrCol],
+                ['SUPPLY', chain.data ? chain.data.circulating : '—', '', T.ink3],
+                [
+                  'HALVING',
+                  chain.data?.nextHalvingDate || '—',
+                  halvingBlocksLeft !== '—' ? `${halvingBlocksLeft} blk` : '',
+                  T.ink3,
+                ],
+                [
+                  'FLEET',
+                  onlineCount > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s` : bitaxe.err ? 'offline' : '…',
+                  onlineCount > 0 ? `${combinedEff} J/TH` : '',
+                  T.ink3,
+                ],
+                [
+                  'SOLO',
+                  `1:${soloOdds ? fmtNum(soloOdds.oddsPerDay) : '—'}/d`,
+                  etaStr,
+                  T.ink3,
+                ],
+              ];
+              const renderItem = ([k, v, s, sc], pfx) => (
+                <span
+                  key={pfx}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'baseline',
+                    gap: 5,
+                    paddingRight: 36,
+                    flexShrink: 0,
+                  }}
+                >
+                  <span style={{ color: T.ink3, letterSpacing: 1 }}>{k}</span>
+                  <b style={{ fontWeight: 600, color: T.ink }}>{v}</b>
+                  {s && <span style={{ color: sc }}>{s}</span>}
+                </span>
+              );
+              return [
+                ...items.map((item, i) => renderItem(item, `a${i}`)),
+                ...items.map((item, i) => renderItem(item, `b${i}`)),
+              ];
+            })()}
+          </div>
+        </div>
+      </div>
+
+      {/* BODY — 4-column grid */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '300px 1.1fr 1fr 1fr',
+          gap: 28,
+          paddingTop: 22,
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
+        {/* COL 0 — WORDMARK RAIL */}
+        <div
+          style={{
+            borderRight: `1px solid ${T.rule2}`,
+            paddingRight: 22,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 18,
+            overflow: 'hidden',
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontFamily: T.serif,
+                fontSize: 70,
+                fontWeight: 700,
+                lineHeight: 0.86,
+                letterSpacing: -2.5,
+                color: T.ink,
+              }}
+            >
+              The
+              <br />
+              Daily
+              <br />
+              Node
+            </div>
+            <div
+              style={{
+                fontFamily: T.body,
+                fontStyle: 'italic',
+                fontSize: 13,
+                color: T.ink2,
+                marginTop: 13,
+                borderTop: `1px solid ${T.rule2}`,
+                paddingTop: 9,
+                lineHeight: 1.4,
+              }}
+            >
+              "All signal, no noise —
+              <br />
+              before your coffee cools."
+            </div>
+          </div>
+          <Rule />
+          {/* Clock */}
+          <div>
+            <Kicker>Today</Kicker>
+            <div style={{ marginTop: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                <Num size="lg" value={clock.timeHM} unit={clock.timeSec} style={{ alignItems: 'baseline' }} />
+                {clock.amPm && (
+                  <span style={{ fontFamily: T.mono, fontSize: 16, color: T.ink2, lineHeight: 1 }}>
+                    {clock.amPm}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 13, color: T.ink2, marginTop: 4 }}>
+              {clock.dayStr}
+            </div>
+          </div>
+          <Rule dash />
+          {/* Weather */}
+          <div>
+            <Kicker>Weather</Kicker>
+            {wx ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
+                  <WxGlyph
+                    kind={wmoIcon(
+                      wx.wxCode,
+                      new Date().getHours(),
+                      wx.wxWindSpeed,
+                      wx.wxSunriseHr,
+                      wx.wxSunsetHr
+                    )}
+                    size={48}
+                    speed={wmoSpeed(wx.wxCode, wx.wxWindSpeed)}
+                  />
+                  <div>
+                    <Num size="lg" value={`${wx.temp}°`} unit={prefs.tempUnit === 'celsius' ? 'C' : 'F'} />
+                    <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 12, color: T.ink2, marginTop: 3 }}>
+                      {wx.wxCond} · feels {wx.feels}° · H{wx.wxHi} L{wx.wxLo}
+                    </div>
+                  </div>
+                </div>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(8,1fr)',
+                    gap: 4,
+                    marginTop: 12,
+                    paddingTop: 10,
+                    borderTop: `1px solid ${T.rule3}`,
+                  }}
+                >
+                  {wx.hourly.map((h, i) => (
+                    <div key={i} style={{ textAlign: 'center' }}>
+                      <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink3 }}>
+                        {fmtHour(h.hr, prefs.timeFormat)}
+                      </div>
+                      <div style={{ margin: '3px auto' }}>
+                        <WxGlyph
+                          kind={wmoIcon(h.code, h.hr, null, wx.wxSunriseHr, wx.wxSunsetHr)}
+                          size={24}
+                          speed={wmoSpeed(h.code)}
+                        />
+                      </div>
+                      <Num size="xs" value={`${h.t}°`} />
+                      {h.pop >= 30 && (
+                        <div style={{ fontFamily: T.mono, fontSize: 9, color: T.ink3, marginTop: 1 }}>
+                          {h.pop}%
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginTop: 10,
+                    fontFamily: T.mono,
+                    fontSize: 10,
+                    color: T.ink3,
+                  }}
+                >
+                  <span>wind {wx.wxWind}</span>
+                  <span>hum {wx.wxHum}</span>
+                </div>
+              </>
+            ) : (
+              <div style={{ fontFamily: T.mono, fontSize: 12, color: T.ink3, marginTop: 8 }}>
+                {weather.err ? 'weather unavailable' : 'loading…'}
+              </div>
+            )}
+          </div>
+          <Rule dash />
+          {/* System */}
+          <div>
+            <Kicker>System</Kicker>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr auto auto',
+                rowGap: 5,
+                columnGap: 12,
+                marginTop: 8,
+              }}
+            >
+              {sys.map((s, i) => (
+                <React.Fragment key={i}>
+                  <span style={{ fontFamily: T.mono, fontSize: 12, color: T.ink2 }}>
+                    <StatusDot ok={s.v === 'ok'} />
+                    {s.k}
+                  </span>
+                  <Num size="xs" value={s.v} style={{ justifyContent: 'flex-end' }} />
+                  <span style={{ fontFamily: T.mono, fontSize: 10, color: T.ink3, textAlign: 'right' }}>
+                    {s.d}
+                  </span>
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+          <div style={{ flex: 1 }} />
+          <div
+            style={{
+              fontFamily: T.body,
+              fontStyle: 'italic',
+              fontSize: 10,
+              color: T.ink3,
+              borderTop: `1px solid ${T.rule2}`,
+              paddingTop: 8,
+            }}
+          >
+            Published from a home on the internet. Set in Fraunces &amp; Newsreader.
+          </div>
+        </div>
+
+        {/* COL 1 — MARKETS + LEAD STORY */}
+        <div
+          style={{
+            borderRight: `1px solid ${T.rule2}`,
+            paddingRight: 24,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 13,
+            overflow: 'hidden',
+          }}
+        >
+          {/* BTC market */}
+          <Kicker>Markets · BTC / USD</Kicker>
+          {/* Row 1: price left, % change right */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+            <Num size="hero" value={btcPrice} />
+            <div
+              style={{
+                fontFamily: T.mono,
+                fontSize: 22,
+                fontWeight: 600,
+                color: btcUp ? T.green : T.red,
+                paddingBottom: 10,
+              }}
+            >
+              {btcUp ? '▲' : '▼'} {btcChgPct}%
+            </div>
+          </div>
+          {/* Row 2: hi · lo · cap bar */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontFamily: T.mono,
+              fontSize: 11,
+              borderTop: `1px solid ${T.rule2}`,
+              borderBottom: `1px solid ${T.rule2}`,
+              padding: '5px 0',
+              marginBottom: 6,
+            }}
+          >
+            <span style={{ color: T.green }}>hi ${btcHi}</span>
+            <span style={{ color: T.ink3 }}>·</span>
+            <span style={{ color: T.red }}>lo ${btcLo}</span>
+            <span style={{ color: T.ink3 }}>·</span>
+            <span style={{ color: btcUp ? T.green : T.red }}>cap {btcCap}</span>
+            <span style={{ color: T.ink3 }}>·</span>
+            <span style={{ color: T.ink3 }}>vol {btcVol}</span>
+            <span style={{ color: T.ink3 }}>·</span>
+            <span style={{ color: T.orange }}>
+              {btc.data ? fmtNum(Math.round(1e8 / btc.data.price)) : '—'} sat/$
+            </span>
+          </div>
+          <LineChart w={470} h={110} color={T.orange} points={btc.chartPts} vwap={btc.data?.vwap} fill />
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontFamily: T.mono,
+              fontSize: 10,
+              color: T.ink3,
+            }}
+          >
+            <span>24h ago</span>
+            <span>−18h</span>
+            <span>−12h</span>
+            <span>−6h</span>
+            <span>now</span>
+          </div>
+          <Rule dash />
+          {/* Lead story */}
+          {lead ? (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden', minHeight: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <Kicker color={T.orange}>
+                  ● {lead.cat} · {lead.src}
+                </Kicker>
+                <Kicker>{lead.t}</Kicker>
+              </div>
+              <a href={lead.link} target="_blank" rel="noopener noreferrer">
+                <h1
+                  style={{
+                    fontFamily: T.serif,
+                    fontSize: 32,
+                    fontWeight: 700,
+                    lineHeight: 1.04,
+                    letterSpacing: -1,
+                    color: T.ink,
+                    textWrap: 'balance',
+                    margin: 0,
+                  }}
+                >
+                  {lead.hed}
+                </h1>
+              </a>
+              {lead.img ? (
+                <img
+                  src={lead.img}
+                  alt=""
+                  style={{ width: '100%', height: 'auto', borderRadius: 3, display: 'block' }}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              ) : null}
+              {lead.snippet ? (
+                <div
+                  className="no-scrollbar"
+                  style={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    minHeight: 0,
+                    fontFamily: T.body,
+                    fontSize: 13.5,
+                    lineHeight: 1.5,
+                    color: T.ink2,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: T.serif,
+                      fontSize: 44,
+                      fontWeight: 700,
+                      color: T.ink,
+                      float: 'left',
+                      lineHeight: 0.88,
+                      marginRight: 8,
+                      marginTop: 3,
+                    }}
+                  >
+                    {lead.snippet.charAt(0)}
+                  </span>
+                  {lead.snippet.slice(1)}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <>
+              <Kicker color={T.orange}>● {rss.err ? 'RSS unavailable' : 'Loading feed…'}</Kicker>
+              <h1
+                style={{
+                  fontFamily: T.serif,
+                  fontSize: 32,
+                  fontWeight: 700,
+                  lineHeight: 1.04,
+                  letterSpacing: -1,
+                  color: T.ink4,
+                  margin: 0,
+                }}
+              >
+                {rss.err ? 'All feeds unavailable' : 'Fetching headlines…'}
+              </h1>
+            </>
+          )}
+        </div>
+
+        {/* COL 2 — HEADLINES FEED */}
+        <div
+          style={{
+            borderRight: `1px solid ${T.rule2}`,
+            paddingRight: 24,
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <Kicker>Bitcoin news</Kicker>
+            {rss.err && <Kicker color={T.red}>feed error</Kicker>}
+          </div>
+          <div
+            className={`news-col-wrap${newsItems.length < 8 ? ' at-bottom' : ''}`}
+            style={{ marginTop: 8, flex: 1, minHeight: 0 }}
+          >
+            <div
+              className="news-scroll"
+              style={{ height: '100%', overflowY: 'auto' }}
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                const wrap = el.parentElement;
+                el.classList.add('is-scrolling');
+                clearTimeout(wrap._st);
+                wrap._st = setTimeout(() => el.classList.remove('is-scrolling'), 1200);
+                wrap.classList.toggle('at-bottom', el.scrollHeight - el.scrollTop - el.clientHeight < 4);
+              }}
+            >
+              {newsItems.length > 0 ? (
+                newsItems.map((it, i) => (
+                  <a
+                    key={i}
+                    href={it.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'block',
+                      padding: '9px 0',
+                      borderBottom: `1px solid ${T.rule3}`,
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <Kicker color={it.cat === 'BREAKING' ? T.red : T.ink3}>{it.cat}</Kicker>
+                      <span style={{ fontFamily: T.mono, fontSize: 10, color: T.ink3 }}>{it.t}</span>
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: T.body,
+                        fontSize: 14.5,
+                        lineHeight: 1.3,
+                        color: T.ink,
+                        letterSpacing: -0.1,
+                      }}
+                    >
+                      {it.hed}
+                    </div>
+                    <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3, marginTop: 2 }}>
+                      {it.src}
+                    </div>
+                  </a>
+                ))
+              ) : (
+                <div style={{ fontFamily: T.mono, fontSize: 12, color: T.ink3, marginTop: 16 }}>
+                  {rss.err ? 'All feeds unavailable' : 'Loading headlines…'}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* COL 3 — HOME FLEET + CHAIN VITALS */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, overflow: 'hidden' }}>
+          <Kicker>
+            Home fleet · {onlineCount}/{minerCount} online
+          </Kicker>
+          <h2
+            style={{
+              fontFamily: T.serif,
+              fontSize: 20,
+              fontWeight: 700,
+              lineHeight: 1.05,
+              letterSpacing: -0.4,
+              color: T.ink,
+              textWrap: 'balance',
+              margin: 0,
+            }}
+          >
+            A <span style={{ fontStyle: 'italic' }}>one-in-{soloOdds ? fmtNum(soloOdds.oddsPerDay).toLowerCase() : 'unknown'}</span> chance, every day.
+          </h2>
+          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink2 }}>
+            {bxPool} · {onlineCount > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s combined` : 'miners offline'}
+          </div>
+          {/* Solo odds hero */}
+          <div style={{ paddingTop: 2 }}>
+            {onlineCount === 0 ? (
+              <div style={{ fontFamily: T.mono, fontSize: 18, color: T.ink3 }}>
+                {bitaxe.loading ? 'Connecting to miners…' : 'All miners offline'}
+              </div>
+            ) : (
+              <div
+                style={{
+                  fontFamily: T.mono,
+                  fontSize: 64,
+                  fontWeight: 500,
+                  letterSpacing: -1,
+                  lineHeight: 1,
+                  color: T.ink,
+                  fontFeatureSettings: '"tnum"',
+                }}
+              >
+                {oddsStr}
+              </div>
+            )}
+            <div
+              style={{
+                fontFamily: T.mono,
+                fontSize: 12,
+                color: T.ink3,
+                marginTop: 4,
+                letterSpacing: 0.5,
+              }}
+            >
+              per day · expected {etaStr}
+            </div>
+          </div>
+          {/* Per-miner cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            {bitaxe.miners.length === 0 && !bitaxe.loading && (
+              <div style={{ gridColumn: '1/-1', fontFamily: T.mono, fontSize: 12, color: T.ink3 }}>
+                No miners reachable
+              </div>
+            )}
+            {bitaxe.miners.map((miner, i) => {
+              const md = miner.online ? miner.data : null;
+              const hrTHS = md ? ((md.hashRate || 0) / 1000).toFixed(2) : '—';
+              const temp = md ? md.temp || md.temperature || '—' : '—';
+              const power = md ? md.power || '—' : '—';
+              const eff =
+                md && md.power && md.hashRate ? (md.power / (md.hashRate / 1000)).toFixed(1) : '—';
+              const model = md ? md.boardVersion || md.ASICModel || 'Bitaxe' : 'Bitaxe';
+              return (
+                <div
+                  key={i}
+                  style={{
+                    borderLeft: `2px solid ${miner.online ? T.green : T.red}`,
+                    paddingLeft: 8,
+                    paddingTop: 4,
+                    paddingBottom: 4,
+                  }}
+                >
+                  <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink3, marginBottom: 3 }}>
+                    <StatusDot ok={miner.online} />
+                    {miner.ip}
+                  </div>
+                  <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink2, marginBottom: 6 }}>
+                    {model}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px' }}>
+                    {[
+                      [hrTHS, 'TH/s', 'Hashrate'],
+                      [temp, '°C', 'Temp'],
+                      [power, 'W', 'Power'],
+                      [eff, 'J/TH', 'Eff'],
+                    ].map(([v, u, label], j) => (
+                      <div key={j} style={{ borderLeft: `1px solid ${T.rule3}`, paddingLeft: 6 }}>
+                        <Num size="xs" value={v} unit={u} />
+                        <Kicker style={{ marginTop: 2 }}>{label}</Kicker>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3 }}>
+            "hash and pray." · {fmtNum(totalShOk)} ok / {fmtNum(totalShRej)} rej
+          </div>
+          <Rule dash />
+          {/* Chain vitals */}
+          <Kicker>Chain vitals</Kicker>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 14px' }}>
+            {[
+              ['Mining', miningRows],
+              ['Mempool', mempoolRows],
+              ['Chain', chainStatRows],
+            ].map(([title, rows]) => (
+              <div key={title}>
+                <Kicker style={{ marginBottom: 6 }}>{title}</Kicker>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  {rows.map((r, i) => (
+                    <div key={i} style={{ borderLeft: `1px solid ${T.rule3}`, paddingLeft: 8 }}>
+                      <Num size="sm" value={r.v} style={{ color: r.c || T.ink }} />
+                      <Kicker style={{ marginTop: 2 }}>{r.k}</Kicker>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {settingsOpen && (
+        <MastheadPanel
+          apiUrl={bitaxeApiUrl}
+          ips={bitaxeIps}
+          prefs={prefs}
+          onSave={onSaveSettings}
+          onClose={onCloseSettings}
+        />
+      )}
     </div>
   );
 }

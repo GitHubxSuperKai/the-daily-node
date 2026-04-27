@@ -14,7 +14,9 @@
       "Bash(git stash *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git commit *)",
+      "Bash(grep -n \"^function\\\\|^const.*=.*{$\\\\|^const.*=.*=>.*{\" \"Command Center.html\")"
     ]
   }
 }

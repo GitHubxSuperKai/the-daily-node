@@ -6,8 +6,9 @@ const CONFIG = {
   // ─── BitAxe API ───────────────────────────────────────
   // Set these to your local BitAxe API server and miner IPs
   // Leave empty to disable BitAxe monitoring
-  BITAXE_API_URL: 'http://192.168.1.59:3001/api/miners',
-  BITAXE_IPS: ['192.168.1.6', '192.168.1.7'],
+  // User customization via: Edit before build, or use in-app settings panel
+  BITAXE_API_URL: '',
+  BITAXE_IPS: [],
 
   // ─── RSS Feeds ────────────────────────────────────────
   // Bitcoin news sources (all fetched and merged)
@@ -24,8 +25,9 @@ const CONFIG = {
 
   // ─── Weather ──────────────────────────────────────────
   // Your location for weather (decimal degrees)
-  WEATHER_LAT: 37.7749,
-  WEATHER_LNG: -122.4194,
+  // User customization via: in-app location search or edit before build
+  WEATHER_LAT: 0,
+  WEATHER_LNG: 0,
 
   // ─── Refresh Intervals (milliseconds) ──────────────────
   REFRESH_INTERVALS: {
