@@ -162,6 +162,10 @@ function fmtPct(n) {
   const sign = n >= 0 ? '+' : '';
   return `${sign}${Number(n).toFixed(2)}`;
 }
+function fmtVolUsd(v) {
+  if (v == null || isNaN(v)) return '—';
+  return v >= 1e9 ? `$${(v / 1e9).toFixed(1)}B` : `$${Math.round(v / 1e6)}M`;
+}
 function fmtBlockTime(ms) {
   const s = Math.round(ms / 1000);
   const m = Math.floor(s / 60);
@@ -313,7 +317,7 @@ function ItalicDeck({ children, style = {} }) {
 }
 
 // ─── Real chart from price data ────────────────────────────────
-function LineChart({ w, h, color, points, fill }) {
+function LineChart({ w, h, color, points, fill, vwap }) {
   const T = useT();
   color = color ?? T.orange;
   // points: array of [timestamp, price] pairs, or null for placeholder
@@ -342,11 +346,24 @@ function LineChart({ w, h, color, points, fill }) {
     });
   }
 
+  let vwapY = null;
+  if (!useFallback && vwap != null) {
+    const prices = points.map(p => p[1]);
+    const minP = Math.min(...prices);
+    const maxP = Math.max(...prices);
+    const range = maxP - minP || 1;
+    vwapY = Math.max(2, Math.min(h - 2, h - 4 - ((vwap - minP) / range) * (h - 8)));
+  }
+
   const d = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0]},${p[1]}`).join(' ');
   const [lx, ly] = pts[pts.length - 1];
   return (
     <svg width={w} height={h} style={{ display: 'block', flexShrink: 0 }}>
       {fill && <path d={`${d} L${w},${h} L0,${h}Z`} fill={color} fillOpacity={0.07} />}
+      {vwapY != null && (
+        <line x1={0} y1={vwapY} x2={w} y2={vwapY}
+          stroke={T.ink3} strokeWidth={1} strokeDasharray="3 4" />
+      )}
       <path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
       <circle cx={lx} cy={ly} r={3} fill={color} />
       <circle cx={lx} cy={ly} r={7} fill="none" stroke={color} strokeOpacity={0.3} strokeWidth={1} />
@@ -473,9 +490,10 @@ function useClock(timeFormat) {
   };
 }
 
-// BTC price + chart from CoinGecko
+// BTC price from Kraken (primary) + chart from CoinGecko (silent-fail)
 function useBTC() {
   const [data, setData] = React.useState(null);
+  const [cap, setCap] = React.useState(null);
   const [chartPts, setChartPts] = React.useState(null);
   const [err, setErr] = React.useState(false);
   const [lastOk, setLastOk] = React.useState(null);
@@ -486,23 +504,29 @@ function useBTC() {
       if (!r.ok) throw new Error('chart');
       const j = await r.json();
       setChartPts(j.prices || null);
+      // market_caps is also returned; grab the latest value for display
+      if (j.market_caps && j.market_caps.length) {
+        setCap(j.market_caps[j.market_caps.length - 1][1]);
+      }
     } catch {}
   };
 
   const fetchPrice = async () => {
     try {
-      const r = await fetch('https://api.coingecko.com/api/v3/coins/bitcoin?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false');
+      const r = await fetch('https://api.kraken.com/0/public/Ticker?pair=XBTUSD');
       if (!r.ok) throw new Error('price');
       const j = await r.json();
-      const mkt = j.market_data;
-      setData({
-        price:    mkt.current_price.usd,
-        chgPct:   mkt.price_change_percentage_24h,
-        chgAbs:   mkt.price_change_24h,
-        hi:       mkt.high_24h.usd,
-        lo:       mkt.low_24h.usd,
-        cap:      mkt.market_cap.usd,
-      });
+      if (j.error && j.error.length) throw new Error(j.error[0]);
+      const t = j.result.XXBTZUSD;
+      const price  = parseFloat(t.c[0]);
+      const open   = parseFloat(t.o);
+      const chgAbs = price - open;
+      const chgPct = ((price - open) / open) * 100;
+      const hi     = parseFloat(t.h[1]);
+      const lo     = parseFloat(t.l[1]);
+      const vwap   = parseFloat(t.p[1]);
+      const vol    = parseFloat(t.v[1]);
+      setData({ price, chgPct, chgAbs, hi, lo, vwap, vol });
       setErr(false);
       setLastOk(Date.now());
     } catch {
@@ -518,7 +542,8 @@ function useBTC() {
     return () => { clearInterval(id1); clearInterval(id2); };
   }, []);
 
-  return { data, chartPts, err, lastOk };
+  const mergedData = data ? { ...data, cap } : null;
+  return { data: mergedData, chartPts, err, lastOk };
 }
 
 // Chain vitals from mempool.space
@@ -1011,6 +1036,7 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, prefs, set
   const btcHi      = btc.data ? fmtPrice(btc.data.hi) : '—';
   const btcLo      = btc.data ? fmtPrice(btc.data.lo) : '—';
   const btcCap     = btc.data ? `$${(btc.data.cap / 1e12).toFixed(2)}T` : '—';
+  const btcVol     = btc.data ? fmtVolUsd(btc.data.vol * btc.data.price) : '—';
 
   const blockHeight = chain.data ? fmtNum(chain.data.height) : '—';
   const hashrate    = chain.data ? fmtHashrate(chain.data.hashrate) : '—';
@@ -1086,7 +1112,7 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, prefs, set
   const sys = [
     { k: 'miners', v: bitaxe.err ? 'err' : (onlineCount > 0 ? 'ok' : (bitaxe.loading ? '…' : 'err')), d: bitaxe.loading ? 'connecting' : `${onlineCount}/${minerCount} online` },
     { k: 'mempool', v: chain.err ? 'err' : (chain.data ? 'ok' : '…'), d: chain.data ? `${mempoolMB}` : '—' },
-    { k: 'coingecko', v: btc.err ? 'err' : (btc.data ? 'ok' : '…'), d: btc.data ? `${btcChgPct}% 24h` : '—' },
+    { k: 'kraken', v: btc.err ? 'err' : (btc.data ? 'ok' : '…'), d: btc.data ? `${btcChgPct}% 24h` : '—' },
     { k: 'weather', v: weather.err ? 'err' : (weather.data ? 'ok' : '…'), d: weather.data ? weather.data.wxCond.toLowerCase() : '—' },
     { k: 'rss', v: rss.err ? 'err' : (rss.items.length > 0 ? 'ok' : '…'), d: rss.items.length > 0 ? `${rss.items.length} stories` : '—' },
   ];
@@ -1251,9 +1277,11 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, prefs, set
             <span style={{ color:T.ink3 }}>·</span>
             <span style={{ color:btcUp ? T.green : T.red }}>cap {btcCap}</span>
             <span style={{ color:T.ink3 }}>·</span>
+            <span style={{ color:T.ink3 }}>vol {btcVol}</span>
+            <span style={{ color:T.ink3 }}>·</span>
             <span style={{ color:T.orange }}>{btc.data ? fmtNum(Math.round(1e8 / btc.data.price)) : '—'} sat/$</span>
           </div>
-          <LineChart w={470} h={110} color={T.orange} points={btc.chartPts} fill />
+          <LineChart w={470} h={110} color={T.orange} points={btc.chartPts} vwap={btc.data?.vwap} fill />
           <div style={{ display:'flex', justifyContent:'space-between', fontFamily:T.mono, fontSize:10, color:T.ink3 }}>
             <span>24h ago</span><span>−18h</span><span>−12h</span><span>−6h</span><span>now</span>
           </div>
