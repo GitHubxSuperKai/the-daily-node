@@ -525,8 +525,8 @@ function useBTC() {
       const hi     = parseFloat(t.h[1]);
       const lo     = parseFloat(t.l[1]);
       const vwap   = parseFloat(t.p[1]);
-      const vol    = parseFloat(t.v[1]);
-      setData({ price, chgPct, chgAbs, hi, lo, vwap, vol });
+      const volBtc = parseFloat(t.v[1]);
+      setData({ price, chgPct, chgAbs, hi, lo, vwap, volBtc });
       setErr(false);
       setLastOk(Date.now());
     } catch {
@@ -1035,8 +1035,8 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, prefs, set
   const btcUp      = btc.data ? btc.data.chgPct >= 0 : true;
   const btcHi      = btc.data ? fmtPrice(btc.data.hi) : '—';
   const btcLo      = btc.data ? fmtPrice(btc.data.lo) : '—';
-  const btcCap     = btc.data ? `$${(btc.data.cap / 1e12).toFixed(2)}T` : '—';
-  const btcVol     = btc.data ? fmtVolUsd(btc.data.vol * btc.data.price) : '—';
+  const btcCap     = btc.data?.cap != null ? `$${(btc.data.cap / 1e12).toFixed(2)}T` : '—';
+  const btcVol     = btc.data ? fmtVolUsd(btc.data.volBtc * btc.data.price) : '—';
 
   const blockHeight = chain.data ? fmtNum(chain.data.height) : '—';
   const hashrate    = chain.data ? fmtHashrate(chain.data.hashrate) : '—';
