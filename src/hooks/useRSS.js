@@ -1,0 +1,101 @@
+import { useState, useEffect } from 'react';
+import CONFIG from '../config.js';
+
+/**
+ * Calculate time ago string for RSS articles
+ */
+function timeAgo(dateStr) {
+  const diff = (Date.now() - new Date(dateStr)) / 1000;
+  if (diff <= 0) return 'just now';
+  if (diff < 60) return `${Math.round(diff)}s ago`;
+  if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
+  return `${Math.round(diff / 86400)}d ago`;
+}
+
+/**
+ * useRSS Hook
+ * Fetches Bitcoin news from configured RSS feeds via rss2json
+ *
+ * Returns: {
+ *   items: array of article objects { cat, hed, src, pubDate, t, link, img, snippet },
+ *   leadStory: first article or null,
+ *   err: boolean,
+ *   lastOk: timestamp or null,
+ *   interval: number (for feed health tracking)
+ * }
+ */
+export function useRSS() {
+  const [items, setItems] = useState([]);
+  const [err, setErr] = useState(false);
+  const [leadStory, setLeadStory] = useState(null);
+  const [lastOk, setLastOk] = useState(null);
+
+  const fetchRSS = async () => {
+    const key = CONFIG.RSS2JSON_KEY ? `&api_key=${CONFIG.RSS2JSON_KEY}` : '';
+    const feeds = CONFIG.RSS_FEEDS || [];
+
+    const results = await Promise.allSettled(
+      feeds.map(async feedUrl => {
+        const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}${key}`;
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('rss');
+        const j = await r.json();
+        if (j.status !== 'ok') throw new Error('rss-status');
+        const src = j.feed.title || new URL(feedUrl).hostname;
+        return j.items.map(it => ({
+          cat: it.categories && it.categories[0] ? it.categories[0].toUpperCase().slice(0, 10) : 'BITCOIN',
+          hed: it.title,
+          src,
+          pubDate: it.pubDate,
+          t: timeAgo(it.pubDate),
+          link: it.link,
+          img:
+            it.thumbnail ||
+            (it.enclosure && it.enclosure.type && it.enclosure.type.startsWith('image/') ? it.enclosure.link : null) ||
+            (it.description ? (it.description.match(/<img\b[^>]*\bsrc=["']([^"']+)["']/i) || [])[1] || null : null) ||
+            null,
+          snippet: it.description
+            ? it.description.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 1000)
+            : '',
+        }));
+      })
+    );
+
+    const all = results
+      .filter(r => r.status === 'fulfilled')
+      .flatMap(r => r.value)
+      .sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+
+    if (all.length > 0) {
+      setLeadStory(all[0]);
+      setItems(all.slice(1, 15));
+      setErr(false);
+      setLastOk(Date.now());
+    } else {
+      setErr(true);
+    }
+  };
+
+  useEffect(() => {
+    fetchRSS();
+    const id = setInterval(fetchRSS, CONFIG.REFRESH_INTERVALS.news);
+    return () => clearInterval(id);
+  }, []);
+
+  // Refresh relative times every minute
+  useEffect(() => {
+    const id = setInterval(() => {
+      setItems(prev => prev.map(it => ({ ...it, t: timeAgo(it.pubDate) })));
+    }, 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  return {
+    items,
+    leadStory,
+    err,
+    lastOk,
+    interval: CONFIG.REFRESH_INTERVALS.news,
+  };
+}
