@@ -1,1 +1,13 @@
+# Dev dependencies
+node_modules/
+package-lock.json
+
+# IDE
+.vscode/
+.idea/
+
+# Local config overrides
+src/config.local.js
+
+# Dev utilities
 icons-preview.html
