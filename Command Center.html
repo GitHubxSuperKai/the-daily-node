@@ -720,7 +720,7 @@ function useRSS() {
         link: it.link,
         img: it.thumbnail || (it.enclosure && it.enclosure.type && it.enclosure.type.startsWith('image/') ? it.enclosure.link : null) || null,
         snippet: it.description
-          ? it.description.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 360)
+          ? it.description.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 1000)
           : '',
       }));
     }));
