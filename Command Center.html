@@ -33,6 +33,17 @@
   a { text-decoration: none; color: inherit; }
   .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
+  /* News column — scrollbar fades in on scroll, out after idle */
+  .news-scroll { scrollbar-width: thin; scrollbar-color: rgba(138,130,114,0) transparent; }
+  .news-scroll.is-scrolling { scrollbar-color: rgba(138,130,114,0.45) transparent; }
+  .news-scroll::-webkit-scrollbar { width: 3px; }
+  .news-scroll::-webkit-scrollbar-track { background: transparent; }
+  .news-scroll::-webkit-scrollbar-thumb { background: rgba(138,130,114,0); border-radius: 2px; transition: background 0.2s ease; }
+  .news-scroll.is-scrolling::-webkit-scrollbar-thumb { background: rgba(138,130,114,0.45); }
+  /* Bottom fade — passive hint that content continues */
+  .news-col-wrap { position: relative; display: flex; flex-direction: column; min-height: 0; }
+  .news-col-wrap::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 48px; background: linear-gradient(to bottom, transparent, var(--paper)); pointer-events: none; transition: opacity 0.3s; }
+  .news-col-wrap.at-bottom::after { opacity: 0; }
   :root {
     --f-serif:    "Fraunces", Georgia, serif;
     --f-body:     "Newsreader", Georgia, serif;
@@ -1292,7 +1303,16 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, prefs, set
             <Kicker>Bitcoin news</Kicker>
             {rss.err && <Kicker color={T.red}>feed error</Kicker>}
           </div>
-          <div className="no-scrollbar" style={{ marginTop:8, flex:1, overflowY:'auto', minHeight:0 }}>
+          <div className="news-col-wrap" style={{ marginTop:8, flex:1, minHeight:0 }}>
+          <div className="news-scroll" style={{ height:'100%', overflowY:'auto' }}
+            onScroll={e => {
+              const el = e.currentTarget;
+              const wrap = el.parentElement;
+              el.classList.add('is-scrolling');
+              clearTimeout(el._st);
+              el._st = setTimeout(() => el.classList.remove('is-scrolling'), 1200);
+              wrap.classList.toggle('at-bottom', el.scrollHeight - el.scrollTop - el.clientHeight < 4);
+            }}>
             {newsItems.length > 0 ? newsItems.map((it,i)=>(
               <a key={i} href={it.link} target="_blank" rel="noopener noreferrer" style={{ display:'block', padding:'9px 0', borderBottom:`1px solid ${T.rule3}` }}>
                 <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
@@ -1307,6 +1327,7 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, prefs, set
                 {rss.err ? 'All feeds unavailable' : 'Loading headlines…'}
               </div>
             )}
+          </div>
           </div>
         </div>
 
@@ -1427,6 +1448,7 @@ function App() {
     setDark(prev => {
       const next = !prev;
       document.body.style.background = next ? DARK.paper : LIGHT.paper;
+      document.documentElement.style.setProperty('--paper', next ? DARK.paper : LIGHT.paper);
       return next;
     });
   };
