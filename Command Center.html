@@ -716,6 +716,7 @@ function useRSS() {
         pubDate: it.pubDate,
         t: timeAgo(it.pubDate),
         link: it.link,
+        img: it.thumbnail || (it.enclosure && it.enclosure.type && it.enclosure.type.startsWith('image/') ? it.enclosure.link : null) || null,
         snippet: it.description
           ? it.description.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 240)
           : '',
@@ -1256,6 +1257,14 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, prefs, set
                   {lead.hed}
                 </h1>
               </a>
+              {lead.img ? (
+                <img
+                  src={lead.img}
+                  alt=""
+                  style={{ width:'100%', maxHeight:160, objectFit:'cover', borderRadius:3, display:'block' }}
+                  onError={e => { e.currentTarget.style.display = 'none'; }}
+                />
+              ) : null}
               {lead.snippet ? (
                 <div style={{ flex:1, overflow:'hidden', minHeight:0, fontFamily:T.body, fontSize:13.5, lineHeight:1.5, color:T.ink2 }}>
                   <span style={{ fontFamily:T.serif, fontSize:44, fontWeight:700, color:T.ink, float:'left', lineHeight:0.88, marginRight:8, marginTop:3 }}>
@@ -1276,12 +1285,12 @@ function CommandCenter({ dark, onToggleDark, bitaxeApiUrl, bitaxeIps, prefs, set
         </div>
 
         {/* COL 2 — HEADLINES FEED */}
-        <div style={{ borderRight:`1px solid ${T.rule2}`, paddingRight:24, overflow:'hidden', display:'flex', flexDirection:'column' }}>
+        <div style={{ borderRight:`1px solid ${T.rule2}`, paddingRight:24, overflow:'hidden', display:'flex', flexDirection:'column', minHeight:0 }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
             <Kicker>Bitcoin news</Kicker>
             {rss.err && <Kicker color={T.red}>feed error</Kicker>}
           </div>
-          <div style={{ marginTop:8, flex:1 }}>
+          <div style={{ marginTop:8, flex:1, overflowY:'auto', minHeight:0 }}>
             {newsItems.length > 0 ? newsItems.map((it,i)=>(
               <a key={i} href={it.link} target="_blank" rel="noopener noreferrer" style={{ display:'block', padding:'9px 0', borderBottom:`1px solid ${T.rule3}` }}>
                 <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
