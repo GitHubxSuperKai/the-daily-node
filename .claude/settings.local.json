@@ -2,7 +2,19 @@
   "permissions": {
     "allow": [
       "Bash(npx --version)",
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Bash(node -e ' *)",
+      "WebSearch",
+      "WebFetch(domain:basmilius.github.io)",
+      "WebFetch(domain:meteocons.com)",
+      "WebFetch(domain:cdn.meteocons.com)",
+      "Bash(gh pr *)",
+      "Bash(git checkout *)",
+      "Bash(git pull *)",
+      "Bash(git stash *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }
