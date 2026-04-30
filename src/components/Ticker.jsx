@@ -8,7 +8,7 @@ function Ticker({ chain, feedHealth }) {
   const blockHeight = chain.data ? fmtNum(chain.data.height) : '—';
   const mempoolMB   = chain.data ? `${(chain.data.mempoolBytes / 1e6).toFixed(0)} MB` : '—';
   const mempoolTx   = chain.data ? fmtNum(chain.data.mempoolTx) : '—';
-  const epochPct    = chain.data?.epochProgress;
+  const epochPct    = chain.data?.progressPercent;
   const rawBlockTime = chain.data?.blockTimeMs;
   const blockTimeCol = rawBlockTime == null ? T.ink : rawBlockTime / 1000 < 570 ? T.orange : rawBlockTime / 1000 <= 630 ? T.green : T.red;
   const blocksToClr  = chain.data ? Math.ceil(chain.data.mempoolBytes / 1_000_000) : null;

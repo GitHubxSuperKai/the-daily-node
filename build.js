@@ -59,7 +59,7 @@ files.forEach(file => {
     // Remove standalone imports: import 'module'
     content = content.replace(/import\s+['"][^'"]*['"]\s*;?\n?/g, '');
     // Remove export default: export default X;
-    content = content.replace(/export\s+default\s+(\w+)\s*;?\n?/g, 'const $1 = $1; // exported\n');
+    content = content.replace(/export\s+default\s+\w+\s*;?\n?/g, '');
     // Remove export async function: export async function X(...) { ... }
     content = content.replace(/export\s+async\s+/g, 'async ');
     // Remove export function: export function X(...) { ... }
@@ -82,19 +82,6 @@ const htmlWithCode = baseTemplate.replace(
   concatenated
 );
 
-// Minify and write
-esbuild.build({
-  stdin: {
-    contents: htmlWithCode,
-    loader: 'text',
-  },
-  outfile: 'Command Center.html',
-  minify: true,
-  write: false,
-}).then(result => {
-  fs.writeFileSync('Command Center.html', result.outputFiles[0].text);
-  console.log('✓ Built Command Center.html (minified)');
-}).catch(err => {
-  console.error('Build failed:', err);
-  process.exit(1);
-});
+// Write HTML directly (no esbuild wrapping)
+fs.writeFileSync('Command Center.html', htmlWithCode);
+console.log('✓ Built Command Center.html');

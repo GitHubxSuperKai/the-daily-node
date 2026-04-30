@@ -136,11 +136,11 @@ export function CommandCenter({
   const diffAdjVal = chain.data?.diffAdj;
   const diffAdjStr = diffAdjVal != null ? `${diffAdjVal >= 0 ? '+' : ''}${diffAdjVal.toFixed(2)}%` : '—';
   const diffAdjCol = diffAdjVal != null ? (diffAdjVal >= 0 ? T.green : T.red) : T.ink;
-  const epochPct = chain.data?.epochProgress;
+  const epochPct = chain.data?.progressPercent;
   const epochBlocks = chain.data ? Math.round((epochPct / 100) * 2016) : null;
   const epochStr = epochPct != null ? `${epochPct.toFixed(0)}% · ${epochBlocks}/2016` : '—';
-  const retargetDate = chain.data?.retargetDate
-    ? new Date(chain.data.retargetDate).toISOString().slice(0, 10)
+  const retargetDate = chain.data?.estimatedRetargetDate
+    ? new Date(chain.data.estimatedRetargetDate).toISOString().slice(0, 10)
     : '—';
   const blockTimeSec = chain.data?.blockTimeMs ? chain.data.blockTimeMs / 1000 : null;
   const blockTimeCol =

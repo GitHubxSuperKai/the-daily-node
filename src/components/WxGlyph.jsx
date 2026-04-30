@@ -4,8 +4,6 @@ import { wmoSpeed } from '../utils/formatting';
 import { METEOCONS_SVG, _processSvg } from '../utils/svg';
 import { DARK } from '../theme';
 
-let _svgUid = 0;
-
 export function WxGlyph({ kind, size, speed: speedProp }) {
   const T      = useT();
   const isDark = T.paper === DARK.paper;

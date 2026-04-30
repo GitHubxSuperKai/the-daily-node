@@ -1,8 +1,8 @@
-module.exports=`<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>The Daily Node \u2014 Command Center</title>
+<title>The Daily Node — Command Center</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -37,14 +37,14 @@ module.exports=`<!doctype html>
   a { text-decoration: none; color: inherit; }
   .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
-  /* News column \u2014 scrollbar fades in on scroll, out after idle */
+  /* News column — scrollbar fades in on scroll, out after idle */
   .news-scroll { scrollbar-width: thin; scrollbar-color: rgba(138,130,114,0) transparent; }
   .news-scroll.is-scrolling { scrollbar-color: rgba(138,130,114,0.45) transparent; }
   .news-scroll::-webkit-scrollbar { width: 3px; }
   .news-scroll::-webkit-scrollbar-track { background: transparent; }
   .news-scroll::-webkit-scrollbar-thumb { background: rgba(138,130,114,0); border-radius: 2px; transition: background 0.2s ease; }
   .news-scroll.is-scrolling::-webkit-scrollbar-thumb { background: rgba(138,130,114,0.45); }
-  /* Bottom fade \u2014 passive hint that content continues */
+  /* Bottom fade — passive hint that content continues */
   .news-col-wrap { position: relative; display: flex; flex-direction: column; min-height: 0; }
   .news-col-wrap::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 48px; background: linear-gradient(to bottom, transparent, var(--paper)); pointer-events: none; transition: opacity 0.3s; }
   .news-col-wrap.at-bottom::after { opacity: 0; }
@@ -72,9 +72,9 @@ module.exports=`<!doctype html>
     --green:    #3a6b2e;
   }
 </style>
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"><\/script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"><\/script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"><\/script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 </head>
 <body>
 <div id="stage"><div id="canvas"></div></div>
@@ -84,30 +84,32 @@ const CANVAS_W = 1920, CANVAS_H = 1080;
 function applyScale() {
   const canvas = document.getElementById('canvas');
   const s = Math.min(window.innerWidth / CANVAS_W, window.innerHeight / CANVAS_H);
-  canvas.style.transform = \`scale(\${s})\`;
+  canvas.style.transform = `scale(${s})`;
 }
 window.addEventListener('resize', applyScale);
 window.addEventListener('load', applyScale);
-// Run immediately as well \u2014 before load fires
+// Run immediately as well — before load fires
 applyScale();
 window.applyScale = applyScale;
-<\/script>
+</script>
 
 <script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo, useContext } = React;
+
 
 // src/config.js
 // Configuration module for The Daily Node Command Center
 // Edit these values to match your setup
 
 const CONFIG = {
-  // \u2500\u2500\u2500 BitAxe API \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ─── BitAxe API ───────────────────────────────────────
   // Set these to your local BitAxe API server and miner IPs
   // Leave empty to disable BitAxe monitoring
   // User customization via: Edit before build, or use in-app settings panel
   BITAXE_API_URL: '',
   BITAXE_IPS: [],
 
-  // \u2500\u2500\u2500 RSS Feeds \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ─── RSS Feeds ────────────────────────────────────────
   // Bitcoin news sources (all fetched and merged)
   RSS_FEEDS: [
     'https://bitcoinmagazine.com/.rss/full/',
@@ -115,18 +117,18 @@ const CONFIG = {
     'https://news.bitcoin.com/feed/',
   ],
 
-  // \u2500\u2500\u2500 API & Network \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ─── API & Network ────────────────────────────────────
   FETCH_TIMEOUT: 5000,
-  // rss2json API key \u2014 free tier works without one, or get one at rss2json.com
+  // rss2json API key — free tier works without one, or get one at rss2json.com
   RSS2JSON_KEY: '',
 
-  // \u2500\u2500\u2500 Weather \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ─── Weather ──────────────────────────────────────────
   // Your location for weather (decimal degrees)
   // User customization via: in-app location search or edit before build
   WEATHER_LAT: 0,
   WEATHER_LNG: 0,
 
-  // \u2500\u2500\u2500 Refresh Intervals (milliseconds) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ─── Refresh Intervals (milliseconds) ──────────────────
   REFRESH_INTERVALS: {
     clock:   1000,
     price:   30000,        // BTC price every 30s
@@ -137,12 +139,22 @@ const CONFIG = {
   },
 };
 
-// ES6 const CONFIG = CONFIG; // exported
+const INTERVALS = {
+  BTC:     CONFIG.REFRESH_INTERVALS.price,
+  CHAIN:   CONFIG.REFRESH_INTERVALS.chain,
+  BITAXE:  CONFIG.REFRESH_INTERVALS.bitaxe,
+  WEATHER: CONFIG.REFRESH_INTERVALS.weather,
+  RSS:     CONFIG.REFRESH_INTERVALS.news,
+};
+
+// ES6 export
+
 
 // CommonJS export (for Node.js testability, removed during build)
 
 
-// \u2500\u2500\u2500 Font Stack \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+// ─── Font Stack ───────────────────────────────────────────
 const FONTS = {
   serif: '"Fraunces", Georgia, serif',
   body: '"Newsreader", Georgia, serif',
@@ -150,7 +162,7 @@ const FONTS = {
   mono: '"JetBrains Mono", ui-monospace, monospace',
 };
 
-// \u2500\u2500\u2500 Light Theme \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ─── Light Theme ──────────────────────────────────────────
 const LIGHT = {
   ...FONTS,
   ink: '#16130f',
@@ -168,7 +180,7 @@ const LIGHT = {
   green: '#3a6b2e',
 };
 
-// \u2500\u2500\u2500 Dark Theme \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ─── Dark Theme ───────────────────────────────────────────
 const DARK = {
   ...FONTS,
   ink: '#e8e2d6',
@@ -186,7 +198,7 @@ const DARK = {
   green: '#5a9b4e',
 };
 
-// \u2500\u2500\u2500 Theme Context \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ─── Theme Context ────────────────────────────────────────
 const ThemeCtx = React.createContext(LIGHT);
 
 /**
@@ -199,67 +211,67 @@ function useT() {
   return React.useContext(ThemeCtx);
 }
 
-// \u2500\u2500\u2500 Formatting Utilities \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ─── Formatting Utilities ───────────────────────────────────────
 // Pure functions for number, price, time, weather, and Bitcoin formatting
 
 function fmtNum(n, decimals = 0) {
-  if (n == null || isNaN(n)) return '\u2014';
+  if (n == null || isNaN(n)) return '—';
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
 function fmtPrice(n) {
-  if (n == null || isNaN(n)) return '\u2014';
+  if (n == null || isNaN(n)) return '—';
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
 function fmtPct(n) {
-  if (n == null || isNaN(n)) return '\u2014';
+  if (n == null || isNaN(n)) return '—';
   const sign = n >= 0 ? '+' : '';
-  return \`\${sign}\${Number(n).toFixed(2)}\`;
+  return `${sign}${Number(n).toFixed(2)}`;
 }
 
 function fmtVolUsd(v) {
-  if (v == null || isNaN(v)) return '\u2014';
-  return v >= 1e9 ? \`\${(v / 1e9).toFixed(1)}B\` : \`\${Math.round(v / 1e6)}M\`;
+  if (v == null || isNaN(v)) return '—';
+  return v >= 1e9 ? `${(v / 1e9).toFixed(1)}B` : `${Math.round(v / 1e6)}M`;
 }
 
 function fmtBlockTime(ms) {
   const s = Math.round(ms / 1000);
   const m = Math.floor(s / 60);
-  return \`\${m}m \${s % 60}s\`;
+  return `${m}m ${s % 60}s`;
 }
 
 function fmtHashrate(ehsRaw) {
   // mempool returns H/s
   const ehs = ehsRaw / 1e18;
-  return ehs >= 1 ? \`\${ehs.toFixed(0)} EH/s\` : \`\${(ehsRaw / 1e15).toFixed(1)} PH/s\`;
+  return ehs >= 1 ? `${ehs.toFixed(0)} EH/s` : `${(ehsRaw / 1e15).toFixed(1)} PH/s`;
 }
 
 function fmtDiff(d) {
-  if (d >= 1e12) return \`\${(d / 1e12).toFixed(1)} T\`;
-  if (d >= 1e9)  return \`\${(d / 1e9).toFixed(1)} B\`;
+  if (d >= 1e12) return `${(d / 1e12).toFixed(1)} T`;
+  if (d >= 1e9)  return `${(d / 1e9).toFixed(1)} B`;
   return fmtNum(d);
 }
 
 function fmtMempoolMB(bytes) {
-  return \`\${(bytes / 1e6).toFixed(0)} MB\`;
+  return `${(bytes / 1e6).toFixed(0)} MB`;
 }
 
 function timeAgo(dateStr) {
   const diff = (Date.now() - new Date(dateStr)) / 1000;
   if (diff <= 0)   return 'just now';
-  if (diff < 60)   return \`\${Math.round(diff)}s ago\`;
-  if (diff < 3600) return \`\${Math.round(diff / 60)}m ago\`;
-  if (diff < 86400) return \`\${Math.round(diff / 3600)}h ago\`;
-  return \`\${Math.round(diff / 86400)}d ago\`;
+  if (diff < 60)   return `${Math.round(diff)}s ago`;
+  if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
+  return `${Math.round(diff / 86400)}d ago`;
 }
 
 function fmtHour(hr, timeFormat) {
-  if (timeFormat === '24h') return \`\${String(hr).padStart(2, '0')}:00\`;
+  if (timeFormat === '24h') return `${String(hr).padStart(2, '0')}:00`;
   if (hr === 0)  return '12am';
-  if (hr < 12)   return \`\${hr}am\`;
+  if (hr < 12)   return `${hr}am`;
   if (hr === 12) return '12pm';
-  return \`\${hr - 12}pm\`;
+  return `${hr - 12}pm`;
 }
 
 function nextHalving(height) {
@@ -275,12 +287,12 @@ function circulatingBTC(height) {
   let supply = 0, reward = 50, h = 0;
   while (h + 210000 <= height) { supply += 210000 * reward; reward /= 2; h += 210000; }
   supply += (height - h) * reward;
-  return \`\${(supply / 1e6).toFixed(2)}M BTC\`;
+  return `${(supply / 1e6).toFixed(2)}M BTC`;
 }
 
 function calcSoloOdds(networkEHS, minerTHS) {
   if (!networkEHS || !minerTHS) return null;
-  const networkTHS = networkEHS * 1e6; // EH/s \u2192 TH/s
+  const networkTHS = networkEHS * 1e6; // EH/s → TH/s
   const sharePerDay = (minerTHS / networkTHS) * 144; // 144 blocks/day
   if (sharePerDay <= 0) return null;
   const oddsPerDay = Math.round(1 / sharePerDay);
@@ -288,7 +300,7 @@ function calcSoloOdds(networkEHS, minerTHS) {
   return { oddsPerDay, etaYears };
 }
 
-// WMO weather code \u2192 Meteocons icon name (day/night aware, wind override)
+// WMO weather code → Meteocons icon name (day/night aware, wind override)
 function wmoIcon(code, hr, windMph, sunriseHr, sunsetHr) {
   const night = hr !== undefined && (
     sunriseHr != null && sunsetHr != null
@@ -307,17 +319,17 @@ function wmoIcon(code, hr, windMph, sunriseHr, sunsetHr) {
   return night ? 'partly-cloudy-night' : 'partly-cloudy-day';
 }
 
-// Animation speed tied to condition intensity \u2014 higher = slower, lower = faster
+// Animation speed tied to condition intensity — higher = slower, lower = faster
 function wmoSpeed(code, windMph) {
   if (windMph != null && windMph >= 25 && code <= 2) {
-    // Wind icon: faster as mph climbs (25\u21921.0, 40\u21920.7, 60\u21920.45)
+    // Wind icon: faster as mph climbs (25→1.0, 40→0.7, 60→0.45)
     return Math.max(0.4, 1.0 - (windMph - 25) / 60);
   }
-  if (code === 0)                return 3.0;  // clear \u2014 lazy spin
-  if (code <= 2)                 return 2.5;  // partly cloudy \u2014 gentle
+  if (code === 0)                return 3.0;  // clear — lazy spin
+  if (code <= 2)                 return 2.5;  // partly cloudy — gentle
   if (code === 3)                return 2.0;  // overcast
-  if (code === 45 || code === 48) return 3.5; // fog \u2014 barely moving
-  if (code === 51)               return 3.2;  // light drizzle \u2014 very slow mist
+  if (code === 45 || code === 48) return 3.5; // fog — barely moving
+  if (code === 51)               return 3.2;  // light drizzle — very slow mist
   if (code === 53)               return 2.8;  // drizzle
   if (code === 55)               return 2.2;  // heavy drizzle
   if (code === 56)               return 3.0;  // light freezing drizzle
@@ -328,10 +340,10 @@ function wmoSpeed(code, windMph) {
   if (code === 66)               return 2.0;  // light freezing rain
   if (code === 67)               return 1.4;  // heavy freezing rain
   if (code >= 80 && code <= 82)  return Math.max(0.8, 2.0 - (code - 80) * 0.5); // showers
-  if (code === 71)               return 3.0;  // light snow \u2014 slow flutter
+  if (code === 71)               return 3.0;  // light snow — slow flutter
   if (code === 73)               return 2.4;  // snow
   if (code === 75)               return 1.8;  // heavy snow
-  if (code >= 95)                return Math.max(0.5, 0.8 - (code - 95) * 0.1); // thunderstorm \u2014 fast; heavier = faster
+  if (code >= 95)                return Math.max(0.5, 0.8 - (code - 95) * 0.1); // thunderstorm — fast; heavier = faster
   return 2.5;
 }
 
@@ -349,12 +361,12 @@ function wmoDesc(code) {
   return m[code] || 'Unknown';
 }
 
-// \u2500\u2500\u2500 CommonJS Exports \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ─── CommonJS Exports ────────────────────────────────────────────
 
 // SVG processing utilities and weather icon library
 // Extracted from Command Center.html
-// MIT licensed \xB7 basmilius/meteocons \xB7 SVGs embedded inline; IDs namespaced per instance
-// Animation speed per icon \u2014 >1 = slower, <1 = faster, 1 = Meteocons default
+// MIT licensed · basmilius/meteocons · SVGs embedded inline; IDs namespaced per instance
+// Animation speed per icon — >1 = slower, <1 = faster, 1 = Meteocons default
 
 const ANIM_SPEED = {
   'clear-day':           3.0,   // lazy sun spin
@@ -365,52 +377,52 @@ const ANIM_SPEED = {
   'rain':                2.0,   // steady drops
   'snow':                3.0,   // slow snowflake flutter
   'fog':                 3.5,   // barely drifting lines
-  'wind':                1.0,   // keep wind fast \u2014 it's wind
+  'wind':                1.0,   // keep wind fast — it's wind
   'drizzle':             3.0,   // gentle mist
   'thunderstorms':       0.8,   // fast lightning flash
 };
 
 const METEOCONS_SVG = {
-  'clear-day':           \`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="clear-day__clear-day"><g id="clear-day__Sun"><circle id="clear-day__Core" cx="64" cy="64" r="18" stroke="currentColor" stroke-width="4"/><path id="clear-day__Rays" fill="currentColor" fill-rule="evenodd" d="M64 16a2 2 0 0 1 2 2v12a2 2 0 1 1-4 0V18a2 2 0 0 1 2-2M30.059 30.059a2 2 0 0 1 2.828 0l8.486 8.485a2 2 0 0 1-2.829 2.829l-8.485-8.486a2 2 0 0 1 0-2.828m67.882 0a2 2 0 0 1 0 2.828l-8.485 8.486a2 2 0 0 1-2.829-2.829l8.486-8.485a2 2 0 0 1 2.828 0M16 64a2 2 0 0 1 2-2h12a2 2 0 1 1 0 4H18a2 2 0 0 1-2-2m80 0a2 2 0 0 1 2-2h12a2 2 0 1 1 0 4H98a2 2 0 0 1-2-2M41.373 86.627a2 2 0 0 1 0 2.829l-8.486 8.485a2 2 0 1 1-2.828-2.828l8.485-8.486a2 2 0 0 1 2.829 0m45.254 0a2 2 0 0 1 2.829 0l8.485 8.486a2 2 0 1 1-2.828 2.828l-8.486-8.485a2 2 0 0 1 0-2.829M64 96a2 2 0 0 1 2 2v12a2 2 0 1 1-4 0V98a2 2 0 0 1 2-2" clip-rule="evenodd"><animateTransform attributeName="transform" begin="0s" dur="6s" repeatCount="indefinite" type="rotate" values="0 64.0 64.0;360 64.0 64.0"/></path></g></g></svg>\`,
-  'clear-night':         \`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="clear-night__clear-night"><g id="clear-night__Moon"><path id="clear-night__Moon_2" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M58.4 34.416c-3.48 20.81 14.126 40.037 34.823 39.704C88.98 85.698 77.763 94 64.536 94 47.646 94 34 80.497 34 63.898c0-14.53 10.46-26.68 24.4-29.482"/><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="rotate" values="-6 63.6 64.2;6 63.6 64.2;-6 63.6 64.2"/></g></g></svg>\`,
-  'partly-cloudy-day':   \`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="partly-cloudy-day__partly-cloudy-day" clip-path="url(#partly-cloudy-day__clip0_2038_14012)"><g id="partly-cloudy-day__Sky"><g id="partly-cloudy-day__Mask group"><mask id="partly-cloudy-day__mask0_2038_14012" width="128" height="128" x="0" y="0" maskUnits="userSpaceOnUse" style="mask-type:alpha"><g id="partly-cloudy-day__Cloud Mask"><path id="partly-cloudy-day__Subtract" fill="#000" fill-rule="evenodd" d="M128 0H0v128h128zM37.952 93h53.023c9.252 0 17.023-7.647 17.023-16.972 0-8.006-5.693-14.678-13.073-16.477.437-9.65-5.25-18.942-14.374-22.759-9.444-3.95-20.485-1.18-27.02 6.446-4.96-1.642-10.55-.942-14.957 2.053-4.428 3.009-7.143 7.99-7.39 13.247-7.12 2.925-11.856 10.313-11.106 18.246.864 9.145 8.75 16.218 17.874 16.216" clip-rule="evenodd"/><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></mask><g mask="url(#partly-cloudy-day__mask0_2038_14012)"><g id="partly-cloudy-day__Sun"><circle id="partly-cloudy-day__Core" cx="39" cy="51" r="9" fill="currentColor"/><g id="partly-cloudy-day__Rays"><path fill="currentColor" d="M37.688 31.313a1.312 1.312 0 1 1 2.624 0v6.125a1.312 1.312 0 1 1-2.624 0zM51.993 36.15a1.312 1.312 0 1 1 1.856 1.857l-4.33 4.33a1.312 1.312 0 1 1-1.857-1.855zM58.688 49.688a1.312 1.312 0 1 1 0 2.624h-6.126a1.312 1.312 0 1 1 0-2.624zM53.85 63.993a1.312 1.312 0 1 1-1.857 1.856l-4.33-4.33a1.312 1.312 0 1 1 1.855-1.857zM37.688 64.563a1.312 1.312 0 1 1 2.624 0v6.124a1.312 1.312 0 1 1-2.624 0zM28.482 59.662a1.312 1.312 0 1 1 1.856 1.856l-4.331 4.331a1.312 1.312 0 1 1-1.856-1.856zM25.438 49.688a1.312 1.312 0 1 1 0 2.624h-6.125a1.312 1.312 0 1 1 0-2.624zM30.338 40.482a1.312 1.312 0 1 1-1.856 1.856l-4.331-4.331a1.312 1.312 0 1 1 1.856-1.856z"/><animateTransform attributeName="transform" begin="0s" dur="6s" repeatCount="indefinite" type="rotate" values="0 39.0 51.0;360 39.0 51.0"/></g></g></g></g><g id="partly-cloudy-day__Clouds"><g id="partly-cloudy-day__Cloud"><path id="partly-cloudy-day__Cloud_2" fill="currentColor" fill-rule="evenodd" d="M54.837 48.212c-3.763-2.264-8.491-2.43-12.396-.546q-.837.404-1.617.933c-4.141 2.814-6.324 7.916-5.474 12.855-6.96 1.315-11.956 7.887-11.289 14.954C24.73 83.474 30.868 89 37.951 89h53.026c.884 0 1.75-.092 2.59-.267a13 13 0 0 0 4.153-1.656 13.4 13.4 0 0 0 4.024-3.83 13 13 0 0 0 1.424-2.715 12.6 12.6 0 0 0 .827-4.846c-.155-5.785-4.252-10.65-9.604-12.141a12.8 12.8 0 0 0-4.002-.46c.332-1.333.513-2.678.552-4.014.23-7.885-4.465-15.464-11.933-18.589-8.743-3.658-19.18-.344-24.17 7.73m36.14 36.785c4.888 0 9.023-4.118 9.023-8.969 0-4.375-3.35-8.11-7.578-8.828a8.8 8.8 0 0 0-1.86-.115l-2.675.116a2 2 0 0 1-2.028-2.484l.649-2.6q.17-.682.273-1.368c1.036-6.853-2.823-13.857-9.315-16.574-6.941-2.904-15.278-.248-19.227 6.142l-1.039 1.68V52a2 2 0 0 1-2.73.661l-1.693-1.018c-2.965-1.783-6.845-1.676-9.706.268q-.535.365-1.005.799c-2.19 2.022-3.284 5.106-2.774 8.066l.334 1.94v.002a2 2 0 0 1-1.6 2.305l-1.934.365c-4.95.936-8.52 5.658-8.048 10.644.471 4.989 4.865 8.967 9.908 8.966z" clip-rule="evenodd"/></g><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></g></g><defs><clipPath id="partly-cloudy-day__clip0_2038_14012"><rect width="128" height="128" fill="#fff"/></clipPath></defs></svg>\`,
-  'partly-cloudy-night': \`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="partly-cloudy-night__partly-cloudy-night" clip-path="url(#partly-cloudy-night__clip0_2038_14014)"><g id="partly-cloudy-night__Sky"><g id="partly-cloudy-night__Mask group"><mask id="partly-cloudy-night__mask0_2038_14014" width="128" height="128" x="0" y="0" maskUnits="userSpaceOnUse" style="mask-type:alpha"><g id="partly-cloudy-night__Cloud Mask"><path id="partly-cloudy-night__Subtract" fill="#000" fill-rule="evenodd" d="M128 0H0v128h128zM37.952 93h53.023c9.252 0 17.023-7.647 17.023-16.972 0-8.006-5.693-14.678-13.073-16.477.437-9.65-5.25-18.942-14.374-22.759-9.444-3.95-20.485-1.18-27.02 6.446-4.96-1.642-10.55-.942-14.957 2.053-4.428 3.009-7.143 7.99-7.39 13.247-7.12 2.925-11.856 10.313-11.106 18.246.864 9.145 8.75 16.218 17.874 16.216" clip-rule="evenodd"/><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></mask><g mask="url(#partly-cloudy-night__mask0_2038_14014)"><g id="partly-cloudy-night__Moon"><path id="partly-cloudy-night__Moon_2" fill="currentColor" d="M35.766 34C29.15 34.714 24 40.241 24 46.959 24 54.16 29.918 60 37.218 60 43.37 60 48.527 55.846 50 50.23c-8.783.941-16.523-7.51-14.234-16.23"/><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="rotate" values="-6 37.0 47.0;6 37.0 47.0;-6 37.0 47.0"/></g></g></g><g id="partly-cloudy-night__Clouds"><g id="partly-cloudy-night__Cloud"><path id="partly-cloudy-night__Cloud_2" fill="currentColor" fill-rule="evenodd" d="M54.837 48.212c-3.763-2.264-8.491-2.43-12.396-.546q-.837.404-1.617.933c-4.141 2.814-6.324 7.916-5.474 12.855-6.96 1.315-11.956 7.887-11.289 14.954C24.73 83.474 30.868 89 37.951 89h53.026c.884 0 1.75-.092 2.59-.267a13 13 0 0 0 4.153-1.656 13.4 13.4 0 0 0 4.024-3.83 13 13 0 0 0 1.424-2.715 12.6 12.6 0 0 0 .827-4.846c-.155-5.785-4.252-10.65-9.604-12.141a12.8 12.8 0 0 0-4.002-.46c.332-1.333.513-2.678.552-4.014.23-7.885-4.465-15.464-11.933-18.589-8.743-3.658-19.18-.344-24.17 7.73m36.14 36.785c4.888 0 9.023-4.118 9.023-8.969 0-4.375-3.35-8.11-7.578-8.828a8.8 8.8 0 0 0-1.86-.115l-2.675.116a2 2 0 0 1-2.028-2.484l.649-2.6q.17-.682.273-1.368c1.036-6.853-2.823-13.857-9.315-16.574-6.941-2.904-15.278-.248-19.227 6.142l-1.039 1.68V52a2 2 0 0 1-2.73.661l-1.693-1.018c-2.965-1.783-6.845-1.676-9.706.268q-.535.365-1.005.799c-2.19 2.022-3.284 5.106-2.774 8.066l.334 1.94v.002a2 2 0 0 1-1.6 2.305l-1.934.365c-4.95.936-8.52 5.658-8.048 10.644.471 4.989 4.865 8.967 9.908 8.966z" clip-rule="evenodd"/></g><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></g></g><defs><clipPath id="partly-cloudy-night__clip0_2038_14014"><rect width="128" height="128" fill="#fff"/></clipPath></defs></svg>\`,
-  'overcast':            \`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="overcast__overcast" clip-path="url(#overcast__clip0_2038_14016)"><g id="overcast__Sky"><g id="overcast__Clouds" clip-path="url(#overcast__clip1_2038_14016)"><g id="overcast__Mask group"><mask id="overcast__mask0_2038_14016" width="128" height="128" x="0" y="0" maskUnits="userSpaceOnUse" style="mask-type:alpha"><g id="overcast__Cloud Mask"><path id="overcast__Subtract" fill="#000" fill-rule="evenodd" d="M128 0H0v128h128zM37.952 93h53.023c9.252 0 17.023-7.647 17.023-16.972 0-8.006-5.693-14.678-13.073-16.477.437-9.65-5.25-18.942-14.374-22.759-9.444-3.95-20.485-1.18-27.02 6.446-4.96-1.642-10.55-.942-14.957 2.053-4.428 3.009-7.143 7.99-7.39 13.247-7.12 2.925-11.856 10.313-11.106 18.246.864 9.145 8.75 16.218 17.874 16.216" clip-rule="evenodd"/></g></mask><g mask="url(#overcast__mask0_2038_14016)"><g id="overcast__Secondary Cloud"><path id="overcast__Cloud" fill="currentColor" d="M101.194 55.57c1.173-4.51-1.434-9.134-5.69-10.843-4.312-1.73-9.543-.238-12.085 3.708-2.154-1.243-4.923-1.173-7.007.186-2.031 1.324-3.169 3.76-2.737 6.166-3.375.612-5.988 3.688-5.644 7.173.344 3.493 3.508 6.04 6.946 6.04 8.836 0 17.674-.008 26.511 0 3.423 0 6.512-2.713 6.512-6.222 0-3.63-3.279-6.356-6.806-6.208"/><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 -3;0 0;0 -3"/></g></g><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g><g id="overcast__Cloud_2"><path id="overcast__Cloud_3" fill="currentColor" fill-rule="evenodd" d="M54.837 48.212c-3.763-2.264-8.491-2.43-12.396-.546q-.837.404-1.617.933c-4.141 2.814-6.324 7.916-5.474 12.855-6.96 1.315-11.956 7.887-11.289 14.954C24.73 83.474 30.868 89 37.951 89h53.026c.884 0 1.75-.092 2.59-.267a13 13 0 0 0 4.153-1.656 13.4 13.4 0 0 0 4.024-3.83 13 13 0 0 0 1.424-2.715 12.6 12.6 0 0 0 .827-4.846c-.155-5.785-4.252-10.65-9.604-12.141a12.8 12.8 0 0 0-4.002-.46c.332-1.333.513-2.678.552-4.014.23-7.885-4.465-15.464-11.933-18.589-8.743-3.658-19.18-.344-24.17 7.73m36.14 36.785c4.888 0 9.023-4.118 9.023-8.969 0-4.375-3.35-8.11-7.578-8.828a8.8 8.8 0 0 0-1.86-.115l-2.675.116a2 2 0 0 1-2.028-2.484l.649-2.6q.17-.682.273-1.368c1.036-6.853-2.823-13.857-9.315-16.574-6.941-2.904-15.278-.248-19.227 6.142l-1.039 1.68V52a2 2 0 0 1-2.73.661l-1.693-1.018c-2.965-1.783-6.845-1.676-9.706.268q-.535.365-1.005.799c-2.19 2.022-3.284 5.106-2.774 8.066l.334 1.94v.002a2 2 0 0 1-1.6 2.305l-1.934.365c-4.95.936-8.52 5.658-8.048 10.644.471 4.989 4.865 8.967 9.908 8.966z" clip-rule="evenodd"/><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></g></g></g><defs><clipPath id="overcast__clip0_2038_14016"><rect width="128" height="128" fill="#fff"/></clipPath><clipPath id="overcast__clip1_2038_14016"><rect width="128" height="128" fill="#fff"/></clipPath></defs></svg>\`,
-  'rain':                \`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="rain__rain" clip-path="url(#rain__clip0_2038_14032)"><g id="rain__Sky"><g id="rain__Clouds"><g id="rain__Cloud"><path id="rain__Cloud_2" fill="currentColor" fill-rule="evenodd" d="M54.837 48.212c4.99-8.074 15.428-11.388 24.171-7.73 8.734 3.654 13.676 13.4 11.38 22.604C97.684 62.767 104 68.706 104 76.028 104 83.116 98.048 89 90.977 89a2 2 0 0 1 0-4.003c4.887 0 9.023-4.117 9.023-8.969 0-5.002-4.378-9.164-9.437-8.943l-2.676.116a2 2 0 0 1-2.028-2.484l.649-2.6c1.812-7.269-2.117-15.044-9.042-17.942-6.941-2.904-15.277-.248-19.227 6.142l-1.039 1.68a2 2 0 0 1-2.73.663l-1.693-1.018c-2.965-1.783-6.845-1.676-9.706.268-2.85 1.937-4.361 5.482-3.78 8.865l.335 1.94a2 2 0 0 1-1.6 2.307l-1.934.365c-4.95.936-8.52 5.657-8.048 10.644.471 4.99 4.866 8.967 9.908 8.966a2 2 0 0 1 0 4.003c-7.082.001-13.223-5.525-13.89-12.592-.668-7.067 4.329-13.64 11.288-14.954-.85-4.94 1.333-10.04 5.474-12.855 4.151-2.82 9.712-2.974 14.013-.387" clip-rule="evenodd"/></g><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></g><g id="rain__Precipitation"><g id="rain__Raindrops"><path id="rain__Raindrop 1" stroke="currentColor" stroke-linecap="round" stroke-width="4" d="M52 83v12"><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="1s" keySplines=".42 0 1 1" repeatCount="indefinite" type="translate" values="0 0;0 20"/><animate attributeName="opacity" begin="0s" dur="1s" keyTimes="0;0.15;0.85;1" repeatCount="indefinite" values="0;1;1;0"/></path><path id="rain__Raindrop 2" stroke="currentColor" stroke-linecap="round" stroke-width="4" d="M64 83v12"><animateTransform attributeName="transform" begin="-0.6s" calcMode="spline" dur="1s" keySplines=".42 0 1 1" repeatCount="indefinite" type="translate" values="0 0;0 20"/><animate attributeName="opacity" begin="-0.6s" dur="1s" keyTimes="0;0.15;0.85;1" repeatCount="indefinite" values="0;1;1;0"/></path><path id="rain__Raindrop 3" stroke="currentColor" stroke-linecap="round" stroke-width="4" d="M76 83v12"><animateTransform attributeName="transform" begin="-0.19999999999999996s" calcMode="spline" dur="1s" keySplines=".42 0 1 1" repeatCount="indefinite" type="translate" values="0 0;0 20"/><animate attributeName="opacity" begin="-0.19999999999999996s" dur="1s" keyTimes="0;0.15;0.85;1" repeatCount="indefinite" values="0;1;1;0"/></path></g></g></g><defs><clipPath id="rain__clip0_2038_14032"><rect width="128" height="128" fill="#fff"/></clipPath></defs></svg>\`,
-  'snow':                \`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="snow__snow" clip-path="url(#snow__clip0_2038_14131)"><g id="snow__Sky"><g id="snow__Clouds"><g id="snow__Cloud"><path id="snow__Cloud_2" fill="currentColor" fill-rule="evenodd" d="M54.837 48.212c4.99-8.074 15.428-11.388 24.171-7.73 8.734 3.654 13.676 13.4 11.38 22.604C97.684 62.767 104 68.706 104 76.028 104 83.116 98.048 89 90.977 89a2 2 0 0 1 0-4.003c4.887 0 9.023-4.117 9.023-8.969 0-5.002-4.378-9.164-9.437-8.943l-2.676.116a2 2 0 0 1-2.028-2.484l.649-2.6c1.812-7.269-2.117-15.044-9.042-17.942-6.941-2.904-15.277-.248-19.227 6.142l-1.039 1.68a2 2 0 0 1-2.73.663l-1.693-1.018c-2.965-1.783-6.845-1.676-9.706.268-2.85 1.937-4.361 5.482-3.78 8.865l.335 1.94a2 2 0 0 1-1.6 2.307l-1.934.365c-4.95.936-8.52 5.657-8.048 10.644.471 4.99 4.866 8.967 9.908 8.966a2 2 0 0 1 0 4.003c-7.082.001-13.223-5.525-13.89-12.592-.668-7.067 4.329-13.64 11.288-14.954-.85-4.94 1.333-10.04 5.474-12.855 4.151-2.82 9.712-2.974 14.013-.387" clip-rule="evenodd"/></g><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></g><g id="snow__Precipitation"><g id="snow__Snowflakes"><path id="snow__Snowflake 1" fill="currentColor" d="m52.578 90.366-1.205-.689a2.9 2.9 0 0 0-.002-1.353l1.207-.69a.83.83 0 0 0 .309-1.141.85.85 0 0 0-1.153-.306l-1.206.69a2.9 2.9 0 0 0-1.184-.677v-1.38A.85.85 0 0 0 48.5 84a.843.843 0 0 0-.844.82v1.38a2.96 2.96 0 0 0-1.185.674l-1.205-.689a.848.848 0 0 0-1.259.616.83.83 0 0 0 .415.832l1.204.689c-.106.445-.105.909.003 1.353l-1.207.69a.83.83 0 0 0-.415.832.83.83 0 0 0 .62.7.85.85 0 0 0 .64-.084l1.205-.69c.334.318.74.55 1.184.675v1.382a.85.85 0 0 0 .844.82.843.843 0 0 0 .844-.82v-1.383c.441-.129.847-.36 1.184-.673l1.206.69a.847.847 0 0 0 1.259-.616.83.83 0 0 0-.415-.832m-4.712-.28a1.24 1.24 0 0 1-.622-1.25 1.25 1.25 0 0 1 .93-1.048 1.27 1.27 0 0 1 1.329.445 1.25 1.25 0 0 1 .093 1.393 1.28 1.28 0 0 1-1.73.46"><animateTransform attributeName="transform" begin="-0.8s" calcMode="spline" dur="1s" keySplines=".42 0 1 1" repeatCount="indefinite" type="translate" values="0 0;0 20"/><animate attributeName="opacity" begin="-0.8s" dur="1s" keyTimes="0;0.15;0.85;1" repeatCount="indefinite" values="0;1;1;0"/></path><path id="snow__Snowflake 2" fill="currentColor" d="m67.578 90.366-1.204-.689a2.9 2.9 0 0 0-.003-1.353l1.207-.69a.83.83 0 0 0 .309-1.141.85.85 0 0 0-1.153-.306l-1.206.69a2.9 2.9 0 0 0-1.184-.677v-1.38A.85.83 0 0 0 63.5 84a.843.843 0 0 0-.844.82v1.38a2.96 2.96 0 0 0-1.185.674l-1.205-.689a.848.848 0 0 0-1.259.616.83.83 0 0 0 .415.832l1.204.689c-.106.445-.105.909.003 1.353l-1.207.69a.83.83 0 0 0-.415.832.83.83 0 0 0 .62.7.85.85 0 0 0 .64-.084l1.205-.69c.334.318.74.55 1.184.675v1.382a.85.85 0 0 0 .844.82.843.843 0 0 0 .844-.82v-1.383c.441-.129.847-.36 1.184-.673l1.206.69a.847.847 0 0 0 1.259-.616.83.83 0 0 0-.415-.832m-4.712-.28a1.24 1.24 0 0 1-.622-1.25 1.25 1.25 0 0 1 .93-1.048 1.27 1.27 0 0 1 1.329.445 1.25 1.25 0 0 1 .093 1.393 1.28 1.28 0 0 1-1.73.46"><animateTransform attributeName="transform" begin="-0.30000000000000004s" calcMode="spline" dur="1s" keySplines=".42 0 1 1" repeatCount="indefinite" type="translate" values="0 0;0 20"/><animate attributeName="opacity" begin="-0.30000000000000004s" dur="1s" keyTimes="0;0.15;0.85;1" repeatCount="indefinite" values="0;1;1;0"/></path><path id="snow__Snowflake 3" fill="currentColor" d="m82.578 90.366-1.204-.689a2.9 2.9 0 0 0-.003-1.353l1.207-.69a.83.83 0 0 0 .309-1.141.85.85 0 0 0-1.153-.306l-1.206.69a2.9 2.9 0 0 0-1.184-.677v-1.38A.85.85 0 0 0 78.5 84a.843.843 0 0 0-.844.82v1.38a2.96 2.96 0 0 0-1.185.674l-1.205-.689a.848.848 0 0 0-1.259.616.83.83 0 0 0 .415.832l1.204.689c-.106.445-.105.909.003 1.353l-1.207.69a.83.83 0 0 0-.415.832.83.83 0 0 0 .62.7.85.85 0 0 0 .64-.084l1.205-.69c.334.318.74.55 1.184.675v1.382a.85.85 0 0 0 .844.82.843.843 0 0 0 .844-.82v-1.383c.441-.129.847-.36 1.184-.673l1.206.69a.847.847 0 0 0 1.259-.616.83.83 0 0 0-.415-.832m-4.712-.28a1.24 1.24 0 0 1-.622-1.25 1.25 1.25 0 0 1 .93-1.048 1.27 1.27 0 0 1 1.329.445 1.25 1.25 0 0 1 .093 1.393 1.28 1.28 0 0 1-1.73.46"><animateTransform attributeName="transform" begin="-0.8s" calcMode="spline" dur="1s" keySplines=".42 0 1 1" repeatCount="indefinite" type="translate" values="0 0;0 20"/><animate attributeName="opacity" begin="-0.8s" dur="1s" keyTimes="0;0.15;0.85;1" repeatCount="indefinite" values="0;1;1;0"/></path></g></g></g><defs><clipPath id="snow__clip0_2038_14131"><rect width="128" height="128" fill="#fff"/></clipPath></defs></svg>\`,
-  'fog':                 \`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="fog__fog" clip-path="url(#fog__clip0_2038_14230)"><g id="fog__Sky"><g id="fog__Clouds"><g id="fog__Cloud"><path id="fog__Cloud_2" fill="currentColor" fill-rule="evenodd" d="M54.837 48.212c4.99-8.074 15.428-11.388 24.171-7.73 8.734 3.654 13.676 13.4 11.38 22.604C97.684 62.767 104 68.706 104 76.028 104 83.116 98.048 89 90.977 89a2 2 0 0 1 0-4.003c4.887 0 9.023-4.117 9.023-8.969 0-5.002-4.378-9.164-9.437-8.943l-2.676.116a2 2 0 0 1-2.028-2.484l.649-2.6c1.812-7.269-2.117-15.044-9.042-17.942-6.941-2.904-15.277-.248-19.227 6.142l-1.039 1.68a2 2 0 0 1-2.73.663l-1.693-1.018c-2.965-1.783-6.845-1.676-9.706.268-2.85 1.937-4.361 5.482-3.78 8.865l.335 1.94a2 2 0 0 1-1.6 2.307l-1.934.365c-4.95.936-8.52 5.657-8.048 10.644.471 4.99 4.866 8.967 9.908 8.966a2 2 0 0 1 0 4.003c-7.082.001-13.223-5.525-13.89-12.592-.668-7.067 4.329-13.64 11.288-14.954-.85-4.94 1.333-10.04 5.474-12.855 4.151-2.82 9.712-2.974 14.013-.387" clip-rule="evenodd"/></g><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></g><g id="fog__Precipitation"><path id="fog__Line 2" stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="3" d="M40 95h48"><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;3 0;0 0"/></path><path id="fog__Line 1" stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="3" d="M40 103h48"><animateTransform attributeName="transform" begin="-2.8s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;3 0;0 0"/></path></g></g><defs><clipPath id="fog__clip0_2038_14230"><rect width="128" height="128" fill="#fff"/></clipPath></defs></svg>\`,
-  'wind':                \`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="wind__wind"><g id="wind__Wind"><path id="wind__Wind Line 1" stroke="currentColor" stroke-dasharray="50" stroke-linecap="round" stroke-miterlimit="10" stroke-width="4" d="M87.79 40.135c6.186-6.788 17.21-1.73 17.21 7.311C105 53.275 100.522 58 95 58H24"><animate attributeName="stroke-dashoffset" begin="0s" dur="6s" repeatCount="indefinite" values="0;1000"/></path><path id="wind__Wind Line 1_2" stroke="currentColor" stroke-dasharray="50" stroke-linecap="round" stroke-miterlimit="10" stroke-width="4" d="M60.128 87.868C66.42 94.518 78 89.872 78 80.556 78 74.726 73.35 70 67.615 70H24"><animate attributeName="stroke-dashoffset" begin="-5.8s" dur="6s" repeatCount="indefinite" values="0;1000"/></path></g></g></svg>\`,
-  'drizzle':             \`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="drizzle__drizzle" clip-path="url(#drizzle__clip0_2038_14065)"><g id="drizzle__Sky"><g id="drizzle__Clouds"><g id="drizzle__Cloud"><path id="drizzle__Cloud_2" fill="currentColor" fill-rule="evenodd" d="M54.837 48.212c4.99-8.074 15.428-11.388 24.171-7.73 8.734 3.654 13.676 13.4 11.38 22.604C97.684 62.767 104 68.706 104 76.028 104 83.116 98.048 89 90.977 89a2 2 0 0 1 0-4.003c4.887 0 9.023-4.117 9.023-8.969 0-5.002-4.378-9.164-9.437-8.943l-2.676.116a2 2 0 0 1-2.028-2.484l.649-2.6c1.812-7.269-2.117-15.044-9.042-17.942-6.941-2.904-15.277-.248-19.227 6.142l-1.039 1.68a2 2 0 0 1-2.73.663l-1.693-1.018c-2.965-1.783-6.845-1.676-9.706.268-2.85 1.937-4.361 5.482-3.78 8.865l.335 1.94a2 2 0 0 1-1.6 2.307l-1.934.365c-4.95.936-8.52 5.657-8.048 10.644.471 4.99 4.866 8.967 9.908 8.966a2 2 0 0 1 0 4.003c-7.082.001-13.223-5.525-13.89-12.592-.668-7.067 4.329-13.64 11.288-14.954-.85-4.94 1.333-10.04 5.474-12.855 4.151-2.82 9.712-2.974 14.013-.387" clip-rule="evenodd"/></g><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></g><g id="drizzle__Precipitation"><g id="drizzle__Raindrops"><path id="drizzle__Raindrop 1" stroke="currentColor" stroke-linecap="round" stroke-width="4" d="M52 87v3"><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="1s" keySplines=".42 0 1 1" repeatCount="indefinite" type="translate" values="0 0;0 20"/><animate attributeName="opacity" begin="0s" dur="1s" keyTimes="0;0.15;0.85;1" repeatCount="indefinite" values="0;1;1;0"/></path><path id="drizzle__Raindrop 2" stroke="currentColor" stroke-linecap="round" stroke-width="4" d="M64 87v3"><animateTransform attributeName="transform" begin="-0.6s" calcMode="spline" dur="1s" keySplines=".42 0 1 1" repeatCount="indefinite" type="translate" values="0 0;0 20"/><animate attributeName="opacity" begin="-0.6s" dur="1s" keyTimes="0;0.15;0.85;1" repeatCount="indefinite" values="0;1;1;0"/></path><path id="drizzle__Raindrop 3" stroke="currentColor" stroke-linecap="round" stroke-width="4" d="M76 87v3"><animateTransform attributeName="transform" begin="-0.19999999999999996s" calcMode="spline" dur="1s" keySplines=".42 0 1 1" repeatCount="indefinite" type="translate" values="0 0;0 20"/><animate attributeName="opacity" begin="-0.19999999999999996s" dur="1s" keyTimes="0;0.15;0.85;1" repeatCount="indefinite" values="0;1;1;0"/></path></g></g></g><defs><clipPath id="drizzle__clip0_2038_14065"><rect width="128" height="128" fill="#fff"/></clipPath></defs></svg>\`,
-  'thunderstorms':       \`<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="thunderstorms__thunderstorms" clip-path="url(#thunderstorms__clip0_2038_14296)"><g id="thunderstorms__Sky"><g id="thunderstorms__Clouds"><g id="thunderstorms__Cloud"><path id="thunderstorms__Cloud_2" fill="currentColor" fill-rule="evenodd" d="M54.837 48.212c4.99-8.074 15.428-11.388 24.171-7.73 8.734 3.654 13.676 13.4 11.38 22.604C97.683 62.767 104 68.706 104 76.028 104 83.116 98.047 89 90.977 89a2 2 0 0 1 0-4.003c4.887 0 9.023-4.117 9.023-8.969 0-5.002-4.378-9.164-9.437-8.943l-2.677.116a2 2 0 0 1-2.027-2.484l.648-2.6c1.813-7.269-2.116-15.044-9.042-17.942-6.94-2.904-15.277-.248-19.226 6.142l-1.039 1.68a2 2 0 0 1-2.73.663l-1.693-1.018c-2.965-1.783-6.845-1.676-9.706.268-2.85 1.937-4.361 5.482-3.78 8.865l.335 1.94a2 2 0 0 1-1.6 2.307l-1.934.365c-4.95.936-8.52 5.657-8.048 10.644.471 4.99 4.866 8.967 9.908 8.966a2 2 0 0 1 0 4.003c-7.083.001-13.223-5.525-13.89-12.592-.669-7.067 4.328-13.64 11.288-14.954-.85-4.94 1.333-10.04 5.474-12.855 4.151-2.82 9.712-2.974 14.013-.387" clip-rule="evenodd"/></g><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></g><g id="thunderstorms__Lightning"><path id="thunderstorms__Lightning Bolt" fill="currentColor" d="m60 68-8 22.91h8L56 110l20-26.727H64L72 68z"><animate attributeName="opacity" begin="0s" dur="2s" keyTimes="0;0.25;0.33;0.42;0.5;0.57;0.63;0.67;1" repeatCount="indefinite" values="1;1;0;1;0;1;0;1;1"/></path></g></g><defs><clipPath id="thunderstorms__clip0_2038_14296"><rect width="128" height="128" fill="#fff"/></clipPath></defs></svg>\`,
+  'clear-day':           `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="clear-day__clear-day"><g id="clear-day__Sun"><circle id="clear-day__Core" cx="64" cy="64" r="18" stroke="currentColor" stroke-width="4"/><path id="clear-day__Rays" fill="currentColor" fill-rule="evenodd" d="M64 16a2 2 0 0 1 2 2v12a2 2 0 1 1-4 0V18a2 2 0 0 1 2-2M30.059 30.059a2 2 0 0 1 2.828 0l8.486 8.485a2 2 0 0 1-2.829 2.829l-8.485-8.486a2 2 0 0 1 0-2.828m67.882 0a2 2 0 0 1 0 2.828l-8.485 8.486a2 2 0 0 1-2.829-2.829l8.486-8.485a2 2 0 0 1 2.828 0M16 64a2 2 0 0 1 2-2h12a2 2 0 1 1 0 4H18a2 2 0 0 1-2-2m80 0a2 2 0 0 1 2-2h12a2 2 0 1 1 0 4H98a2 2 0 0 1-2-2M41.373 86.627a2 2 0 0 1 0 2.829l-8.486 8.485a2 2 0 1 1-2.828-2.828l8.485-8.486a2 2 0 0 1 2.829 0m45.254 0a2 2 0 0 1 2.829 0l8.485 8.486a2 2 0 1 1-2.828 2.828l-8.486-8.485a2 2 0 0 1 0-2.829M64 96a2 2 0 0 1 2 2v12a2 2 0 1 1-4 0V98a2 2 0 0 1 2-2" clip-rule="evenodd"><animateTransform attributeName="transform" begin="0s" dur="6s" repeatCount="indefinite" type="rotate" values="0 64.0 64.0;360 64.0 64.0"/></path></g></g></svg>`,
+  'clear-night':         `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="clear-night__clear-night"><g id="clear-night__Moon"><path id="clear-night__Moon_2" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M58.4 34.416c-3.48 20.81 14.126 40.037 34.823 39.704C88.98 85.698 77.763 94 64.536 94 47.646 94 34 80.497 34 63.898c0-14.53 10.46-26.68 24.4-29.482"/><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="rotate" values="-6 63.6 64.2;6 63.6 64.2;-6 63.6 64.2"/></g></g></svg>`,
+  'partly-cloudy-day':   `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="partly-cloudy-day__partly-cloudy-day" clip-path="url(#partly-cloudy-day__clip0_2038_14012)"><g id="partly-cloudy-day__Sky"><g id="partly-cloudy-day__Mask group"><mask id="partly-cloudy-day__mask0_2038_14012" width="128" height="128" x="0" y="0" maskUnits="userSpaceOnUse" style="mask-type:alpha"><g id="partly-cloudy-day__Cloud Mask"><path id="partly-cloudy-day__Subtract" fill="#000" fill-rule="evenodd" d="M128 0H0v128h128zM37.952 93h53.023c9.252 0 17.023-7.647 17.023-16.972 0-8.006-5.693-14.678-13.073-16.477.437-9.65-5.25-18.942-14.374-22.759-9.444-3.95-20.485-1.18-27.02 6.446-4.96-1.642-10.55-.942-14.957 2.053-4.428 3.009-7.143 7.99-7.39 13.247-7.12 2.925-11.856 10.313-11.106 18.246.864 9.145 8.75 16.218 17.874 16.216" clip-rule="evenodd"/><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></mask><g mask="url(#partly-cloudy-day__mask0_2038_14012)"><g id="partly-cloudy-day__Sun"><circle id="partly-cloudy-day__Core" cx="39" cy="51" r="9" fill="currentColor"/><g id="partly-cloudy-day__Rays"><path fill="currentColor" d="M37.688 31.313a1.312 1.312 0 1 1 2.624 0v6.125a1.312 1.312 0 1 1-2.624 0zM51.993 36.15a1.312 1.312 0 1 1 1.856 1.857l-4.33 4.33a1.312 1.312 0 1 1-1.857-1.855zM58.688 49.688a1.312 1.312 0 1 1 0 2.624h-6.126a1.312 1.312 0 1 1 0-2.624zM53.85 63.993a1.312 1.312 0 1 1-1.857 1.856l-4.33-4.33a1.312 1.312 0 1 1 1.855-1.857zM37.688 64.563a1.312 1.312 0 1 1 2.624 0v6.124a1.312 1.312 0 1 1-2.624 0zM28.482 59.662a1.312 1.312 0 1 1 1.856 1.856l-4.331 4.331a1.312 1.312 0 1 1-1.856-1.856zM25.438 49.688a1.312 1.312 0 1 1 0 2.624h-6.125a1.312 1.312 0 1 1 0-2.624zM30.338 40.482a1.312 1.312 0 1 1-1.856 1.856l-4.331-4.331a1.312 1.312 0 1 1 1.856-1.856z"/><animateTransform attributeName="transform" begin="0s" dur="6s" repeatCount="indefinite" type="rotate" values="0 39.0 51.0;360 39.0 51.0"/></g></g></g></g><g id="partly-cloudy-day__Clouds"><g id="partly-cloudy-day__Cloud"><path id="partly-cloudy-day__Cloud_2" fill="currentColor" fill-rule="evenodd" d="M54.837 48.212c-3.763-2.264-8.491-2.43-12.396-.546q-.837.404-1.617.933c-4.141 2.814-6.324 7.916-5.474 12.855-6.96 1.315-11.956 7.887-11.289 14.954C24.73 83.474 30.868 89 37.951 89h53.026c.884 0 1.75-.092 2.59-.267a13 13 0 0 0 4.153-1.656 13.4 13.4 0 0 0 4.024-3.83 13 13 0 0 0 1.424-2.715 12.6 12.6 0 0 0 .827-4.846c-.155-5.785-4.252-10.65-9.604-12.141a12.8 12.8 0 0 0-4.002-.46c.332-1.333.513-2.678.552-4.014.23-7.885-4.465-15.464-11.933-18.589-8.743-3.658-19.18-.344-24.17 7.73m36.14 36.785c4.888 0 9.023-4.118 9.023-8.969 0-4.375-3.35-8.11-7.578-8.828a8.8 8.8 0 0 0-1.86-.115l-2.675.116a2 2 0 0 1-2.028-2.484l.649-2.6q.17-.682.273-1.368c1.036-6.853-2.823-13.857-9.315-16.574-6.941-2.904-15.278-.248-19.227 6.142l-1.039 1.68V52a2 2 0 0 1-2.73.661l-1.693-1.018c-2.965-1.783-6.845-1.676-9.706.268q-.535.365-1.005.799c-2.19 2.022-3.284 5.106-2.774 8.066l.334 1.94v.002a2 2 0 0 1-1.6 2.305l-1.934.365c-4.95.936-8.52 5.658-8.048 10.644.471 4.989 4.865 8.967 9.908 8.966z" clip-rule="evenodd"/></g><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></g></g><defs><clipPath id="partly-cloudy-day__clip0_2038_14012"><rect width="128" height="128" fill="#fff"/></clipPath></defs></svg>`,
+  'partly-cloudy-night': `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="partly-cloudy-night__partly-cloudy-night" clip-path="url(#partly-cloudy-night__clip0_2038_14014)"><g id="partly-cloudy-night__Sky"><g id="partly-cloudy-night__Mask group"><mask id="partly-cloudy-night__mask0_2038_14014" width="128" height="128" x="0" y="0" maskUnits="userSpaceOnUse" style="mask-type:alpha"><g id="partly-cloudy-night__Cloud Mask"><path id="partly-cloudy-night__Subtract" fill="#000" fill-rule="evenodd" d="M128 0H0v128h128zM37.952 93h53.023c9.252 0 17.023-7.647 17.023-16.972 0-8.006-5.693-14.678-13.073-16.477.437-9.65-5.25-18.942-14.374-22.759-9.444-3.95-20.485-1.18-27.02 6.446-4.96-1.642-10.55-.942-14.957 2.053-4.428 3.009-7.143 7.99-7.39 13.247-7.12 2.925-11.856 10.313-11.106 18.246.864 9.145 8.75 16.218 17.874 16.216" clip-rule="evenodd"/><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></mask><g mask="url(#partly-cloudy-night__mask0_2038_14014)"><g id="partly-cloudy-night__Moon"><path id="partly-cloudy-night__Moon_2" fill="currentColor" d="M35.766 34C29.15 34.714 24 40.241 24 46.959 24 54.16 29.918 60 37.218 60 43.37 60 48.527 55.846 50 50.23c-8.783.941-16.523-7.51-14.234-16.23"/><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="rotate" values="-6 37.0 47.0;6 37.0 47.0;-6 37.0 47.0"/></g></g></g><g id="partly-cloudy-night__Clouds"><g id="partly-cloudy-night__Cloud"><path id="partly-cloudy-night__Cloud_2" fill="currentColor" fill-rule="evenodd" d="M54.837 48.212c-3.763-2.264-8.491-2.43-12.396-.546q-.837.404-1.617.933c-4.141 2.814-6.324 7.916-5.474 12.855-6.96 1.315-11.956 7.887-11.289 14.954C24.73 83.474 30.868 89 37.951 89h53.026c.884 0 1.75-.092 2.59-.267a13 13 0 0 0 4.153-1.656 13.4 13.4 0 0 0 4.024-3.83 13 13 0 0 0 1.424-2.715 12.6 12.6 0 0 0 .827-4.846c-.155-5.785-4.252-10.65-9.604-12.141a12.8 12.8 0 0 0-4.002-.46c.332-1.333.513-2.678.552-4.014.23-7.885-4.465-15.464-11.933-18.589-8.743-3.658-19.18-.344-24.17 7.73m36.14 36.785c4.888 0 9.023-4.118 9.023-8.969 0-4.375-3.35-8.11-7.578-8.828a8.8 8.8 0 0 0-1.86-.115l-2.675.116a2 2 0 0 1-2.028-2.484l.649-2.6q.17-.682.273-1.368c1.036-6.853-2.823-13.857-9.315-16.574-6.941-2.904-15.278-.248-19.227 6.142l-1.039 1.68V52a2 2 0 0 1-2.73.661l-1.693-1.018c-2.965-1.783-6.845-1.676-9.706.268q-.535.365-1.005.799c-2.19 2.022-3.284 5.106-2.774 8.066l.334 1.94v.002a2 2 0 0 1-1.6 2.305l-1.934.365c-4.95.936-8.52 5.658-8.048 10.644.471 4.989 4.865 8.967 9.908 8.966z" clip-rule="evenodd"/></g><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></g></g><defs><clipPath id="partly-cloudy-night__clip0_2038_14014"><rect width="128" height="128" fill="#fff"/></clipPath></defs></svg>`,
+  'overcast':            `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="overcast__overcast" clip-path="url(#overcast__clip0_2038_14016)"><g id="overcast__Sky"><g id="overcast__Clouds" clip-path="url(#overcast__clip1_2038_14016)"><g id="overcast__Mask group"><mask id="overcast__mask0_2038_14016" width="128" height="128" x="0" y="0" maskUnits="userSpaceOnUse" style="mask-type:alpha"><g id="overcast__Cloud Mask"><path id="overcast__Subtract" fill="#000" fill-rule="evenodd" d="M128 0H0v128h128zM37.952 93h53.023c9.252 0 17.023-7.647 17.023-16.972 0-8.006-5.693-14.678-13.073-16.477.437-9.65-5.25-18.942-14.374-22.759-9.444-3.95-20.485-1.18-27.02 6.446-4.96-1.642-10.55-.942-14.957 2.053-4.428 3.009-7.143 7.99-7.39 13.247-7.12 2.925-11.856 10.313-11.106 18.246.864 9.145 8.75 16.218 17.874 16.216" clip-rule="evenodd"/></g></mask><g mask="url(#overcast__mask0_2038_14016)"><g id="overcast__Secondary Cloud"><path id="overcast__Cloud" fill="currentColor" d="M101.194 55.57c1.173-4.51-1.434-9.134-5.69-10.843-4.312-1.73-9.543-.238-12.085 3.708-2.154-1.243-4.923-1.173-7.007.186-2.031 1.324-3.169 3.76-2.737 6.166-3.375.612-5.988 3.688-5.644 7.173.344 3.493 3.508 6.04 6.946 6.04 8.836 0 17.674-.008 26.511 0 3.423 0 6.512-2.713 6.512-6.222 0-3.63-3.279-6.356-6.806-6.208"/><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 -3;0 0;0 -3"/></g></g><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g><g id="overcast__Cloud_2"><path id="overcast__Cloud_3" fill="currentColor" fill-rule="evenodd" d="M54.837 48.212c-3.763-2.264-8.491-2.43-12.396-.546q-.837.404-1.617.933c-4.141 2.814-6.324 7.916-5.474 12.855-6.96 1.315-11.956 7.887-11.289 14.954C24.73 83.474 30.868 89 37.951 89h53.026c.884 0 1.75-.092 2.59-.267a13 13 0 0 0 4.153-1.656 13.4 13.4 0 0 0 4.024-3.83 13 13 0 0 0 1.424-2.715 12.6 12.6 0 0 0 .827-4.846c-.155-5.785-4.252-10.65-9.604-12.141a12.8 12.8 0 0 0-4.002-.46c.332-1.333.513-2.678.552-4.014.23-7.885-4.465-15.464-11.933-18.589-8.743-3.658-19.18-.344-24.17 7.73m36.14 36.785c4.888 0 9.023-4.118 9.023-8.969 0-4.375-3.35-8.11-7.578-8.828a8.8 8.8 0 0 0-1.86-.115l-2.675.116a2 2 0 0 1-2.028-2.484l.649-2.6q.17-.682.273-1.368c1.036-6.853-2.823-13.857-9.315-16.574-6.941-2.904-15.278-.248-19.227 6.142l-1.039 1.68V52a2 2 0 0 1-2.73.661l-1.693-1.018c-2.965-1.783-6.845-1.676-9.706.268q-.535.365-1.005.799c-2.19 2.022-3.284 5.106-2.774 8.066l.334 1.94v.002a2 2 0 0 1-1.6 2.305l-1.934.365c-4.95.936-8.52 5.658-8.048 10.644.471 4.989 4.865 8.967 9.908 8.966z" clip-rule="evenodd"/><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></g></g></g><defs><clipPath id="overcast__clip0_2038_14016"><rect width="128" height="128" fill="#fff"/></clipPath><clipPath id="overcast__clip1_2038_14016"><rect width="128" height="128" fill="#fff"/></clipPath></defs></svg>`,
+  'rain':                `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="rain__rain" clip-path="url(#rain__clip0_2038_14032)"><g id="rain__Sky"><g id="rain__Clouds"><g id="rain__Cloud"><path id="rain__Cloud_2" fill="currentColor" fill-rule="evenodd" d="M54.837 48.212c4.99-8.074 15.428-11.388 24.171-7.73 8.734 3.654 13.676 13.4 11.38 22.604C97.684 62.767 104 68.706 104 76.028 104 83.116 98.048 89 90.977 89a2 2 0 0 1 0-4.003c4.887 0 9.023-4.117 9.023-8.969 0-5.002-4.378-9.164-9.437-8.943l-2.676.116a2 2 0 0 1-2.028-2.484l.649-2.6c1.812-7.269-2.117-15.044-9.042-17.942-6.941-2.904-15.277-.248-19.227 6.142l-1.039 1.68a2 2 0 0 1-2.73.663l-1.693-1.018c-2.965-1.783-6.845-1.676-9.706.268-2.85 1.937-4.361 5.482-3.78 8.865l.335 1.94a2 2 0 0 1-1.6 2.307l-1.934.365c-4.95.936-8.52 5.657-8.048 10.644.471 4.99 4.866 8.967 9.908 8.966a2 2 0 0 1 0 4.003c-7.082.001-13.223-5.525-13.89-12.592-.668-7.067 4.329-13.64 11.288-14.954-.85-4.94 1.333-10.04 5.474-12.855 4.151-2.82 9.712-2.974 14.013-.387" clip-rule="evenodd"/></g><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></g><g id="rain__Precipitation"><g id="rain__Raindrops"><path id="rain__Raindrop 1" stroke="currentColor" stroke-linecap="round" stroke-width="4" d="M52 83v12"><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="1s" keySplines=".42 0 1 1" repeatCount="indefinite" type="translate" values="0 0;0 20"/><animate attributeName="opacity" begin="0s" dur="1s" keyTimes="0;0.15;0.85;1" repeatCount="indefinite" values="0;1;1;0"/></path><path id="rain__Raindrop 2" stroke="currentColor" stroke-linecap="round" stroke-width="4" d="M64 83v12"><animateTransform attributeName="transform" begin="-0.6s" calcMode="spline" dur="1s" keySplines=".42 0 1 1" repeatCount="indefinite" type="translate" values="0 0;0 20"/><animate attributeName="opacity" begin="-0.6s" dur="1s" keyTimes="0;0.15;0.85;1" repeatCount="indefinite" values="0;1;1;0"/></path><path id="rain__Raindrop 3" stroke="currentColor" stroke-linecap="round" stroke-width="4" d="M76 83v12"><animateTransform attributeName="transform" begin="-0.19999999999999996s" calcMode="spline" dur="1s" keySplines=".42 0 1 1" repeatCount="indefinite" type="translate" values="0 0;0 20"/><animate attributeName="opacity" begin="-0.19999999999999996s" dur="1s" keyTimes="0;0.15;0.85;1" repeatCount="indefinite" values="0;1;1;0"/></path></g></g></g><defs><clipPath id="rain__clip0_2038_14032"><rect width="128" height="128" fill="#fff"/></clipPath></defs></svg>`,
+  'snow':                `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="snow__snow" clip-path="url(#snow__clip0_2038_14131)"><g id="snow__Sky"><g id="snow__Clouds"><g id="snow__Cloud"><path id="snow__Cloud_2" fill="currentColor" fill-rule="evenodd" d="M54.837 48.212c4.99-8.074 15.428-11.388 24.171-7.73 8.734 3.654 13.676 13.4 11.38 22.604C97.684 62.767 104 68.706 104 76.028 104 83.116 98.048 89 90.977 89a2 2 0 0 1 0-4.003c4.887 0 9.023-4.117 9.023-8.969 0-5.002-4.378-9.164-9.437-8.943l-2.676.116a2 2 0 0 1-2.028-2.484l.649-2.6c1.812-7.269-2.117-15.044-9.042-17.942-6.941-2.904-15.277-.248-19.227 6.142l-1.039 1.68a2 2 0 0 1-2.73.663l-1.693-1.018c-2.965-1.783-6.845-1.676-9.706.268-2.85 1.937-4.361 5.482-3.78 8.865l.335 1.94a2 2 0 0 1-1.6 2.307l-1.934.365c-4.95.936-8.52 5.657-8.048 10.644.471 4.99 4.866 8.967 9.908 8.966a2 2 0 0 1 0 4.003c-7.082.001-13.223-5.525-13.89-12.592-.668-7.067 4.329-13.64 11.288-14.954-.85-4.94 1.333-10.04 5.474-12.855 4.151-2.82 9.712-2.974 14.013-.387" clip-rule="evenodd"/></g><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></g><g id="snow__Precipitation"><g id="snow__Snowflakes"><path id="snow__Snowflake 1" fill="currentColor" d="m52.578 90.366-1.205-.689a2.9 2.9 0 0 0-.002-1.353l1.207-.69a.83.83 0 0 0 .309-1.141.85.85 0 0 0-1.153-.306l-1.206.69a2.9 2.9 0 0 0-1.184-.677v-1.38A.85.85 0 0 0 48.5 84a.843.843 0 0 0-.844.82v1.38a2.96 2.96 0 0 0-1.185.674l-1.205-.689a.848.848 0 0 0-1.259.616.83.83 0 0 0 .415.832l1.204.689c-.106.445-.105.909.003 1.353l-1.207.69a.83.83 0 0 0-.415.832.83.83 0 0 0 .62.7.85.85 0 0 0 .64-.084l1.205-.69c.334.318.74.55 1.184.675v1.382a.85.85 0 0 0 .844.82.843.843 0 0 0 .844-.82v-1.383c.441-.129.847-.36 1.184-.673l1.206.69a.847.847 0 0 0 1.259-.616.83.83 0 0 0-.415-.832m-4.712-.28a1.24 1.24 0 0 1-.622-1.25 1.25 1.25 0 0 1 .93-1.048 1.27 1.27 0 0 1 1.329.445 1.25 1.25 0 0 1 .093 1.393 1.28 1.28 0 0 1-1.73.46"><animateTransform attributeName="transform" begin="-0.8s" calcMode="spline" dur="1s" keySplines=".42 0 1 1" repeatCount="indefinite" type="translate" values="0 0;0 20"/><animate attributeName="opacity" begin="-0.8s" dur="1s" keyTimes="0;0.15;0.85;1" repeatCount="indefinite" values="0;1;1;0"/></path><path id="snow__Snowflake 2" fill="currentColor" d="m67.578 90.366-1.204-.689a2.9 2.9 0 0 0-.003-1.353l1.207-.69a.83.83 0 0 0 .309-1.141.85.85 0 0 0-1.153-.306l-1.206.69a2.9 2.9 0 0 0-1.184-.677v-1.38A.85.83 0 0 0 63.5 84a.843.843 0 0 0-.844.82v1.38a2.96 2.96 0 0 0-1.185.674l-1.205-.689a.848.848 0 0 0-1.259.616.83.83 0 0 0 .415.832l1.204.689c-.106.445-.105.909.003 1.353l-1.207.69a.83.83 0 0 0-.415.832.83.83 0 0 0 .62.7.85.85 0 0 0 .64-.084l1.205-.69c.334.318.74.55 1.184.675v1.382a.85.85 0 0 0 .844.82.843.843 0 0 0 .844-.82v-1.383c.441-.129.847-.36 1.184-.673l1.206.69a.847.847 0 0 0 1.259-.616.83.83 0 0 0-.415-.832m-4.712-.28a1.24 1.24 0 0 1-.622-1.25 1.25 1.25 0 0 1 .93-1.048 1.27 1.27 0 0 1 1.329.445 1.25 1.25 0 0 1 .093 1.393 1.28 1.28 0 0 1-1.73.46"><animateTransform attributeName="transform" begin="-0.30000000000000004s" calcMode="spline" dur="1s" keySplines=".42 0 1 1" repeatCount="indefinite" type="translate" values="0 0;0 20"/><animate attributeName="opacity" begin="-0.30000000000000004s" dur="1s" keyTimes="0;0.15;0.85;1" repeatCount="indefinite" values="0;1;1;0"/></path><path id="snow__Snowflake 3" fill="currentColor" d="m82.578 90.366-1.204-.689a2.9 2.9 0 0 0-.003-1.353l1.207-.69a.83.83 0 0 0 .309-1.141.85.85 0 0 0-1.153-.306l-1.206.69a2.9 2.9 0 0 0-1.184-.677v-1.38A.85.85 0 0 0 78.5 84a.843.843 0 0 0-.844.82v1.38a2.96 2.96 0 0 0-1.185.674l-1.205-.689a.848.848 0 0 0-1.259.616.83.83 0 0 0 .415.832l1.204.689c-.106.445-.105.909.003 1.353l-1.207.69a.83.83 0 0 0-.415.832.83.83 0 0 0 .62.7.85.85 0 0 0 .64-.084l1.205-.69c.334.318.74.55 1.184.675v1.382a.85.85 0 0 0 .844.82.843.843 0 0 0 .844-.82v-1.383c.441-.129.847-.36 1.184-.673l1.206.69a.847.847 0 0 0 1.259-.616.83.83 0 0 0-.415-.832m-4.712-.28a1.24 1.24 0 0 1-.622-1.25 1.25 1.25 0 0 1 .93-1.048 1.27 1.27 0 0 1 1.329.445 1.25 1.25 0 0 1 .093 1.393 1.28 1.28 0 0 1-1.73.46"><animateTransform attributeName="transform" begin="-0.8s" calcMode="spline" dur="1s" keySplines=".42 0 1 1" repeatCount="indefinite" type="translate" values="0 0;0 20"/><animate attributeName="opacity" begin="-0.8s" dur="1s" keyTimes="0;0.15;0.85;1" repeatCount="indefinite" values="0;1;1;0"/></path></g></g></g><defs><clipPath id="snow__clip0_2038_14131"><rect width="128" height="128" fill="#fff"/></clipPath></defs></svg>`,
+  'fog':                 `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="fog__fog" clip-path="url(#fog__clip0_2038_14230)"><g id="fog__Sky"><g id="fog__Clouds"><g id="fog__Cloud"><path id="fog__Cloud_2" fill="currentColor" fill-rule="evenodd" d="M54.837 48.212c4.99-8.074 15.428-11.388 24.171-7.73 8.734 3.654 13.676 13.4 11.38 22.604C97.684 62.767 104 68.706 104 76.028 104 83.116 98.048 89 90.977 89a2 2 0 0 1 0-4.003c4.887 0 9.023-4.117 9.023-8.969 0-5.002-4.378-9.164-9.437-8.943l-2.676.116a2 2 0 0 1-2.028-2.484l.649-2.6c1.812-7.269-2.117-15.044-9.042-17.942-6.941-2.904-15.277-.248-19.227 6.142l-1.039 1.68a2 2 0 0 1-2.73.663l-1.693-1.018c-2.965-1.783-6.845-1.676-9.706.268-2.85 1.937-4.361 5.482-3.78 8.865l.335 1.94a2 2 0 0 1-1.6 2.307l-1.934.365c-4.95.936-8.52 5.657-8.048 10.644.471 4.99 4.866 8.967 9.908 8.966a2 2 0 0 1 0 4.003c-7.082.001-13.223-5.525-13.89-12.592-.668-7.067 4.329-13.64 11.288-14.954-.85-4.94 1.333-10.04 5.474-12.855 4.151-2.82 9.712-2.974 14.013-.387" clip-rule="evenodd"/></g><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></g><g id="fog__Precipitation"><path id="fog__Line 2" stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="3" d="M40 95h48"><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;3 0;0 0"/></path><path id="fog__Line 1" stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="3" d="M40 103h48"><animateTransform attributeName="transform" begin="-2.8s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;3 0;0 0"/></path></g></g><defs><clipPath id="fog__clip0_2038_14230"><rect width="128" height="128" fill="#fff"/></clipPath></defs></svg>`,
+  'wind':                `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="wind__wind"><g id="wind__Wind"><path id="wind__Wind Line 1" stroke="currentColor" stroke-dasharray="50" stroke-linecap="round" stroke-miterlimit="10" stroke-width="4" d="M87.79 40.135c6.186-6.788 17.21-1.73 17.21 7.311C105 53.275 100.522 58 95 58H24"><animate attributeName="stroke-dashoffset" begin="0s" dur="6s" repeatCount="indefinite" values="0;1000"/></path><path id="wind__Wind Line 1_2" stroke="currentColor" stroke-dasharray="50" stroke-linecap="round" stroke-miterlimit="10" stroke-width="4" d="M60.128 87.868C66.42 94.518 78 89.872 78 80.556 78 74.726 73.35 70 67.615 70H24"><animate attributeName="stroke-dashoffset" begin="-5.8s" dur="6s" repeatCount="indefinite" values="0;1000"/></path></g></g></svg>`,
+  'drizzle':             `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="drizzle__drizzle" clip-path="url(#drizzle__clip0_2038_14065)"><g id="drizzle__Sky"><g id="drizzle__Clouds"><g id="drizzle__Cloud"><path id="drizzle__Cloud_2" fill="currentColor" fill-rule="evenodd" d="M54.837 48.212c4.99-8.074 15.428-11.388 24.171-7.73 8.734 3.654 13.676 13.4 11.38 22.604C97.684 62.767 104 68.706 104 76.028 104 83.116 98.048 89 90.977 89a2 2 0 0 1 0-4.003c4.887 0 9.023-4.117 9.023-8.969 0-5.002-4.378-9.164-9.437-8.943l-2.676.116a2 2 0 0 1-2.028-2.484l.649-2.6c1.812-7.269-2.117-15.044-9.042-17.942-6.941-2.904-15.277-.248-19.227 6.142l-1.039 1.68a2 2 0 0 1-2.73.663l-1.693-1.018c-2.965-1.783-6.845-1.676-9.706.268-2.85 1.937-4.361 5.482-3.78 8.865l.335 1.94a2 2 0 0 1-1.6 2.307l-1.934.365c-4.95.936-8.52 5.657-8.048 10.644.471 4.99 4.866 8.967 9.908 8.966a2 2 0 0 1 0 4.003c-7.082.001-13.223-5.525-13.89-12.592-.668-7.067 4.329-13.64 11.288-14.954-.85-4.94 1.333-10.04 5.474-12.855 4.151-2.82 9.712-2.974 14.013-.387" clip-rule="evenodd"/></g><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></g><g id="drizzle__Precipitation"><g id="drizzle__Raindrops"><path id="drizzle__Raindrop 1" stroke="currentColor" stroke-linecap="round" stroke-width="4" d="M52 87v3"><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="1s" keySplines=".42 0 1 1" repeatCount="indefinite" type="translate" values="0 0;0 20"/><animate attributeName="opacity" begin="0s" dur="1s" keyTimes="0;0.15;0.85;1" repeatCount="indefinite" values="0;1;1;0"/></path><path id="drizzle__Raindrop 2" stroke="currentColor" stroke-linecap="round" stroke-width="4" d="M64 87v3"><animateTransform attributeName="transform" begin="-0.6s" calcMode="spline" dur="1s" keySplines=".42 0 1 1" repeatCount="indefinite" type="translate" values="0 0;0 20"/><animate attributeName="opacity" begin="-0.6s" dur="1s" keyTimes="0;0.15;0.85;1" repeatCount="indefinite" values="0;1;1;0"/></path><path id="drizzle__Raindrop 3" stroke="currentColor" stroke-linecap="round" stroke-width="4" d="M76 87v3"><animateTransform attributeName="transform" begin="-0.19999999999999996s" calcMode="spline" dur="1s" keySplines=".42 0 1 1" repeatCount="indefinite" type="translate" values="0 0;0 20"/><animate attributeName="opacity" begin="-0.19999999999999996s" dur="1s" keyTimes="0;0.15;0.85;1" repeatCount="indefinite" values="0;1;1;0"/></path></g></g></g><defs><clipPath id="drizzle__clip0_2038_14065"><rect width="128" height="128" fill="#fff"/></clipPath></defs></svg>`,
+  'thunderstorms':       `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 128 128"><g id="thunderstorms__thunderstorms" clip-path="url(#thunderstorms__clip0_2038_14296)"><g id="thunderstorms__Sky"><g id="thunderstorms__Clouds"><g id="thunderstorms__Cloud"><path id="thunderstorms__Cloud_2" fill="currentColor" fill-rule="evenodd" d="M54.837 48.212c4.99-8.074 15.428-11.388 24.171-7.73 8.734 3.654 13.676 13.4 11.38 22.604C97.683 62.767 104 68.706 104 76.028 104 83.116 98.047 89 90.977 89a2 2 0 0 1 0-4.003c4.887 0 9.023-4.117 9.023-8.969 0-5.002-4.378-9.164-9.437-8.943l-2.677.116a2 2 0 0 1-2.027-2.484l.648-2.6c1.813-7.269-2.116-15.044-9.042-17.942-6.94-2.904-15.277-.248-19.226 6.142l-1.039 1.68a2 2 0 0 1-2.73.663l-1.693-1.018c-2.965-1.783-6.845-1.676-9.706.268-2.85 1.937-4.361 5.482-3.78 8.865l.335 1.94a2 2 0 0 1-1.6 2.307l-1.934.365c-4.95.936-8.52 5.657-8.048 10.644.471 4.99 4.866 8.967 9.908 8.966a2 2 0 0 1 0 4.003c-7.083.001-13.223-5.525-13.89-12.592-.669-7.067 4.328-13.64 11.288-14.954-.85-4.94 1.333-10.04 5.474-12.855 4.151-2.82 9.712-2.974 14.013-.387" clip-rule="evenodd"/></g><animateTransform attributeName="transform" begin="0s" calcMode="spline" dur="3s" keySplines=".42 0 .58 1; .42 0 .58 1" repeatCount="indefinite" type="translate" values="0 0;0 -3;0 0"/></g></g><g id="thunderstorms__Lightning"><path id="thunderstorms__Lightning Bolt" fill="currentColor" d="m60 68-8 22.91h8L56 110l20-26.727H64L72 68z"><animate attributeName="opacity" begin="0s" dur="2s" keyTimes="0;0.25;0.33;0.42;0.5;0.57;0.63;0.67;1" repeatCount="indefinite" values="1;1;0;1;0;1;0;1;1"/></path></g></g><defs><clipPath id="thunderstorms__clip0_2038_14296"><rect width="128" height="128" fill="#fff"/></clipPath></defs></svg>`,
 };
 
 let _svgUid = 0;
 
 function _processSvg(raw, uid, speedMult, sz) {
-  const pfx = \`wi\${uid}\`;
+  const pfx = `wi${uid}`;
   const ids = [];
-  raw.replace(/\\bid="([^"]+)"/g, (_, id) => ids.push(id));
+  raw.replace(/\bid="([^"]+)"/g, (_, id) => ids.push(id));
   let out = raw;
   // Namespace every id and its references so duplicate icons don't clash in the DOM
   ids.forEach(id => {
-    const e   = id.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\/* MODULES CONCATENATED BY build.js */');
-    const nid = \`\${pfx}-\${id}\`;
+    const e   = id.replace(/[.*+?^${}()|[\]\\]/g, '\\/* MODULES CONCATENATED BY build.js */');
+    const nid = `${pfx}-${id}`;
     out = out
-      .replace(new RegExp(\`id="\${e}"\`, 'g'),           \`id="\${nid}"\`)
-      .replace(new RegExp(\`url\\\\(#\${e}\\\\)\`, 'g'),      \`url(#\${nid})\`)
-      .replace(new RegExp(\`href="#\${e}"\`, 'g'),         \`href="#\${nid}"\`)
-      .replace(new RegExp(\`xlink:href="#\${e}"\`, 'g'),  \`xlink:href="#\${nid}"\`);
+      .replace(new RegExp(`id="${e}"`, 'g'),           `id="${nid}"`)
+      .replace(new RegExp(`url\\(#${e}\\)`, 'g'),      `url(#${nid})`)
+      .replace(new RegExp(`href="#${e}"`, 'g'),         `href="#${nid}"`)
+      .replace(new RegExp(`xlink:href="#${e}"`, 'g'),  `xlink:href="#${nid}"`);
   });
   // Scale all SMIL animation durations
   out = out
-    .replace(/\\bdur="([\\d.]+)s"/g,  (_, n) => \`dur="\${(parseFloat(n) * speedMult).toFixed(3)}s"\`)
-    .replace(/\\bdur="([\\d.]+)ms"/g, (_, n) => \`dur="\${Math.round(parseFloat(n) * speedMult)}ms"\`);
-  out = out.replace(/<svg /, \`<svg width="\${sz}" height="\${sz}" \`);
+    .replace(/\bdur="([\d.]+)s"/g,  (_, n) => `dur="${(parseFloat(n) * speedMult).toFixed(3)}s"`)
+    .replace(/\bdur="([\d.]+)ms"/g, (_, n) => `dur="${Math.round(parseFloat(n) * speedMult)}ms"`);
+  out = out.replace(/<svg /, `<svg width="${sz}" height="${sz}" `);
   return out;
 }
 
 
-// \u2500\u2500\u2500 API Fetch Helpers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ─── API Fetch Helpers ────────────────────────────────────────
 // Extracted from Command Center.html
 // All functions use fetch() with 5s timeout and sensible error handling
 
@@ -501,7 +513,7 @@ async function fetchChainStats() {
  */
 async function fetchWeather(lat, lng, tempUnit = 'fahrenheit', tzName = 'auto') {
   try {
-    const url = \`https://api.open-meteo.com/v1/forecast?latitude=\${lat}&longitude=\${lng}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m&hourly=temperature_2m,weather_code,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&temperature_unit=\${tempUnit}&wind_speed_unit=mph&forecast_days=1&timezone=\${tzName}\`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m&hourly=temperature_2m,weather_code,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&temperature_unit=${tempUnit}&wind_speed_unit=mph&forecast_days=1&timezone=${tzName}`;
 
     const r = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT) });
     if (!r.ok) throw new Error('open-meteo api not ok');
@@ -538,8 +550,8 @@ async function fetchWeather(lat, lng, tempUnit = 'fahrenheit', tzName = 'auto') 
       wxCond: cur.weather_code,
       wxCode: cur.weather_code,
       wxWindSpeed: Math.round(cur.wind_speed_10m),
-      wxWind: \`\${windDir} \${Math.round(cur.wind_speed_10m)} mph\`,
-      wxHum: \`\${cur.relative_humidity_2m}%\`,
+      wxWind: `${windDir} ${Math.round(cur.wind_speed_10m)} mph`,
+      wxHum: `${cur.relative_humidity_2m}%`,
       wxHi: Math.round(j.daily.temperature_2m_max[0]),
       wxLo: Math.round(j.daily.temperature_2m_min[0]),
       wxSunriseHr: parseInt(j.daily.sunrise[0].split('T')[1]),
@@ -562,10 +574,10 @@ async function fetchRSSFeeds(feeds = [], apiKey = '') {
       return [];
     }
 
-    const key = apiKey ? \`&api_key=\${apiKey}\` : '';
+    const key = apiKey ? `&api_key=${apiKey}` : '';
     const results = await Promise.allSettled(
       feeds.map(async feedUrl => {
-        const url = \`https://api.rss2json.com/v1/api.json?rss_url=\${encodeURIComponent(feedUrl)}\${key}\`;
+        const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}${key}`;
         const r = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT) });
         if (!r.ok) throw new Error('rss2json api not ok');
         const j = await r.json();
@@ -580,10 +592,10 @@ async function fetchRSSFeeds(feeds = [], apiKey = '') {
           link: it.link,
           img: it.thumbnail
             || (it.enclosure && it.enclosure.type && it.enclosure.type.startsWith('image/') ? it.enclosure.link : null)
-            || (it.description ? (it.description.match(/<img\\b[^>]*\\bsrc=["']([^"']+)["']/i) || [])[1] || null : null)
+            || (it.description ? (it.description.match(/<img\b[^>]*\bsrc=["']([^"']+)["']/i) || [])[1] || null : null)
             || null,
           snippet: it.description
-            ? it.description.replace(/<[^>]+>/g, '').replace(/\\s+/g, ' ').trim().slice(0, 1000)
+            ? it.description.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 1000)
             : '',
         }));
       })
@@ -625,12 +637,12 @@ async function fetchBitAxeMiners(apiUrl) {
  */
 async function fetchBitAxeMiner(ip) {
   try {
-    const r = await fetch(\`http://\${ip}/api/system/info\`, { signal: AbortSignal.timeout(FETCH_TIMEOUT) });
+    const r = await fetch(`http://${ip}/api/system/info`, { signal: AbortSignal.timeout(FETCH_TIMEOUT) });
     if (!r.ok) throw new Error('bitaxe direct fetch not ok');
     const data = await r.json();
     return { ip, online: true, data };
   } catch (err) {
-    console.error(\`fetchBitAxeMiner(\${ip}) error:\`, err);
+    console.error(`fetchBitAxeMiner(${ip}) error:`, err);
     return { ip, online: false };
   }
 }
@@ -656,23 +668,21 @@ function Num({ size = 'md', value, unit, delta, deltaUp, style = {} }) {
       }}>{value}</span>
       {unit && <span style={{ fontFamily: T.mono, fontSize: Math.max(10, px * 0.52), color: T.ink3, letterSpacing: 0 }}>{unit}</span>}
       {delta && <span style={{ fontFamily: T.mono, fontSize: Math.max(10, px * 0.46), color: deltaUp ? T.orange : T.ink3, marginLeft: 3 }}>
-        {deltaUp ? '\u25B2 ' : '\u25BC '}{delta}
+        {deltaUp ? '▲ ' : '▼ '}{delta}
       </span>}
     </span>
   );
 }
 
-const Num = Num; // exported
 
 
 // Import useT hook from theme context (available in build context)
 
 function StatusDot({ ok }) {
   const T = useT();
-  return <span style={{ color: ok ? T.green : T.red, marginRight: 5 }}>\u25CF</span>;
+  return <span style={{ color: ok ? T.green : T.red, marginRight: 5 }}>●</span>;
 }
 
-const StatusDot = StatusDot; // exported
 
 
 // Import useT hook from theme context (available in build context)
@@ -682,7 +692,6 @@ function Kicker({ children, color, style = {} }) {
   return <div style={{ fontFamily: T.sans, fontSize: 10, fontWeight: 600, letterSpacing: 1.8, textTransform: 'uppercase', color: color || T.ink3, ...style }}>{children}</div>;
 }
 
-const Kicker = Kicker; // exported
 
 
 // Import useT hook from theme context (available in build context)
@@ -690,10 +699,9 @@ const Kicker = Kicker; // exported
 function Rule({ double, dash, weight = 1, style = {} }) {
   const T = useT();
   if (double) return <div style={{ borderTop: '2px solid ' + T.rule, borderBottom: '1px solid ' + T.rule, height: 5, ...style }} />;
-  return <div style={{ borderTop: \`\${weight}px \${dash ? 'dashed' : 'solid'} \${T.rule2}\`, ...style }} />;
+  return <div style={{ borderTop: `${weight}px ${dash ? 'dashed' : 'solid'} ${T.rule2}`, ...style }} />;
 }
 
-const Rule = Rule; // exported
 
 
 // Import useT hook from theme context (available in build context)
@@ -703,10 +711,9 @@ function ItalicDeck({ children, style = {} }) {
   return <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 18, lineHeight: 1.45, color: T.ink2, ...style }}>{children}</div>;
 }
 
-const ItalicDeck = ItalicDeck; // exported
 
 
-// \u2500\u2500\u2500 Real chart from price data \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ─── Real chart from price data ────────────────────────────────
 function LineChart({ w, h, color, points, fill, vwap }) {
   const T = useT();
   color = color ?? T.orange;
@@ -745,11 +752,11 @@ function LineChart({ w, h, color, points, fill, vwap }) {
     vwapY = Math.max(2, Math.min(h - 2, h - 4 - ((vwap - minP) / range) * (h - 8)));
   }
 
-  const d = pts.map((p, i) => \`\${i ? 'L' : 'M'}\${p[0]},\${p[1]}\`).join(' ');
+  const d = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0]},${p[1]}`).join(' ');
   const [lx, ly] = pts[pts.length - 1];
   return (
     <svg width={w} height={h} style={{ display: 'block', flexShrink: 0 }}>
-      {fill && <path d={\`\${d} L\${w},\${h} L0,\${h}Z\`} fill={color} fillOpacity={0.07} />}
+      {fill && <path d={`${d} L${w},${h} L0,${h}Z`} fill={color} fillOpacity={0.07} />}
       {vwapY != null && (
         <line x1={0} y1={vwapY} x2={w} y2={vwapY}
           stroke={T.ink3} strokeWidth={1} strokeDasharray="3 4" />
@@ -761,7 +768,7 @@ function LineChart({ w, h, color, points, fill, vwap }) {
   );
 }
 
-const LineChart = LineChart; // exported
+
 
 
 function BiasBar({ left, center, right, total }) {
@@ -770,19 +777,17 @@ function BiasBar({ left, center, right, total }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.mono, fontSize: 10, color: T.ink3, marginBottom: 4 }}>
-        <span>{total} sources</span><span>L {left} \xB7 C {center} \xB7 R {right}</span>
+        <span>{total} sources</span><span>L {left} · C {center} · R {right}</span>
       </div>
       <div style={{ display: 'flex', height: 4, background: T.rule3 }}>
-        <div style={{ width: \`\${(left / tot) * 100}%\`, background: T.ink }} />
-        <div style={{ width: \`\${(center / tot) * 100}%\`, background: T.ink3 }} />
-        <div style={{ width: \`\${(right / tot) * 100}%\`, background: T.ink }} />
+        <div style={{ width: `${(left / tot) * 100}%`, background: T.ink }} />
+        <div style={{ width: `${(center / tot) * 100}%`, background: T.ink3 }} />
+        <div style={{ width: `${(right / tot) * 100}%`, background: T.ink }} />
       </div>
     </div>
   );
 }
 
-
-let _svgUid = 0;
 
 function WxGlyph({ kind, size, speed: speedProp }) {
   const T      = useT();
@@ -832,10 +837,10 @@ function useClock(timeFormat = '24h') {
   const dispH = timeFormat === '12h' ? String(h % 12 || 12) : pad(h);
 
   return {
-    timeHM: \`\${dispH}:\${pad(m)}\`,
-    timeSec: \`:\${pad(now.getSeconds())}\`,
+    timeHM: `${dispH}:${pad(m)}`,
+    timeSec: `:${pad(now.getSeconds())}`,
     amPm,
-    dayStr: \`\${days[now.getDay()]}, \${months[now.getMonth()]} \${now.getDate()}\`,
+    dayStr: `${days[now.getDay()]}, ${months[now.getMonth()]} ${now.getDate()}`,
     dateShort: now.toISOString().slice(0, 10),
     loading: false,
     error: false,
@@ -981,6 +986,8 @@ function useChain() {
 }
 
 
+
+
 /**
  * useBitaxe Hook
  * Fetches BitAxe miner data from API or direct IP polling
@@ -1013,7 +1020,7 @@ function useBitaxe(apiUrl, ips) {
     } else {
       const results = await Promise.allSettled(
         ips.map(async ip => {
-          const r = await fetch(\`http://\${ip}/api/system/info\`, { signal: AbortSignal.timeout(5000) });
+          const r = await fetch(`http://${ip}/api/system/info`, { signal: AbortSignal.timeout(5000) });
           if (!r.ok) throw new Error('bitaxe');
           const data = await r.json();
           return { ip, online: true, data };
@@ -1045,49 +1052,7 @@ function useBitaxe(apiUrl, ips) {
 }
 
 
-/**
- * Hour formatter for 12h/24h time formats
- */
-function fmtHour(hr, timeFormat) {
-  if (timeFormat === '24h') return \`\${String(hr).padStart(2, '0')}:00\`;
-  if (hr === 0) return '12am';
-  if (hr < 12) return \`\${hr}am\`;
-  if (hr === 12) return '12pm';
-  return \`\${hr - 12}pm\`;
-}
 
-/**
- * WMO weather code \u2192 description
- */
-function wmoDesc(code) {
-  const m = {
-    0: 'Clear sky',
-    1: 'Mainly clear',
-    2: 'Partly cloudy',
-    3: 'Overcast',
-    45: 'Fog',
-    48: 'Icy fog',
-    51: 'Light drizzle',
-    53: 'Drizzle',
-    55: 'Heavy drizzle',
-    61: 'Light rain',
-    63: 'Rain',
-    65: 'Heavy rain',
-    71: 'Light snow',
-    73: 'Snow',
-    75: 'Heavy snow',
-    77: 'Snow grains',
-    80: 'Rain showers',
-    81: 'Heavy showers',
-    82: 'Violent showers',
-    85: 'Snow showers',
-    86: 'Heavy snow showers',
-    95: 'Thunderstorm',
-    96: 'Thunderstorm w/ hail',
-    99: 'Heavy thunderstorm',
-  };
-  return m[code] || 'Unknown';
-}
 
 /**
  * useWeather Hook
@@ -1107,7 +1072,7 @@ function useWeather(lat, lng, tempUnit) {
 
   const fetchWeather = async () => {
     try {
-      const url = \`https://api.open-meteo.com/v1/forecast?latitude=\${lat}&longitude=\${lng}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m&hourly=temperature_2m,weather_code,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&temperature_unit=\${tempUnit}&wind_speed_unit=mph&forecast_days=1&timezone=auto\`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m&hourly=temperature_2m,weather_code,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&temperature_unit=${tempUnit}&wind_speed_unit=mph&forecast_days=1&timezone=auto`;
       const r = await fetch(url);
       if (!r.ok) throw new Error('weather');
       const j = await r.json();
@@ -1143,8 +1108,8 @@ function useWeather(lat, lng, tempUnit) {
         wxCond: wmoDesc(cur.weather_code),
         wxCode: cur.weather_code,
         wxWindSpeed: Math.round(cur.wind_speed_10m),
-        wxWind: \`\${windDir} \${Math.round(cur.wind_speed_10m)} mph\`,
-        wxHum: \`\${cur.relative_humidity_2m}%\`,
+        wxWind: `${windDir} ${Math.round(cur.wind_speed_10m)} mph`,
+        wxHum: `${cur.relative_humidity_2m}%`,
         wxHi: Math.round(j.daily.temperature_2m_max[0]),
         wxLo: Math.round(j.daily.temperature_2m_min[0]),
         wxSunriseHr: parseInt(j.daily.sunrise[0].split('T')[1]),
@@ -1173,17 +1138,7 @@ function useWeather(lat, lng, tempUnit) {
 }
 
 
-/**
- * Calculate time ago string for RSS articles
- */
-function timeAgo(dateStr) {
-  const diff = (Date.now() - new Date(dateStr)) / 1000;
-  if (diff <= 0) return 'just now';
-  if (diff < 60) return \`\${Math.round(diff)}s ago\`;
-  if (diff < 3600) return \`\${Math.round(diff / 60)}m ago\`;
-  if (diff < 86400) return \`\${Math.round(diff / 3600)}h ago\`;
-  return \`\${Math.round(diff / 86400)}d ago\`;
-}
+
 
 /**
  * useRSS Hook
@@ -1204,12 +1159,12 @@ function useRSS() {
   const [lastOk, setLastOk] = useState(null);
 
   const fetchRSS = async () => {
-    const key = CONFIG.RSS2JSON_KEY ? \`&api_key=\${CONFIG.RSS2JSON_KEY}\` : '';
+    const key = CONFIG.RSS2JSON_KEY ? `&api_key=${CONFIG.RSS2JSON_KEY}` : '';
     const feeds = CONFIG.RSS_FEEDS || [];
 
     const results = await Promise.allSettled(
       feeds.map(async feedUrl => {
-        const url = \`https://api.rss2json.com/v1/api.json?rss_url=\${encodeURIComponent(feedUrl)}\${key}\`;
+        const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}${key}`;
         const r = await fetch(url);
         if (!r.ok) throw new Error('rss');
         const j = await r.json();
@@ -1225,10 +1180,10 @@ function useRSS() {
           img:
             it.thumbnail ||
             (it.enclosure && it.enclosure.type && it.enclosure.type.startsWith('image/') ? it.enclosure.link : null) ||
-            (it.description ? (it.description.match(/<img\\b[^>]*\\bsrc=["']([^"']+)["']/i) || [])[1] || null : null) ||
+            (it.description ? (it.description.match(/<img\b[^>]*\bsrc=["']([^"']+)["']/i) || [])[1] || null : null) ||
             null,
           snippet: it.description
-            ? it.description.replace(/<[^>]+>/g, '').replace(/\\s+/g, ' ').trim().slice(0, 1000)
+            ? it.description.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 1000)
             : '',
         }));
       })
@@ -1273,6 +1228,7 @@ function useRSS() {
 }
 
 
+
 /**
  * useFeedHealth Hook
  * Monitors health of all feeds (loading, live, degraded, offline)
@@ -1307,13 +1263,15 @@ function useFeedHealth(feeds) {
 }
 
 
+
+
 /**
- * Masthead \u2014 Top header bar
+ * Masthead — Top header bar
  * Shows date, time, weather summary, and theme toggle buttons
  *
  * Props:
  *   - clock: { dayStr, timeHM, timeSec, amPm }
- *   - wxSummary: string (e.g., "72\xB0F partly cloudy")
+ *   - wxSummary: string (e.g., "72°F partly cloudy")
  *   - dark: boolean
  *   - onToggleDark: () => void
  *   - onOpenSettings: () => void
@@ -1337,12 +1295,12 @@ function Masthead({ clock, wxSummary, dark, onToggleDark, onOpenSettings }) {
       }}>
         <span style={{ whiteSpace: 'nowrap' }}>{clock.dayStr}</span>
         <span style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>
-          Home Edition \xB7 Vol. I, N\xBA 238
+          Home Edition · Vol. I, Nº 238
         </span>
         <span style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
           {clock.timeHM}
           {clock.timeSec}
-          {clock.amPm ? \` \${clock.amPm}\` : ''} \xB7 {wxSummary}
+          {clock.amPm ? ` ${clock.amPm}` : ''} · {wxSummary}
         </span>
         <div style={{ display: 'flex', gap: 16, marginLeft: 20 }}>
           <button
@@ -1360,7 +1318,7 @@ function Masthead({ clock, wxSummary, dark, onToggleDark, onOpenSettings }) {
               color: T.ink,
             }}
           >
-            \u2699 Masthead
+            ⚙ Masthead
           </button>
           <button
             onClick={onToggleDark}
@@ -1377,7 +1335,7 @@ function Masthead({ clock, wxSummary, dark, onToggleDark, onOpenSettings }) {
               padding: 0,
             }}
           >
-            {dark ? '\u25D1 Light' : '\u25D0 Dark'}
+            {dark ? '◑ Light' : '◐ Dark'}
           </button>
         </div>
       </div>
@@ -1389,63 +1347,62 @@ function Masthead({ clock, wxSummary, dark, onToggleDark, onOpenSettings }) {
 function Price({ btc }) {
   const T = useT();
 
-  const btcPrice   = btc.data ? \`\${fmtPrice(btc.data.price)}\` : '\u2014';
-  const btcChgPct  = btc.data ? fmtPct(btc.data.chgPct) : '\u2014';
+  const btcPrice   = btc.data ? `${fmtPrice(btc.data.price)}` : '—';
+  const btcChgPct  = btc.data ? fmtPct(btc.data.chgPct) : '—';
   const btcUp      = btc.data ? btc.data.chgPct >= 0 : true;
-  const btcHi      = btc.data ? fmtPrice(btc.data.hi) : '\u2014';
-  const btcLo      = btc.data ? fmtPrice(btc.data.lo) : '\u2014';
-  const btcCap     = btc.data?.cap != null ? \`\${(btc.data.cap / 1e12).toFixed(2)}T\` : '\u2014';
-  const btcVol     = btc.data ? fmtVolUsd(btc.data.volBtc * btc.data.price) : '\u2014';
+  const btcHi      = btc.data ? fmtPrice(btc.data.hi) : '—';
+  const btcLo      = btc.data ? fmtPrice(btc.data.lo) : '—';
+  const btcCap     = btc.data?.cap != null ? `${(btc.data.cap / 1e12).toFixed(2)}T` : '—';
+  const btcVol     = btc.data ? fmtVolUsd(btc.data.volBtc * btc.data.price) : '—';
 
   return (
-    <div style={{ borderRight:\`1px solid \${T.rule2}\`, paddingRight:24, display:'flex', flexDirection:'column', gap:13, overflow:'hidden' }}>
+    <div style={{ borderRight:`1px solid ${T.rule2}`, paddingRight:24, display:'flex', flexDirection:'column', gap:13, overflow:'hidden' }}>
       {/* BTC market */}
-      <Kicker>Markets \xB7 BTC / USD</Kicker>
+      <Kicker>Markets · BTC / USD</Kicker>
       {/* Row 1: price left, % change right */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end' }}>
         <Num size="hero" value={btcPrice} />
         <div style={{ fontFamily:T.mono, fontSize:22, fontWeight:600, color:btcUp ? T.green : T.red, paddingBottom:10 }}>
-          {btcUp ? '\u25B2' : '\u25BC'} {btcChgPct}%
+          {btcUp ? '▲' : '▼'} {btcChgPct}%
         </div>
       </div>
-      {/* Row 2: hi \xB7 lo \xB7 cap bar */}
-      <div style={{ display:'flex', justifyContent:'space-between', fontFamily:T.mono, fontSize:11, borderTop:\`1px solid \${T.rule2}\`, borderBottom:\`1px solid \${T.rule2}\`, padding:'5px 0', marginBottom:6 }}>
-        <span style={{ color:T.green }}>hi \${btcHi}</span>
-        <span style={{ color:T.ink3 }}>\xB7</span>
-        <span style={{ color:T.red }}>lo \${btcLo}</span>
-        <span style={{ color:T.ink3 }}>\xB7</span>
+      {/* Row 2: hi · lo · cap bar */}
+      <div style={{ display:'flex', justifyContent:'space-between', fontFamily:T.mono, fontSize:11, borderTop:`1px solid ${T.rule2}`, borderBottom:`1px solid ${T.rule2}`, padding:'5px 0', marginBottom:6 }}>
+        <span style={{ color:T.green }}>hi ${btcHi}</span>
+        <span style={{ color:T.ink3 }}>·</span>
+        <span style={{ color:T.red }}>lo ${btcLo}</span>
+        <span style={{ color:T.ink3 }}>·</span>
         <span style={{ color:btcUp ? T.green : T.red }}>cap {btcCap}</span>
-        <span style={{ color:T.ink3 }}>\xB7</span>
+        <span style={{ color:T.ink3 }}>·</span>
         <span style={{ color:T.ink3 }}>vol {btcVol}</span>
-        <span style={{ color:T.ink3 }}>\xB7</span>
-        <span style={{ color:T.orange }}>{btc.data ? fmtNum(Math.round(1e8 / btc.data.price)) : '\u2014'} sat/$</span>
+        <span style={{ color:T.ink3 }}>·</span>
+        <span style={{ color:T.orange }}>{btc.data ? fmtNum(Math.round(1e8 / btc.data.price)) : '—'} sat/$</span>
       </div>
       <LineChart w={470} h={110} color={T.orange} points={btc.chartPts} vwap={btc.data?.vwap} fill />
       <div style={{ display:'flex', justifyContent:'space-between', fontFamily:T.mono, fontSize:10, color:T.ink3 }}>
-        <span>24h ago</span><span>\u221218h</span><span>\u221212h</span><span>\u22126h</span><span>now</span>
+        <span>24h ago</span><span>−18h</span><span>−12h</span><span>−6h</span><span>now</span>
       </div>
       <Rule dash />
     </div>
   );
 }
 
-const Price = Price; // exported
 
 
 function Ticker({ chain, feedHealth }) {
   const T = useT();
 
-  const blockHeight = chain.data ? fmtNum(chain.data.height) : '\u2014';
-  const mempoolMB   = chain.data ? \`\${(chain.data.mempoolBytes / 1e6).toFixed(0)} MB\` : '\u2014';
-  const mempoolTx   = chain.data ? fmtNum(chain.data.mempoolTx) : '\u2014';
-  const epochPct    = chain.data?.epochProgress;
+  const blockHeight = chain.data ? fmtNum(chain.data.height) : '—';
+  const mempoolMB   = chain.data ? `${(chain.data.mempoolBytes / 1e6).toFixed(0)} MB` : '—';
+  const mempoolTx   = chain.data ? fmtNum(chain.data.mempoolTx) : '—';
+  const epochPct    = chain.data?.progressPercent;
   const rawBlockTime = chain.data?.blockTimeMs;
   const blockTimeCol = rawBlockTime == null ? T.ink : rawBlockTime / 1000 < 570 ? T.orange : rawBlockTime / 1000 <= 630 ? T.green : T.red;
   const blocksToClr  = chain.data ? Math.ceil(chain.data.mempoolBytes / 1_000_000) : null;
   const blocksToClrCol= blocksToClr == null ? T.ink : blocksToClr <= 2 ? T.green : blocksToClr <= 8 ? T.ink : T.red;
 
   return (
-    <div style={{ display:'flex', alignItems:'center', padding:'9px 0', borderBottom:\`1px solid \${T.rule2}\`, fontFamily:T.mono, fontSize:12, overflow:'hidden' }}>
+    <div style={{ display:'flex', alignItems:'center', padding:'9px 0', borderBottom:`1px solid ${T.rule2}`, fontFamily:T.mono, fontSize:12, overflow:'hidden' }}>
       <span style={{ fontFamily:T.sans, fontWeight:700, fontSize:9, letterSpacing:2, color:T.ink3, display:'flex', alignItems:'center', gap:4, flexShrink:0, marginRight:20 }}>
         LIVE
         <span style={{
@@ -1453,24 +1410,24 @@ function Ticker({ chain, feedHealth }) {
           animation: feedHealth === 'live' ? 'live-pulse 1.4s ease-in-out infinite' : 'none',
           display: 'inline-block',
           lineHeight: 1,
-        }}>\u23FA</span>
+        }}>⏺</span>
       </span>
       <div style={{ flex:1, overflow:'hidden' }}>
         <div style={{ display:'inline-flex', whiteSpace:'nowrap', animation:'ticker-scroll 100s linear infinite' }}>
           {(() => {
             const halvingBlocksLeft = chain.data
               ? fmtNum(Math.ceil((chain.data.height + 1) / 210000) * 210000 - chain.data.height)
-              : '\u2014';
+              : '—';
             const items = [
               ['BLOCK',   blockHeight,                                                                                    'latest',                                                                                          T.ink3],
-              ['HASH',    chain.data ? fmtHashrate(chain.data.hashrate) : '\u2014',                                           chain.data && chain.data.diffAdj != null ? \`\${chain.data.diffAdj >= 0 ? '+' : ''}\${chain.data.diffAdj.toFixed(1)}%\` : '', T.ink3],
-              ['TIME',    chain.data ? fmtBlockTime(chain.data.blockTimeMs) : '\u2014',                                       'avg',                                                                                             blockTimeCol],
-              ['EPOCH',   epochPct != null ? \`\${epochPct.toFixed(0)}%\` : '\u2014',                                            chain.data ? \`\${fmtNum(chain.data.remainingBlocks)} blk left\` : '',                               T.ink3],
-              ['FEE',     chain.data ? \`\${chain.data.feeFast} sat/vB\` : '\u2014',                                             chain.data ? \`eco \${chain.data.feeEco}\` : '',                                                     T.ink3],
-              ['MEMPOOL', mempoolMB,                                                                                      \`\${mempoolTx} tx\`,                                                                                 blocksToClrCol],
-              ['CLR',     blocksToClr != null ? \`\${blocksToClr} blk\` : '\u2014',                                              'to clear',                                                                                        blocksToClrCol],
-              ['SUPPLY',  chain.data ? chain.data.circulating : '\u2014',                                                     '',                                                                                                T.ink3],
-              ['HALVING', chain.data?.nextHalvingDate || '\u2014',                                                             halvingBlocksLeft !== '\u2014' ? \`\${halvingBlocksLeft} blk\` : '',                                      T.ink3],
+              ['HASH',    chain.data ? fmtHashrate(chain.data.hashrate) : '—',                                           chain.data && chain.data.diffAdj != null ? `${chain.data.diffAdj >= 0 ? '+' : ''}${chain.data.diffAdj.toFixed(1)}%` : '', T.ink3],
+              ['TIME',    chain.data ? fmtBlockTime(chain.data.blockTimeMs) : '—',                                       'avg',                                                                                             blockTimeCol],
+              ['EPOCH',   epochPct != null ? `${epochPct.toFixed(0)}%` : '—',                                            chain.data ? `${fmtNum(chain.data.remainingBlocks)} blk left` : '',                               T.ink3],
+              ['FEE',     chain.data ? `${chain.data.feeFast} sat/vB` : '—',                                             chain.data ? `eco ${chain.data.feeEco}` : '',                                                     T.ink3],
+              ['MEMPOOL', mempoolMB,                                                                                      `${mempoolTx} tx`,                                                                                 blocksToClrCol],
+              ['CLR',     blocksToClr != null ? `${blocksToClr} blk` : '—',                                              'to clear',                                                                                        blocksToClrCol],
+              ['SUPPLY',  chain.data ? chain.data.circulating : '—',                                                     '',                                                                                                T.ink3],
+              ['HALVING', chain.data?.nextHalvingDate || '—',                                                             halvingBlocksLeft !== '—' ? `${halvingBlocksLeft} blk` : '',                                      T.ink3],
             ];
             const renderItem = ([k, v, s, sc], pfx) => (
               <span key={pfx} style={{ display:'inline-flex', alignItems:'baseline', gap:5, paddingRight:36, flexShrink:0 }}>
@@ -1480,8 +1437,8 @@ function Ticker({ chain, feedHealth }) {
               </span>
             );
             return [
-              ...items.map((item, i) => renderItem(item, \`a\${i}\`)),
-              ...items.map((item, i) => renderItem(item, \`b\${i}\`)),
+              ...items.map((item, i) => renderItem(item, `a${i}`)),
+              ...items.map((item, i) => renderItem(item, `b${i}`)),
             ];
           })()}
         </div>
@@ -1490,7 +1447,6 @@ function Ticker({ chain, feedHealth }) {
   );
 }
 
-const Ticker = Ticker; // exported
 
 
 function News({ lead, rss }) {
@@ -1498,12 +1454,12 @@ function News({ lead, rss }) {
   const newsItems = rss.items || [];
 
   return (
-    <div style={{ borderRight:\`1px solid \${T.rule2}\`, paddingRight:24, overflow:'hidden', display:'flex', flexDirection:'column', minHeight:0 }}>
+    <div style={{ borderRight:`1px solid ${T.rule2}`, paddingRight:24, overflow:'hidden', display:'flex', flexDirection:'column', minHeight:0 }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
         <Kicker>Bitcoin news</Kicker>
         {rss.err && <Kicker color={T.red}>feed error</Kicker>}
       </div>
-      <div className={\`news-col-wrap\${newsItems.length < 8 ? ' at-bottom' : ''}\`} style={{ marginTop:8, flex:1, minHeight:0 }}>
+      <div className={`news-col-wrap${newsItems.length < 8 ? ' at-bottom' : ''}`} style={{ marginTop:8, flex:1, minHeight:0 }}>
         <div className="news-scroll" style={{ height:'100%', overflowY:'auto' }}
           onScroll={e => {
             const el = e.currentTarget;
@@ -1514,7 +1470,7 @@ function News({ lead, rss }) {
             wrap.classList.toggle('at-bottom', el.scrollHeight - el.scrollTop - el.clientHeight < 4);
           }}>
           {newsItems.length > 0 ? newsItems.map((it,i)=>(
-            <a key={i} href={it.link} target="_blank" rel="noopener noreferrer" style={{ display:'block', padding:'9px 0', borderBottom:\`1px solid \${T.rule3}\` }}>
+            <a key={i} href={it.link} target="_blank" rel="noopener noreferrer" style={{ display:'block', padding:'9px 0', borderBottom:`1px solid ${T.rule3}` }}>
               <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
                 <Kicker color={it.cat === 'BREAKING' ? T.red : T.ink3}>{it.cat}</Kicker>
                 <span style={{ fontFamily:T.mono, fontSize:10, color:T.ink3 }}>{it.t}</span>
@@ -1524,7 +1480,7 @@ function News({ lead, rss }) {
             </a>
           )) : (
             <div style={{ fontFamily:T.mono, fontSize:12, color:T.ink3, marginTop:16 }}>
-              {rss.err ? 'All feeds unavailable' : 'Loading headlines\u2026'}
+              {rss.err ? 'All feeds unavailable' : 'Loading headlines…'}
             </div>
           )}
         </div>
@@ -1533,28 +1489,27 @@ function News({ lead, rss }) {
   );
 }
 
-const News = News; // exported
 
 
 function Chain({ chain }) {
   const T = useT();
 
-  const blockHeight = chain.data ? fmtNum(chain.data.height) : '\u2014';
-  const hashrate    = chain.data ? fmtHashrate(chain.data.hashrate) : '\u2014';
-  const difficulty  = chain.data ? fmtDiff(chain.data.difficulty) : '\u2014';
-  const mempoolMB   = chain.data ? fmtMempoolMB(chain.data.mempoolBytes) : '\u2014';
-  const mempoolTx   = chain.data ? fmtNum(chain.data.mempoolTx) : '\u2014';
-  const feeFast     = chain.data ? \`\${chain.data.feeFast} sat/vB\` : '\u2014';
-  const feeEco      = chain.data ? \`\${chain.data.feeEco} sat/vB\` : '\u2014';
+  const blockHeight = chain.data ? fmtNum(chain.data.height) : '—';
+  const hashrate    = chain.data ? fmtHashrate(chain.data.hashrate) : '—';
+  const difficulty  = chain.data ? fmtDiff(chain.data.difficulty) : '—';
+  const mempoolMB   = chain.data ? fmtMempoolMB(chain.data.mempoolBytes) : '—';
+  const mempoolTx   = chain.data ? fmtNum(chain.data.mempoolTx) : '—';
+  const feeFast     = chain.data ? `${chain.data.feeFast} sat/vB` : '—';
+  const feeEco      = chain.data ? `${chain.data.feeEco} sat/vB` : '—';
 
   // Chain vitals color logic
   const diffAdjVal    = chain.data?.diffAdj;
-  const diffAdjStr    = diffAdjVal != null ? \`\${diffAdjVal >= 0 ? '+' : ''}\${diffAdjVal.toFixed(2)}%\` : '\u2014';
+  const diffAdjStr    = diffAdjVal != null ? `${diffAdjVal >= 0 ? '+' : ''}${diffAdjVal.toFixed(2)}%` : '—';
   const diffAdjCol    = diffAdjVal != null ? (diffAdjVal >= 0 ? T.green : T.red) : T.ink;
-  const epochPct      = chain.data?.epochProgress;
+  const epochPct      = chain.data?.progressPercent;
   const epochBlocks   = chain.data ? Math.round((epochPct / 100) * 2016) : null;
-  const epochStr      = epochPct != null ? \`\${epochPct.toFixed(0)}% \xB7 \${epochBlocks}/2016\` : '\u2014';
-  const retargetDate  = chain.data?.retargetDate ? new Date(chain.data.retargetDate).toISOString().slice(0,10) : '\u2014';
+  const epochStr      = epochPct != null ? `${epochPct.toFixed(0)}% · ${epochBlocks}/2016` : '—';
+  const retargetDate  = chain.data?.estimatedRetargetDate ? new Date(chain.data.estimatedRetargetDate).toISOString().slice(0,10) : '—';
   const blockTimeSec  = chain.data?.blockTimeMs ? chain.data.blockTimeMs / 1000 : null;
   const blockTimeCol  = blockTimeSec == null ? T.ink : blockTimeSec < 570 ? T.orange : blockTimeSec <= 630 ? T.green : T.red;
   const blocksToClr   = chain.data ? Math.ceil(chain.data.mempoolBytes / 1_000_000) : null;
@@ -1571,23 +1526,23 @@ function Chain({ chain }) {
   const miningRows = [
     { k: 'Hashrate',      v: hashrate },
     { k: 'Difficulty',    v: difficulty },
-    { k: 'Avg block',     v: chain.data?.blockTimeMs ? fmtBlockTime(chain.data.blockTimeMs) : '\u2014', c: blockTimeCol },
+    { k: 'Avg block',     v: chain.data?.blockTimeMs ? fmtBlockTime(chain.data.blockTimeMs) : '—', c: blockTimeCol },
     { k: 'Diff retarget', v: diffAdjStr, c: diffAdjCol },
-    { k: 'Retarget in',   v: chain.data?.remainingBlocks != null ? \`\${fmtNum(chain.data.remainingBlocks)} blk\` : '\u2014' },
+    { k: 'Retarget in',   v: chain.data?.remainingBlocks != null ? `${fmtNum(chain.data.remainingBlocks)} blk` : '—' },
     { k: 'Retarget date', v: retargetDate },
     { k: 'Epoch',         v: epochStr },
   ];
   const chainStatRows = [
     { k: 'Block height',  v: blockHeight },
-    { k: 'Circulating',   v: chain.data ? chain.data.circulating : '\u2014' },
-    { k: 'Next halving',  v: chain.data ? chain.data.nextHalvingDate : '\u2014' },
+    { k: 'Circulating',   v: chain.data ? chain.data.circulating : '—' },
+    { k: 'Next halving',  v: chain.data ? chain.data.nextHalvingDate : '—' },
   ];
   const mempoolRows = [
     { k: 'Size',           v: mempoolMB,  c: mempoolCol },
     { k: 'Tx count',       v: mempoolTx,  c: mempoolTxCol },
-    { k: 'Blocks to clear',v: blocksToClr != null ? \`\${blocksToClr} blk\` : '\u2014', c: blocksToClrCol },
-    { k: 'Fee \xB7 fast',     v: feeFast,    c: feeFastCol },
-    { k: 'Fee \xB7 eco',      v: feeEco,     c: feeEcoCol },
+    { k: 'Blocks to clear',v: blocksToClr != null ? `${blocksToClr} blk` : '—', c: blocksToClrCol },
+    { k: 'Fee · fast',     v: feeFast,    c: feeFastCol },
+    { k: 'Fee · eco',      v: feeEco,     c: feeEcoCol },
   ];
 
   return (
@@ -1599,7 +1554,7 @@ function Chain({ chain }) {
             <Kicker style={{ marginBottom:6 }}>{title}</Kicker>
             <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
               {rows.map((r,i)=>(
-                <div key={i} style={{ borderLeft:\`1px solid \${T.rule3}\`, paddingLeft:8 }}>
+                <div key={i} style={{ borderLeft:`1px solid ${T.rule3}`, paddingLeft:8 }}>
                   <Num size="sm" value={r.v} style={{ color: r.c || T.ink }} />
                   <Kicker style={{ marginTop:2 }}>{r.k}</Kicker>
                 </div>
@@ -1612,7 +1567,6 @@ function Chain({ chain }) {
   );
 }
 
-const Chain = Chain; // exported
 
 
 function Weather({ weather, prefs }) {
@@ -1625,7 +1579,7 @@ function Weather({ weather, prefs }) {
       <div>
         <Kicker>Weather</Kicker>
         <div style={{ fontFamily:T.mono, fontSize:12, color:T.ink3, marginTop:8 }}>
-          {weather.err ? 'weather unavailable' : 'loading\u2026'}
+          {weather.err ? 'weather unavailable' : 'loading…'}
         </div>
       </div>
     );
@@ -1637,18 +1591,18 @@ function Weather({ weather, prefs }) {
       <div style={{ display:'flex', alignItems:'center', gap:12, marginTop:8 }}>
         <WxGlyph kind={wmoIcon(wx.wxCode, new Date().getHours(), wx.wxWindSpeed, wx.wxSunriseHr, wx.wxSunsetHr)} size={48} speed={wmoSpeed(wx.wxCode, wx.wxWindSpeed)} />
         <div>
-          <Num size="lg" value={\`\${wx.temp}\xB0\`} unit={prefs.tempUnit === 'celsius' ? 'C' : 'F'} />
+          <Num size="lg" value={`${wx.temp}°`} unit={prefs.tempUnit === 'celsius' ? 'C' : 'F'} />
           <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:12, color:T.ink2, marginTop:3 }}>
-            {wx.wxCond} \xB7 feels {wx.feels}\xB0 \xB7 H{wx.wxHi} L{wx.wxLo}
+            {wx.wxCond} · feels {wx.feels}° · H{wx.wxHi} L{wx.wxLo}
           </div>
         </div>
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(8,1fr)', gap:4, marginTop:12, paddingTop:10, borderTop:\`1px solid \${T.rule3}\` }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(8,1fr)', gap:4, marginTop:12, paddingTop:10, borderTop:`1px solid ${T.rule3}` }}>
         {wx.hourly.map((h,i)=>(
           <div key={i} style={{ textAlign:'center' }}>
             <div style={{ fontFamily:T.mono, fontSize:10, color:T.ink3 }}>{fmtHour(h.hr, prefs.timeFormat)}</div>
             <div style={{ margin:'3px auto' }}><WxGlyph kind={wmoIcon(h.code, h.hr, null, wx.wxSunriseHr, wx.wxSunsetHr)} size={24} speed={wmoSpeed(h.code)} /></div>
-            <Num size="xs" value={\`\${h.t}\xB0\`} />
+            <Num size="xs" value={`${h.t}°`} />
             {h.pop >= 30 && <div style={{ fontFamily:T.mono, fontSize:9, color:T.ink3, marginTop:1 }}>{h.pop}%</div>}
           </div>
         ))}
@@ -1660,7 +1614,6 @@ function Weather({ weather, prefs }) {
   );
 }
 
-const Weather = Weather; // exported
 
 
 function Miners({ bitaxe, chain }) {
@@ -1672,7 +1625,7 @@ function Miners({ bitaxe, chain }) {
   const onlineCount     = onlineMiners.length;
   const totalHashrateTHS = onlineMiners.reduce((sum, m) => sum + ((m.data.hashRate || 0) / 1000), 0);
   const totalPower      = onlineMiners.reduce((sum, m) => sum + (m.data.power || 0), 0);
-  const combinedEff     = totalHashrateTHS > 0 ? (totalPower / totalHashrateTHS).toFixed(1) : '\u2014';
+  const combinedEff     = totalHashrateTHS > 0 ? (totalPower / totalHashrateTHS).toFixed(1) : '—';
   const totalShOk       = onlineMiners.reduce((sum, m) => sum + (m.data.sharesAccepted || 0), 0);
   const totalShRej      = onlineMiners.reduce((sum, m) => sum + (m.data.sharesRejected || 0), 0);
   const firstMiner      = onlineMiners[0]?.data;
@@ -1682,23 +1635,23 @@ function Miners({ bitaxe, chain }) {
   const soloOdds = chain.data && totalHashrateTHS > 0
     ? calcSoloOdds(chain.data.hashrate / 1e18, totalHashrateTHS)
     : null;
-  const oddsStr  = soloOdds ? \`1 : \${fmtNum(soloOdds.oddsPerDay)}\` : '\u2014';
-  const etaStr   = soloOdds ? \`~\${fmtNum(soloOdds.etaYears)} yrs\` : '\u2014';
+  const oddsStr  = soloOdds ? `1 : ${fmtNum(soloOdds.oddsPerDay)}` : '—';
+  const etaStr   = soloOdds ? `~${fmtNum(soloOdds.etaYears)} yrs` : '—';
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:10, overflow:'hidden' }}>
-      <Kicker>Home fleet \xB7 {onlineCount}/{minerCount} online</Kicker>
+      <Kicker>Home fleet · {onlineCount}/{minerCount} online</Kicker>
       <h2 style={{ fontFamily:T.serif, fontSize:20, fontWeight:700, lineHeight:1.05, letterSpacing:-0.4, color:T.ink, textWrap:'balance', margin:0 }}>
         A <span style={{ fontStyle:'italic' }}>one-in-{soloOdds ? fmtNum(soloOdds.oddsPerDay).toLowerCase() : 'unknown'}</span> chance, every day.
       </h2>
       <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:11, color:T.ink2 }}>
-        {bxPool} \xB7 {onlineCount > 0 ? \`\${totalHashrateTHS.toFixed(2)} TH/s combined\` : 'miners offline'}
+        {bxPool} · {onlineCount > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s combined` : 'miners offline'}
       </div>
       {/* Solo odds hero */}
       <div style={{ paddingTop:2 }}>
         {onlineCount === 0 ? (
           <div style={{ fontFamily:T.mono, fontSize:18, color:T.ink3 }}>
-            {bitaxe.loading ? 'Connecting to miners\u2026' : 'All miners offline'}
+            {bitaxe.loading ? 'Connecting to miners…' : 'All miners offline'}
           </div>
         ) : (
           <div style={{ fontFamily:T.mono, fontSize:64, fontWeight:500, letterSpacing:-1, lineHeight:1, color:T.ink, fontFeatureSettings:'"tnum"' }}>
@@ -1706,7 +1659,7 @@ function Miners({ bitaxe, chain }) {
           </div>
         )}
         <div style={{ fontFamily:T.mono, fontSize:12, color:T.ink3, marginTop:4, letterSpacing:0.5 }}>
-          per day \xB7 expected {etaStr}
+          per day · expected {etaStr}
         </div>
       </div>
       {/* Per-miner cards */}
@@ -1718,13 +1671,13 @@ function Miners({ bitaxe, chain }) {
         )}
         {bitaxe.miners.map((miner, i) => {
           const md = miner.online ? miner.data : null;
-          const hrTHS  = md ? ((md.hashRate || 0) / 1000).toFixed(2) : '\u2014';
-          const temp   = md ? (md.temp || md.temperature || '\u2014') : '\u2014';
-          const power  = md ? (md.power || '\u2014') : '\u2014';
-          const eff    = md && md.power && md.hashRate ? (md.power / (md.hashRate / 1000)).toFixed(1) : '\u2014';
+          const hrTHS  = md ? ((md.hashRate || 0) / 1000).toFixed(2) : '—';
+          const temp   = md ? (md.temp || md.temperature || '—') : '—';
+          const power  = md ? (md.power || '—') : '—';
+          const eff    = md && md.power && md.hashRate ? (md.power / (md.hashRate / 1000)).toFixed(1) : '—';
           const model  = md ? (md.boardVersion || md.ASICModel || 'Bitaxe') : 'Bitaxe';
           return (
-            <div key={i} style={{ borderLeft:\`2px solid \${miner.online ? T.green : T.red}\`, paddingLeft:8, paddingTop:4, paddingBottom:4 }}>
+            <div key={i} style={{ borderLeft:`2px solid ${miner.online ? T.green : T.red}`, paddingLeft:8, paddingTop:4, paddingBottom:4 }}>
               <div style={{ fontFamily:T.mono, fontSize:10, color:T.ink3, marginBottom:3 }}>
                 <StatusDot ok={miner.online} />{miner.ip}
               </div>
@@ -1732,11 +1685,11 @@ function Miners({ bitaxe, chain }) {
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px 8px' }}>
                 {[
                   [hrTHS, 'TH/s', 'Hashrate'],
-                  [temp,  '\xB0C',   'Temp'],
+                  [temp,  '°C',   'Temp'],
                   [power, 'W',    'Power'],
                   [eff,   'J/TH', 'Eff'],
                 ].map(([v, u, label], j) => (
-                  <div key={j} style={{ borderLeft:\`1px solid \${T.rule3}\`, paddingLeft:6 }}>
+                  <div key={j} style={{ borderLeft:`1px solid ${T.rule3}`, paddingLeft:6 }}>
                     <Num size="xs" value={v} unit={u} />
                     <Kicker style={{ marginTop:2 }}>{label}</Kicker>
                   </div>
@@ -1747,22 +1700,24 @@ function Miners({ bitaxe, chain }) {
         })}
       </div>
       <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:11, color:T.ink3 }}>
-        "hash and pray." \xB7 {fmtNum(totalShOk)} ok / {fmtNum(totalShRej)} rej
+        "hash and pray." · {fmtNum(totalShOk)} ok / {fmtNum(totalShRej)} rej
       </div>
     </div>
   );
 }
 
-const Miners = Miners; // exported
+
+
+
 
 
 /**
- * MastheadPanel \u2014 Settings modal overlay
+ * MastheadPanel — Settings modal overlay
  * Allows user to configure:
  *   - BitAxe API URL and direct IP fallback
  *   - Location (with geolocation search)
  *   - Time format (12h/24h)
- *   - Temperature unit (\xB0F / \xB0C)
+ *   - Temperature unit (°F / °C)
  *
  * Props:
  *   - apiUrl: string
@@ -1791,7 +1746,7 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
     setGeoResults(null);
     try {
       const r = await fetch(
-        \`https://geocoding-api.open-meteo.com/v1/search?name=\${encodeURIComponent(cityQuery.trim())}&count=5&language=en&format=json\`
+        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityQuery.trim())}&count=5&language=en&format=json`
       );
       if (!r.ok) throw new Error('geo');
       const j = await r.json();
@@ -1814,7 +1769,7 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
 
   const handleSave = () => {
     const newIps = ipsText
-      .split(/[\\s,]+/)
+      .split(/[\s,]+/)
       .map((s) => s.trim())
       .filter(Boolean);
     onSave(url.trim(), newIps, {
@@ -1831,7 +1786,7 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
     fontSize: 13,
     color: T.ink,
     background: T.paper2,
-    border: \`1px solid \${T.rule2}\`,
+    border: `1px solid ${T.rule2}`,
     padding: '8px 10px',
     outline: 'none',
     boxSizing: 'border-box',
@@ -1889,7 +1844,7 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
       <div
         style={{
           background: T.paper,
-          border: \`1px solid \${T.rule}\`,
+          border: `1px solid ${T.rule}`,
           padding: '28px 32px 24px',
           minWidth: 480,
           maxWidth: 560,
@@ -1907,10 +1862,10 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
             color: T.ink,
           }}
         >
-          \u2699 The Masthead
+          ⚙ The Masthead
         </div>
 
-        {/* \u2500\u2500 Home Fleet \u2500\u2500 */}
+        {/* ── Home Fleet ── */}
         <Kicker>Home Fleet</Kicker>
         <div style={{ height: 10 }} />
 
@@ -1957,8 +1912,8 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
           spellCheck={false}
         />
 
-        {/* \u2500\u2500 Preferences \u2500\u2500 */}
-        <div style={{ borderTop: \`1px solid \${T.rule2}\`, margin: '20px 0 16px' }} />
+        {/* ── Preferences ── */}
+        <div style={{ borderTop: `1px solid ${T.rule2}`, margin: '20px 0 16px' }} />
         <Kicker>Preferences</Kicker>
         <div style={{ height: 10 }} />
 
@@ -2002,7 +1957,7 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
               whiteSpace: 'nowrap',
             }}
           >
-            {geoLoading ? '\u2026' : 'Search'}
+            {geoLoading ? '…' : 'Search'}
           </button>
         </div>
         {geoResults === 'error' && (
@@ -2016,7 +1971,7 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
           </div>
         )}
         {Array.isArray(geoResults) && geoResults.length > 0 && (
-          <div style={{ border: \`1px solid \${T.rule2}\`, borderTop: 'none' }}>
+          <div style={{ border: `1px solid ${T.rule2}`, borderTop: 'none' }}>
             {geoResults.map((r, i) => {
               const label = [r.name, r.admin1, r.country_code].filter(Boolean).join(', ');
               return (
@@ -2025,7 +1980,7 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
                   onClick={() => handleSelectCity(r)}
                   style={{
                     padding: '7px 10px',
-                    borderTop: i > 0 ? \`1px solid \${T.rule3}\` : 'none',
+                    borderTop: i > 0 ? `1px solid ${T.rule3}` : 'none',
                     cursor: 'pointer',
                     fontFamily: T.mono,
                     fontSize: 12,
@@ -2060,7 +2015,7 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
             <div
               style={{
                 display: 'flex',
-                border: \`1px solid \${T.rule2}\`,
+                border: `1px solid ${T.rule2}`,
                 marginTop: 8,
                 width: 'fit-content',
               }}
@@ -2078,7 +2033,7 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
             <div
               style={{
                 display: 'flex',
-                border: \`1px solid \${T.rule2}\`,
+                border: `1px solid ${T.rule2}`,
                 marginTop: 8,
                 width: 'fit-content',
               }}
@@ -2087,10 +2042,10 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
                 style={toggleBtn(tempUnit === 'fahrenheit')}
                 onClick={() => setTempUnit('fahrenheit')}
               >
-                \xB0F
+                °F
               </button>
               <button style={toggleBtn(tempUnit === 'celsius')} onClick={() => setTempUnit('celsius')}>
-                \xB0C
+                °C
               </button>
             </div>
           </div>
@@ -2102,7 +2057,7 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
             display: 'flex',
             gap: 10,
             marginTop: 24,
-            borderTop: \`1px solid \${T.rule2}\`,
+            borderTop: `1px solid ${T.rule2}`,
             paddingTop: 18,
           }}
         >
@@ -2119,8 +2074,20 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 /**
- * CommandCenter \u2014 Main layout orchestrator (1920x1080)
+ * CommandCenter — Main layout orchestrator (1920x1080)
  * Displays:
  *   - Top chrome (Masthead with time, weather, settings)
  *   - Scrolling ticker with chain vitals
@@ -2161,7 +2128,7 @@ function CommandCenter({
   const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
   const rss = useRSS();
 
-  // Auto dark mode \u2014 fires once when sunrise/sunset first loads; respects manual toggle after
+  // Auto dark mode — fires once when sunrise/sunset first loads; respects manual toggle after
   const autoThemeDone = React.useRef(false);
   React.useEffect(() => {
     if (autoThemeDone.current) return;
@@ -2182,21 +2149,21 @@ function CommandCenter({
   ]);
 
   // Derived values
-  const btcPrice = btc.data ? \`\${fmtPrice(btc.data.price)}\` : '\u2014';
-  const btcChgPct = btc.data ? fmtPct(btc.data.chgPct) : '\u2014';
+  const btcPrice = btc.data ? `${fmtPrice(btc.data.price)}` : '—';
+  const btcChgPct = btc.data ? fmtPct(btc.data.chgPct) : '—';
   const btcUp = btc.data ? btc.data.chgPct >= 0 : true;
-  const btcHi = btc.data ? fmtPrice(btc.data.hi) : '\u2014';
-  const btcLo = btc.data ? fmtPrice(btc.data.lo) : '\u2014';
-  const btcCap = btc.data?.cap != null ? \`\${(btc.data.cap / 1e12).toFixed(2)}T\` : '\u2014';
-  const btcVol = btc.data ? fmtVolUsd(btc.data.volBtc * btc.data.price) : '\u2014';
+  const btcHi = btc.data ? fmtPrice(btc.data.hi) : '—';
+  const btcLo = btc.data ? fmtPrice(btc.data.lo) : '—';
+  const btcCap = btc.data?.cap != null ? `${(btc.data.cap / 1e12).toFixed(2)}T` : '—';
+  const btcVol = btc.data ? fmtVolUsd(btc.data.volBtc * btc.data.price) : '—';
 
-  const blockHeight = chain.data ? fmtNum(chain.data.height) : '\u2014';
-  const hashrate = chain.data ? fmtHashrate(chain.data.hashrate) : '\u2014';
-  const difficulty = chain.data ? fmtDiff(chain.data.difficulty) : '\u2014';
-  const mempoolMB = chain.data ? fmtMempoolMB(chain.data.mempoolBytes) : '\u2014';
-  const mempoolTx = chain.data ? fmtNum(chain.data.mempoolTx) : '\u2014';
-  const feeFast = chain.data ? \`\${chain.data.feeFast} sat/vB\` : '\u2014';
-  const feeEco = chain.data ? \`\${chain.data.feeEco} sat/vB\` : '\u2014';
+  const blockHeight = chain.data ? fmtNum(chain.data.height) : '—';
+  const hashrate = chain.data ? fmtHashrate(chain.data.hashrate) : '—';
+  const difficulty = chain.data ? fmtDiff(chain.data.difficulty) : '—';
+  const mempoolMB = chain.data ? fmtMempoolMB(chain.data.mempoolBytes) : '—';
+  const mempoolTx = chain.data ? fmtNum(chain.data.mempoolTx) : '—';
+  const feeFast = chain.data ? `${chain.data.feeFast} sat/vB` : '—';
+  const feeEco = chain.data ? `${chain.data.feeEco} sat/vB` : '—';
 
   // BitAxe fleet derived
   const onlineMiners = bitaxe.miners.filter((m) => m.online && m.data);
@@ -2204,7 +2171,7 @@ function CommandCenter({
   const onlineCount = onlineMiners.length;
   const totalHashrateTHS = onlineMiners.reduce((sum, m) => sum + ((m.data.hashRate || 0) / 1000), 0);
   const totalPower = onlineMiners.reduce((sum, m) => sum + (m.data.power || 0), 0);
-  const combinedEff = totalHashrateTHS > 0 ? (totalPower / totalHashrateTHS).toFixed(1) : '\u2014';
+  const combinedEff = totalHashrateTHS > 0 ? (totalPower / totalHashrateTHS).toFixed(1) : '—';
   const totalShOk = onlineMiners.reduce((sum, m) => sum + (m.data.sharesAccepted || 0), 0);
   const totalShRej = onlineMiners.reduce((sum, m) => sum + (m.data.sharesRejected || 0), 0);
   const firstMiner = onlineMiners[0]?.data;
@@ -2213,19 +2180,19 @@ function CommandCenter({
   // Solo odds from combined fleet hashrate
   const soloOdds =
     chain.data && totalHashrateTHS > 0 ? calcSoloOdds(chain.data.hashrate / 1e18, totalHashrateTHS) : null;
-  const oddsStr = soloOdds ? \`1 : \${fmtNum(soloOdds.oddsPerDay)}\` : '\u2014';
-  const etaStr = soloOdds ? \`~\${fmtNum(soloOdds.etaYears)} yrs\` : '\u2014';
+  const oddsStr = soloOdds ? `1 : ${fmtNum(soloOdds.oddsPerDay)}` : '—';
+  const etaStr = soloOdds ? `~${fmtNum(soloOdds.etaYears)} yrs` : '—';
 
   // Chain vitals rows
   const diffAdjVal = chain.data?.diffAdj;
-  const diffAdjStr = diffAdjVal != null ? \`\${diffAdjVal >= 0 ? '+' : ''}\${diffAdjVal.toFixed(2)}%\` : '\u2014';
+  const diffAdjStr = diffAdjVal != null ? `${diffAdjVal >= 0 ? '+' : ''}${diffAdjVal.toFixed(2)}%` : '—';
   const diffAdjCol = diffAdjVal != null ? (diffAdjVal >= 0 ? T.green : T.red) : T.ink;
-  const epochPct = chain.data?.epochProgress;
+  const epochPct = chain.data?.progressPercent;
   const epochBlocks = chain.data ? Math.round((epochPct / 100) * 2016) : null;
-  const epochStr = epochPct != null ? \`\${epochPct.toFixed(0)}% \xB7 \${epochBlocks}/2016\` : '\u2014';
-  const retargetDate = chain.data?.retargetDate
-    ? new Date(chain.data.retargetDate).toISOString().slice(0, 10)
-    : '\u2014';
+  const epochStr = epochPct != null ? `${epochPct.toFixed(0)}% · ${epochBlocks}/2016` : '—';
+  const retargetDate = chain.data?.estimatedRetargetDate
+    ? new Date(chain.data.estimatedRetargetDate).toISOString().slice(0, 10)
+    : '—';
   const blockTimeSec = chain.data?.blockTimeMs ? chain.data.blockTimeMs / 1000 : null;
   const blockTimeCol =
     blockTimeSec == null ? T.ink : blockTimeSec < 570 ? T.orange : blockTimeSec <= 630 ? T.green : T.red;
@@ -2245,43 +2212,43 @@ function CommandCenter({
   const miningRows = [
     { k: 'Hashrate', v: hashrate },
     { k: 'Difficulty', v: difficulty },
-    { k: 'Avg block', v: chain.data?.blockTimeMs ? fmtBlockTime(chain.data.blockTimeMs) : '\u2014', c: blockTimeCol },
+    { k: 'Avg block', v: chain.data?.blockTimeMs ? fmtBlockTime(chain.data.blockTimeMs) : '—', c: blockTimeCol },
     { k: 'Diff retarget', v: diffAdjStr, c: diffAdjCol },
     {
       k: 'Retarget in',
-      v: chain.data?.remainingBlocks != null ? \`\${fmtNum(chain.data.remainingBlocks)} blk\` : '\u2014',
+      v: chain.data?.remainingBlocks != null ? `${fmtNum(chain.data.remainingBlocks)} blk` : '—',
     },
     { k: 'Retarget date', v: retargetDate },
     { k: 'Epoch', v: epochStr },
   ];
   const chainStatRows = [
     { k: 'Block height', v: blockHeight },
-    { k: 'Circulating', v: chain.data ? chain.data.circulating : '\u2014' },
-    { k: 'Next halving', v: chain.data ? chain.data.nextHalvingDate : '\u2014' },
+    { k: 'Circulating', v: chain.data ? chain.data.circulating : '—' },
+    { k: 'Next halving', v: chain.data ? chain.data.nextHalvingDate : '—' },
   ];
   const mempoolRows = [
     { k: 'Size', v: mempoolMB, c: mempoolCol },
     { k: 'Tx count', v: mempoolTx, c: mempoolTxCol },
-    { k: 'Blocks to clear', v: blocksToClr != null ? \`\${blocksToClr} blk\` : '\u2014', c: blocksToClrCol },
-    { k: 'Fee \xB7 fast', v: feeFast, c: feeFastCol },
-    { k: 'Fee \xB7 eco', v: feeEco, c: feeEcoCol },
+    { k: 'Blocks to clear', v: blocksToClr != null ? `${blocksToClr} blk` : '—', c: blocksToClrCol },
+    { k: 'Fee · fast', v: feeFast, c: feeFastCol },
+    { k: 'Fee · eco', v: feeEco, c: feeEcoCol },
   ];
 
   // System status
   const sys = [
     {
       k: 'miners',
-      v: bitaxe.err ? 'err' : onlineCount > 0 ? 'ok' : bitaxe.loading ? '\u2026' : 'err',
-      d: bitaxe.loading ? 'connecting' : \`\${onlineCount}/\${minerCount} online\`,
+      v: bitaxe.err ? 'err' : onlineCount > 0 ? 'ok' : bitaxe.loading ? '…' : 'err',
+      d: bitaxe.loading ? 'connecting' : `${onlineCount}/${minerCount} online`,
     },
-    { k: 'mempool', v: chain.err ? 'err' : chain.data ? 'ok' : '\u2026', d: chain.data ? \`\${mempoolMB}\` : '\u2014' },
-    { k: 'kraken', v: btc.err ? 'err' : btc.data ? 'ok' : '\u2026', d: btc.data ? \`\${btcChgPct}% 24h\` : '\u2014' },
+    { k: 'mempool', v: chain.err ? 'err' : chain.data ? 'ok' : '…', d: chain.data ? `${mempoolMB}` : '—' },
+    { k: 'kraken', v: btc.err ? 'err' : btc.data ? 'ok' : '…', d: btc.data ? `${btcChgPct}% 24h` : '—' },
     {
       k: 'weather',
-      v: weather.err ? 'err' : weather.data ? 'ok' : '\u2026',
-      d: weather.data ? weather.data.wxCond.toLowerCase() : '\u2014',
+      v: weather.err ? 'err' : weather.data ? 'ok' : '…',
+      d: weather.data ? weather.data.wxCond.toLowerCase() : '—',
     },
-    { k: 'rss', v: rss.err ? 'err' : rss.items.length > 0 ? 'ok' : '\u2026', d: rss.items.length > 0 ? \`\${rss.items.length} stories\` : '\u2014' },
+    { k: 'rss', v: rss.err ? 'err' : rss.items.length > 0 ? 'ok' : '…', d: rss.items.length > 0 ? `${rss.items.length} stories` : '—' },
   ];
 
   const wx = weather.data;
@@ -2289,8 +2256,8 @@ function CommandCenter({
   const newsItems = rss.items;
 
   // Top-bar summary
-  const tempUnitLabel = prefs.tempUnit === 'celsius' ? '\xB0C' : '\xB0F';
-  const wxSummary = wx ? \`\${wx.temp}\${tempUnitLabel} \${wx.wxCond.toLowerCase()}\` : \`\u2014\${tempUnitLabel}\`;
+  const tempUnitLabel = prefs.tempUnit === 'celsius' ? '°C' : '°F';
+  const wxSummary = wx ? `${wx.temp}${tempUnitLabel} ${wx.wxCond.toLowerCase()}` : `—${tempUnitLabel}`;
 
   return (
     <div
@@ -2322,7 +2289,7 @@ function CommandCenter({
           display: 'flex',
           alignItems: 'center',
           padding: '9px 0',
-          borderBottom: \`1px solid \${T.rule2}\`,
+          borderBottom: `1px solid ${T.rule2}`,
           fontFamily: T.mono,
           fontSize: 12,
           overflow: 'hidden',
@@ -2351,7 +2318,7 @@ function CommandCenter({
               lineHeight: 1,
             }}
           >
-            \u23FA
+            ⏺
           </span>
         </span>
         <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -2365,48 +2332,48 @@ function CommandCenter({
             {(() => {
               const halvingBlocksLeft = chain.data
                 ? fmtNum(Math.ceil((chain.data.height + 1) / 210000) * 210000 - chain.data.height)
-                : '\u2014';
+                : '—';
               const items = [
                 ['BLOCK', blockHeight, 'latest', T.ink3],
                 [
                   'HASH',
-                  chain.data ? fmtHashrate(chain.data.hashrate) : '\u2014',
+                  chain.data ? fmtHashrate(chain.data.hashrate) : '—',
                   chain.data && chain.data.diffAdj != null
-                    ? \`\${chain.data.diffAdj >= 0 ? '+' : ''}\${chain.data.diffAdj.toFixed(1)}%\`
+                    ? `${chain.data.diffAdj >= 0 ? '+' : ''}${chain.data.diffAdj.toFixed(1)}%`
                     : '',
                   T.ink3,
                 ],
-                ['TIME', chain.data ? fmtBlockTime(chain.data.blockTimeMs) : '\u2014', 'avg', blockTimeCol],
+                ['TIME', chain.data ? fmtBlockTime(chain.data.blockTimeMs) : '—', 'avg', blockTimeCol],
                 [
                   'EPOCH',
-                  epochPct != null ? \`\${epochPct.toFixed(0)}%\` : '\u2014',
-                  chain.data ? \`\${fmtNum(chain.data.remainingBlocks)} blk left\` : '',
+                  epochPct != null ? `${epochPct.toFixed(0)}%` : '—',
+                  chain.data ? `${fmtNum(chain.data.remainingBlocks)} blk left` : '',
                   T.ink3,
                 ],
                 [
                   'FEE',
-                  chain.data ? \`\${chain.data.feeFast} sat/vB\` : '\u2014',
-                  chain.data ? \`eco \${chain.data.feeEco}\` : '',
+                  chain.data ? `${chain.data.feeFast} sat/vB` : '—',
+                  chain.data ? `eco ${chain.data.feeEco}` : '',
                   T.ink3,
                 ],
-                ['MEMPOOL', mempoolMB, \`\${mempoolTx} tx\`, mempoolCol],
-                ['CLR', blocksToClr != null ? \`\${blocksToClr} blk\` : '\u2014', 'to clear', blocksToClrCol],
-                ['SUPPLY', chain.data ? chain.data.circulating : '\u2014', '', T.ink3],
+                ['MEMPOOL', mempoolMB, `${mempoolTx} tx`, mempoolCol],
+                ['CLR', blocksToClr != null ? `${blocksToClr} blk` : '—', 'to clear', blocksToClrCol],
+                ['SUPPLY', chain.data ? chain.data.circulating : '—', '', T.ink3],
                 [
                   'HALVING',
-                  chain.data?.nextHalvingDate || '\u2014',
-                  halvingBlocksLeft !== '\u2014' ? \`\${halvingBlocksLeft} blk\` : '',
+                  chain.data?.nextHalvingDate || '—',
+                  halvingBlocksLeft !== '—' ? `${halvingBlocksLeft} blk` : '',
                   T.ink3,
                 ],
                 [
                   'FLEET',
-                  onlineCount > 0 ? \`\${totalHashrateTHS.toFixed(2)} TH/s\` : bitaxe.err ? 'offline' : '\u2026',
-                  onlineCount > 0 ? \`\${combinedEff} J/TH\` : '',
+                  onlineCount > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s` : bitaxe.err ? 'offline' : '…',
+                  onlineCount > 0 ? `${combinedEff} J/TH` : '',
                   T.ink3,
                 ],
                 [
                   'SOLO',
-                  \`1:\${soloOdds ? fmtNum(soloOdds.oddsPerDay) : '\u2014'}/d\`,
+                  `1:${soloOdds ? fmtNum(soloOdds.oddsPerDay) : '—'}/d`,
                   etaStr,
                   T.ink3,
                 ],
@@ -2428,15 +2395,15 @@ function CommandCenter({
                 </span>
               );
               return [
-                ...items.map((item, i) => renderItem(item, \`a\${i}\`)),
-                ...items.map((item, i) => renderItem(item, \`b\${i}\`)),
+                ...items.map((item, i) => renderItem(item, `a${i}`)),
+                ...items.map((item, i) => renderItem(item, `b${i}`)),
               ];
             })()}
           </div>
         </div>
       </div>
 
-      {/* BODY \u2014 4-column grid */}
+      {/* BODY — 4-column grid */}
       <div
         style={{
           display: 'grid',
@@ -2447,10 +2414,10 @@ function CommandCenter({
           minHeight: 0,
         }}
       >
-        {/* COL 0 \u2014 WORDMARK RAIL */}
+        {/* COL 0 — WORDMARK RAIL */}
         <div
           style={{
-            borderRight: \`1px solid \${T.rule2}\`,
+            borderRight: `1px solid ${T.rule2}`,
             paddingRight: 22,
             display: 'flex',
             flexDirection: 'column',
@@ -2482,12 +2449,12 @@ function CommandCenter({
                 fontSize: 13,
                 color: T.ink2,
                 marginTop: 13,
-                borderTop: \`1px solid \${T.rule2}\`,
+                borderTop: `1px solid ${T.rule2}`,
                 paddingTop: 9,
                 lineHeight: 1.4,
               }}
             >
-              "All signal, no noise \u2014
+              "All signal, no noise —
               <br />
               before your coffee cools."
             </div>
@@ -2529,9 +2496,9 @@ function CommandCenter({
                     speed={wmoSpeed(wx.wxCode, wx.wxWindSpeed)}
                   />
                   <div>
-                    <Num size="lg" value={\`\${wx.temp}\xB0\`} unit={prefs.tempUnit === 'celsius' ? 'C' : 'F'} />
+                    <Num size="lg" value={`${wx.temp}°`} unit={prefs.tempUnit === 'celsius' ? 'C' : 'F'} />
                     <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 12, color: T.ink2, marginTop: 3 }}>
-                      {wx.wxCond} \xB7 feels {wx.feels}\xB0 \xB7 H{wx.wxHi} L{wx.wxLo}
+                      {wx.wxCond} · feels {wx.feels}° · H{wx.wxHi} L{wx.wxLo}
                     </div>
                   </div>
                 </div>
@@ -2542,7 +2509,7 @@ function CommandCenter({
                     gap: 4,
                     marginTop: 12,
                     paddingTop: 10,
-                    borderTop: \`1px solid \${T.rule3}\`,
+                    borderTop: `1px solid ${T.rule3}`,
                   }}
                 >
                   {wx.hourly.map((h, i) => (
@@ -2557,7 +2524,7 @@ function CommandCenter({
                           speed={wmoSpeed(h.code)}
                         />
                       </div>
-                      <Num size="xs" value={\`\${h.t}\xB0\`} />
+                      <Num size="xs" value={`${h.t}°`} />
                       {h.pop >= 30 && (
                         <div style={{ fontFamily: T.mono, fontSize: 9, color: T.ink3, marginTop: 1 }}>
                           {h.pop}%
@@ -2582,7 +2549,7 @@ function CommandCenter({
               </>
             ) : (
               <div style={{ fontFamily: T.mono, fontSize: 12, color: T.ink3, marginTop: 8 }}>
-                {weather.err ? 'weather unavailable' : 'loading\u2026'}
+                {weather.err ? 'weather unavailable' : 'loading…'}
               </div>
             )}
           </div>
@@ -2620,7 +2587,7 @@ function CommandCenter({
               fontStyle: 'italic',
               fontSize: 10,
               color: T.ink3,
-              borderTop: \`1px solid \${T.rule2}\`,
+              borderTop: `1px solid ${T.rule2}`,
               paddingTop: 8,
             }}
           >
@@ -2628,10 +2595,10 @@ function CommandCenter({
           </div>
         </div>
 
-        {/* COL 1 \u2014 MARKETS + LEAD STORY */}
+        {/* COL 1 — MARKETS + LEAD STORY */}
         <div
           style={{
-            borderRight: \`1px solid \${T.rule2}\`,
+            borderRight: `1px solid ${T.rule2}`,
             paddingRight: 24,
             display: 'flex',
             flexDirection: 'column',
@@ -2640,7 +2607,7 @@ function CommandCenter({
           }}
         >
           {/* BTC market */}
-          <Kicker>Markets \xB7 BTC / USD</Kicker>
+          <Kicker>Markets · BTC / USD</Kicker>
           {/* Row 1: price left, % change right */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
             <Num size="hero" value={btcPrice} />
@@ -2653,32 +2620,32 @@ function CommandCenter({
                 paddingBottom: 10,
               }}
             >
-              {btcUp ? '\u25B2' : '\u25BC'} {btcChgPct}%
+              {btcUp ? '▲' : '▼'} {btcChgPct}%
             </div>
           </div>
-          {/* Row 2: hi \xB7 lo \xB7 cap bar */}
+          {/* Row 2: hi · lo · cap bar */}
           <div
             style={{
               display: 'flex',
               justifyContent: 'space-between',
               fontFamily: T.mono,
               fontSize: 11,
-              borderTop: \`1px solid \${T.rule2}\`,
-              borderBottom: \`1px solid \${T.rule2}\`,
+              borderTop: `1px solid ${T.rule2}`,
+              borderBottom: `1px solid ${T.rule2}`,
               padding: '5px 0',
               marginBottom: 6,
             }}
           >
-            <span style={{ color: T.green }}>hi \${btcHi}</span>
-            <span style={{ color: T.ink3 }}>\xB7</span>
-            <span style={{ color: T.red }}>lo \${btcLo}</span>
-            <span style={{ color: T.ink3 }}>\xB7</span>
+            <span style={{ color: T.green }}>hi ${btcHi}</span>
+            <span style={{ color: T.ink3 }}>·</span>
+            <span style={{ color: T.red }}>lo ${btcLo}</span>
+            <span style={{ color: T.ink3 }}>·</span>
             <span style={{ color: btcUp ? T.green : T.red }}>cap {btcCap}</span>
-            <span style={{ color: T.ink3 }}>\xB7</span>
+            <span style={{ color: T.ink3 }}>·</span>
             <span style={{ color: T.ink3 }}>vol {btcVol}</span>
-            <span style={{ color: T.ink3 }}>\xB7</span>
+            <span style={{ color: T.ink3 }}>·</span>
             <span style={{ color: T.orange }}>
-              {btc.data ? fmtNum(Math.round(1e8 / btc.data.price)) : '\u2014'} sat/$
+              {btc.data ? fmtNum(Math.round(1e8 / btc.data.price)) : '—'} sat/$
             </span>
           </div>
           <LineChart w={470} h={110} color={T.orange} points={btc.chartPts} vwap={btc.data?.vwap} fill />
@@ -2692,9 +2659,9 @@ function CommandCenter({
             }}
           >
             <span>24h ago</span>
-            <span>\u221218h</span>
-            <span>\u221212h</span>
-            <span>\u22126h</span>
+            <span>−18h</span>
+            <span>−12h</span>
+            <span>−6h</span>
             <span>now</span>
           </div>
           <Rule dash />
@@ -2703,7 +2670,7 @@ function CommandCenter({
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden', minHeight: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <Kicker color={T.orange}>
-                  \u25CF {lead.cat} \xB7 {lead.src}
+                  ● {lead.cat} · {lead.src}
                 </Kicker>
                 <Kicker>{lead.t}</Kicker>
               </div>
@@ -2766,7 +2733,7 @@ function CommandCenter({
             </div>
           ) : (
             <>
-              <Kicker color={T.orange}>\u25CF {rss.err ? 'RSS unavailable' : 'Loading feed\u2026'}</Kicker>
+              <Kicker color={T.orange}>● {rss.err ? 'RSS unavailable' : 'Loading feed…'}</Kicker>
               <h1
                 style={{
                   fontFamily: T.serif,
@@ -2778,16 +2745,16 @@ function CommandCenter({
                   margin: 0,
                 }}
               >
-                {rss.err ? 'All feeds unavailable' : 'Fetching headlines\u2026'}
+                {rss.err ? 'All feeds unavailable' : 'Fetching headlines…'}
               </h1>
             </>
           )}
         </div>
 
-        {/* COL 2 \u2014 HEADLINES FEED */}
+        {/* COL 2 — HEADLINES FEED */}
         <div
           style={{
-            borderRight: \`1px solid \${T.rule2}\`,
+            borderRight: `1px solid ${T.rule2}`,
             paddingRight: 24,
             overflow: 'hidden',
             display: 'flex',
@@ -2800,7 +2767,7 @@ function CommandCenter({
             {rss.err && <Kicker color={T.red}>feed error</Kicker>}
           </div>
           <div
-            className={\`news-col-wrap\${newsItems.length < 8 ? ' at-bottom' : ''}\`}
+            className={`news-col-wrap${newsItems.length < 8 ? ' at-bottom' : ''}`}
             style={{ marginTop: 8, flex: 1, minHeight: 0 }}
           >
             <div
@@ -2825,7 +2792,7 @@ function CommandCenter({
                     style={{
                       display: 'block',
                       padding: '9px 0',
-                      borderBottom: \`1px solid \${T.rule3}\`,
+                      borderBottom: `1px solid ${T.rule3}`,
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -2850,17 +2817,17 @@ function CommandCenter({
                 ))
               ) : (
                 <div style={{ fontFamily: T.mono, fontSize: 12, color: T.ink3, marginTop: 16 }}>
-                  {rss.err ? 'All feeds unavailable' : 'Loading headlines\u2026'}
+                  {rss.err ? 'All feeds unavailable' : 'Loading headlines…'}
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* COL 3 \u2014 HOME FLEET + CHAIN VITALS */}
+        {/* COL 3 — HOME FLEET + CHAIN VITALS */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, overflow: 'hidden' }}>
           <Kicker>
-            Home fleet \xB7 {onlineCount}/{minerCount} online
+            Home fleet · {onlineCount}/{minerCount} online
           </Kicker>
           <h2
             style={{
@@ -2877,13 +2844,13 @@ function CommandCenter({
             A <span style={{ fontStyle: 'italic' }}>one-in-{soloOdds ? fmtNum(soloOdds.oddsPerDay).toLowerCase() : 'unknown'}</span> chance, every day.
           </h2>
           <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink2 }}>
-            {bxPool} \xB7 {onlineCount > 0 ? \`\${totalHashrateTHS.toFixed(2)} TH/s combined\` : 'miners offline'}
+            {bxPool} · {onlineCount > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s combined` : 'miners offline'}
           </div>
           {/* Solo odds hero */}
           <div style={{ paddingTop: 2 }}>
             {onlineCount === 0 ? (
               <div style={{ fontFamily: T.mono, fontSize: 18, color: T.ink3 }}>
-                {bitaxe.loading ? 'Connecting to miners\u2026' : 'All miners offline'}
+                {bitaxe.loading ? 'Connecting to miners…' : 'All miners offline'}
               </div>
             ) : (
               <div
@@ -2909,7 +2876,7 @@ function CommandCenter({
                 letterSpacing: 0.5,
               }}
             >
-              per day \xB7 expected {etaStr}
+              per day · expected {etaStr}
             </div>
           </div>
           {/* Per-miner cards */}
@@ -2921,17 +2888,17 @@ function CommandCenter({
             )}
             {bitaxe.miners.map((miner, i) => {
               const md = miner.online ? miner.data : null;
-              const hrTHS = md ? ((md.hashRate || 0) / 1000).toFixed(2) : '\u2014';
-              const temp = md ? md.temp || md.temperature || '\u2014' : '\u2014';
-              const power = md ? md.power || '\u2014' : '\u2014';
+              const hrTHS = md ? ((md.hashRate || 0) / 1000).toFixed(2) : '—';
+              const temp = md ? md.temp || md.temperature || '—' : '—';
+              const power = md ? md.power || '—' : '—';
               const eff =
-                md && md.power && md.hashRate ? (md.power / (md.hashRate / 1000)).toFixed(1) : '\u2014';
+                md && md.power && md.hashRate ? (md.power / (md.hashRate / 1000)).toFixed(1) : '—';
               const model = md ? md.boardVersion || md.ASICModel || 'Bitaxe' : 'Bitaxe';
               return (
                 <div
                   key={i}
                   style={{
-                    borderLeft: \`2px solid \${miner.online ? T.green : T.red}\`,
+                    borderLeft: `2px solid ${miner.online ? T.green : T.red}`,
                     paddingLeft: 8,
                     paddingTop: 4,
                     paddingBottom: 4,
@@ -2947,11 +2914,11 @@ function CommandCenter({
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px' }}>
                     {[
                       [hrTHS, 'TH/s', 'Hashrate'],
-                      [temp, '\xB0C', 'Temp'],
+                      [temp, '°C', 'Temp'],
                       [power, 'W', 'Power'],
                       [eff, 'J/TH', 'Eff'],
                     ].map(([v, u, label], j) => (
-                      <div key={j} style={{ borderLeft: \`1px solid \${T.rule3}\`, paddingLeft: 6 }}>
+                      <div key={j} style={{ borderLeft: `1px solid ${T.rule3}`, paddingLeft: 6 }}>
                         <Num size="xs" value={v} unit={u} />
                         <Kicker style={{ marginTop: 2 }}>{label}</Kicker>
                       </div>
@@ -2962,7 +2929,7 @@ function CommandCenter({
             })}
           </div>
           <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3 }}>
-            "hash and pray." \xB7 {fmtNum(totalShOk)} ok / {fmtNum(totalShRej)} rej
+            "hash and pray." · {fmtNum(totalShOk)} ok / {fmtNum(totalShRej)} rej
           </div>
           <Rule dash />
           {/* Chain vitals */}
@@ -2977,7 +2944,7 @@ function CommandCenter({
                 <Kicker style={{ marginBottom: 6 }}>{title}</Kicker>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                   {rows.map((r, i) => (
-                    <div key={i} style={{ borderLeft: \`1px solid \${T.rule3}\`, paddingLeft: 8 }}>
+                    <div key={i} style={{ borderLeft: `1px solid ${T.rule3}`, paddingLeft: 8 }}>
                       <Num size="sm" value={r.v} style={{ color: r.c || T.ink }} />
                       <Kicker style={{ marginTop: 2 }}>{r.k}</Kicker>
                     </div>
@@ -3014,13 +2981,13 @@ function CommandCenter({
  * Renders CommandCenter with all data passed as props.
  */
 function App() {
-  // \u2500\u2500\u2500 Dark Mode \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ─── Dark Mode ────────────────────────────────────────────
   const [dark, setDark] = React.useState(false);
 
-  // \u2500\u2500\u2500 Settings Panel \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ─── Settings Panel ───────────────────────────────────────
   const [settingsOpen, setSettingsOpen] = React.useState(false);
 
-  // \u2500\u2500\u2500 BitAxe Configuration (with localStorage persistence) \u2500\u2500
+  // ─── BitAxe Configuration (with localStorage persistence) ──
   const loadSavedBitAxe = () => {
     try {
       return JSON.parse(localStorage.getItem('dailynode-bitaxe') || '{}');
@@ -3037,7 +3004,7 @@ function App() {
     return s.ips !== undefined ? s.ips : CONFIG.BITAXE_IPS;
   });
 
-  // \u2500\u2500\u2500 User Preferences (with localStorage persistence) \u2500\u2500\u2500\u2500\u2500\u2500
+  // ─── User Preferences (with localStorage persistence) ──────
   const loadSavedPrefs = () => {
     try {
       return JSON.parse(localStorage.getItem('dailynode-prefs') || '{}');
@@ -3056,7 +3023,7 @@ function App() {
     };
   });
 
-  // \u2500\u2500\u2500 Call All Hooks \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ─── Call All Hooks ───────────────────────────────────────
   const clock = useClock(prefs.timeFormat);
   const btc = useBTC();
   const chain = useChain();
@@ -3065,10 +3032,10 @@ function App() {
   const rss = useRSS();
   const feedHealth = useFeedHealth([btc, chain, weather, rss]);
 
-  // \u2500\u2500\u2500 Theme Selection \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ─── Theme Selection ──────────────────────────────────────
   const theme = dark ? DARK : LIGHT;
 
-  // \u2500\u2500\u2500 Effects \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ─── Effects ──────────────────────────────────────────────
   // Apply canvas scaling if available
   React.useEffect(() => {
     if (window.applyScale) {
@@ -3081,7 +3048,7 @@ function App() {
     document.documentElement.style.setProperty('--paper', dark ? DARK.paper : LIGHT.paper);
   }, [dark]);
 
-  // \u2500\u2500\u2500 Event Handlers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ─── Event Handlers ───────────────────────────────────────
   const handleToggleDark = () => {
     setDark(prev => {
       const next = !prev;
@@ -3100,7 +3067,7 @@ function App() {
     setSettingsOpen(false);
   };
 
-  // \u2500\u2500\u2500 Render \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // ─── Render ────────────────────────────────────────────────
   return (
     <ThemeCtx.Provider value={theme}>
       <CommandCenter
@@ -3125,12 +3092,11 @@ function App() {
   );
 }
 
-// \u2500\u2500\u2500 Mount to DOM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// ─── Mount to DOM ──────────────────────────────────────────
 const root = ReactDOM.createRoot(document.getElementById('canvas'));
 root.render(<App />);
 
-<\/script>
+</script>
 
 </body>
 </html>
-`;

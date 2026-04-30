@@ -40,6 +40,14 @@ const CONFIG = {
   },
 };
 
+const INTERVALS = {
+  BTC:     CONFIG.REFRESH_INTERVALS.price,
+  CHAIN:   CONFIG.REFRESH_INTERVALS.chain,
+  BITAXE:  CONFIG.REFRESH_INTERVALS.bitaxe,
+  WEATHER: CONFIG.REFRESH_INTERVALS.weather,
+  RSS:     CONFIG.REFRESH_INTERVALS.news,
+};
+
 // ES6 export
 export default CONFIG;
 
