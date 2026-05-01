@@ -176,7 +176,6 @@ export function CommandCenter({
   // Solo odds from combined fleet hashrate
   const soloOdds =
     chain.data && totalHashrateTHS > 0 ? calcSoloOdds(chain.data.hashrate / 1e18, totalHashrateTHS) : null;
-  const oddsStr = soloOdds ? `1 : ${fmtNum(soloOdds.oddsPerDay)}` : '—';
   const etaStr = soloOdds ? `~${fmtNum(soloOdds.etaYears)} yrs` : '—';
 
   // Chain vitals rows
