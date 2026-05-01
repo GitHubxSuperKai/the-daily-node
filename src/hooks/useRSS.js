@@ -2,18 +2,17 @@ import { useState, useEffect, useCallback } from 'react';
 import CONFIG from '../config.js';
 import { useResettableInterval } from './useResettableInterval.js';
 
-/**
- * useRSS Hook
- * Fetches Bitcoin news from configured RSS feeds via rss2json
- *
- * Returns: {
- *   items: array of article objects { cat, hed, src, pubDate, t, link, img, snippet },
- *   leadStory: first article or null,
- *   err: boolean,
- *   lastOk: timestamp or null,
- *   interval: number (for feed health tracking)
- * }
- */
+function classifyTopic(title) {
+  const t = (title || '').toLowerCase();
+  if (/breaking|urgent/.test(t)) return 'BREAKING';
+  if (/etf|fund|inflow|outflow|rally|dump|\bprice\b|market|trade|exchange|bull|bear|\bspot\b|futures|options|invest|portfolio|microstrategy|blackrock|institutional|hedge/.test(t)) return 'MARKETS';
+  if (/mining|miner|hashrate|hash rate|difficulty|\bpool\b|asic|block reward|halving|antpool|foundry|f2pool|marathon|riot/.test(t)) return 'MINING';
+  if (/\bsec\b|regulat|legal|government|congress|senate|polic|ban|\bcourt\b|compli|\bkyc\b|\baml\b|treasury|\birs\b|\btax\b|\blaw\b/.test(t)) return 'REGULATION';
+  if (/lightning|protocol|upgrade|developer|wallet|layer.?2|taproot|ordinals|runes|\bbip\b|fork|\bnode\b/.test(t)) return 'TECH';
+  if (/el salvador|central bank|\bcbdc\b|reserve|national|strategic|country|nation|adopt/.test(t)) return 'GLOBAL';
+  return 'BITCOIN';
+}
+
 export function useRSS() {
   const [items, setItems] = useState([]);
   const [err, setErr] = useState(false);
@@ -34,6 +33,7 @@ export function useRSS() {
         const src = j.feed.title || new URL(feedUrl).hostname;
         return j.items.map(it => ({
           cat: it.categories && it.categories[0] ? it.categories[0].toUpperCase().slice(0, 10) : 'BITCOIN',
+          topic: classifyTopic(it.title),
           hed: it.title,
           src,
           pubDate: it.pubDate,
