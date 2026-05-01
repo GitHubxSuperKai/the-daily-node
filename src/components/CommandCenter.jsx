@@ -10,6 +10,7 @@ import { Num } from './Num';
 import { StatusDot } from './StatusDot';
 import { WxGlyph } from './WxGlyph';
 import { LineChart } from './LineChart';
+import { NetworkStatusWidget } from './NetworkStatusWidget';
 import {
   useClock,
   useBTC,
@@ -910,92 +911,9 @@ export function CommandCenter({
             {fmtNum(totalShOk)} ok · {fmtNum(totalShRej)} rej
           </div>
           <Rule dash />
-          {/* Chain vitals — compact key/value table */}
-          <Kicker>Chain vitals</Kicker>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px', marginTop: 4 }}>
-            {/* Left col: Mining + Chain stats */}
-            <div>
-              {[...miningRows, ...chainStatRows].map((r, i) => (
-                <div key={i} style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'baseline',
-                  padding: '2px 0',
-                  borderBottom: `1px solid ${T.rule3}`,
-                }}>
-                  <span style={{ fontFamily: T.mono, fontSize: 9, color: T.ink4, flexShrink: 0, paddingRight: 6 }}>{r.k}</span>
-                  <span style={{ fontFamily: T.mono, fontSize: 10, color: r.c || T.ink, textAlign: 'right' }}>{r.v}</span>
-                </div>
-              ))}
-            </div>
-            {/* Right col: Mempool + projected */}
-            <div>
-              {mempoolRows.map((r, i) => (
-                <div key={i} style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'baseline',
-                  padding: '2px 0',
-                  borderBottom: `1px solid ${T.rule3}`,
-                }}>
-                  <span style={{ fontFamily: T.mono, fontSize: 9, color: T.ink4, flexShrink: 0, paddingRight: 6 }}>{r.k}</span>
-                  <span style={{ fontFamily: T.mono, fontSize: 10, color: r.c || T.ink, textAlign: 'right' }}>{r.v}</span>
-                </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Latest Block */}
-          {(chain.recentBlocks || []).length > 0 && (() => {
-            const b = chain.recentBlocks[0];
-            const topPoolName = chain.topPoolBlocks?.[0] && chain.pools?.[0]
-              ? chain.pools[0].name : null;
-            const minerName = b.poolName || topPoolName || '—';
-            return (
-              <div style={{ marginTop: 6 }}>
-                <Kicker>Latest Block</Kicker>
-                <div style={{ fontFamily: T.mono, fontSize: 24, fontWeight: 700, letterSpacing: -1, lineHeight: 1, color: T.ink, marginTop: 4, fontFeatureSettings: '"tnum"' }}>
-                  #{fmtNum(b.height)}
-                </div>
-                <div style={{ fontFamily: T.mono, fontSize: 9, color: T.ink3, marginTop: 3 }}>
-                  {minerName} · {timeAgoUnix(b.timestamp)}
-                </div>
-                <div style={{ fontFamily: T.mono, fontSize: 9, color: T.ink4, marginTop: 1 }}>
-                  {fmtNum(b.txCount)} tx · {fmtBlockSize(b.size)}{b.medianFee != null ? ` · ${b.medianFee} s/vB` : ''}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Mining Pools — stacked bar chart */}
-          {(chain.pools || []).length > 0 && (
-            <div style={{ marginTop: 10 }}>
-              <Kicker>Mining Pools · 7d</Kicker>
-              {/* Stacked bar: full width = 100% of known hashpower */}
-              <div style={{ display: 'flex', height: 10, width: '100%', marginTop: 5, borderRadius: 1, overflow: 'hidden', gap: 1 }}>
-                {chain.pools.map((p, i) => {
-                  const palette = [T.orange, T.ink, T.ink2, T.ink3, T.ink4, '#888'];
-                  return (
-                    <div key={i} style={{ width: `${p.sharePct}%`, background: palette[i] || T.rule3, flexShrink: 0 }} />
-                  );
-                })}
-                <div style={{ flex: 1, background: T.rule3 }} />
-              </div>
-              {/* 2-col legend */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 10px', marginTop: 5 }}>
-                {chain.pools.map((p, i) => {
-                  const palette = [T.orange, T.ink, T.ink2, T.ink3, T.ink4, '#888'];
-                  return (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <div style={{ width: 6, height: 6, background: palette[i] || T.rule3, flexShrink: 0, borderRadius: 1 }} />
-                      <span style={{ fontFamily: T.mono, fontSize: 8, color: T.ink3, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                      <span style={{ fontFamily: T.mono, fontSize: 8, color: i === 0 ? T.orange : T.ink4 }}>{p.sharePct}%</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {/* Network Status Widget — redesigned column 3 */}
+          <NetworkStatusWidget chain={chain} T={T} />
         </div>
       </div>
 
