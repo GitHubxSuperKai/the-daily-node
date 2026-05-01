@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import CONFIG from '../config.js';
-import { fetchChainStats } from '../utils/api.js';
+import { fetchChainStats, fetchMiningPools, fetchPoolBlocks, fetchRecentBlocks, fetchMempoolBlocks } from '../utils/api.js';
 import { fmtMempoolMB, nextHalving, circulatingBTC } from '../utils/format.js';
 
 /**
@@ -9,6 +9,10 @@ import { fmtMempoolMB, nextHalving, circulatingBTC } from '../utils/format.js';
  *
  * Returns: {
  *   data: object with chain stats or null,
+ *   pools: [{ name, slug, blockCount, sharePct }],
+ *   topPoolBlocks: [{ height, timestamp, txCount }],
+ *   recentBlocks: [{ height, timestamp, txCount, size, medianFee, poolName }],
+ *   mempoolBlocks: [{ nTx, medianFee, feeRange }],
  *   loading: boolean,
  *   error: boolean,
  *   lastOk: number (timestamp) or null
@@ -16,6 +20,7 @@ import { fmtMempoolMB, nextHalving, circulatingBTC } from '../utils/format.js';
  */
 export function useChain() {
   const [data, setData] = useState(null);
+  const [extData, setExtData] = useState({ pools: [], topPoolBlocks: [], recentBlocks: [], mempoolBlocks: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [lastOk, setLastOk] = useState(null);
@@ -28,7 +33,6 @@ export function useChain() {
         throw new Error('fetchChainStats returned empty');
       }
 
-      // Enrich chain data with calculated fields
       const enrichedData = {
         ...chainData,
         mempoolMB: fmtMempoolMB(chainData.mempoolBytes),
@@ -47,14 +51,40 @@ export function useChain() {
     }
   }, []);
 
+  const fetchExtended = useCallback(async () => {
+    try {
+      const [pools, recentBlocks, mempoolBlocks] = await Promise.all([
+        fetchMiningPools(),
+        fetchRecentBlocks(),
+        fetchMempoolBlocks(),
+      ]);
+
+      let topPoolBlocks = [];
+      if (pools.length > 0) {
+        topPoolBlocks = await fetchPoolBlocks(pools[0].slug);
+      }
+
+      setExtData({ pools, topPoolBlocks, recentBlocks, mempoolBlocks });
+    } catch (err) {
+      console.error('fetchExtended error:', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchChain();
     const id = setInterval(fetchChain, CONFIG.REFRESH_INTERVALS.chain);
     return () => clearInterval(id);
   }, [fetchChain]);
 
+  useEffect(() => {
+    fetchExtended();
+    const id = setInterval(fetchExtended, CONFIG.REFRESH_INTERVALS.pools);
+    return () => clearInterval(id);
+  }, [fetchExtended]);
+
   return {
     data,
+    ...extData,
     loading,
     error,
     lastOk,

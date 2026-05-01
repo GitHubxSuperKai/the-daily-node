@@ -37,6 +37,7 @@ const CONFIG = {
     weather: 15 * 60 * 1000, // Weather every 15m
     news:    5 * 60 * 1000,  // News every 5m
     bitaxe:  10000,        // Miner stats every 10s
+    pools:   5 * 60 * 1000,  // Mining pools + bitcoin meta every 5m
   },
 };
 
