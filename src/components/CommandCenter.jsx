@@ -82,7 +82,7 @@ function LeadImage({ src, domain }) {
     <img
       src={src}
       alt=""
-      style={{ width: '100%', height: 'auto', borderRadius: 3, display: 'block' }}
+      style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 3, display: 'block' }}
       onError={() => setErrored(true)}
     />
   );

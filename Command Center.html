@@ -791,19 +791,22 @@ function LineChart({ w, h, color, points, fill, vwap }) {
 
 
 
+
+
+
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 const BTC_HISTORY = [
   { mo:1,  d:3,  y:2009, t:'Satoshi mines the Genesis Block (block 0), embedding "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks."' },
-  { mo:1,  d:9,  y:2009, t:'Bitcoin v0.1 released and the network goes live. Satoshi sends 10 BTC to Hal Finney in the first transaction.' },
-  { mo:1,  d:12, y:2009, t:'First ever Bitcoin transaction: Satoshi sends 10 BTC to Hal Finney (block 170).' },
+  { mo:1,  d:9,  y:2009, t:'Bitcoin v0.1 released and the network goes live. Satoshi sends 10 BTC to Hal Finney in the first transaction (block 170).' },
   { mo:2,  d:6,  y:2010, t:'First Bitcoin exchange (Bitcoin Market) established, enabling BTC/USD trades.' },
   { mo:2,  d:28, y:2014, t:'Mt. Gox files for bankruptcy, disclosing 850,000 BTC missing.' },
   { mo:3,  d:6,  y:2014, t:'Newsweek claims Dorian Nakamoto is Satoshi. He denies it. Satoshi posts "I am not Dorian Nakamoto."' },
+  { mo:4,  d:1,  y:2013, t:'Bitcoin surpasses $100 for the first time, driven by the Cyprus banking crisis and safe-haven demand.' },
   { mo:4,  d:19, y:2024, t:'Fourth halving at block 840,000. Block reward drops from 6.25 to 3.125 BTC.' },
   { mo:5,  d:22, y:2010, t:'Laszlo Hanyecz makes the first commercial Bitcoin transaction — 10,000 BTC for two pizzas.' },
-  { mo:6,  d:15, y:2021, t:'El Salvador Congress passes Bitcoin Legal Tender Law.' },
-  { mo:6,  d:15, y:2022, t:'Celsius Network halts all withdrawals. The contagion begins.' },
+  { mo:6,  d:12, y:2022, t:'Celsius Network halts all withdrawals amid crypto contagion, triggering a wave of lender insolvencies.' },
+  { mo:6,  d:15, y:2021, t:'El Salvador Congress passes Bitcoin Legal Tender Law, making it the first country to adopt BTC as official currency.' },
   { mo:7,  d:9,  y:2016, t:'Third halving at block 420,000. Reward drops from 25 to 12.5 BTC.' },
   { mo:8,  d:1,  y:2017, t:'Bitcoin Cash hard fork at block 478,558.' },
   { mo:8,  d:23, y:2017, t:'SegWit activates on mainnet, clearing the path for the Lightning Network.' },
@@ -870,24 +873,57 @@ function OnThisDay() {
 
 
 
+
 function ProofOfRead({ btc, chain, hashrate, mempoolTx, mempoolMB, feeFast, feeEco, btcPrice, btcLo, btcHi }) {
   const T = useT();
 
-  const btcUp = btc.data ? btc.data.chgPct >= 0 : true;
-  const bullets = [
-    btc.data
-      ? `Bitcoin is trading at ${btcPrice}, ${btcUp ? 'up' : 'down'} ${Math.abs(btc.data.chgPct).toFixed(2)}% from yesterday's open. Day range: ${btcLo}-${btcHi}.`
-      : 'Fetching price data...',
-    chain.data
-      ? `Network hashrate at ${hashrate}. Mempool holds ${mempoolTx} txs (${mempoolMB}), clearing at ${feeFast} fast / ${feeEco} eco. Next halving ${chain.data.nextHalvingDate}.`
-      : 'Fetching chain data...',
-  ];
+  let priceBullet, chainBullet;
+
+  if (btc.data) {
+    const { chgPct, price, hi, lo } = btc.data;
+    const abs = Math.abs(chgPct);
+    const dir = chgPct >= 0 ? 'up' : 'down';
+    const mag = abs >= 5 ? 'sharply ' : abs >= 2 ? 'notably ' : '';
+    const range = hi - lo;
+    const rangeNote = range > 0
+      ? price >= hi - range * 0.15 ? ', near session highs'
+      : price <= lo + range * 0.15 ? ', near session lows'
+      : ''
+      : '';
+    priceBullet = abs < 0.5
+      ? `Bitcoin is nearly flat on the day at ${btcPrice}. Day range: ${btcLo}–${btcHi}.`
+      : `Bitcoin is ${mag}${dir} ${abs.toFixed(2)}% at ${btcPrice}${rangeNote}. Day range: ${btcLo}–${btcHi}.`;
+  } else {
+    priceBullet = 'Fetching price data…';
+  }
+
+  if (chain.data) {
+    const { feeFast: rawFee, diffAdj, remainingBlocks, estimatedRetargetDate, height, nextHalvingDate } = chain.data;
+    const feeLabel = rawFee < 5  ? 'Fee market is quiet'
+      : rawFee < 20 ? 'Fees are moderate'
+      : rawFee < 50 ? 'Fees are elevated'
+      : 'Network is congested — fees are high';
+    const halvingBlocksLeft = typeof height === 'number'
+      ? Math.ceil((height + 1) / 210000) * 210000 - height
+      : Infinity;
+    const dateLabel = halvingBlocksLeft < remainingBlocks
+      ? `Next halving ${nextHalvingDate}.`
+      : estimatedRetargetDate
+        ? `Next difficulty retarget ~${new Date(estimatedRetargetDate).toISOString().slice(0, 10)}.`
+        : 'Next difficulty retarget: date unavailable.';
+    const diffNote = diffAdj != null && Math.abs(diffAdj) >= 3
+      ? ` Retarget tracking ${diffAdj >= 0 ? '+' : ''}${diffAdj.toFixed(1)}%.`
+      : '';
+    chainBullet = `Network hashrate at ${hashrate}. ${feeLabel} (${feeFast} fast / ${feeEco} eco); mempool holds ${mempoolTx} txs (${mempoolMB}). ${dateLabel}${diffNote}`;
+  } else {
+    chainBullet = 'Fetching chain data…';
+  }
 
   return (
     <div style={{ paddingBottom: 10, borderBottom: `1px solid ${T.rule2}`, marginBottom: 2 }}>
       <Kicker>Proof of Read</Kicker>
       <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {bullets.map((bullet, i) => (
+        {[priceBullet, chainBullet].map((bullet, i) => (
           <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
             <span style={{ fontFamily: T.mono, fontSize: 10, color: T.orange, marginTop: 3, flexShrink: 0 }}>&#9670;</span>
             <div style={{ fontFamily: T.body, fontSize: 13, lineHeight: 1.5, color: T.ink2 }}>{bullet}</div>
@@ -1388,6 +1424,8 @@ function useFeedHealth(feeds) {
 }
 
 
+
+
 function Masthead({ clock, wxSummary, dark, onToggleDark, onOpenSettings }) {
   const T = useT();
 
@@ -1598,6 +1636,9 @@ function Ticker({ chain, feedHealth }) {
 
 
 
+
+
+
 const SPLIT = 5;
 
 function News({ lead, rss }) {
@@ -1670,6 +1711,12 @@ function News({ lead, rss }) {
     </div>
   );
 }
+
+
+
+
+
+
 
 
 
@@ -1761,6 +1808,7 @@ function Chain({ chain }) {
 
 
 
+
 function Weather({ weather, prefs }) {
   const T = useT();
 
@@ -1805,6 +1853,13 @@ function Weather({ weather, prefs }) {
     </div>
   );
 }
+
+
+
+
+
+
+
 
 
 
@@ -1918,6 +1973,10 @@ function Miners({ bitaxe, chain }) {
     </div>
   );
 }
+
+
+
+
 
 
 
@@ -2265,7 +2324,7 @@ function LeadImage({ src, domain }) {
     <img
       src={src}
       alt=""
-      style={{ width: '100%', height: 'auto', borderRadius: 3, display: 'block' }}
+      style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 3, display: 'block' }}
       onError={() => setErrored(true)}
     />
   );
