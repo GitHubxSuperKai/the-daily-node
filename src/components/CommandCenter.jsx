@@ -176,7 +176,6 @@ export function CommandCenter({
   // Solo odds from combined fleet hashrate
   const soloOdds =
     chain.data && totalHashrateTHS > 0 ? calcSoloOdds(chain.data.hashrate / 1e18, totalHashrateTHS) : null;
-  const oddsStr = soloOdds ? `1 : ${fmtNum(soloOdds.oddsPerDay)}` : '—';
   const etaStr = soloOdds ? `~${fmtNum(soloOdds.etaYears)} yrs` : '—';
 
   // Chain vitals rows
@@ -827,32 +826,33 @@ export function CommandCenter({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden' }}>
           <Kicker>Field Report · {onlineCount}/{minerCount} online</Kicker>
 
-          {/* Editorial prose dispatch */}
-          {(() => {
-            let line1, line2;
-            if (bitaxe.loading) {
-              line1 = 'Reaching the hash frontier…';
-              line2 = 'Awaiting telemetry from the field.';
-            } else if (onlineCount === 0) {
-              line1 = 'No units operational. The frontier lies quiet.';
-              line2 = 'Solo odds remain undefined—the one number that never discourages a bitcoiner.';
-            } else {
-              const unitWord = onlineCount === 1 ? 'unit' : 'units';
-              const oddsPhrase = soloOdds
-                ? `one-in-${fmtNum(soloOdds.oddsPerDay)} per block`
-                : 'unknown odds per block';
-              const etaPhrase = soloOdds ? `~${etaStr} expected` : 'no eta';
-              line1 = `${onlineCount} ${unitWord} operational. ${(totalHashrateTHS).toFixed(2)} TH/s committed to the chain at ${totalPower.toFixed(0)} W.`;
-              line2 = `${oddsPhrase} — ${etaPhrase}. The math is honest, if unsparing.`;
-            }
-            return (
-              <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink2, lineHeight: 1.5 }}>
-                {line1}
-                <br />
-                <span style={{ color: T.ink3, fontSize: 10 }}>{line2}</span>
+          {/* Editorial prose dispatch — single line */}
+          <p style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink2, lineHeight: 1.5, margin: 0 }}>
+            {bitaxe.loading
+              ? 'Awaiting telemetry…'
+              : onlineCount === 0
+              ? 'All units offline.'
+              : `${onlineCount} ${onlineCount === 1 ? 'unit' : 'units'} · ${totalHashrateTHS.toFixed(2)} TH/s at ${totalPower.toFixed(0)} W.`}
+          </p>
+
+          {/* Hero solo odds */}
+          {soloOdds ? (
+            <div style={{ borderLeft: `3px solid ${T.ink2}`, paddingLeft: 10 }}>
+              <div style={{ fontFamily: T.mono, fontSize: 22, fontWeight: 700, color: T.ink, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>
+                1 : {fmtNum(soloOdds.oddsPerDay)}
               </div>
-            );
-          })()}
+              <div style={{ fontFamily: T.sans, fontSize: 8, fontWeight: 600, letterSpacing: 1.5, textTransform: 'uppercase', color: T.ink3, marginTop: 3 }}>
+                Chance / Day · {etaStr} expected
+              </div>
+            </div>
+          ) : (
+            <div style={{ borderLeft: `3px solid ${T.ink4}`, paddingLeft: 10 }}>
+              <div style={{ fontFamily: T.mono, fontSize: 22, fontWeight: 700, color: T.ink4, lineHeight: 1 }}>—</div>
+              <div style={{ fontFamily: T.sans, fontSize: 8, fontWeight: 600, letterSpacing: 1.5, textTransform: 'uppercase', color: T.ink4, marginTop: 3 }}>
+                Chance / Day
+              </div>
+            </div>
+          )}
 
           {/* 4-stat summary row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0 6px', borderTop: `1px solid ${T.rule3}`, borderBottom: `1px solid ${T.rule3}`, padding: '5px 0' }}>
