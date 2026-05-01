@@ -4,6 +4,8 @@ import { Masthead } from './Masthead';
 import { MastheadPanel } from './MastheadPanel';
 import { Rule } from './Rule';
 import { Kicker } from './Kicker';
+import { OnThisDay } from './OnThisDay';
+import { ProofOfRead } from './ProofOfRead';
 import { Num } from './Num';
 import { StatusDot } from './StatusDot';
 import { WxGlyph } from './WxGlyph';
@@ -58,6 +60,34 @@ import {
  *   - onSaveSettings: (url, ips[], prefs) => void
  *   - onCloseSettings: () => void
  */
+function LeadImage({ src, domain }) {
+  const T = useT();
+  const [errored, setErrored] = React.useState(false);
+  if (errored) {
+    return (
+      <div style={{
+        width: '100%',
+        height: 80,
+        background: `repeating-linear-gradient(45deg, ${T.rule3} 0, ${T.rule3} 1px, transparent 0, transparent 8px)`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 3,
+      }}>
+        <span style={{ fontFamily: T.mono, fontSize: 10, color: T.ink4 }}>{domain}</span>
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      style={{ width: '100%', height: 'auto', borderRadius: 3, display: 'block' }}
+      onError={() => setErrored(true)}
+    />
+  );
+}
+
 export function CommandCenter({
   dark,
   onToggleDark,
@@ -230,7 +260,6 @@ export function CommandCenter({
         onToggleDark={onToggleDark}
         onOpenSettings={onOpenSettings}
       />
-      <Rule double />
 
       {/* TICKER */}
       <div
@@ -374,41 +403,6 @@ export function CommandCenter({
             overflow: 'hidden',
           }}
         >
-          <div>
-            <div
-              style={{
-                fontFamily: T.serif,
-                fontSize: 70,
-                fontWeight: 700,
-                lineHeight: 0.86,
-                letterSpacing: -2.5,
-                color: T.ink,
-              }}
-            >
-              The
-              <br />
-              Daily
-              <br />
-              Node
-            </div>
-            <div
-              style={{
-                fontFamily: T.body,
-                fontStyle: 'italic',
-                fontSize: 13,
-                color: T.ink2,
-                marginTop: 13,
-                borderTop: `1px solid ${T.rule2}`,
-                paddingTop: 9,
-                lineHeight: 1.4,
-              }}
-            >
-              "All signal, no noise —
-              <br />
-              before your coffee cools."
-            </div>
-          </div>
-          <Rule />
           {/* Clock */}
           <div>
             <Kicker>Today</Kicker>
@@ -426,6 +420,9 @@ export function CommandCenter({
               {clock.dayStr}
             </div>
           </div>
+          <Rule dash />
+          {/* On This Day */}
+          <OnThisDay />
           <Rule dash />
           {/* Weather */}
           <div>
@@ -540,7 +537,7 @@ export function CommandCenter({
               paddingTop: 8,
             }}
           >
-            Published from a home on the internet. Set in Fraunces &amp; Newsreader.
+            Published from a home on the internet. Set in Playfair Display &amp; Newsreader.
           </div>
         </div>
 
@@ -555,6 +552,19 @@ export function CommandCenter({
             overflow: 'hidden',
           }}
         >
+          {/* Proof of Read briefing */}
+          <ProofOfRead
+            btc={btc}
+            chain={chain}
+            hashrate={hashrate}
+            mempoolTx={mempoolTx}
+            mempoolMB={mempoolMB}
+            feeFast={feeFast}
+            feeEco={feeEco}
+            btcPrice={btcPrice}
+            btcLo={btcLo}
+            btcHi={btcHi}
+          />
           {/* BTC market */}
           <Kicker>Markets · BTC / USD</Kicker>
           {/* Row 1: price left, % change right */}
@@ -640,14 +650,7 @@ export function CommandCenter({
                 </h1>
               </a>
               {lead.img ? (
-                <img
-                  src={lead.img}
-                  alt=""
-                  style={{ width: '100%', height: 'auto', borderRadius: 3, display: 'block' }}
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
+                <LeadImage src={lead.img} domain={lead.src} />
               ) : null}
               {lead.snippet ? (
                 <div
@@ -778,25 +781,19 @@ export function CommandCenter({
           <Kicker>
             Home fleet · {onlineCount}/{minerCount} online
           </Kicker>
-          <h2
-            style={{
-              fontFamily: T.serif,
-              fontSize: 20,
-              fontWeight: 700,
-              lineHeight: 1.05,
-              letterSpacing: -0.4,
-              color: T.ink,
-              textWrap: 'balance',
-              margin: 0,
-            }}
-          >
-            A <span style={{ fontStyle: 'italic' }}>one-in-{soloOdds ? fmtNum(soloOdds.oddsPerDay).toLowerCase() : 'unknown'}</span> chance, every day.
-          </h2>
-          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink2 }}>
-            {bxPool} · {onlineCount > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s combined` : 'miners offline'}
-          </div>
-          {/* Solo odds hero */}
+          {/* Solo odds hero — sentence above, number below */}
           <div style={{ paddingTop: 2 }}>
+            <div style={{
+              fontFamily: T.sans,
+              fontSize: 9,
+              fontWeight: 600,
+              letterSpacing: 3,
+              textTransform: 'uppercase',
+              color: T.ink3,
+              marginBottom: 6,
+            }}>
+              A <em style={{ fontFamily: T.body, fontStyle: 'italic', fontWeight: 400, textTransform: 'none', letterSpacing: 0, fontSize: 11, color: T.ink2 }}>one-in-{soloOdds ? fmtNum(soloOdds.oddsPerDay) : '—'}</em> chance, every block
+            </div>
             {onlineCount === 0 ? (
               <div style={{ fontFamily: T.mono, fontSize: 18, color: T.ink3 }}>
                 {bitaxe.loading ? 'Connecting to miners…' : 'All miners offline'}
@@ -805,10 +802,10 @@ export function CommandCenter({
               <div
                 style={{
                   fontFamily: T.mono,
-                  fontSize: 64,
-                  fontWeight: 500,
-                  letterSpacing: -1,
-                  lineHeight: 1,
+                  fontSize: 58,
+                  fontWeight: 700,
+                  letterSpacing: -2,
+                  lineHeight: 0.95,
                   color: T.ink,
                   fontFeatureSettings: '"tnum"',
                 }}
@@ -816,16 +813,8 @@ export function CommandCenter({
                 {oddsStr}
               </div>
             )}
-            <div
-              style={{
-                fontFamily: T.mono,
-                fontSize: 12,
-                color: T.ink3,
-                marginTop: 4,
-                letterSpacing: 0.5,
-              }}
-            >
-              per day · expected {etaStr}
+            <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3, marginTop: 5 }}>
+              Expected {etaStr} at current hashrate
             </div>
           </div>
           {/* Per-miner cards */}

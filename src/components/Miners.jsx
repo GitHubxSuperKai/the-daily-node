@@ -4,11 +4,11 @@ import Num from './Num';
 import Kicker from './Kicker';
 import StatusDot from './StatusDot';
 import { fmtNum, calcSoloOdds } from '../utils/formatting';
+import { fmtBestDiff } from '../utils/format';
 
 function Miners({ bitaxe, chain }) {
   const T = useT();
 
-  // BitAxe fleet derived
   const onlineMiners    = bitaxe.miners.filter(m => m.online && m.data);
   const minerCount      = bitaxe.miners.length;
   const onlineCount     = onlineMiners.length;
@@ -20,39 +20,63 @@ function Miners({ bitaxe, chain }) {
   const firstMiner      = onlineMiners[0]?.data;
   const bxPool          = firstMiner ? (firstMiner.stratumURL || 'solo.ckpool.org') : 'solo.ckpool.org';
 
-  // Solo odds from combined fleet hashrate
   const soloOdds = chain.data && totalHashrateTHS > 0
     ? calcSoloOdds(chain.data.hashrate / 1e18, totalHashrateTHS)
     : null;
   const oddsStr  = soloOdds ? `1 : ${fmtNum(soloOdds.oddsPerDay)}` : '—';
   const etaStr   = soloOdds ? `~${fmtNum(soloOdds.etaYears)} yrs` : '—';
 
+  // Best difficulty + Field Report prose
+  const bestDiffRaw = onlineMiners.reduce((best, m) => {
+    const bd = parseFloat(m.data?.bestDiff || m.data?.bestDifficulty || 0);
+    return bd > best ? bd : best;
+  }, 0);
+  const bestDiffStr = fmtBestDiff(bestDiffRaw);
+  const diffRatio = bestDiffRaw > 0 && chain.data?.difficulty
+    ? bestDiffRaw / chain.data.difficulty : 0;
+  const blockPun = diffRatio >= 0.01    ? 'That is dangerously close. Hold your breath.'
+    : diffRatio >= 0.001  ? 'One in a thousand of the way there. Progress.'
+    : diffRatio >= 0.0001 ? 'A polite knock on the door.'
+    : diffRatio >= 0.00001 ? 'Statistically present. Practically invisible.'
+    : 'The block does not know you exist yet. Keep hashing.';
+
+  const sharesNote = totalShRej > 0
+    ? `${((totalShRej / (totalShOk + totalShRej + 1)) * 100).toFixed(1)}% rejected`
+    : 'running clean';
+
+  const fieldReportProse = onlineCount === 0
+    ? `All units offline. The network hashes on at ${chain.data ? fmtNum(Math.round(chain.data.hashrate / 1e18)) + ' EH/s' : '—'} without you.`
+    : `${onlineCount === 1 ? 'A single unit pushes' : `${onlineCount} miners push`} ${totalHashrateTHS.toFixed(2)} TH/s into ${bxPool}, drawing ${Math.round(totalPower)} W at ${combinedEff} J/TH. Shares ${sharesNote}. Best diff this session: ${bestDiffStr}. ${blockPun}`;
+
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:10, overflow:'hidden' }}>
-      <Kicker>Home fleet · {onlineCount}/{minerCount} online</Kicker>
-      <h2 style={{ fontFamily:T.serif, fontSize:20, fontWeight:700, lineHeight:1.05, letterSpacing:-0.4, color:T.ink, textWrap:'balance', margin:0 }}>
-        A <span style={{ fontStyle:'italic' }}>one-in-{soloOdds ? fmtNum(soloOdds.oddsPerDay).toLowerCase() : 'unknown'}</span> chance, every day.
-      </h2>
-      <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:11, color:T.ink2 }}>
-        {bxPool} · {onlineCount > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s combined` : 'miners offline'}
-      </div>
-      {/* Solo odds hero */}
-      <div style={{ paddingTop:2 }}>
-        {onlineCount === 0 ? (
-          <div style={{ fontFamily:T.mono, fontSize:18, color:T.ink3 }}>
-            {bitaxe.loading ? 'Connecting to miners…' : 'All miners offline'}
+      <Kicker>Field Report · Home Fleet</Kicker>
+
+      {/* Editorial prose dispatch */}
+      <p style={{ fontFamily:T.body, fontSize:13.5, lineHeight:1.55, color:T.ink2, fontStyle:'italic', margin:0 }}>
+        {fieldReportProse}
+      </p>
+
+      {/* 4-stat compact row */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:8, paddingTop:4 }}>
+        {[
+          { v: onlineCount > 0 ? totalHashrateTHS.toFixed(2) : '—', u: 'TH/s', k: 'Hashrate' },
+          { v: onlineCount > 0 ? String(Math.round(totalPower)) : '—', u: 'W', k: 'Power' },
+          { v: onlineCount > 0 ? combinedEff : '—', u: 'J/TH', k: 'Efficiency' },
+          { v: bestDiffStr, u: '', k: 'Best Diff' },
+        ].map(({ v, u, k }) => (
+          <div key={k} style={{ borderLeft:`2px solid ${T.rule2}`, paddingLeft:8 }}>
+            <div style={{ display:'flex', alignItems:'baseline', gap:2 }}>
+              <span style={{ fontFamily:T.mono, fontSize:16, fontWeight:600, color:T.ink, fontFeatureSettings:'"tnum"' }}>{v}</span>
+              {u && <span style={{ fontFamily:T.mono, fontSize:10, color:T.ink3 }}>{u}</span>}
+            </div>
+            <Kicker style={{ marginTop:2 }}>{k}</Kicker>
           </div>
-        ) : (
-          <div style={{ fontFamily:T.mono, fontSize:64, fontWeight:500, letterSpacing:-1, lineHeight:1, color:T.ink, fontFeatureSettings:'"tnum"' }}>
-            {oddsStr}
-          </div>
-        )}
-        <div style={{ fontFamily:T.mono, fontSize:12, color:T.ink3, marginTop:4, letterSpacing:0.5 }}>
-          per day · expected {etaStr}
-        </div>
+        ))}
       </div>
+
       {/* Per-miner cards */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
         {bitaxe.miners.length === 0 && !bitaxe.loading && (
           <div style={{ gridColumn:'1/-1', fontFamily:T.mono, fontSize:12, color:T.ink3 }}>
             No miners reachable
@@ -87,9 +111,6 @@ function Miners({ bitaxe, chain }) {
             </div>
           );
         })}
-      </div>
-      <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:11, color:T.ink3 }}>
-        "hash and pray." · {fmtNum(totalShOk)} ok / {fmtNum(totalShRej)} rej
       </div>
     </div>
   );

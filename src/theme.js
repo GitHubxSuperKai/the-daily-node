@@ -2,10 +2,10 @@ import React from 'react';
 
 // ─── Font Stack ───────────────────────────────────────────
 const FONTS = {
-  serif: '"Fraunces", Georgia, serif',
+  serif: '"Playfair Display", Georgia, serif',
   body: '"Newsreader", Georgia, serif',
   sans: '"Inter Tight", system-ui, sans-serif',
-  mono: '"JetBrains Mono", ui-monospace, monospace',
+  mono: '"Courier Prime", "Courier New", monospace',
 };
 
 // ─── Light Theme ──────────────────────────────────────────
