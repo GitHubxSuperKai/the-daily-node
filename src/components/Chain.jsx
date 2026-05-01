@@ -2,7 +2,7 @@ import React from 'react';
 import { useT } from '../theme';
 import Num from './Num';
 import Kicker from './Kicker';
-import { fmtNum, fmtHashrate, fmtDiff, fmtBlockTime, fmtMempoolMB } from '../utils/formatting';
+import { fmtNum, fmtHashrate, fmtDiff, fmtBlockTime, fmtMempoolMB, fmtBlockSize, timeAgoUnix } from '../utils/formatting';
 
 function Chain({ chain }) {
   const T = useT();
@@ -57,29 +57,96 @@ function Chain({ chain }) {
     { k: 'Fee · eco',       v: feeEco,     c: feeEcoCol },
   ];
 
-  const cols = [
-    { title: 'Mining & Chain', rows: [...miningRows, ...chainStatRows] },
-    { title: 'Mempool & Fees', rows: mempoolRows },
-  ];
+  const pools        = chain.pools        || [];
+  const topPool      = pools[0];
+  const topPoolBlocks = chain.topPoolBlocks || [];
+  const recentBlocks = chain.recentBlocks  || [];
+  const mempoolBlocks = chain.mempoolBlocks || [];
 
   return (
     <div>
       <Kicker>Chain vitals</Kicker>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 18px', marginTop:6 }}>
-        {cols.map(({ title, rows }) => (
-          <div key={title}>
-            <Kicker style={{ marginBottom:8 }}>{title}</Kicker>
-            <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-              {rows.map((r, i) => (
-                <div key={i} style={{ borderLeft:`2px solid ${T.rule3}`, paddingLeft:8 }}>
-                  <Num size="sm" value={r.v} style={{ color: r.c || T.ink }} />
-                  <Kicker style={{ marginTop:2, fontSize:9 }}>{r.k}</Kicker>
-                </div>
-              ))}
-            </div>
+        {/* Column 1: Mining & Chain */}
+        <div>
+          <Kicker style={{ marginBottom:8 }}>Mining & Chain</Kicker>
+          <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+            {[...miningRows, ...chainStatRows].map((r, i) => (
+              <div key={i} style={{ borderLeft:`2px solid ${T.rule3}`, paddingLeft:8 }}>
+                <Num size="sm" value={r.v} style={{ color: r.c || T.ink }} />
+                <Kicker style={{ marginTop:2, fontSize:9 }}>{r.k}</Kicker>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
+
+        {/* Column 2: Mempool & Fees + Projected Blocks */}
+        <div>
+          <Kicker style={{ marginBottom:8 }}>Mempool & Fees</Kicker>
+          <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+            {mempoolRows.map((r, i) => (
+              <div key={i} style={{ borderLeft:`2px solid ${T.rule3}`, paddingLeft:8 }}>
+                <Num size="sm" value={r.v} style={{ color: r.c || T.ink }} />
+                <Kicker style={{ marginTop:2, fontSize:9 }}>{r.k}</Kicker>
+              </div>
+            ))}
+            {mempoolBlocks.length > 0 && (
+              <>
+                <Kicker style={{ marginTop:6, marginBottom:2 }}>Projected</Kicker>
+                {mempoolBlocks.map((b, i) => (
+                  <div key={i} style={{ borderLeft:`2px solid ${T.rule3}`, paddingLeft:8 }}>
+                    <Num size="sm" value={b.feeRange ? `${b.feeRange[0]}–${b.feeRange[1]} sat/vB` : `${b.medianFee} sat/vB`} />
+                    <Kicker style={{ marginTop:2, fontSize:9 }}>{i === 0 ? 'Next block' : `+${i} block`} · {fmtNum(b.nTx)} txs</Kicker>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* Mining Pools */}
+      {pools.length > 0 && (
+        <div style={{ marginTop:14 }}>
+          <Kicker>Mining Pools · 7d</Kicker>
+          <div style={{ fontFamily:T.mono, fontSize:10, color:T.ink2, marginTop:5, lineHeight:1.8, wordBreak:'break-word' }}>
+            {pools.map(p => `${p.name} ${p.sharePct}%`).join('  ·  ')}
+          </div>
+          {topPool && topPoolBlocks.length > 0 && (
+            <div style={{ fontFamily:T.mono, fontSize:9, color:T.ink3, marginTop:3 }}>
+              Top pool: {topPool.name} · last block #{fmtNum(topPoolBlocks[0].height)} · {timeAgoUnix(topPoolBlocks[0].timestamp)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Recent Blocks */}
+      {recentBlocks.length > 0 && (
+        <div style={{ marginTop:14 }}>
+          <Kicker>Recent Blocks</Kicker>
+          <div style={{ marginTop:5 }}>
+            {recentBlocks.map((b, i) => (
+              <div key={i} style={{
+                display:'grid',
+                gridTemplateColumns:'6ch 1fr 5ch 6ch 8ch 5ch',
+                gap:'0 8px',
+                fontFamily:T.mono,
+                fontSize:10,
+                color:T.ink2,
+                padding:'3px 0',
+                borderBottom:`1px solid ${T.rule3}`,
+              }}>
+                <span style={{ color:T.ink3 }}>#{fmtNum(b.height)}</span>
+                <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{b.poolName}</span>
+                <span>{fmtNum(b.txCount)}</span>
+                <span>{fmtBlockSize(b.size)}</span>
+                <span style={{ color:T.ink3 }}>{b.medianFee != null ? `${b.medianFee} s/vB` : '—'}</span>
+                <span style={{ color:T.ink4 }}>{timeAgoUnix(b.timestamp)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
