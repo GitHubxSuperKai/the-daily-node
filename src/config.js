@@ -39,6 +39,12 @@ const CONFIG = {
     bitaxe:  10000,        // Miner stats every 10s
     pools:   5 * 60 * 1000,  // Mining pools + bitcoin meta every 5m
   },
+
+  // ─── Auto-Refresh ────────────────────────────────────
+  // Minimum time a tab must be hidden before refocus triggers a full refresh
+  HIDDEN_STALE_THRESHOLD: 30 * 1000,
+  // Stagger between each hook's refresh call to avoid thundering herd
+  REFRESH_STAGGER_MS: 100,
 };
 
 const INTERVALS = {
