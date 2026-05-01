@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import CONFIG from '../config.js';
 import { fetchBTCPrice, fetchBitcoinMeta } from '../utils/api.js';
+import { useResettableInterval } from './useResettableInterval.js';
 
 /**
  * useBTC Hook
@@ -67,21 +68,15 @@ export function useBTC() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchPrice();
-    fetch24hChart();
-    fetchMeta();
+  const { reset: resetPrice } = useResettableInterval(fetchPrice,    CONFIG.REFRESH_INTERVALS.price);
+  const { reset: resetChart } = useResettableInterval(fetch24hChart, CONFIG.REFRESH_INTERVALS.price * 2);
+  const { reset: resetMeta  } = useResettableInterval(fetchMeta,     CONFIG.REFRESH_INTERVALS.pools);
 
-    const id1 = setInterval(fetchPrice, CONFIG.REFRESH_INTERVALS.price);
-    const id2 = setInterval(fetch24hChart, CONFIG.REFRESH_INTERVALS.price * 2);
-    const id3 = setInterval(fetchMeta, CONFIG.REFRESH_INTERVALS.pools);
-
-    return () => {
-      clearInterval(id1);
-      clearInterval(id2);
-      clearInterval(id3);
-    };
-  }, [fetchPrice, fetch24hChart, fetchMeta]);
+  const refresh = useCallback(() => {
+    resetPrice();
+    resetChart();
+    resetMeta();
+  }, [resetPrice, resetChart, resetMeta]);
 
   const mergedData = data ? {
     ...data,
@@ -97,5 +92,6 @@ export function useBTC() {
     loading,
     error,
     lastOk,
+    refresh,
   };
 }

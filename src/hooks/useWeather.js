@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import CONFIG from '../config.js';
+import { useResettableInterval } from './useResettableInterval.js';
 
 /**
  * useWeather Hook
@@ -17,7 +18,7 @@ export function useWeather(lat, lng, tempUnit) {
   const [err, setErr] = useState(false);
   const [lastOk, setLastOk] = useState(null);
 
-  const fetchWeather = async () => {
+  const fetchWeather = useCallback(async () => {
     try {
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m&hourly=temperature_2m,weather_code,precipitation_probability,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,uv_index_max,wind_speed_10m_max&temperature_unit=${tempUnit}&wind_speed_unit=mph&forecast_days=1&timezone=auto`;
       const r = await fetch(url);
@@ -72,18 +73,22 @@ export function useWeather(lat, lng, tempUnit) {
     } catch {
       setErr(true);
     }
-  };
-
-  useEffect(() => {
-    fetchWeather();
-    const id = setInterval(fetchWeather, CONFIG.REFRESH_INTERVALS.weather);
-    return () => clearInterval(id);
   }, [lat, lng, tempUnit]);
+
+  const { reset: resetWeather } = useResettableInterval(fetchWeather, CONFIG.REFRESH_INTERVALS.weather);
+
+  // Re-fetch immediately when location or units change (preserves original behavior)
+  const hasMountedRef = useRef(false);
+  useEffect(() => {
+    if (!hasMountedRef.current) { hasMountedRef.current = true; return; }
+    resetWeather();
+  }, [lat, lng, tempUnit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     data,
     err,
     lastOk,
     interval: CONFIG.REFRESH_INTERVALS.weather,
+    refresh: resetWeather,
   };
 }
