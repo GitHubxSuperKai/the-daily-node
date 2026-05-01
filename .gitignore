@@ -11,3 +11,4 @@ src/config.local.js
 
 # Dev utilities
 icons-preview.html
+.worktrees/
