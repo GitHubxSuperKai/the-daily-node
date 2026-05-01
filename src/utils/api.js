@@ -241,19 +241,23 @@ async function fetchPoolBlocks(slug) {
  */
 async function fetchRecentBlocks() {
   try {
-    const r = await fetch('https://mempool.space/api/blocks', {
+    const r = await fetch('https://mempool.space/api/v1/blocks', {
       signal: AbortSignal.timeout(FETCH_TIMEOUT),
     });
     if (!r.ok) throw new Error('blocks api not ok');
     const blocks = await r.json();
-    return (blocks || []).slice(0, 6).map(b => ({
-      height: b.height,
-      timestamp: b.timestamp,
-      txCount: b.tx_count,
-      size: b.size,
-      medianFee: b.extras?.medianFee ?? null,
-      poolName: b.extras?.pool?.name ?? '—',
-    }));
+    const fallbackExt = (blocks || []).find(b => b.extras?.medianFee != null)?.extras ?? {};
+    return (blocks || []).slice(0, 6).map(b => {
+      const ext = b.extras ?? fallbackExt;
+      return {
+        height:    b.height,
+        timestamp: b.timestamp,
+        txCount:   b.tx_count,
+        size:      b.size,
+        medianFee: ext.medianFee != null ? Math.round(ext.medianFee * 10) / 10 : null,
+        poolName:  ext.pool?.name ?? '—',
+      };
+    });
   } catch (err) {
     console.error('fetchRecentBlocks error:', err);
     return [];
