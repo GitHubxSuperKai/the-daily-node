@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useResettableInterval } from './useResettableInterval.js';
 import CONFIG from '../config.js';
 import { fetchChainStats, fetchMiningPools, fetchPoolBlocks, fetchRecentBlocks, fetchMempoolBlocks } from '../utils/api.js';
 import { fmtMempoolMB, nextHalving, circulatingBTC } from '../utils/format.js';
@@ -70,17 +71,13 @@ export function useChain() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchChain();
-    const id = setInterval(fetchChain, CONFIG.REFRESH_INTERVALS.chain);
-    return () => clearInterval(id);
-  }, [fetchChain]);
+  const { reset: resetChain    } = useResettableInterval(fetchChain,    CONFIG.REFRESH_INTERVALS.chain);
+  const { reset: resetExtended } = useResettableInterval(fetchExtended, CONFIG.REFRESH_INTERVALS.pools);
 
-  useEffect(() => {
-    fetchExtended();
-    const id = setInterval(fetchExtended, CONFIG.REFRESH_INTERVALS.pools);
-    return () => clearInterval(id);
-  }, [fetchExtended]);
+  const refresh = useCallback(() => {
+    resetChain();
+    resetExtended();
+  }, [resetChain, resetExtended]);
 
   return {
     data,
@@ -88,5 +85,6 @@ export function useChain() {
     loading,
     error,
     lastOk,
+    refresh,
   };
 }

@@ -7,6 +7,7 @@ import { useBitaxe } from './hooks/useBitaxe.js';
 import { useWeather } from './hooks/useWeather.js';
 import { useRSS } from './hooks/useRSS.js';
 import { useFeedHealth } from './hooks/useFeedHealth.js';
+import { usePageRefresh } from './hooks/usePageRefresh.js';
 import { CommandCenter } from './components/CommandCenter.jsx';
 import CONFIG from './config.js';
 import { LIGHT, DARK, ThemeCtx } from './theme.js';
@@ -72,6 +73,9 @@ function App() {
   const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
   const rss = useRSS();
   const feedHealth = useFeedHealth([btc, chain, weather, rss]);
+
+  // ─── Auto-Refresh (tab refocus + network restore) ─────────
+  usePageRefresh([btc.refresh, chain.refresh, rss.refresh, weather.refresh, bitaxe.refresh]);
 
   // ─── Theme Selection ──────────────────────────────────────
   const theme = dark ? DARK : LIGHT;
