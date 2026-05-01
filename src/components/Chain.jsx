@@ -15,7 +15,6 @@ function Chain({ chain }) {
   const feeFast     = chain.data ? `${chain.data.feeFast} sat/vB` : '—';
   const feeEco      = chain.data ? `${chain.data.feeEco} sat/vB` : '—';
 
-  // Chain vitals color logic
   const diffAdjVal    = chain.data?.diffAdj;
   const diffAdjStr    = diffAdjVal != null ? `${diffAdjVal >= 0 ? '+' : ''}${diffAdjVal.toFixed(2)}%` : '—';
   const diffAdjCol    = diffAdjVal != null ? (diffAdjVal >= 0 ? T.green : T.red) : T.ink;
@@ -40,7 +39,7 @@ function Chain({ chain }) {
     { k: 'Hashrate',      v: hashrate },
     { k: 'Difficulty',    v: difficulty },
     { k: 'Avg block',     v: chain.data?.blockTimeMs ? fmtBlockTime(chain.data.blockTimeMs) : '—', c: blockTimeCol },
-    { k: 'Diff retarget', v: diffAdjStr, c: diffAdjCol },
+    { k: 'Diff adjust',   v: diffAdjStr, c: diffAdjCol },
     { k: 'Retarget in',   v: chain.data?.remainingBlocks != null ? `${fmtNum(chain.data.remainingBlocks)} blk` : '—' },
     { k: 'Retarget date', v: retargetDate },
     { k: 'Epoch',         v: epochStr },
@@ -51,25 +50,30 @@ function Chain({ chain }) {
     { k: 'Next halving',  v: chain.data ? chain.data.nextHalvingDate : '—' },
   ];
   const mempoolRows = [
-    { k: 'Size',           v: mempoolMB,  c: mempoolCol },
-    { k: 'Tx count',       v: mempoolTx,  c: mempoolTxCol },
-    { k: 'Blocks to clear',v: blocksToClr != null ? `${blocksToClr} blk` : '—', c: blocksToClrCol },
-    { k: 'Fee · fast',     v: feeFast,    c: feeFastCol },
-    { k: 'Fee · eco',      v: feeEco,     c: feeEcoCol },
+    { k: 'Size',            v: mempoolMB,  c: mempoolCol },
+    { k: 'Tx count',        v: mempoolTx,  c: mempoolTxCol },
+    { k: 'Blocks to clear', v: blocksToClr != null ? `${blocksToClr} blk` : '—', c: blocksToClrCol },
+    { k: 'Fee · fast',      v: feeFast,    c: feeFastCol },
+    { k: 'Fee · eco',       v: feeEco,     c: feeEcoCol },
+  ];
+
+  const cols = [
+    { title: 'Mining & Chain', rows: [...miningRows, ...chainStatRows] },
+    { title: 'Mempool & Fees', rows: mempoolRows },
   ];
 
   return (
     <div>
       <Kicker>Chain vitals</Kicker>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'0 14px' }}>
-        {[['Mining', miningRows], ['Mempool', mempoolRows], ['Chain', chainStatRows]].map(([title, rows])=>(
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 18px', marginTop:6 }}>
+        {cols.map(({ title, rows }) => (
           <div key={title}>
-            <Kicker style={{ marginBottom:6 }}>{title}</Kicker>
-            <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-              {rows.map((r,i)=>(
-                <div key={i} style={{ borderLeft:`1px solid ${T.rule3}`, paddingLeft:8 }}>
+            <Kicker style={{ marginBottom:8 }}>{title}</Kicker>
+            <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+              {rows.map((r, i) => (
+                <div key={i} style={{ borderLeft:`2px solid ${T.rule3}`, paddingLeft:8 }}>
                   <Num size="sm" value={r.v} style={{ color: r.c || T.ink }} />
-                  <Kicker style={{ marginTop:2 }}>{r.k}</Kicker>
+                  <Kicker style={{ marginTop:2, fontSize:9 }}>{r.k}</Kicker>
                 </div>
               ))}
             </div>
