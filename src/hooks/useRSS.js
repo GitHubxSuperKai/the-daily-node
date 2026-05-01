@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import CONFIG from '../config.js';
+import { useResettableInterval } from './useResettableInterval.js';
 
 function classifyTopic(title) {
   const t = (title || '').toLowerCase();
@@ -18,7 +19,7 @@ export function useRSS() {
   const [leadStory, setLeadStory] = useState(null);
   const [lastOk, setLastOk] = useState(null);
 
-  const fetchRSS = async () => {
+  const fetchRSS = useCallback(async () => {
     const key = CONFIG.RSS2JSON_KEY ? `&api_key=${CONFIG.RSS2JSON_KEY}` : '';
     const feeds = CONFIG.RSS_FEEDS || [];
 
@@ -63,13 +64,9 @@ export function useRSS() {
     } else {
       setErr(true);
     }
-  };
-
-  useEffect(() => {
-    fetchRSS();
-    const id = setInterval(fetchRSS, CONFIG.REFRESH_INTERVALS.news);
-    return () => clearInterval(id);
   }, []);
+
+  const { reset: resetRSS } = useResettableInterval(fetchRSS, CONFIG.REFRESH_INTERVALS.news);
 
   // Refresh relative times every minute
   useEffect(() => {
@@ -85,5 +82,6 @@ export function useRSS() {
     err,
     lastOk,
     interval: CONFIG.REFRESH_INTERVALS.news,
+    refresh: resetRSS,
   };
 }

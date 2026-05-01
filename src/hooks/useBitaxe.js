@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import CONFIG from '../config.js';
+import { useResettableInterval } from './useResettableInterval.js';
 
 /**
  * useBitaxe Hook
@@ -19,7 +20,7 @@ export function useBitaxe(apiUrl, ips) {
   const [loading, setLoading] = useState(true);
   const [lastOk, setLastOk] = useState(null);
 
-  const fetchBitaxe = async () => {
+  const fetchBitaxe = useCallback(async () => {
     let next;
     if (apiUrl) {
       try {
@@ -47,13 +48,16 @@ export function useBitaxe(apiUrl, ips) {
     setErr(next.every(m => !m.online));
     setLoading(false);
     setLastOk(Date.now());
-  };
+  }, [apiUrl, ips.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const { reset: resetBitaxe } = useResettableInterval(fetchBitaxe, CONFIG.REFRESH_INTERVALS.bitaxe);
+
+  // Re-fetch immediately when API URL or IPs change (preserves original behavior)
+  const hasMountedRef = useRef(false);
   useEffect(() => {
-    fetchBitaxe();
-    const id = setInterval(fetchBitaxe, CONFIG.REFRESH_INTERVALS.bitaxe);
-    return () => clearInterval(id);
-  }, [apiUrl, ips.join(',')]);
+    if (!hasMountedRef.current) { hasMountedRef.current = true; return; }
+    resetBitaxe();
+  }, [apiUrl, ips.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     miners,
@@ -61,5 +65,6 @@ export function useBitaxe(apiUrl, ips) {
     loading,
     lastOk,
     interval: CONFIG.REFRESH_INTERVALS.bitaxe,
+    refresh: resetBitaxe,
   };
 }
