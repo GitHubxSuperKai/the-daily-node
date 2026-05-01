@@ -36,6 +36,7 @@ const files = [
   'components/Weather.jsx',
   'components/Miners.jsx',
   'components/MastheadPanel.jsx',
+  'components/NetworkStatusWidget.jsx',
   'components/CommandCenter.jsx',
   'App.jsx',
 ];
