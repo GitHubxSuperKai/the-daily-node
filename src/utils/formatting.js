@@ -148,6 +148,19 @@ function wmoDesc(code) {
   return m[code] || 'Unknown';
 }
 
+function fmtBlockSize(bytes) {
+  if (!bytes) return '—';
+  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(2)} MB`;
+  return `${Math.round(bytes / 1000)} kB`;
+}
+
+function timeAgoUnix(ts) {
+  const diff = Math.floor(Date.now() / 1000 - ts);
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  return `${Math.floor(diff / 3600)}h ago`;
+}
+
 function fmtBestDiff(v) {
   if (!v || v <= 0) return '—';
   if (v >= 1e12) return `${(v / 1e12).toFixed(2)}T`;
@@ -168,6 +181,8 @@ if (typeof module !== 'undefined' && module.exports) {
     fmtHashrate,
     fmtDiff,
     fmtMempoolMB,
+    fmtBlockSize,
+    timeAgoUnix,
     timeAgo,
     fmtHour,
     nextHalving,

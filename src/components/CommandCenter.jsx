@@ -29,6 +29,9 @@ import {
   fmtDiff,
   fmtMempoolMB,
   fmtBlockTime,
+  fmtBlockSize,
+  fmtBestDiff,
+  timeAgoUnix,
   calcSoloOdds,
   fmtHour,
   wmoIcon,
@@ -36,6 +39,7 @@ import {
   wmoSpeed,
   timeAgo,
 } from '../utils';
+
 
 /**
  * CommandCenter — Main layout orchestrator (1920x1080)
@@ -135,9 +139,17 @@ export function CommandCenter({
   const btcLo = btc.data ? fmtPrice(btc.data.lo) : '—';
   const btcCap = btc.data?.cap != null ? `$${(btc.data.cap / 1e12).toFixed(2)}T` : '—';
   const btcVol = btc.data ? fmtVolUsd(btc.data.volBtc * btc.data.price) : '—';
+  const athPct = btc.data?.ath ? ((btc.data.price - btc.data.ath) / btc.data.ath) * 100 : null;
+  const athAtNew = athPct != null && athPct >= 0;
 
   const blockHeight = chain.data ? fmtNum(chain.data.height) : '—';
   const hashrate = chain.data ? fmtHashrate(chain.data.hashrate) : '—';
+  const halvings = chain.data ? Math.floor(chain.data.height / 210000) : null;
+  const blockReward = halvings != null ? 50 / Math.pow(2, halvings) : null;
+  const rewardEra = halvings != null ? halvings + 1 : null;
+  const blockRewardStr = blockReward != null
+    ? (blockReward >= 0.001 ? `${blockReward} BTC` : `${blockReward.toFixed(8)} BTC`)
+    : null;
   const difficulty = chain.data ? fmtDiff(chain.data.difficulty) : '—';
   const mempoolMB = chain.data ? fmtMempoolMB(chain.data.mempoolBytes) : '—';
   const mempoolTx = chain.data ? fmtNum(chain.data.mempoolTx) : '—';
@@ -155,6 +167,10 @@ export function CommandCenter({
   const totalShRej = onlineMiners.reduce((sum, m) => sum + (m.data.sharesRejected || 0), 0);
   const firstMiner = onlineMiners[0]?.data;
   const bxPool = firstMiner ? firstMiner.stratumURL || 'solo.ckpool.org' : 'solo.ckpool.org';
+  const bestDiffRaw = onlineMiners.length > 0
+    ? Math.max(...onlineMiners.map(m => m.data?.bestDiff || 0))
+    : 0;
+  const bestDiffStr = fmtBestDiff(bestDiffRaw);
 
   // Solo odds from combined fleet hashrate
   const soloOdds =
@@ -211,6 +227,10 @@ export function CommandCenter({
     { k: 'Blocks to clear', v: blocksToClr != null ? `${blocksToClr} blk` : '—', c: blocksToClrCol },
     { k: 'Fee · fast', v: feeFast, c: feeFastCol },
     { k: 'Fee · eco', v: feeEco, c: feeEcoCol },
+    ...(chain.mempoolBlocks || []).map((b, i) => ({
+      k: `${i === 0 ? 'Next blk' : `+${i} blk`} · ${fmtNum(b.nTx)} tx`,
+      v: b.feeRange ? `${b.feeRange[0]}–${b.feeRange[1]} s/vB` : `${b.medianFee} s/vB`,
+    })),
   ];
 
   // System status
@@ -256,6 +276,8 @@ export function CommandCenter({
       <Masthead
         clock={clock}
         wxSummary={wxSummary}
+        blockReward={blockRewardStr}
+        rewardEra={rewardEra}
         dark={dark}
         onToggleDark={onToggleDark}
         onOpenSettings={onOpenSettings}
@@ -582,6 +604,12 @@ export function CommandCenter({
               {btcUp ? '▲' : '▼'} {btcChgPct}%
             </div>
           </div>
+          {btc.data?.ath && (
+            <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink4, marginTop: -8, marginBottom: 2 }}>
+              {'ATH $' + Math.round(btc.data.ath).toLocaleString() + (btc.data.athDate ? ' · ' + new Date(btc.data.athDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '') + ' · '}
+              <span style={{ color: athAtNew ? T.green : T.red }}>{athAtNew ? '▲ new ATH' : ('▼ ' + Math.abs(athPct).toFixed(1) + '%')}</span>
+            </div>
+          )}
           {/* Row 2: hi · lo · cap bar */}
           <div
             style={{
@@ -776,121 +804,180 @@ export function CommandCenter({
           </div>
         </div>
 
-        {/* COL 3 — HOME FLEET + CHAIN VITALS */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, overflow: 'hidden' }}>
-          <Kicker>
-            Home fleet · {onlineCount}/{minerCount} online
-          </Kicker>
-          {/* Solo odds hero — sentence above, number below */}
-          <div style={{ paddingTop: 2 }}>
-            <div style={{
-              fontFamily: T.sans,
-              fontSize: 9,
-              fontWeight: 600,
-              letterSpacing: 3,
-              textTransform: 'uppercase',
-              color: T.ink3,
-              marginBottom: 6,
-            }}>
-              A <em style={{ fontFamily: T.body, fontStyle: 'italic', fontWeight: 400, textTransform: 'none', letterSpacing: 0, fontSize: 11, color: T.ink2 }}>one-in-{soloOdds ? fmtNum(soloOdds.oddsPerDay) : '—'}</em> chance, every block
-            </div>
-            {onlineCount === 0 ? (
-              <div style={{ fontFamily: T.mono, fontSize: 18, color: T.ink3 }}>
-                {bitaxe.loading ? 'Connecting to miners…' : 'All miners offline'}
+        {/* COL 3 — FIELD REPORT + CHAIN VITALS */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden' }}>
+          <Kicker>Field Report · {onlineCount}/{minerCount} online</Kicker>
+
+          {/* Editorial prose dispatch */}
+          {(() => {
+            let line1, line2;
+            if (bitaxe.loading) {
+              line1 = 'Reaching the hash frontier…';
+              line2 = 'Awaiting telemetry from the field.';
+            } else if (onlineCount === 0) {
+              line1 = 'No units operational. The frontier lies quiet.';
+              line2 = 'Solo odds remain undefined—the one number that never discourages a bitcoiner.';
+            } else {
+              const unitWord = onlineCount === 1 ? 'unit' : 'units';
+              const oddsPhrase = soloOdds
+                ? `one-in-${fmtNum(soloOdds.oddsPerDay)} per block`
+                : 'unknown odds per block';
+              const etaPhrase = soloOdds ? `~${etaStr} expected` : 'no eta';
+              line1 = `${onlineCount} ${unitWord} operational. ${(totalHashrateTHS).toFixed(2)} TH/s committed to the chain at ${totalPower.toFixed(0)} W.`;
+              line2 = `${oddsPhrase} — ${etaPhrase}. The math is honest, if unsparing.`;
+            }
+            return (
+              <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink2, lineHeight: 1.5 }}>
+                {line1}
+                <br />
+                <span style={{ color: T.ink3, fontSize: 10 }}>{line2}</span>
               </div>
-            ) : (
-              <div
-                style={{
-                  fontFamily: T.mono,
-                  fontSize: 58,
-                  fontWeight: 700,
-                  letterSpacing: -2,
-                  lineHeight: 0.95,
-                  color: T.ink,
-                  fontFeatureSettings: '"tnum"',
-                }}
-              >
-                {oddsStr}
-              </div>
-            )}
-            <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3, marginTop: 5 }}>
-              Expected {etaStr} at current hashrate
-            </div>
-          </div>
-          {/* Per-miner cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {bitaxe.miners.length === 0 && !bitaxe.loading && (
-              <div style={{ gridColumn: '1/-1', fontFamily: T.mono, fontSize: 12, color: T.ink3 }}>
-                No miners reachable
-              </div>
-            )}
-            {bitaxe.miners.map((miner, i) => {
-              const md = miner.online ? miner.data : null;
-              const hrTHS = md ? ((md.hashRate || 0) / 1000).toFixed(2) : '—';
-              const temp = md ? md.temp || md.temperature || '—' : '—';
-              const power = md ? md.power || '—' : '—';
-              const eff =
-                md && md.power && md.hashRate ? (md.power / (md.hashRate / 1000)).toFixed(1) : '—';
-              const model = md ? md.boardVersion || md.ASICModel || 'Bitaxe' : 'Bitaxe';
-              return (
-                <div
-                  key={i}
-                  style={{
-                    borderLeft: `2px solid ${miner.online ? T.green : T.red}`,
-                    paddingLeft: 8,
-                    paddingTop: 4,
-                    paddingBottom: 4,
-                  }}
-                >
-                  <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink3, marginBottom: 3 }}>
-                    <StatusDot ok={miner.online} />
-                    {miner.ip}
-                  </div>
-                  <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink2, marginBottom: 6 }}>
-                    {model}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px' }}>
-                    {[
-                      [hrTHS, 'TH/s', 'Hashrate'],
-                      [temp, '°C', 'Temp'],
-                      [power, 'W', 'Power'],
-                      [eff, 'J/TH', 'Eff'],
-                    ].map(([v, u, label], j) => (
-                      <div key={j} style={{ borderLeft: `1px solid ${T.rule3}`, paddingLeft: 6 }}>
-                        <Num size="xs" value={v} unit={u} />
-                        <Kicker style={{ marginTop: 2 }}>{label}</Kicker>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3 }}>
-            "hash and pray." · {fmtNum(totalShOk)} ok / {fmtNum(totalShRej)} rej
-          </div>
-          <Rule dash />
-          {/* Chain vitals */}
-          <Kicker>Chain vitals</Kicker>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 14px' }}>
+            );
+          })()}
+
+          {/* 4-stat summary row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0 6px', borderTop: `1px solid ${T.rule3}`, borderBottom: `1px solid ${T.rule3}`, padding: '5px 0' }}>
             {[
-              ['Mining', miningRows],
-              ['Mempool', mempoolRows],
-              ['Chain', chainStatRows],
-            ].map(([title, rows]) => (
-              <div key={title}>
-                <Kicker style={{ marginBottom: 6 }}>{title}</Kicker>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  {rows.map((r, i) => (
-                    <div key={i} style={{ borderLeft: `1px solid ${T.rule3}`, paddingLeft: 8 }}>
-                      <Num size="sm" value={r.v} style={{ color: r.c || T.ink }} />
-                      <Kicker style={{ marginTop: 2 }}>{r.k}</Kicker>
-                    </div>
-                  ))}
+              { label: 'Hashrate', v: onlineCount > 0 ? `${totalHashrateTHS.toFixed(2)}` : '—', u: 'TH/s' },
+              { label: 'Best diff', v: bestDiffStr, u: '' },
+              { label: 'Power', v: onlineCount > 0 ? `${totalPower.toFixed(0)}` : '—', u: 'W' },
+              { label: 'Efficiency', v: onlineCount > 0 ? combinedEff : '—', u: 'J/TH' },
+            ].map(({ label, v, u }) => (
+              <div key={label} style={{ textAlign: 'center' }}>
+                <div style={{ fontFamily: T.mono, fontSize: 11, color: T.ink }}>
+                  {v}<span style={{ fontSize: 8, color: T.ink3 }}>{u && ' '}{u}</span>
                 </div>
+                <div style={{ fontFamily: T.sans, fontSize: 8, fontWeight: 600, letterSpacing: 1.2, textTransform: 'uppercase', color: T.ink4, marginTop: 2 }}>{label}</div>
               </div>
             ))}
           </div>
+
+          {/* Per-miner cards — compact 2-col grid */}
+          {(() => {
+            const STUB = { ip: '—.—.—.—', online: false, data: null, stub: true };
+            const displayMiners = bitaxe.miners.length === 0 && !bitaxe.loading
+              ? [STUB, STUB]
+              : bitaxe.miners;
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+                {displayMiners.map((miner, i) => {
+                  const md = miner.online ? miner.data : null;
+                  const hrTHS = md ? ((md.hashRate || 0) / 1000).toFixed(2) : '—';
+                  const temp = md ? md.temp || md.temperature || '—' : '—';
+                  const power = md ? md.power || '—' : '—';
+                  const eff = md && md.power && md.hashRate ? (md.power / (md.hashRate / 1000)).toFixed(1) : '—';
+                  const model = md ? md.boardVersion || md.ASICModel || 'Bitaxe' : 'Bitaxe';
+                  return (
+                    <div key={i} style={{ borderLeft: `2px solid ${miner.online ? T.green : T.ink4}`, paddingLeft: 7, paddingTop: 3, paddingBottom: 3 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                        <span style={{ fontFamily: T.mono, fontSize: 9, color: T.ink3 }}>
+                          <StatusDot ok={miner.online} />{miner.stub ? 'no miner' : miner.ip}
+                        </span>
+                        <span style={{ fontFamily: T.mono, fontSize: 9, color: T.ink4 }}>{miner.stub ? '—' : model}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                        {[['TH/s', hrTHS], ['°C', temp], ['W', power], ['J/T', eff]].map(([u, v], j) => (
+                          <span key={j} style={{ fontFamily: T.mono, fontSize: 10, color: T.ink }}>
+                            {v}<span style={{ fontSize: 8, color: T.ink3 }}>{u}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+          <div style={{ fontFamily: T.mono, fontSize: 9, color: T.ink4 }}>
+            {fmtNum(totalShOk)} ok · {fmtNum(totalShRej)} rej
+          </div>
+          <Rule dash />
+          {/* Chain vitals — compact key/value table */}
+          <Kicker>Chain vitals</Kicker>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px', marginTop: 4 }}>
+            {/* Left col: Mining + Chain stats */}
+            <div>
+              {[...miningRows, ...chainStatRows].map((r, i) => (
+                <div key={i} style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
+                  padding: '2px 0',
+                  borderBottom: `1px solid ${T.rule3}`,
+                }}>
+                  <span style={{ fontFamily: T.mono, fontSize: 9, color: T.ink4, flexShrink: 0, paddingRight: 6 }}>{r.k}</span>
+                  <span style={{ fontFamily: T.mono, fontSize: 10, color: r.c || T.ink, textAlign: 'right' }}>{r.v}</span>
+                </div>
+              ))}
+            </div>
+            {/* Right col: Mempool + projected */}
+            <div>
+              {mempoolRows.map((r, i) => (
+                <div key={i} style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
+                  padding: '2px 0',
+                  borderBottom: `1px solid ${T.rule3}`,
+                }}>
+                  <span style={{ fontFamily: T.mono, fontSize: 9, color: T.ink4, flexShrink: 0, paddingRight: 6 }}>{r.k}</span>
+                  <span style={{ fontFamily: T.mono, fontSize: 10, color: r.c || T.ink, textAlign: 'right' }}>{r.v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Latest Block */}
+          {(chain.recentBlocks || []).length > 0 && (() => {
+            const b = chain.recentBlocks[0];
+            const topPoolName = chain.topPoolBlocks?.[0] && chain.pools?.[0]
+              ? chain.pools[0].name : null;
+            const minerName = b.poolName || topPoolName || '—';
+            return (
+              <div style={{ marginTop: 6 }}>
+                <Kicker>Latest Block</Kicker>
+                <div style={{ fontFamily: T.mono, fontSize: 24, fontWeight: 700, letterSpacing: -1, lineHeight: 1, color: T.ink, marginTop: 4, fontFeatureSettings: '"tnum"' }}>
+                  #{fmtNum(b.height)}
+                </div>
+                <div style={{ fontFamily: T.mono, fontSize: 9, color: T.ink3, marginTop: 3 }}>
+                  {minerName} · {timeAgoUnix(b.timestamp)}
+                </div>
+                <div style={{ fontFamily: T.mono, fontSize: 9, color: T.ink4, marginTop: 1 }}>
+                  {fmtNum(b.txCount)} tx · {fmtBlockSize(b.size)}{b.medianFee != null ? ` · ${b.medianFee} s/vB` : ''}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Mining Pools — stacked bar chart */}
+          {(chain.pools || []).length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <Kicker>Mining Pools · 7d</Kicker>
+              {/* Stacked bar: full width = 100% of known hashpower */}
+              <div style={{ display: 'flex', height: 10, width: '100%', marginTop: 5, borderRadius: 1, overflow: 'hidden', gap: 1 }}>
+                {chain.pools.map((p, i) => {
+                  const palette = [T.orange, T.ink, T.ink2, T.ink3, T.ink4, '#888'];
+                  return (
+                    <div key={i} style={{ width: `${p.sharePct}%`, background: palette[i] || T.rule3, flexShrink: 0 }} />
+                  );
+                })}
+                <div style={{ flex: 1, background: T.rule3 }} />
+              </div>
+              {/* 2-col legend */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 10px', marginTop: 5 }}>
+                {chain.pools.map((p, i) => {
+                  const palette = [T.orange, T.ink, T.ink2, T.ink3, T.ink4, '#888'];
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div style={{ width: 6, height: 6, background: palette[i] || T.rule3, flexShrink: 0, borderRadius: 1 }} />
+                      <span style={{ fontFamily: T.mono, fontSize: 8, color: T.ink3, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                      <span style={{ fontFamily: T.mono, fontSize: 8, color: i === 0 ? T.orange : T.ink4 }}>{p.sharePct}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

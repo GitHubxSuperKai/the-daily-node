@@ -80,7 +80,7 @@ const baseTemplate = fs.readFileSync(path.join(srcDir, 'index.html'), 'utf-8');
 // Replace placeholder
 const htmlWithCode = baseTemplate.replace(
   '/* MODULES CONCATENATED BY build.js */',
-  concatenated
+  () => concatenated
 );
 
 // Write HTML directly (no esbuild wrapping)
