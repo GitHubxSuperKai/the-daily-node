@@ -32,7 +32,6 @@ const files = [
   'components/Masthead.jsx',
   'components/Price.jsx',
   'components/Ticker.jsx',
-  'components/News.jsx',
   'components/Chain.jsx',
   'components/Weather.jsx',
   'components/Miners.jsx',
