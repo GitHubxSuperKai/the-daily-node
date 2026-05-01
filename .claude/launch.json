@@ -3,9 +3,9 @@
   "configurations": [
     {
       "name": "The Daily Node (static server)",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "3000", "--directory", "."],
-      "port": 3000
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server.js"],
+      "autoPort": true
     }
   ]
 }
