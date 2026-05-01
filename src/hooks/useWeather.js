@@ -19,7 +19,7 @@ export function useWeather(lat, lng, tempUnit) {
 
   const fetchWeather = async () => {
     try {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m&hourly=temperature_2m,weather_code,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&temperature_unit=${tempUnit}&wind_speed_unit=mph&forecast_days=1&timezone=auto`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m&hourly=temperature_2m,weather_code,precipitation_probability,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,uv_index_max,wind_speed_10m_max&temperature_unit=${tempUnit}&wind_speed_unit=mph&forecast_days=1&timezone=auto`;
       const r = await fetch(url);
       if (!r.ok) throw new Error('weather');
       const j = await r.json();
@@ -45,6 +45,7 @@ export function useWeather(lat, lng, tempUnit) {
             t: Math.round(j.hourly.temperature_2m[idx]),
             code: j.hourly.weather_code[idx],
             pop: j.hourly.precipitation_probability[idx] ?? 0,
+            precip: j.hourly.precipitation?.[idx] ?? 0,
           });
         }
       }
@@ -61,6 +62,9 @@ export function useWeather(lat, lng, tempUnit) {
         wxLo: Math.round(j.daily.temperature_2m_min[0]),
         wxSunriseHr: parseInt(j.daily.sunrise[0].split('T')[1]),
         wxSunsetHr: parseInt(j.daily.sunset[0].split('T')[1]),
+        wxPrecipTotal: j.daily.precipitation_sum?.[0] != null ? j.daily.precipitation_sum[0].toFixed(1) : null,
+        wxUVIndex: j.daily.uv_index_max?.[0] != null ? Math.round(j.daily.uv_index_max[0]) : null,
+        wxDailyWindMax: j.daily.wind_speed_10m_max?.[0] != null ? Math.round(j.daily.wind_speed_10m_max[0]) : null,
         hourly: hourly.slice(0, 8),
       });
       setErr(false);

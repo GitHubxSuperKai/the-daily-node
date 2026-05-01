@@ -40,11 +40,16 @@ function Weather({ weather, prefs }) {
             <div style={{ margin:'3px auto' }}><WxGlyph kind={wmoIcon(h.code, h.hr, null, wx.wxSunriseHr, wx.wxSunsetHr)} size={24} speed={wmoSpeed(h.code)} /></div>
             <Num size="xs" value={`${h.t}°`} />
             {h.pop >= 30 && <div style={{ fontFamily:T.mono, fontSize:9, color:T.ink3, marginTop:1 }}>{h.pop}%</div>}
+            {h.precip > 0 && <div style={{ fontFamily:T.mono, fontSize:9, color:T.ink3 }}>{h.precip.toFixed(1)}mm</div>}
           </div>
         ))}
       </div>
-      <div style={{ display:'flex', justifyContent:'space-between', marginTop:10, fontFamily:T.mono, fontSize:10, color:T.ink3 }}>
-        <span>wind {wx.wxWind}</span><span>hum {wx.wxHum}</span>
+      <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginTop:10, fontFamily:T.mono, fontSize:10, color:T.ink3 }}>
+        <span>wind {wx.wxWind}</span>
+        <span>hum {wx.wxHum}</span>
+        {wx.wxUVIndex != null && <span>UV {wx.wxUVIndex}</span>}
+        {wx.wxDailyWindMax != null && <span>peak {wx.wxDailyWindMax} mph</span>}
+        {wx.wxPrecipTotal != null && parseFloat(wx.wxPrecipTotal) > 0 && <span>{wx.wxPrecipTotal} mm today</span>}
       </div>
     </div>
   );

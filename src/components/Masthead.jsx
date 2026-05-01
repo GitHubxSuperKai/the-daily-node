@@ -1,8 +1,38 @@
 import React from 'react';
 import { useT } from '../theme';
 
-export function Masthead({ clock, wxSummary, dark, onToggleDark, onOpenSettings }) {
+const MASTHEAD_QUOTES = [
+  { text: "The root problem with conventional currency is all the trust that's required to make it work.", attr: 'Satoshi Nakamoto · 2009' },
+  { text: 'Running bitcoin.', attr: 'Hal Finney · Jan 11, 2009' },
+  { text: 'It might make sense just to get some in case it catches on.', attr: 'Satoshi Nakamoto · 2009' },
+  { text: 'Bitcoin is the internet of money.', attr: 'Andreas Antonopoulos' },
+  { text: 'Not your keys, not your coins.', attr: 'Andreas Antonopoulos' },
+  { text: 'Be your own bank.', attr: 'Andreas Antonopoulos' },
+  { text: 'Stay humble. Stack sats.', attr: 'Matt Odell' },
+  { text: 'Bitcoin is the hardest money ever invented.', attr: 'Saifedean Ammous' },
+  { text: 'Trusted third parties are security holes.', attr: 'Nick Szabo' },
+  { text: 'There is no second best.', attr: 'Pierre Rochard' },
+  { text: 'Bitcoin fixes this.', attr: 'Jack Mallers' },
+  { text: 'Bitcoin changes absolutely everything.', attr: 'Jack Dorsey' },
+  { text: 'Bitcoin is hope.', attr: 'Michael Saylor' },
+  { text: 'Bitcoin is a swarm of cyber hornets serving the goddess of wisdom.', attr: 'Michael Saylor' },
+  { text: 'Bitcoin is digital scarcity.', attr: 'Adam Back' },
+  { text: 'Bitcoin is the separation of money and state.', attr: 'Erik Voorhees' },
+  { text: "Don't trust, verify.", attr: 'Bitcoin cypherpunk tradition' },
+  { text: 'Gradually, then suddenly.', attr: 'Jeff Booth · The Price of Tomorrow' },
+  { text: 'Have fun staying poor.', attr: 'Bitcoin Twitter, circa 2017' },
+  { text: 'One bitcoin equals one bitcoin.', attr: 'Bitcoin axiom' },
+  { text: 'Bitcoin is an exit.', attr: 'Nic Carter' },
+  { text: 'Bitcoin is the most important monetary invention in 500 years.', attr: 'Max Keiser' },
+  { text: 'Number go up.', attr: 'Bitcoin maxim' },
+  { text: 'Gradually, then all at once.', attr: 'Bitcoin community' },
+];
+
+export function Masthead({ clock, wxSummary, blockReward, rewardEra, dark, onToggleDark, onOpenSettings }) {
   const T = useT();
+
+  // One quote per hour — 24 quotes maps perfectly to hours 0–23
+  const quote = MASTHEAD_QUOTES[new Date().getHours()];
 
   const metaStyle = {
     fontFamily: T.sans,
@@ -14,18 +44,16 @@ export function Masthead({ clock, wxSummary, dark, onToggleDark, onOpenSettings 
     lineHeight: 1.7,
   };
 
-  const btnStyle = {
-    background: 'none',
-    border: 'none',
+  const btnBase = {
     cursor: 'pointer',
     fontFamily: T.sans,
-    fontSize: 10,
-    fontWeight: 600,
-    letterSpacing: 1.8,
+    fontSize: 9,
+    fontWeight: 700,
+    letterSpacing: 1.6,
     textTransform: 'uppercase',
-    color: T.ink3,
-    padding: 0,
+    padding: '5px 12px',
     whiteSpace: 'nowrap',
+    border: `1px solid ${T.ink3}`,
   };
 
   return (
@@ -38,11 +66,16 @@ export function Masthead({ clock, wxSummary, dark, onToggleDark, onOpenSettings 
         alignItems: 'center',
         gap: 24,
       }}>
-        {/* LEFT */}
+        {/* LEFT — edition info + rotating quote below */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <div style={metaStyle}>{clock.dayStr}</div>
-          <div style={metaStyle}>Home Edition · Vol. I, Nº 238</div>
-          <div style={{ ...metaStyle, color: T.ink4 }}>Est. 2024 · Printed on the internet</div>
+          <div style={metaStyle}>Home Edition · Vol. XXI, Nº 238</div>
+          <div style={{ ...metaStyle, color: T.ink4 }}>Est. 2026 · Printed on the blockchain</div>
+          <div style={{ marginTop: 5, fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink2, lineHeight: 1.4, maxWidth: 340 }}>
+            "{quote.text}"
+          </div>
+          <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 1.4, textTransform: 'uppercase', color: T.ink4, marginTop: 2 }}>
+            — {quote.attr}
+          </div>
         </div>
 
         {/* CENTER — wordmark */}
@@ -75,15 +108,36 @@ export function Masthead({ clock, wxSummary, dark, onToggleDark, onOpenSettings 
           </div>
         </div>
 
-        {/* RIGHT */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-          <div style={{ ...metaStyle, fontSize: 11 }}>
-            {clock.timeHM}{clock.timeSec}{clock.amPm ? ` ${clock.amPm}` : ''}
+        {/* RIGHT — controls top, data below */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
+          {/* Controls — prominent, top position */}
+          <div style={{ display: 'flex', gap: 5 }}>
+            <button
+              onClick={onToggleDark}
+              style={{
+                ...btnBase,
+                background: dark ? T.ink : 'none',
+                color: dark ? T.paper : T.ink2,
+                border: `1px solid ${dark ? T.ink : T.ink3}`,
+              }}
+            >
+              {dark ? '◑ Light' : '◐ Dark'}
+            </button>
+            <button
+              onClick={onOpenSettings}
+              style={{ ...btnBase, background: 'none', color: T.ink2 }}
+            >
+              ⚙ Settings
+            </button>
           </div>
-          <div style={metaStyle}>{wxSummary}</div>
-          <div style={{ display: 'flex', gap: 18, marginTop: 5 }}>
-            <button style={btnStyle} onClick={onOpenSettings}>⚙ Masthead</button>
-            <button style={btnStyle} onClick={onToggleDark}>{dark ? '◑ Light' : '◐ Dark'}</button>
+          {/* Data */}
+          {blockReward && (
+            <div style={metaStyle}>
+              Block Reward {blockReward} · Era {rewardEra} of 33
+            </div>
+          )}
+          <div style={{ ...metaStyle, color: T.ink4, fontStyle: 'italic', fontFamily: T.body, fontSize: 9, letterSpacing: 0.3, textTransform: 'none' }}>
+            "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
           </div>
         </div>
       </div>

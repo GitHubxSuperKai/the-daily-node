@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import CONFIG from '../config.js';
-import { fetchBTCPrice } from '../utils/api.js';
+import { fetchBTCPrice, fetchBitcoinMeta } from '../utils/api.js';
 
 /**
  * useBTC Hook
@@ -17,6 +17,7 @@ import { fetchBTCPrice } from '../utils/api.js';
 export function useBTC() {
   const [data, setData] = useState(null);
   const [cap, setCap] = useState(null);
+  const [btcMeta, setBtcMeta] = useState(null);
   const [chartPts, setChartPts] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -30,12 +31,22 @@ export function useBTC() {
       if (!r.ok) throw new Error('chart');
       const j = await r.json();
       setChartPts(j.prices || null);
-      // market_caps is also returned; grab the latest value for display
       if (j.market_caps && j.market_caps.length) {
         setCap(j.market_caps[j.market_caps.length - 1][1]);
       }
     } catch (err) {
       console.error('fetch24hChart error:', err);
+    }
+  }, []);
+
+  const fetchMeta = useCallback(async () => {
+    try {
+      const meta = await fetchBitcoinMeta();
+      if (Object.keys(meta).length > 0) {
+        setBtcMeta(meta);
+      }
+    } catch (err) {
+      console.error('fetchMeta error:', err);
     }
   }, []);
 
@@ -59,17 +70,26 @@ export function useBTC() {
   useEffect(() => {
     fetchPrice();
     fetch24hChart();
+    fetchMeta();
 
     const id1 = setInterval(fetchPrice, CONFIG.REFRESH_INTERVALS.price);
     const id2 = setInterval(fetch24hChart, CONFIG.REFRESH_INTERVALS.price * 2);
+    const id3 = setInterval(fetchMeta, CONFIG.REFRESH_INTERVALS.pools);
 
     return () => {
       clearInterval(id1);
       clearInterval(id2);
+      clearInterval(id3);
     };
-  }, [fetchPrice, fetch24hChart]);
+  }, [fetchPrice, fetch24hChart, fetchMeta]);
 
-  const mergedData = data ? { ...data, cap } : null;
+  const mergedData = data ? {
+    ...data,
+    cap,
+    ath: btcMeta?.ath ?? null,
+    athDate: btcMeta?.athDate ?? null,
+    circulatingSupply: btcMeta?.circulatingSupply ?? null,
+  } : null;
 
   return {
     data: mergedData,

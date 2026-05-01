@@ -190,6 +190,125 @@ async function fetchRSSFeeds(feeds = [], apiKey = '') {
 }
 
 /**
+ * Fetch top mining pools from Mempool.space (7-day window)
+ * Returns: [{ name, slug, blockCount, sharePct }] (top 6)
+ */
+async function fetchMiningPools() {
+  try {
+    const r = await fetch('https://mempool.space/api/v1/mining/pools/1w', {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT),
+    });
+    if (!r.ok) throw new Error('mining pools api not ok');
+    const j = await r.json();
+    const total = j.blockCount || 1;
+    return (j.pools || []).slice(0, 6).map(p => ({
+      name: p.name,
+      slug: p.slug,
+      blockCount: p.blockCount,
+      sharePct: ((p.blockCount / total) * 100).toFixed(1),
+    }));
+  } catch (err) {
+    console.error('fetchMiningPools error:', err);
+    return [];
+  }
+}
+
+/**
+ * Fetch recent blocks mined by a specific pool
+ * Returns: [{ height, timestamp, txCount }] (first 5)
+ */
+async function fetchPoolBlocks(slug) {
+  try {
+    const r = await fetch(`https://mempool.space/api/v1/mining/pool/${slug}/blocks`, {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT),
+    });
+    if (!r.ok) throw new Error('pool blocks api not ok');
+    const blocks = await r.json();
+    return (blocks || []).slice(0, 5).map(b => ({
+      height: b.height,
+      timestamp: b.timestamp,
+      txCount: b.tx_count,
+    }));
+  } catch (err) {
+    console.error('fetchPoolBlocks error:', err);
+    return [];
+  }
+}
+
+/**
+ * Fetch recent confirmed blocks
+ * Returns: [{ height, timestamp, txCount, size, medianFee, poolName }] (first 6)
+ */
+async function fetchRecentBlocks() {
+  try {
+    const r = await fetch('https://mempool.space/api/blocks', {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT),
+    });
+    if (!r.ok) throw new Error('blocks api not ok');
+    const blocks = await r.json();
+    return (blocks || []).slice(0, 6).map(b => ({
+      height: b.height,
+      timestamp: b.timestamp,
+      txCount: b.tx_count,
+      size: b.size,
+      medianFee: b.extras?.medianFee ?? null,
+      poolName: b.extras?.pool?.name ?? '—',
+    }));
+  } catch (err) {
+    console.error('fetchRecentBlocks error:', err);
+    return [];
+  }
+}
+
+/**
+ * Fetch projected fee rates for next mempool blocks
+ * Returns: [{ nTx, medianFee, feeRange: [min, max] }] (first 3)
+ */
+async function fetchMempoolBlocks() {
+  try {
+    const r = await fetch('https://mempool.space/api/v1/fees/mempool-blocks', {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT),
+    });
+    if (!r.ok) throw new Error('mempool-blocks api not ok');
+    const blocks = await r.json();
+    return (blocks || []).slice(0, 3).map(b => ({
+      nTx: b.nTx,
+      medianFee: Math.round(b.medianFee),
+      feeRange: b.feeRange && b.feeRange.length >= 2
+        ? [Math.round(b.feeRange[0]), Math.round(b.feeRange[b.feeRange.length - 1])]
+        : null,
+    }));
+  } catch (err) {
+    console.error('fetchMempoolBlocks error:', err);
+    return [];
+  }
+}
+
+/**
+ * Fetch Bitcoin metadata from CoinGecko
+ * Returns: { ath, athDate, circulatingSupply }
+ */
+async function fetchBitcoinMeta() {
+  try {
+    const r = await fetch(
+      'https://api.coingecko.com/api/v3/coins/bitcoin?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false',
+      { signal: AbortSignal.timeout(FETCH_TIMEOUT) }
+    );
+    if (!r.ok) throw new Error('coingecko bitcoin meta api not ok');
+    const j = await r.json();
+    const md = j.market_data;
+    return {
+      ath: md?.ath?.usd ?? null,
+      athDate: md?.ath_date?.usd ?? null,
+      circulatingSupply: md?.circulating_supply ?? null,
+    };
+  } catch (err) {
+    console.error('fetchBitcoinMeta error:', err);
+    return {};
+  }
+}
+
+/**
  * Fetch BitAxe fleet data via API proxy
  * Returns: array of miners with { ip, online, data }
  */
@@ -228,6 +347,11 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     fetchBTCPrice,
     fetchChainStats,
+    fetchMiningPools,
+    fetchPoolBlocks,
+    fetchRecentBlocks,
+    fetchMempoolBlocks,
+    fetchBitcoinMeta,
     fetchWeather,
     fetchRSSFeeds,
     fetchBitAxeMiners,
