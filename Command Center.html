@@ -138,6 +138,12 @@ const CONFIG = {
     bitaxe:  10000,        // Miner stats every 10s
     pools:   5 * 60 * 1000,  // Mining pools + bitcoin meta every 5m
   },
+
+  // ─── Auto-Refresh ────────────────────────────────────
+  // Minimum time a tab must be hidden before refocus triggers a full refresh
+  HIDDEN_STALE_THRESHOLD: 30 * 1000,
+  // Stagger between each hook's refresh call to avoid thundering herd
+  REFRESH_STAGGER_MS: 100,
 };
 
 const INTERVALS = {
@@ -1094,6 +1100,38 @@ function WxGlyph({ kind, size, speed: speedProp }) {
 }
 
 
+/**
+ * useResettableInterval
+ *
+ * Like setInterval, but exposes a reset() that clears the current interval,
+ * fetches immediately, and starts a fresh one. This prevents double-fetching
+ * shortly after a manual refresh.
+ */
+function useResettableInterval(callback, delay) {
+  const idRef = useRef(null);
+  const cbRef = useRef(callback);
+  cbRef.current = callback;
+
+  const start = useCallback(() => {
+    if (idRef.current) clearInterval(idRef.current);
+    idRef.current = setInterval(() => cbRef.current(), delay);
+  }, [delay]);
+
+  const reset = useCallback(() => {
+    cbRef.current();
+    start();
+  }, [start]);
+
+  useEffect(() => {
+    cbRef.current();
+    start();
+    return () => { if (idRef.current) clearInterval(idRef.current); };
+  }, [start]);
+
+  return { reset };
+}
+
+
 
 
 /**
@@ -1137,6 +1175,7 @@ function useClock(timeFormat = '24h') {
     error: false,
   };
 }
+
 
 
 
@@ -1207,21 +1246,15 @@ function useBTC() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchPrice();
-    fetch24hChart();
-    fetchMeta();
+  const { reset: resetPrice } = useResettableInterval(fetchPrice,    CONFIG.REFRESH_INTERVALS.price);
+  const { reset: resetChart } = useResettableInterval(fetch24hChart, CONFIG.REFRESH_INTERVALS.price * 2);
+  const { reset: resetMeta  } = useResettableInterval(fetchMeta,     CONFIG.REFRESH_INTERVALS.pools);
 
-    const id1 = setInterval(fetchPrice, CONFIG.REFRESH_INTERVALS.price);
-    const id2 = setInterval(fetch24hChart, CONFIG.REFRESH_INTERVALS.price * 2);
-    const id3 = setInterval(fetchMeta, CONFIG.REFRESH_INTERVALS.pools);
-
-    return () => {
-      clearInterval(id1);
-      clearInterval(id2);
-      clearInterval(id3);
-    };
-  }, [fetchPrice, fetch24hChart, fetchMeta]);
+  const refresh = useCallback(() => {
+    resetPrice();
+    resetChart();
+    resetMeta();
+  }, [resetPrice, resetChart, resetMeta]);
 
   const mergedData = data ? {
     ...data,
@@ -1237,8 +1270,10 @@ function useBTC() {
     loading,
     error,
     lastOk,
+    refresh,
   };
 }
+
 
 
 
@@ -1312,17 +1347,13 @@ function useChain() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchChain();
-    const id = setInterval(fetchChain, CONFIG.REFRESH_INTERVALS.chain);
-    return () => clearInterval(id);
-  }, [fetchChain]);
+  const { reset: resetChain    } = useResettableInterval(fetchChain,    CONFIG.REFRESH_INTERVALS.chain);
+  const { reset: resetExtended } = useResettableInterval(fetchExtended, CONFIG.REFRESH_INTERVALS.pools);
 
-  useEffect(() => {
-    fetchExtended();
-    const id = setInterval(fetchExtended, CONFIG.REFRESH_INTERVALS.pools);
-    return () => clearInterval(id);
-  }, [fetchExtended]);
+  const refresh = useCallback(() => {
+    resetChain();
+    resetExtended();
+  }, [resetChain, resetExtended]);
 
   return {
     data,
@@ -1330,10 +1361,9 @@ function useChain() {
     loading,
     error,
     lastOk,
+    refresh,
   };
 }
-
-
 
 
 /**
@@ -1354,7 +1384,7 @@ function useBitaxe(apiUrl, ips) {
   const [loading, setLoading] = useState(true);
   const [lastOk, setLastOk] = useState(null);
 
-  const fetchBitaxe = async () => {
+  const fetchBitaxe = useCallback(async () => {
     let next;
     if (apiUrl) {
       try {
@@ -1382,13 +1412,16 @@ function useBitaxe(apiUrl, ips) {
     setErr(next.every(m => !m.online));
     setLoading(false);
     setLastOk(Date.now());
-  };
+  }, [apiUrl, ips.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const { reset: resetBitaxe } = useResettableInterval(fetchBitaxe, CONFIG.REFRESH_INTERVALS.bitaxe);
+
+  // Re-fetch immediately when API URL or IPs change (preserves original behavior)
+  const hasMountedRef = useRef(false);
   useEffect(() => {
-    fetchBitaxe();
-    const id = setInterval(fetchBitaxe, CONFIG.REFRESH_INTERVALS.bitaxe);
-    return () => clearInterval(id);
-  }, [apiUrl, ips.join(',')]);
+    if (!hasMountedRef.current) { hasMountedRef.current = true; return; }
+    resetBitaxe();
+  }, [apiUrl, ips.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     miners,
@@ -1396,10 +1429,9 @@ function useBitaxe(apiUrl, ips) {
     loading,
     lastOk,
     interval: CONFIG.REFRESH_INTERVALS.bitaxe,
+    refresh: resetBitaxe,
   };
 }
-
-
 
 
 /**
@@ -1418,7 +1450,7 @@ function useWeather(lat, lng, tempUnit) {
   const [err, setErr] = useState(false);
   const [lastOk, setLastOk] = useState(null);
 
-  const fetchWeather = async () => {
+  const fetchWeather = useCallback(async () => {
     try {
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m&hourly=temperature_2m,weather_code,precipitation_probability,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,uv_index_max,wind_speed_10m_max&temperature_unit=${tempUnit}&wind_speed_unit=mph&forecast_days=1&timezone=auto`;
       const r = await fetch(url);
@@ -1473,21 +1505,26 @@ function useWeather(lat, lng, tempUnit) {
     } catch {
       setErr(true);
     }
-  };
-
-  useEffect(() => {
-    fetchWeather();
-    const id = setInterval(fetchWeather, CONFIG.REFRESH_INTERVALS.weather);
-    return () => clearInterval(id);
   }, [lat, lng, tempUnit]);
+
+  const { reset: resetWeather } = useResettableInterval(fetchWeather, CONFIG.REFRESH_INTERVALS.weather);
+
+  // Re-fetch immediately when location or units change (preserves original behavior)
+  const hasMountedRef = useRef(false);
+  useEffect(() => {
+    if (!hasMountedRef.current) { hasMountedRef.current = true; return; }
+    resetWeather();
+  }, [lat, lng, tempUnit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     data,
     err,
     lastOk,
     interval: CONFIG.REFRESH_INTERVALS.weather,
+    refresh: resetWeather,
   };
 }
+
 
 
 
@@ -1510,7 +1547,7 @@ function useRSS() {
   const [leadStory, setLeadStory] = useState(null);
   const [lastOk, setLastOk] = useState(null);
 
-  const fetchRSS = async () => {
+  const fetchRSS = useCallback(async () => {
     const key = CONFIG.RSS2JSON_KEY ? `&api_key=${CONFIG.RSS2JSON_KEY}` : '';
     const feeds = CONFIG.RSS_FEEDS || [];
 
@@ -1554,13 +1591,9 @@ function useRSS() {
     } else {
       setErr(true);
     }
-  };
-
-  useEffect(() => {
-    fetchRSS();
-    const id = setInterval(fetchRSS, CONFIG.REFRESH_INTERVALS.news);
-    return () => clearInterval(id);
   }, []);
+
+  const { reset: resetRSS } = useResettableInterval(fetchRSS, CONFIG.REFRESH_INTERVALS.news);
 
   // Refresh relative times every minute
   useEffect(() => {
@@ -1576,6 +1609,7 @@ function useRSS() {
     err,
     lastOk,
     interval: CONFIG.REFRESH_INTERVALS.news,
+    refresh: resetRSS,
   };
 }
 
@@ -1613,6 +1647,52 @@ function useFeedHealth(feeds) {
 
   return status;
 }
+
+
+/**
+ * usePageRefresh
+ *
+ * Triggers an immediate staggered refresh of all feeds on two events:
+ *   1. Tab becomes visible after being hidden for >= HIDDEN_STALE_THRESHOLD (30s)
+ *   2. Network comes back online (window 'online' event)
+ *
+ * Staggering prevents a thundering herd against external APIs.
+ */
+function usePageRefresh(refreshFns) {
+  const hiddenAtRef = useRef(null);
+  const fnsRef = useRef(refreshFns);
+  fnsRef.current = refreshFns;
+
+  useEffect(() => {
+    const threshold = CONFIG.HIDDEN_STALE_THRESHOLD ?? 30_000;
+    const stagger   = CONFIG.REFRESH_STAGGER_MS    ?? 100;
+
+    function runAll() {
+      fnsRef.current.forEach((fn, i) =>
+        setTimeout(() => typeof fn === 'function' && fn(), i * stagger)
+      );
+    }
+
+    function onVisibility() {
+      if (document.hidden) {
+        hiddenAtRef.current = Date.now();
+      } else {
+        const was = hiddenAtRef.current;
+        hiddenAtRef.current = null;
+        if (was !== null && Date.now() - was >= threshold) runAll();
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('online', runAll);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('online', runAll);
+    };
+  }, []);
+}
+
+
 
 
 const MASTHEAD_QUOTES = [
@@ -3560,6 +3640,7 @@ function CommandCenter({
 
 
 
+
 /**
  * App - Root React Component
  *
@@ -3621,6 +3702,9 @@ function App() {
   const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
   const rss = useRSS();
   const feedHealth = useFeedHealth([btc, chain, weather, rss]);
+
+  // ─── Auto-Refresh (tab refocus + network restore) ─────────
+  usePageRefresh([btc.refresh, chain.refresh, rss.refresh, weather.refresh, bitaxe.refresh]);
 
   // ─── Theme Selection ──────────────────────────────────────
   const theme = dark ? DARK : LIGHT;
