@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600;1,9..144,700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400;1,600;1,700;1,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Inter+Tight:wght@400;500;600;700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
@@ -49,10 +49,10 @@
   .news-col-wrap::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 48px; background: linear-gradient(to bottom, transparent, var(--paper)); pointer-events: none; transition: opacity 0.3s; }
   .news-col-wrap.at-bottom::after { opacity: 0; }
   :root {
-    --f-serif:    "Fraunces", Georgia, serif;
+    --f-serif:    "Playfair Display", Georgia, serif;
     --f-body:     "Newsreader", Georgia, serif;
     --f-sans:     "Inter Tight", system-ui, sans-serif;
-    --f-mono:     "JetBrains Mono", ui-monospace, monospace;
+    --f-mono:     "Courier Prime", "Courier New", monospace;
     --n-hero:   68px;
     --n-lg:     32px;
     --n-md:     22px;
@@ -156,10 +156,10 @@ const INTERVALS = {
 
 // ─── Font Stack ───────────────────────────────────────────
 const FONTS = {
-  serif: '"Fraunces", Georgia, serif',
+  serif: '"Playfair Display", Georgia, serif',
   body: '"Newsreader", Georgia, serif',
   sans: '"Inter Tight", system-ui, sans-serif',
-  mono: '"JetBrains Mono", ui-monospace, monospace',
+  mono: '"Courier Prime", "Courier New", monospace',
 };
 
 // ─── Light Theme ──────────────────────────────────────────
@@ -359,6 +359,15 @@ function wmoDesc(code) {
     95:'Thunderstorm', 96:'Thunderstorm w/ hail', 99:'Heavy thunderstorm',
   };
   return m[code] || 'Unknown';
+}
+
+function fmtBestDiff(v) {
+  if (!v || v <= 0) return '—';
+  if (v >= 1e12) return `${(v / 1e12).toFixed(2)}T`;
+  if (v >= 1e9)  return `${(v / 1e9).toFixed(2)}G`;
+  if (v >= 1e6)  return `${(v / 1e6).toFixed(2)}M`;
+  if (v >= 1e3)  return `${(v / 1e3).toFixed(1)}K`;
+  return String(v);
 }
 
 // ─── CommonJS Exports ────────────────────────────────────────────
@@ -650,6 +659,7 @@ async function fetchBitAxeMiner(ip) {
 // CommonJS exports
 
 
+
 // Import useT hook from theme context (available in build context)
 // Import fmtNum from formatting utilities (available in build context)
 // Both imports assume they're globally available or provided via bundler
@@ -676,6 +686,8 @@ function Num({ size = 'md', value, unit, delta, deltaUp, style = {} }) {
 
 
 
+
+
 // Import useT hook from theme context (available in build context)
 
 function StatusDot({ ok }) {
@@ -685,12 +697,16 @@ function StatusDot({ ok }) {
 
 
 
+
+
 // Import useT hook from theme context (available in build context)
 
 function Kicker({ children, color, style = {} }) {
   const T = useT();
   return <div style={{ fontFamily: T.sans, fontSize: 10, fontWeight: 600, letterSpacing: 1.8, textTransform: 'uppercase', color: color || T.ink3, ...style }}>{children}</div>;
 }
+
+
 
 
 
@@ -704,12 +720,16 @@ function Rule({ double, dash, weight = 1, style = {} }) {
 
 
 
+
+
 // Import useT hook from theme context (available in build context)
 
 function ItalicDeck({ children, style = {} }) {
   const T = useT();
   return <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 18, lineHeight: 1.45, color: T.ink2, ...style }}>{children}</div>;
 }
+
+
 
 
 
@@ -771,22 +791,118 @@ function LineChart({ w, h, color, points, fill, vwap }) {
 
 
 
-function BiasBar({ left, center, right, total }) {
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const BTC_HISTORY = [
+  { mo:1,  d:3,  y:2009, t:'Satoshi mines the Genesis Block (block 0), embedding "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks."' },
+  { mo:1,  d:9,  y:2009, t:'Bitcoin v0.1 released and the network goes live. Satoshi sends 10 BTC to Hal Finney in the first transaction.' },
+  { mo:1,  d:12, y:2009, t:'First ever Bitcoin transaction: Satoshi sends 10 BTC to Hal Finney (block 170).' },
+  { mo:2,  d:6,  y:2010, t:'First Bitcoin exchange (Bitcoin Market) established, enabling BTC/USD trades.' },
+  { mo:2,  d:28, y:2014, t:'Mt. Gox files for bankruptcy, disclosing 850,000 BTC missing.' },
+  { mo:3,  d:6,  y:2014, t:'Newsweek claims Dorian Nakamoto is Satoshi. He denies it. Satoshi posts "I am not Dorian Nakamoto."' },
+  { mo:4,  d:19, y:2024, t:'Fourth halving at block 840,000. Block reward drops from 6.25 to 3.125 BTC.' },
+  { mo:5,  d:22, y:2010, t:'Laszlo Hanyecz makes the first commercial Bitcoin transaction — 10,000 BTC for two pizzas.' },
+  { mo:6,  d:15, y:2021, t:'El Salvador Congress passes Bitcoin Legal Tender Law.' },
+  { mo:6,  d:15, y:2022, t:'Celsius Network halts all withdrawals. The contagion begins.' },
+  { mo:7,  d:9,  y:2016, t:'Third halving at block 420,000. Reward drops from 25 to 12.5 BTC.' },
+  { mo:8,  d:1,  y:2017, t:'Bitcoin Cash hard fork at block 478,558.' },
+  { mo:8,  d:23, y:2017, t:'SegWit activates on mainnet, clearing the path for the Lightning Network.' },
+  { mo:9,  d:7,  y:2021, t:'El Salvador becomes the first country to adopt Bitcoin as legal tender.' },
+  { mo:10, d:5,  y:2009, t:'New Liberty Standard publishes the first BTC exchange rate: 1,309.03 BTC = $1.' },
+  { mo:10, d:31, y:2008, t:'Satoshi Nakamoto publishes the Bitcoin whitepaper to the Cryptography Mailing List.' },
+  { mo:11, d:10, y:2021, t:'Bitcoin hits all-time high of $69,044 on Coinbase.' },
+  { mo:11, d:11, y:2022, t:'FTX files for Chapter 11 bankruptcy. SBF resigns as CEO.' },
+  { mo:11, d:28, y:2012, t:'First halving at block 210,000. Block reward drops from 50 to 25 BTC.' },
+  { mo:12, d:17, y:2017, t:'Bitcoin reaches then-ATH of $19,783 on Coinbase. Futures launch on CME two days later.' },
+  { mo:1,  d:11, y:2024, t:'SEC approves 11 spot Bitcoin ETFs. BlackRock iShares Bitcoin Trust begins trading.' },
+  { mo:3,  d:14, y:2024, t:'Bitcoin hits new all-time high of $73,738 ahead of the halving.' },
+  { mo:6,  d:9,  y:2023, t:'BlackRock files for spot Bitcoin ETF, sparking institutional wave.' },
+  { mo:7,  d:16, y:2010, t:'Mt. Gox opens. Bitcoin price jumps from $0.008 to $0.08 in five days.' },
+  { mo:9,  d:13, y:2012, t:'BitPay announces it has signed up 1,000 merchants to accept Bitcoin.' },
+  { mo:2,  d:9,  y:2011, t:'Bitcoin reaches parity with the US dollar for the first time.' },
+];
+
+function getOnThisDay(date) {
+  const mo = date.getMonth() + 1;
+  const d  = date.getDate();
+  let best = null, bestDist = Infinity;
+  for (const e of BTC_HISTORY) {
+    const eDoy = e.mo * 31 + e.d;
+    const tDoy = mo * 31 + d;
+    const dist = Math.min(Math.abs(eDoy - tDoy), 31 * 12 - Math.abs(eDoy - tDoy));
+    if (dist < bestDist) { bestDist = dist; best = e; }
+  }
+  return best;
+}
+
+function OnThisDay() {
   const T = useT();
-  const tot = left + center + right || 1;
+  const entry = getOnThisDay(new Date());
+  if (!entry) return null;
+
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.mono, fontSize: 10, color: T.ink3, marginBottom: 4 }}>
-        <span>{total} sources</span><span>L {left} · C {center} · R {right}</span>
-      </div>
-      <div style={{ display: 'flex', height: 4, background: T.rule3 }}>
-        <div style={{ width: `${(left / tot) * 100}%`, background: T.ink }} />
-        <div style={{ width: `${(center / tot) * 100}%`, background: T.ink3 }} />
-        <div style={{ width: `${(right / tot) * 100}%`, background: T.ink }} />
+      <Kicker>On This Day</Kicker>
+      <div style={{ marginTop: 7 }}>
+        <div style={{
+          fontFamily: T.sans,
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: 2,
+          textTransform: 'uppercase',
+          color: T.orange,
+          marginBottom: 4,
+        }}>
+          {MONTHS[entry.mo - 1]} {entry.d}, {entry.y}
+        </div>
+        <div style={{
+          fontFamily: T.body,
+          fontSize: 13,
+          lineHeight: 1.5,
+          color: T.ink2,
+        }}>
+          {entry.t}
+        </div>
       </div>
     </div>
   );
 }
+
+
+
+function ProofOfRead({ btc, chain, hashrate, mempoolTx, mempoolMB, feeFast, feeEco, btcPrice, btcLo, btcHi }) {
+  const T = useT();
+
+  const btcUp = btc.data ? btc.data.chgPct >= 0 : true;
+  const bullets = [
+    btc.data
+      ? `Bitcoin is trading at ${btcPrice}, ${btcUp ? 'up' : 'down'} ${Math.abs(btc.data.chgPct).toFixed(2)}% from yesterday's open. Day range: ${btcLo}-${btcHi}.`
+      : 'Fetching price data...',
+    chain.data
+      ? `Network hashrate at ${hashrate}. Mempool holds ${mempoolTx} txs (${mempoolMB}), clearing at ${feeFast} fast / ${feeEco} eco. Next halving ${chain.data.nextHalvingDate}.`
+      : 'Fetching chain data...',
+  ];
+
+  return (
+    <div style={{ paddingBottom: 10, borderBottom: `1px solid ${T.rule2}`, marginBottom: 2 }}>
+      <Kicker>Proof of Read</Kicker>
+      <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {bullets.map((bullet, i) => (
+          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+            <span style={{ fontFamily: T.mono, fontSize: 10, color: T.orange, marginTop: 3, flexShrink: 0 }}>&#9670;</span>
+            <div style={{ fontFamily: T.body, fontSize: 13, lineHeight: 1.5, color: T.ink2 }}>{bullet}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+
 
 
 function WxGlyph({ kind, size, speed: speedProp }) {
@@ -803,6 +919,8 @@ function WxGlyph({ kind, size, speed: speedProp }) {
       dangerouslySetInnerHTML={{ __html: svg }} />
   );
 }
+
+
 
 
 /**
@@ -846,6 +964,9 @@ function useClock(timeFormat = '24h') {
     error: false,
   };
 }
+
+
+
 
 
 /**
@@ -925,6 +1046,10 @@ function useBTC() {
     lastOk,
   };
 }
+
+
+
+
 
 
 /**
@@ -1263,85 +1388,104 @@ function useFeedHealth(feeds) {
 }
 
 
-
-
-/**
- * Masthead — Top header bar
- * Shows date, time, weather summary, and theme toggle buttons
- *
- * Props:
- *   - clock: { dayStr, timeHM, timeSec, amPm }
- *   - wxSummary: string (e.g., "72°F partly cloudy")
- *   - dark: boolean
- *   - onToggleDark: () => void
- *   - onOpenSettings: () => void
- */
 function Masthead({ clock, wxSummary, dark, onToggleDark, onOpenSettings }) {
   const T = useT();
 
+  const metaStyle = {
+    fontFamily: T.sans,
+    fontSize: 10,
+    fontWeight: 500,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+    color: T.ink3,
+    lineHeight: 1.7,
+  };
+
+  const btnStyle = {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    fontFamily: T.sans,
+    fontSize: 10,
+    fontWeight: 600,
+    letterSpacing: 1.8,
+    textTransform: 'uppercase',
+    color: T.ink3,
+    padding: 0,
+    whiteSpace: 'nowrap',
+  };
+
   return (
-    <>
+    <div style={{ width: '100%', paddingBottom: 10 }}>
+      <div style={{ borderTop: `1px solid ${T.rule}`, marginBottom: 7 }} />
+
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '1fr auto 1fr auto',
+        gridTemplateColumns: '1fr auto 1fr',
         alignItems: 'center',
-        paddingBottom: 8,
-        fontFamily: T.sans,
-        fontSize: 10,
-        letterSpacing: 2,
-        textTransform: 'uppercase',
-        color: T.ink3,
-        width: '100%',
+        gap: 24,
       }}>
-        <span style={{ whiteSpace: 'nowrap' }}>{clock.dayStr}</span>
-        <span style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>
-          Home Edition · Vol. I, Nº 238
-        </span>
-        <span style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
-          {clock.timeHM}
-          {clock.timeSec}
-          {clock.amPm ? ` ${clock.amPm}` : ''} · {wxSummary}
-        </span>
-        <div style={{ display: 'flex', gap: 16, marginLeft: 20 }}>
-          <button
-            onClick={onOpenSettings}
-            style={{
+        {/* LEFT */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={metaStyle}>{clock.dayStr}</div>
+          <div style={metaStyle}>Home Edition · Vol. I, Nº 238</div>
+          <div style={{ ...metaStyle, color: T.ink4 }}>Est. 2024 · Printed on the internet</div>
+        </div>
+
+        {/* CENTER — wordmark */}
+        <div style={{ textAlign: 'center', padding: '0 40px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 5 }}>
+            <div style={{ flex: 1, borderTop: `1px solid ${T.rule2}` }} />
+            <div style={{
               fontFamily: T.sans,
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: 1.5,
-              textTransform: 'uppercase',
-              padding: '4px 12px',
-              cursor: 'pointer',
-              border: 'none',
-              background: T.paper2,
-              color: T.ink,
-            }}
-          >
-            ⚙ Masthead
-          </button>
-          <button
-            onClick={onToggleDark}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              fontFamily: T.sans,
-              fontSize: 10,
+              fontSize: 9,
               fontWeight: 600,
-              letterSpacing: 1.8,
+              letterSpacing: 3.5,
               textTransform: 'uppercase',
               color: T.ink3,
-              padding: 0,
-            }}
-          >
-            {dark ? '◑ Light' : '◐ Dark'}
-          </button>
+              whiteSpace: 'nowrap',
+            }}>Bitcoin Command Center</div>
+            <div style={{ flex: 1, borderTop: `1px solid ${T.rule2}` }} />
+          </div>
+
+          <div style={{
+            fontFamily: T.serif,
+            fontSize: 80,
+            fontWeight: 800,
+            lineHeight: 1,
+            letterSpacing: -2.5,
+            color: T.ink,
+            whiteSpace: 'nowrap',
+            paddingBottom: 6,
+          }}>
+            The Daily Node
+          </div>
+        </div>
+
+        {/* RIGHT */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+          <div style={{ ...metaStyle, fontSize: 11 }}>
+            {clock.timeHM}{clock.timeSec}{clock.amPm ? ` ${clock.amPm}` : ''}
+          </div>
+          <div style={metaStyle}>{wxSummary}</div>
+          <div style={{ display: 'flex', gap: 18, marginTop: 5 }}>
+            <button style={btnStyle} onClick={onOpenSettings}>⚙ Masthead</button>
+            <button style={btnStyle} onClick={onToggleDark}>{dark ? '◑ Light' : '◐ Dark'}</button>
+          </div>
         </div>
       </div>
-    </>
+
+      <div style={{ borderTop: `1px solid ${T.rule}`, marginTop: 9 }} />
+    </div>
   );
 }
+
+
+
+
+
+
+
 
 
 function Price({ btc }) {
@@ -1386,6 +1530,10 @@ function Price({ btc }) {
     </div>
   );
 }
+
+
+
+
 
 
 
@@ -1449,6 +1597,9 @@ function Ticker({ chain, feedHealth }) {
 
 
 
+
+const SPLIT = 5;
+
 function News({ lead, rss }) {
   const T = useT();
   const newsItems = rss.items || [];
@@ -1469,16 +1620,47 @@ function News({ lead, rss }) {
             wrap._st = setTimeout(() => el.classList.remove('is-scrolling'), 1200);
             wrap.classList.toggle('at-bottom', el.scrollHeight - el.scrollTop - el.clientHeight < 4);
           }}>
-          {newsItems.length > 0 ? newsItems.map((it,i)=>(
-            <a key={i} href={it.link} target="_blank" rel="noopener noreferrer" style={{ display:'block', padding:'9px 0', borderBottom:`1px solid ${T.rule3}` }}>
-              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                <Kicker color={it.cat === 'BREAKING' ? T.red : T.ink3}>{it.cat}</Kicker>
-                <span style={{ fontFamily:T.mono, fontSize:10, color:T.ink3 }}>{it.t}</span>
-              </div>
-              <div style={{ fontFamily:T.body, fontSize:14.5, lineHeight:1.3, color:T.ink, letterSpacing:-0.1 }}>{it.hed}</div>
-              <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:11, color:T.ink3, marginTop:2 }}>{it.src}</div>
-            </a>
-          )) : (
+          {newsItems.length > 0 ? (() => {
+            return newsItems.map((it, i) => (
+              <React.Fragment key={i}>
+                {i === SPLIT && (
+                  <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0' }}>
+                    <div style={{ flex:1, borderTop:`1px solid ${T.rule2}` }} />
+                    <span style={{ fontFamily:T.sans, fontSize:9, fontWeight:600, letterSpacing:2.5, textTransform:'uppercase', color:T.ink4 }}>More Stories</span>
+                    <div style={{ flex:1, borderTop:`1px solid ${T.rule2}` }} />
+                  </div>
+                )}
+                <a
+                  href={it.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'block',
+                    padding: i === 0 ? '0 0 12px' : '8px 0',
+                    borderBottom: `1px solid ${T.rule3}`,
+                    borderLeft: it.cat === 'BREAKING' ? `3px solid ${T.red}` : 'none',
+                    paddingLeft: it.cat === 'BREAKING' ? 10 : 0,
+                  }}
+                >
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom: i === 0 ? 6 : 4 }}>
+                    <Kicker color={it.cat === 'BREAKING' ? T.red : T.ink3}>{it.cat}</Kicker>
+                    <span style={{ fontFamily:T.mono, fontSize:10, color:T.ink3 }}>{it.t}</span>
+                  </div>
+                  <div style={{
+                    fontFamily: i === 0 ? T.serif : T.body,
+                    fontSize: i === 0 ? 22 : 14,
+                    fontWeight: i === 0 ? 700 : 400,
+                    lineHeight: i === 0 ? 1.15 : 1.3,
+                    letterSpacing: i === 0 ? -0.5 : -0.1,
+                    color: T.ink,
+                  }}>
+                    {it.hed}
+                  </div>
+                  <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:11, color:T.ink3, marginTop:2 }}>{it.src}</div>
+                </a>
+              </React.Fragment>
+            ));
+          })() : (
             <div style={{ fontFamily:T.mono, fontSize:12, color:T.ink3, marginTop:16 }}>
               {rss.err ? 'All feeds unavailable' : 'Loading headlines…'}
             </div>
@@ -1502,7 +1684,6 @@ function Chain({ chain }) {
   const feeFast     = chain.data ? `${chain.data.feeFast} sat/vB` : '—';
   const feeEco      = chain.data ? `${chain.data.feeEco} sat/vB` : '—';
 
-  // Chain vitals color logic
   const diffAdjVal    = chain.data?.diffAdj;
   const diffAdjStr    = diffAdjVal != null ? `${diffAdjVal >= 0 ? '+' : ''}${diffAdjVal.toFixed(2)}%` : '—';
   const diffAdjCol    = diffAdjVal != null ? (diffAdjVal >= 0 ? T.green : T.red) : T.ink;
@@ -1527,7 +1708,7 @@ function Chain({ chain }) {
     { k: 'Hashrate',      v: hashrate },
     { k: 'Difficulty',    v: difficulty },
     { k: 'Avg block',     v: chain.data?.blockTimeMs ? fmtBlockTime(chain.data.blockTimeMs) : '—', c: blockTimeCol },
-    { k: 'Diff retarget', v: diffAdjStr, c: diffAdjCol },
+    { k: 'Diff adjust',   v: diffAdjStr, c: diffAdjCol },
     { k: 'Retarget in',   v: chain.data?.remainingBlocks != null ? `${fmtNum(chain.data.remainingBlocks)} blk` : '—' },
     { k: 'Retarget date', v: retargetDate },
     { k: 'Epoch',         v: epochStr },
@@ -1538,25 +1719,30 @@ function Chain({ chain }) {
     { k: 'Next halving',  v: chain.data ? chain.data.nextHalvingDate : '—' },
   ];
   const mempoolRows = [
-    { k: 'Size',           v: mempoolMB,  c: mempoolCol },
-    { k: 'Tx count',       v: mempoolTx,  c: mempoolTxCol },
-    { k: 'Blocks to clear',v: blocksToClr != null ? `${blocksToClr} blk` : '—', c: blocksToClrCol },
-    { k: 'Fee · fast',     v: feeFast,    c: feeFastCol },
-    { k: 'Fee · eco',      v: feeEco,     c: feeEcoCol },
+    { k: 'Size',            v: mempoolMB,  c: mempoolCol },
+    { k: 'Tx count',        v: mempoolTx,  c: mempoolTxCol },
+    { k: 'Blocks to clear', v: blocksToClr != null ? `${blocksToClr} blk` : '—', c: blocksToClrCol },
+    { k: 'Fee · fast',      v: feeFast,    c: feeFastCol },
+    { k: 'Fee · eco',       v: feeEco,     c: feeEcoCol },
+  ];
+
+  const cols = [
+    { title: 'Mining & Chain', rows: [...miningRows, ...chainStatRows] },
+    { title: 'Mempool & Fees', rows: mempoolRows },
   ];
 
   return (
     <div>
       <Kicker>Chain vitals</Kicker>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'0 14px' }}>
-        {[['Mining', miningRows], ['Mempool', mempoolRows], ['Chain', chainStatRows]].map(([title, rows])=>(
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 18px', marginTop:6 }}>
+        {cols.map(({ title, rows }) => (
           <div key={title}>
-            <Kicker style={{ marginBottom:6 }}>{title}</Kicker>
-            <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-              {rows.map((r,i)=>(
-                <div key={i} style={{ borderLeft:`1px solid ${T.rule3}`, paddingLeft:8 }}>
+            <Kicker style={{ marginBottom:8 }}>{title}</Kicker>
+            <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+              {rows.map((r, i) => (
+                <div key={i} style={{ borderLeft:`2px solid ${T.rule3}`, paddingLeft:8 }}>
                   <Num size="sm" value={r.v} style={{ color: r.c || T.ink }} />
-                  <Kicker style={{ marginTop:2 }}>{r.k}</Kicker>
+                  <Kicker style={{ marginTop:2, fontSize:9 }}>{r.k}</Kicker>
                 </div>
               ))}
             </div>
@@ -1566,6 +1752,12 @@ function Chain({ chain }) {
     </div>
   );
 }
+
+
+
+
+
+
 
 
 
@@ -1616,10 +1808,10 @@ function Weather({ weather, prefs }) {
 
 
 
+
 function Miners({ bitaxe, chain }) {
   const T = useT();
 
-  // BitAxe fleet derived
   const onlineMiners    = bitaxe.miners.filter(m => m.online && m.data);
   const minerCount      = bitaxe.miners.length;
   const onlineCount     = onlineMiners.length;
@@ -1631,39 +1823,63 @@ function Miners({ bitaxe, chain }) {
   const firstMiner      = onlineMiners[0]?.data;
   const bxPool          = firstMiner ? (firstMiner.stratumURL || 'solo.ckpool.org') : 'solo.ckpool.org';
 
-  // Solo odds from combined fleet hashrate
   const soloOdds = chain.data && totalHashrateTHS > 0
     ? calcSoloOdds(chain.data.hashrate / 1e18, totalHashrateTHS)
     : null;
   const oddsStr  = soloOdds ? `1 : ${fmtNum(soloOdds.oddsPerDay)}` : '—';
   const etaStr   = soloOdds ? `~${fmtNum(soloOdds.etaYears)} yrs` : '—';
 
+  // Best difficulty + Field Report prose
+  const bestDiffRaw = onlineMiners.reduce((best, m) => {
+    const bd = parseFloat(m.data?.bestDiff || m.data?.bestDifficulty || 0);
+    return bd > best ? bd : best;
+  }, 0);
+  const bestDiffStr = fmtBestDiff(bestDiffRaw);
+  const diffRatio = bestDiffRaw > 0 && chain.data?.difficulty
+    ? bestDiffRaw / chain.data.difficulty : 0;
+  const blockPun = diffRatio >= 0.01    ? 'That is dangerously close. Hold your breath.'
+    : diffRatio >= 0.001  ? 'One in a thousand of the way there. Progress.'
+    : diffRatio >= 0.0001 ? 'A polite knock on the door.'
+    : diffRatio >= 0.00001 ? 'Statistically present. Practically invisible.'
+    : 'The block does not know you exist yet. Keep hashing.';
+
+  const sharesNote = totalShRej > 0
+    ? `${((totalShRej / (totalShOk + totalShRej + 1)) * 100).toFixed(1)}% rejected`
+    : 'running clean';
+
+  const fieldReportProse = onlineCount === 0
+    ? `All units offline. The network hashes on at ${chain.data ? fmtNum(Math.round(chain.data.hashrate / 1e18)) + ' EH/s' : '—'} without you.`
+    : `${onlineCount === 1 ? 'A single unit pushes' : `${onlineCount} miners push`} ${totalHashrateTHS.toFixed(2)} TH/s into ${bxPool}, drawing ${Math.round(totalPower)} W at ${combinedEff} J/TH. Shares ${sharesNote}. Best diff this session: ${bestDiffStr}. ${blockPun}`;
+
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:10, overflow:'hidden' }}>
-      <Kicker>Home fleet · {onlineCount}/{minerCount} online</Kicker>
-      <h2 style={{ fontFamily:T.serif, fontSize:20, fontWeight:700, lineHeight:1.05, letterSpacing:-0.4, color:T.ink, textWrap:'balance', margin:0 }}>
-        A <span style={{ fontStyle:'italic' }}>one-in-{soloOdds ? fmtNum(soloOdds.oddsPerDay).toLowerCase() : 'unknown'}</span> chance, every day.
-      </h2>
-      <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:11, color:T.ink2 }}>
-        {bxPool} · {onlineCount > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s combined` : 'miners offline'}
-      </div>
-      {/* Solo odds hero */}
-      <div style={{ paddingTop:2 }}>
-        {onlineCount === 0 ? (
-          <div style={{ fontFamily:T.mono, fontSize:18, color:T.ink3 }}>
-            {bitaxe.loading ? 'Connecting to miners…' : 'All miners offline'}
+      <Kicker>Field Report · Home Fleet</Kicker>
+
+      {/* Editorial prose dispatch */}
+      <p style={{ fontFamily:T.body, fontSize:13.5, lineHeight:1.55, color:T.ink2, fontStyle:'italic', margin:0 }}>
+        {fieldReportProse}
+      </p>
+
+      {/* 4-stat compact row */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:8, paddingTop:4 }}>
+        {[
+          { v: onlineCount > 0 ? totalHashrateTHS.toFixed(2) : '—', u: 'TH/s', k: 'Hashrate' },
+          { v: onlineCount > 0 ? String(Math.round(totalPower)) : '—', u: 'W', k: 'Power' },
+          { v: onlineCount > 0 ? combinedEff : '—', u: 'J/TH', k: 'Efficiency' },
+          { v: bestDiffStr, u: '', k: 'Best Diff' },
+        ].map(({ v, u, k }) => (
+          <div key={k} style={{ borderLeft:`2px solid ${T.rule2}`, paddingLeft:8 }}>
+            <div style={{ display:'flex', alignItems:'baseline', gap:2 }}>
+              <span style={{ fontFamily:T.mono, fontSize:16, fontWeight:600, color:T.ink, fontFeatureSettings:'"tnum"' }}>{v}</span>
+              {u && <span style={{ fontFamily:T.mono, fontSize:10, color:T.ink3 }}>{u}</span>}
+            </div>
+            <Kicker style={{ marginTop:2 }}>{k}</Kicker>
           </div>
-        ) : (
-          <div style={{ fontFamily:T.mono, fontSize:64, fontWeight:500, letterSpacing:-1, lineHeight:1, color:T.ink, fontFeatureSettings:'"tnum"' }}>
-            {oddsStr}
-          </div>
-        )}
-        <div style={{ fontFamily:T.mono, fontSize:12, color:T.ink3, marginTop:4, letterSpacing:0.5 }}>
-          per day · expected {etaStr}
-        </div>
+        ))}
       </div>
+
       {/* Per-miner cards */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
         {bitaxe.miners.length === 0 && !bitaxe.loading && (
           <div style={{ gridColumn:'1/-1', fontFamily:T.mono, fontSize:12, color:T.ink3 }}>
             No miners reachable
@@ -1699,40 +1915,19 @@ function Miners({ bitaxe, chain }) {
           );
         })}
       </div>
-      <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:11, color:T.ink3 }}>
-        "hash and pray." · {fmtNum(totalShOk)} ok / {fmtNum(totalShRej)} rej
-      </div>
     </div>
   );
 }
 
 
 
-
-
-
-/**
- * MastheadPanel — Settings modal overlay
- * Allows user to configure:
- *   - BitAxe API URL and direct IP fallback
- *   - Location (with geolocation search)
- *   - Time format (12h/24h)
- *   - Temperature unit (°F / °C)
- *
- * Props:
- *   - apiUrl: string
- *   - ips: string[] (array of IPs)
- *   - prefs: { lat, lng, cityName, timeFormat, tempUnit }
- *   - onSave: (url, ips[], prefs) => void
- *   - onClose: () => void
- */
 function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
   const T = useT();
   const [url, setUrl] = React.useState(apiUrl);
   const [ipsText, setIpsText] = React.useState(ips.join(', '));
 
   const [cityQuery, setCityQuery] = React.useState(prefs.cityName);
-  const [geoResults, setGeoResults] = React.useState(null); // null | [] | [{...}] | 'error'
+  const [geoResults, setGeoResults] = React.useState(null);
   const [geoLoading, setGeoLoading] = React.useState(false);
   const [pendingLat, setPendingLat] = React.useState(prefs.lat);
   const [pendingLng, setPendingLng] = React.useState(prefs.lng);
@@ -1790,6 +1985,8 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
     padding: '8px 10px',
     outline: 'none',
     boxSizing: 'border-box',
+    display: 'block',
+    width: '100%',
   };
 
   const btnPrimary = {
@@ -1831,247 +2028,184 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
 
   return (
     <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        zIndex: 10,
-        background: 'rgba(0,0,0,0.55)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
+      style={{ position: 'absolute', inset: 0, zIndex: 10 }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div
-        style={{
-          background: T.paper,
-          border: `1px solid ${T.rule}`,
-          padding: '28px 32px 24px',
-          minWidth: 480,
-          maxWidth: 560,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.22)',
-        }}
-      >
-        <div style={{ borderTop: '3px solid ' + T.rule, borderBottom: '1px solid ' + T.rule, height: 6, marginBottom: 18 }} />
-        <div
-          style={{
-            fontFamily: T.serif,
-            fontSize: 20,
-            fontWeight: 700,
-            letterSpacing: -0.5,
-            marginBottom: 20,
-            color: T.ink,
-          }}
-        >
-          ⚙ The Masthead
+      {/* Right-side drawer */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: 480,
+        background: T.paper,
+        borderLeft: `1px solid ${T.rule}`,
+        display: 'flex',
+        flexDirection: 'column',
+        overflowY: 'auto',
+        boxShadow: '-8px 0 32px rgba(0,0,0,0.14)',
+      }}>
+        {/* Masthead header */}
+        <div style={{ padding: '22px 28px 0', flexShrink: 0 }}>
+          <div style={{ borderTop: `3px solid ${T.rule}`, borderBottom: `1px solid ${T.rule}`, height: 6, marginBottom: 14 }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 3, textTransform: 'uppercase', color: T.ink3, marginBottom: 4 }}>
+                Configuration
+              </div>
+              <div style={{ fontFamily: T.serif, fontSize: 26, fontWeight: 800, letterSpacing: -0.8, color: T.ink, lineHeight: 1 }}>
+                The Masthead
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: T.mono, fontSize: 16, color: T.ink3, padding: 4 }}
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
-        {/* ── Home Fleet ── */}
-        <Kicker>Home Fleet</Kicker>
-        <div style={{ height: 10 }} />
+        <div style={{ padding: '18px 28px 28px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+          {/* ── Home Fleet ── */}
+          <Kicker>Home Fleet</Kicker>
+          <div style={{ height: 10 }} />
 
-        <Kicker>BitAxe API URL</Kicker>
-        <div
-          style={{
-            fontFamily: T.body,
-            fontStyle: 'italic',
-            fontSize: 11,
-            color: T.ink3,
-            marginTop: 3,
-            marginBottom: 6,
-          }}
-        >
-          Run bitaxe_api.py on a local server. Leave blank to poll miners directly.
-        </div>
-        <input
-          style={{ ...inp, display: 'block', width: '100%' }}
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="http://192.168.1.59:3001/api/miners"
-          spellCheck={false}
-        />
-
-        <div style={{ height: 14 }} />
-        <Kicker>Miner IPs (direct polling fallback)</Kicker>
-        <div
-          style={{
-            fontFamily: T.body,
-            fontStyle: 'italic',
-            fontSize: 11,
-            color: T.ink3,
-            marginTop: 3,
-            marginBottom: 6,
-          }}
-        >
-          Used when API URL is blank or unreachable. Comma-separated.
-        </div>
-        <input
-          style={{ ...inp, display: 'block', width: '100%' }}
-          value={ipsText}
-          onChange={(e) => setIpsText(e.target.value)}
-          placeholder="192.168.1.6, 192.168.1.7"
-          spellCheck={false}
-        />
-
-        {/* ── Preferences ── */}
-        <div style={{ borderTop: `1px solid ${T.rule2}`, margin: '20px 0 16px' }} />
-        <Kicker>Preferences</Kicker>
-        <div style={{ height: 10 }} />
-
-        <Kicker>Location</Kicker>
-        <div
-          style={{
-            fontFamily: T.body,
-            fontStyle: 'italic',
-            fontSize: 11,
-            color: T.ink3,
-            marginTop: 3,
-            marginBottom: 6,
-          }}
-        >
-          Type a city name and select from results.
-        </div>
-        <div style={{ display: 'flex' }}>
+          <Kicker>BitAxe API URL</Kicker>
+          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3, marginTop: 3, marginBottom: 6 }}>
+            Run bitaxe_api.py on a local server. Leave blank to poll miners directly.
+          </div>
           <input
-            style={{ ...inp, flex: 1 }}
-            value={cityQuery}
-            onChange={(e) => {
-              setCityQuery(e.target.value);
-              setGeoResults(null);
-            }}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder="e.g. San Francisco"
+            style={inp}
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="http://192.168.1.59:3001/api/miners"
             spellCheck={false}
           />
-          <button
-            onClick={handleSearch}
-            disabled={geoLoading}
-            style={{
-              fontFamily: T.mono,
-              fontSize: 11,
-              letterSpacing: 1,
-              padding: '0 14px',
-              background: T.ink,
-              color: T.paper,
-              border: 'none',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {geoLoading ? '…' : 'Search'}
-          </button>
-        </div>
-        {geoResults === 'error' && (
-          <div style={{ fontFamily: T.mono, fontSize: 11, color: T.red, marginTop: 4 }}>
-            Search unavailable
-          </div>
-        )}
-        {Array.isArray(geoResults) && geoResults.length === 0 && (
-          <div style={{ fontFamily: T.mono, fontSize: 11, color: T.ink3, marginTop: 4 }}>
-            No results found
-          </div>
-        )}
-        {Array.isArray(geoResults) && geoResults.length > 0 && (
-          <div style={{ border: `1px solid ${T.rule2}`, borderTop: 'none' }}>
-            {geoResults.map((r, i) => {
-              const label = [r.name, r.admin1, r.country_code].filter(Boolean).join(', ');
-              return (
-                <div
-                  key={i}
-                  onClick={() => handleSelectCity(r)}
-                  style={{
-                    padding: '7px 10px',
-                    borderTop: i > 0 ? `1px solid ${T.rule3}` : 'none',
-                    cursor: 'pointer',
-                    fontFamily: T.mono,
-                    fontSize: 12,
-                    color: T.ink,
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    background: T.paper,
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = T.paper2)}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = T.paper)}
-                >
-                  <span>{label}</span>
-                  <span style={{ color: T.ink3, fontSize: 10 }}>
-                    {r.latitude.toFixed(2)}, {r.longitude.toFixed(2)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-        {pendingCityName && (
-          <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink3, marginTop: 5 }}>
-            Active: {pendingCityName} ({pendingLat.toFixed(4)}, {pendingLng.toFixed(4)})
-          </div>
-        )}
 
-        {/* Time + Temp toggles */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
-          <div>
-            <Kicker>Time Format</Kicker>
-            <div
+          <div style={{ height: 14 }} />
+          <Kicker>Miner IPs (direct polling fallback)</Kicker>
+          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3, marginTop: 3, marginBottom: 6 }}>
+            Used when API URL is blank or unreachable. Comma-separated.
+          </div>
+          <input
+            style={inp}
+            value={ipsText}
+            onChange={(e) => setIpsText(e.target.value)}
+            placeholder="192.168.1.6, 192.168.1.7"
+            spellCheck={false}
+          />
+
+          {/* ── Preferences ── */}
+          <div style={{ borderTop: `1px solid ${T.rule2}`, margin: '20px 0 16px' }} />
+          <Kicker>Preferences</Kicker>
+          <div style={{ height: 10 }} />
+
+          <Kicker>Location</Kicker>
+          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3, marginTop: 3, marginBottom: 6 }}>
+            Type a city name and select from results.
+          </div>
+          <div style={{ display: 'flex' }}>
+            <input
+              style={{ ...inp, flex: 1, width: 'auto' }}
+              value={cityQuery}
+              onChange={(e) => { setCityQuery(e.target.value); setGeoResults(null); }}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder="e.g. San Francisco"
+              spellCheck={false}
+            />
+            <button
+              onClick={handleSearch}
+              disabled={geoLoading}
               style={{
-                display: 'flex',
-                border: `1px solid ${T.rule2}`,
-                marginTop: 8,
-                width: 'fit-content',
+                fontFamily: T.mono,
+                fontSize: 11,
+                letterSpacing: 1,
+                padding: '0 14px',
+                background: T.ink,
+                color: T.paper,
+                border: 'none',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
               }}
             >
-              <button style={toggleBtn(timeFormat === '12h')} onClick={() => setTimeFormat('12h')}>
-                12h AM/PM
-              </button>
-              <button style={toggleBtn(timeFormat === '24h')} onClick={() => setTimeFormat('24h')}>
-                24h
-              </button>
-            </div>
+              {geoLoading ? '…' : 'Search'}
+            </button>
           </div>
-          <div>
-            <Kicker>Temperature</Kicker>
-            <div
-              style={{
-                display: 'flex',
-                border: `1px solid ${T.rule2}`,
-                marginTop: 8,
-                width: 'fit-content',
-              }}
-            >
-              <button
-                style={toggleBtn(tempUnit === 'fahrenheit')}
-                onClick={() => setTempUnit('fahrenheit')}
-              >
-                °F
-              </button>
-              <button style={toggleBtn(tempUnit === 'celsius')} onClick={() => setTempUnit('celsius')}>
-                °C
-              </button>
+          {geoResults === 'error' && (
+            <div style={{ fontFamily: T.mono, fontSize: 11, color: T.red, marginTop: 4 }}>Search unavailable</div>
+          )}
+          {Array.isArray(geoResults) && geoResults.length === 0 && (
+            <div style={{ fontFamily: T.mono, fontSize: 11, color: T.ink3, marginTop: 4 }}>No results found</div>
+          )}
+          {Array.isArray(geoResults) && geoResults.length > 0 && (
+            <div style={{ border: `1px solid ${T.rule2}`, borderTop: 'none' }}>
+              {geoResults.map((r, i) => {
+                const label = [r.name, r.admin1, r.country_code].filter(Boolean).join(', ');
+                return (
+                  <div
+                    key={i}
+                    onClick={() => handleSelectCity(r)}
+                    style={{
+                      padding: '7px 10px',
+                      borderTop: i > 0 ? `1px solid ${T.rule3}` : 'none',
+                      cursor: 'pointer',
+                      fontFamily: T.mono,
+                      fontSize: 12,
+                      color: T.ink,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      background: T.paper,
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = T.paper2)}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = T.paper)}
+                  >
+                    <span>{label}</span>
+                    <span style={{ color: T.ink3, fontSize: 10 }}>
+                      {r.latitude.toFixed(2)}, {r.longitude.toFixed(2)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-          </div>
-        </div>
+          )}
+          {pendingCityName && (
+            <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink3, marginTop: 5 }}>
+              Active: {pendingCityName} ({pendingLat.toFixed(4)}, {pendingLng.toFixed(4)})
+            </div>
+          )}
 
-        {/* Actions */}
-        <div
-          style={{
-            display: 'flex',
-            gap: 10,
-            marginTop: 24,
-            borderTop: `1px solid ${T.rule2}`,
-            paddingTop: 18,
-          }}
-        >
-          <button style={btnPrimary} onClick={handleSave}>
-            Save
-          </button>
-          <button style={btnSecondary} onClick={onClose}>
-            Cancel
-          </button>
+          {/* Time + Temp toggles */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+            <div>
+              <Kicker>Time Format</Kicker>
+              <div style={{ display: 'flex', border: `1px solid ${T.rule2}`, marginTop: 8, width: 'fit-content' }}>
+                <button style={toggleBtn(timeFormat === '12h')} onClick={() => setTimeFormat('12h')}>12h AM/PM</button>
+                <button style={toggleBtn(timeFormat === '24h')} onClick={() => setTimeFormat('24h')}>24h</button>
+              </div>
+            </div>
+            <div>
+              <Kicker>Temperature</Kicker>
+              <div style={{ display: 'flex', border: `1px solid ${T.rule2}`, marginTop: 8, width: 'fit-content' }}>
+                <button style={toggleBtn(tempUnit === 'fahrenheit')} onClick={() => setTempUnit('fahrenheit')}>°F</button>
+                <button style={toggleBtn(tempUnit === 'celsius')} onClick={() => setTempUnit('celsius')}>°C</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: 10, marginTop: 24, borderTop: `1px solid ${T.rule2}`, paddingTop: 18 }}>
+            <button style={btnPrimary} onClick={handleSave}>Save</button>
+            <button style={btnSecondary} onClick={onClose}>Cancel</button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
+
 
 
 
@@ -2109,6 +2243,34 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
  *   - onSaveSettings: (url, ips[], prefs) => void
  *   - onCloseSettings: () => void
  */
+function LeadImage({ src, domain }) {
+  const T = useT();
+  const [errored, setErrored] = React.useState(false);
+  if (errored) {
+    return (
+      <div style={{
+        width: '100%',
+        height: 80,
+        background: `repeating-linear-gradient(45deg, ${T.rule3} 0, ${T.rule3} 1px, transparent 0, transparent 8px)`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 3,
+      }}>
+        <span style={{ fontFamily: T.mono, fontSize: 10, color: T.ink4 }}>{domain}</span>
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      style={{ width: '100%', height: 'auto', borderRadius: 3, display: 'block' }}
+      onError={() => setErrored(true)}
+    />
+  );
+}
+
 function CommandCenter({
   dark,
   onToggleDark,
@@ -2281,7 +2443,6 @@ function CommandCenter({
         onToggleDark={onToggleDark}
         onOpenSettings={onOpenSettings}
       />
-      <Rule double />
 
       {/* TICKER */}
       <div
@@ -2425,41 +2586,6 @@ function CommandCenter({
             overflow: 'hidden',
           }}
         >
-          <div>
-            <div
-              style={{
-                fontFamily: T.serif,
-                fontSize: 70,
-                fontWeight: 700,
-                lineHeight: 0.86,
-                letterSpacing: -2.5,
-                color: T.ink,
-              }}
-            >
-              The
-              <br />
-              Daily
-              <br />
-              Node
-            </div>
-            <div
-              style={{
-                fontFamily: T.body,
-                fontStyle: 'italic',
-                fontSize: 13,
-                color: T.ink2,
-                marginTop: 13,
-                borderTop: `1px solid ${T.rule2}`,
-                paddingTop: 9,
-                lineHeight: 1.4,
-              }}
-            >
-              "All signal, no noise —
-              <br />
-              before your coffee cools."
-            </div>
-          </div>
-          <Rule />
           {/* Clock */}
           <div>
             <Kicker>Today</Kicker>
@@ -2477,6 +2603,9 @@ function CommandCenter({
               {clock.dayStr}
             </div>
           </div>
+          <Rule dash />
+          {/* On This Day */}
+          <OnThisDay />
           <Rule dash />
           {/* Weather */}
           <div>
@@ -2591,7 +2720,7 @@ function CommandCenter({
               paddingTop: 8,
             }}
           >
-            Published from a home on the internet. Set in Fraunces &amp; Newsreader.
+            Published from a home on the internet. Set in Playfair Display &amp; Newsreader.
           </div>
         </div>
 
@@ -2606,6 +2735,19 @@ function CommandCenter({
             overflow: 'hidden',
           }}
         >
+          {/* Proof of Read briefing */}
+          <ProofOfRead
+            btc={btc}
+            chain={chain}
+            hashrate={hashrate}
+            mempoolTx={mempoolTx}
+            mempoolMB={mempoolMB}
+            feeFast={feeFast}
+            feeEco={feeEco}
+            btcPrice={btcPrice}
+            btcLo={btcLo}
+            btcHi={btcHi}
+          />
           {/* BTC market */}
           <Kicker>Markets · BTC / USD</Kicker>
           {/* Row 1: price left, % change right */}
@@ -2691,14 +2833,7 @@ function CommandCenter({
                 </h1>
               </a>
               {lead.img ? (
-                <img
-                  src={lead.img}
-                  alt=""
-                  style={{ width: '100%', height: 'auto', borderRadius: 3, display: 'block' }}
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
+                <LeadImage src={lead.img} domain={lead.src} />
               ) : null}
               {lead.snippet ? (
                 <div
@@ -2829,25 +2964,19 @@ function CommandCenter({
           <Kicker>
             Home fleet · {onlineCount}/{minerCount} online
           </Kicker>
-          <h2
-            style={{
-              fontFamily: T.serif,
-              fontSize: 20,
-              fontWeight: 700,
-              lineHeight: 1.05,
-              letterSpacing: -0.4,
-              color: T.ink,
-              textWrap: 'balance',
-              margin: 0,
-            }}
-          >
-            A <span style={{ fontStyle: 'italic' }}>one-in-{soloOdds ? fmtNum(soloOdds.oddsPerDay).toLowerCase() : 'unknown'}</span> chance, every day.
-          </h2>
-          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink2 }}>
-            {bxPool} · {onlineCount > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s combined` : 'miners offline'}
-          </div>
-          {/* Solo odds hero */}
+          {/* Solo odds hero — sentence above, number below */}
           <div style={{ paddingTop: 2 }}>
+            <div style={{
+              fontFamily: T.sans,
+              fontSize: 9,
+              fontWeight: 600,
+              letterSpacing: 3,
+              textTransform: 'uppercase',
+              color: T.ink3,
+              marginBottom: 6,
+            }}>
+              A <em style={{ fontFamily: T.body, fontStyle: 'italic', fontWeight: 400, textTransform: 'none', letterSpacing: 0, fontSize: 11, color: T.ink2 }}>one-in-{soloOdds ? fmtNum(soloOdds.oddsPerDay) : '—'}</em> chance, every block
+            </div>
             {onlineCount === 0 ? (
               <div style={{ fontFamily: T.mono, fontSize: 18, color: T.ink3 }}>
                 {bitaxe.loading ? 'Connecting to miners…' : 'All miners offline'}
@@ -2856,10 +2985,10 @@ function CommandCenter({
               <div
                 style={{
                   fontFamily: T.mono,
-                  fontSize: 64,
-                  fontWeight: 500,
-                  letterSpacing: -1,
-                  lineHeight: 1,
+                  fontSize: 58,
+                  fontWeight: 700,
+                  letterSpacing: -2,
+                  lineHeight: 0.95,
                   color: T.ink,
                   fontFeatureSettings: '"tnum"',
                 }}
@@ -2867,16 +2996,8 @@ function CommandCenter({
                 {oddsStr}
               </div>
             )}
-            <div
-              style={{
-                fontFamily: T.mono,
-                fontSize: 12,
-                color: T.ink3,
-                marginTop: 4,
-                letterSpacing: 0.5,
-              }}
-            >
-              per day · expected {etaStr}
+            <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3, marginTop: 5 }}>
+              Expected {etaStr} at current hashrate
             </div>
           </div>
           {/* Per-miner cards */}
@@ -2968,6 +3089,18 @@ function CommandCenter({
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 /**
