@@ -1,6 +1,6 @@
 import React from 'react';
 import { useT } from '../theme';
-import { calcSoloOdds } from '../utils/formatting';
+import { calcSoloOdds, timeAgoUnix } from '../utils/formatting';
 
 const statusColor = {
   online:   '#3a6b2e',
@@ -55,8 +55,7 @@ function Miners({ bitaxe, chain }) {
     : null;
   const oddsOneIn = oddsResult ? oddsResult.oddsPerDay : null;
 
-  const lastOkMin = bitaxe.lastOk ? Math.round((Date.now() - bitaxe.lastOk) / 60000) : null;
-  const agoStr = lastOkMin != null ? `${lastOkMin}m ago` : '—';
+  const agoStr = bitaxe.lastOk ? timeAgoUnix(Math.floor(bitaxe.lastOk / 1000)) : '—';
 
   const activeMiners = bitaxe.miners.filter(m => getMinerStatus(m) !== 'offline');
   const avgEff = activeMiners.length > 0
@@ -74,6 +73,8 @@ function Miners({ bitaxe, chain }) {
         return s + up;
       }, 0) / activeMiners.length
     : null;
+  const fmtPower = (w) => w < 1000 ? `${Math.round(w)}W` : `${(w / 1000).toFixed(1)}kW`;
+
   const avgAsic = activeMiners.length > 0
     ? activeMiners.reduce((s, m) => s + (m.data?.temp || m.data?.temperature || 0), 0) / activeMiners.length
     : 0;
@@ -153,7 +154,7 @@ function Miners({ bitaxe, chain }) {
         }}>
           odds of finding a block today —<br />
           {onlineCount > 0
-            ? `${totalHashTH.toFixed(2)} TH/s · ${(totalPower / 1000).toFixed(1)} kW across ${onlineCount} active ${onlineCount === 1 ? 'rig' : 'rigs'}`
+            ? `${totalHashTH.toFixed(2)} TH/s · ${fmtPower(totalPower)} across ${onlineCount} active ${onlineCount === 1 ? 'rig' : 'rigs'}`
             : 'no rigs online'}
         </div>
       </div>
@@ -234,9 +235,9 @@ function Miners({ bitaxe, chain }) {
                   </>
                 )}
               </div>
-              {cell(isOff ? '—' : `${temp}°`, temp > 69 ? T.red : T.ink2)}
+              {cell(isOff ? '—' : `${temp.toFixed(1)}°`, temp > 69 ? T.red : T.ink2)}
               {cell(isOff ? '—' : (vrT != null ? `${vrT}°` : '—'), vrT != null && vrT > 69 ? T.red : T.ink2)}
-              {cell(isOff ? '—' : `${watts}W`, pwrLimit && watts > pwrLimit ? T.red : T.ink2)}
+              {cell(isOff ? '—' : `${Math.round(watts)}W`, pwrLimit && watts > pwrLimit ? T.red : T.ink2)}
             </div>
           );
         })}
@@ -270,7 +271,7 @@ function Miners({ bitaxe, chain }) {
           </div>
           {fcell(`${Math.round(avgAsic)}°`, avgAsic > 69 ? T.red : T.ink)}
           {fcell(avgVr != null ? `${Math.round(avgVr)}°` : '—', avgVr != null && avgVr > 69 ? T.red : T.ink)}
-          {fcell(`${(totalPower / 1000).toFixed(1)}kW`, T.ink)}
+          {fcell(fmtPower(totalPower), T.ink)}
         </div>
       )}
     </div>
