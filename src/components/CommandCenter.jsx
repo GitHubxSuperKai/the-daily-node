@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { useT } from '../theme';
 import { Masthead } from './Masthead';
 import { MastheadPanel } from './MastheadPanel';
@@ -165,14 +165,6 @@ export function CommandCenter({
   const totalHashrateTHS = onlineMiners.reduce((sum, m) => sum + ((m.data.hashRate || 0) / 1000), 0);
   const totalPower = onlineMiners.reduce((sum, m) => sum + (m.data.power || 0), 0);
   const combinedEff = totalHashrateTHS > 0 ? (totalPower / totalHashrateTHS).toFixed(1) : '—';
-  const totalShOk = onlineMiners.reduce((sum, m) => sum + (m.data.sharesAccepted || 0), 0);
-  const totalShRej = onlineMiners.reduce((sum, m) => sum + (m.data.sharesRejected || 0), 0);
-  const firstMiner = onlineMiners[0]?.data;
-  const bxPool = firstMiner ? firstMiner.stratumURL || 'solo.ckpool.org' : 'solo.ckpool.org';
-  const bestDiffRaw = onlineMiners.length > 0
-    ? Math.max(...onlineMiners.map(m => m.data?.bestDiff || 0))
-    : 0;
-  const bestDiffStr = fmtBestDiff(bestDiffRaw);
 
   // Solo odds from combined fleet hashrate
   const soloOdds =
