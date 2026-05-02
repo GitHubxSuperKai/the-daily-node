@@ -67,7 +67,7 @@ export function Masthead({ clock, wxSummary, blockReward, rewardEra, dark, onTog
       }}>
         {/* LEFT — edition info + rotating quote below */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: u(2) }}>
-          <div style={metaStyle}>Home Edition · Vol. XXI, Nº 238</div>
+          <div style={metaStyle}>Home Miner Edition · Vol. XXI, Nº 007</div>
           <div style={{ ...metaStyle, color: T.ink4 }}>Est. 2026 · Printed on the blockchain</div>
           <div style={{ marginTop: u(5), fontFamily: T.body, fontStyle: 'italic', fontSize: u(11), color: T.ink2, lineHeight: 1.4, maxWidth: u(340) }}>
             "{quote.text}"
@@ -112,14 +112,20 @@ export function Masthead({ clock, wxSummary, blockReward, rewardEra, dark, onTog
           <div style={{ display: 'flex', gap: u(5) }}>
             <button
               onClick={onToggleDark}
+              title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
               style={{
-                ...btnBase,
-                background: dark ? T.ink : 'none',
-                color: dark ? T.paper : T.ink2,
-                border: `1px solid ${dark ? T.ink : T.ink3}`,
+                cursor: 'pointer',
+                background: 'none',
+                border: 'none',
+                padding: `${u(5)} ${u(6)}`,
+                color: T.ink4,
+                fontSize: u(14),
+                lineHeight: 1,
+                display: 'flex',
+                alignItems: 'center',
               }}
             >
-              {dark ? '◑ Light' : '◐ Dark'}
+              {dark ? '◑' : '◐'}
             </button>
             <button
               onClick={onOpenSettings}
