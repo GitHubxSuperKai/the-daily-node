@@ -1,44 +1,37 @@
 import React from 'react';
 import { useT } from '../theme';
-import { calcSoloOdds, timeAgoUnix } from '../utils/formatting';
-
-const statusColor = {
-  online:   '#3a6b2e',
-  degraded: '#c8641a',
-  offline:  '#9c2a1a',
-};
+import { calcSoloOdds } from '../utils/formatting';
 
 function Dot({ status }) {
   const T = useT();
   return (
     <span style={{
       display: 'inline-block', width: u(6), height: u(6), borderRadius: '50%',
-      background: statusColor[status] || T.ink3,
-      flexShrink: 0, marginRight: u(5), position: 'relative', top: -1,
+      background: status === 'hashing' ? T.green : T.red,
+      flexShrink: 0, marginRight: u(5), marginTop: u(1.5),
     }} />
   );
 }
 
 function getMinerStatus(miner) {
-  if (!miner.online || !miner.data) return 'offline';
-  const temp = miner.data.temp || miner.data.temperature || 0;
-  const hr = (miner.data.hashRate || 0) / 1000;
-  const eff = hr > 0 ? (miner.data.power || 0) / hr : 0;
-  if (temp > 69 || eff > 25) return 'degraded';
-  return 'online';
+  return (miner.online && miner.data) ? 'hashing' : 'unreachable';
 }
 
 function getMinerName(miner) {
   if (miner.data?.hostname) return miner.data.hostname;
   const parts = (miner.ip || '').split('.');
-  return `rig-${parts[parts.length - 1] || '?'}`;
+  return `rig-${parts[parts.length - 1] || '(no IP)'}`;
 }
 
 function Miners({ bitaxe, chain }) {
   const T = useT();
+  const heroWrapRef = React.useRef(null);
+  const heroSlotRef = React.useRef(null);
+  const [heroFontSize, setHeroFontSize] = React.useState(null);
 
-  // Grid template: first col flexible, rest fixed design-px widths
-  const GRID = `1fr ${u(52)} ${u(46)} ${u(44)} ${u(80)} ${u(48)} ${u(48)} ${u(52)}`;
+  // minmax(0,1fr) prevents the name column from expanding beyond its share,
+  // which would push the Watts column out of the container.
+  const GRID = `minmax(0,1fr) ${u(52)} ${u(46)} ${u(44)} ${u(80)} ${u(48)} ${u(48)} ${u(52)}`;
 
   const onlineMiners = bitaxe.miners.filter(m => m.online && m.data);
   const minerCount   = bitaxe.miners.length;
@@ -48,6 +41,7 @@ function Miners({ bitaxe, chain }) {
   const totalPower   = onlineMiners.reduce((s, m) => s + (m.data.power || 0), 0);
   const totalAcc     = bitaxe.miners.reduce((s, m) => s + (m.data?.sharesAccepted || 0), 0);
   const totalRej     = bitaxe.miners.reduce((s, m) => s + (m.data?.sharesRejected || 0), 0);
+  const errRate      = totalRej > 0 ? ((totalRej / (totalAcc + totalRej)) * 100).toFixed(2) : null;
 
   const networkHashEH = chain.data ? chain.data.hashrate / 1e18 : 0;
   const oddsResult = chain.data && totalHashTH > 0
@@ -55,9 +49,38 @@ function Miners({ bitaxe, chain }) {
     : null;
   const oddsOneIn = oddsResult ? oddsResult.oddsPerDay : null;
 
-  const agoStr = bitaxe.lastOk ? timeAgoUnix(Math.floor(bitaxe.lastOk / 1000)) : '—';
+  React.useEffect(() => {
+    if (!oddsOneIn) return;
+    const text = `1-in-${oddsOneIn.toLocaleString()}`;
+    const measure = () => {
+      const wrap = heroWrapRef.current;
+      if (!wrap) return;
+      const PROBE = 200;
+      const cs = getComputedStyle(wrap);
+      const availW = wrap.getBoundingClientRect().width
+        - parseFloat(cs.paddingLeft)
+        - parseFloat(cs.paddingRight || '0')
+        - parseFloat(cs.borderLeftWidth || '0')
+        - parseFloat(cs.borderRightWidth || '0');
+      if (availW <= 0) return;
+      const clone = document.createElement('div');
+      clone.style.cssText = 'position:absolute;top:-9999px;white-space:nowrap;' +
+        'font-family:"Playfair Display",Georgia,serif;font-weight:800;font-style:italic;' +
+        `font-size:${PROBE}px`;
+      clone.textContent = text;
+      document.body.appendChild(clone);
+      const textW = clone.scrollWidth;
+      document.body.removeChild(clone);
+      if (textW > 0) {
+        const newSize = Math.floor(PROBE * availW / textW);
+        if (!heroSlotRef.current) heroSlotRef.current = newSize;
+        setHeroFontSize(newSize);
+      }
+    };
+    document.fonts.load('800 italic 200px "Playfair Display"').then(measure);
+  }, [oddsOneIn]);
 
-  const activeMiners = bitaxe.miners.filter(m => getMinerStatus(m) !== 'offline');
+  const activeMiners = bitaxe.miners.filter(m => getMinerStatus(m) !== 'unreachable');
   const avgEff = activeMiners.length > 0
     ? activeMiners.reduce((s, m) => {
         const hr = (m.data?.hashRate || 0) / 1000;
@@ -83,27 +106,8 @@ function Miners({ bitaxe, chain }) {
     ? activeMiners.reduce((s, m) => s + (m.data?.vrTemp || 0), 0) / activeMiners.length
     : null;
 
-  const cell = (val, color) => (
-    <div style={{
-      fontFamily: T.mono, fontSize: u(11), textAlign: 'right',
-      fontFeatureSettings: '"tnum"', color: color || T.ink, whiteSpace: 'nowrap',
-    }}>
-      {val}
-    </div>
-  );
-
-  const fcell = (val, color) => (
-    <div style={{
-      fontFamily: T.mono, fontSize: u(11), textAlign: 'right',
-      fontFeatureSettings: '"tnum"', color: color || T.ink, whiteSpace: 'nowrap',
-      fontWeight: 700,
-    }}>
-      {val}
-    </div>
-  );
-
   const HEADERS = [
-    { label: '',       fade: false },
+    { label: 'Rig',    fade: false },
     { label: 'TH/s',  fade: false },
     { label: 'J/T',   fade: false },
     { label: 'Up%',   fade: true  },
@@ -114,6 +118,12 @@ function Miners({ bitaxe, chain }) {
   ];
 
   const showStubs = bitaxe.miners.length === 0 && !bitaxe.loading;
+
+  // Shared style fragments
+  const tnum = {
+    fontFamily: T.mono, fontSize: u(11), textAlign: 'right',
+    fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap',
+  };
 
   return (
     <div style={{ marginBottom: u(4) }}>
@@ -135,16 +145,21 @@ function Miners({ bitaxe, chain }) {
           fontFamily: T.body, fontSize: u(10), fontStyle: 'italic',
           color: T.ink3, whiteSpace: 'nowrap',
         }}>
-          {onlineCount}/{minerCount} active · {agoStr}
+          {onlineCount}/{minerCount} active
         </span>
       </div>
 
       {/* Pull-quote hero */}
-      <div style={{ borderLeft: `${u(3)} solid ${T.ink}`, paddingLeft: u(12), marginBottom: u(14) }}>
+      <div ref={heroWrapRef} style={{ borderLeft: `${u(3)} solid ${T.ink}`, paddingLeft: u(12), marginBottom: u(14) }}>
+        {/* height is locked to first-measured font size (px) to prevent layout shift on data
+            refresh. Safe because lineHeight:1 makes line-box height === font size, and
+            whiteSpace:nowrap prevents wrapping — removing either breaks this invariant. */}
         <div style={{
-          fontFamily: T.serif, fontSize: u(38), fontWeight: 800, fontStyle: 'italic',
+          fontFamily: T.serif, fontSize: heroFontSize ? heroFontSize + 'px' : u(38),
+          fontWeight: 800, fontStyle: 'italic',
           color: oddsOneIn ? T.ink : T.ink4, lineHeight: 1, letterSpacing: -0.5,
-          fontFeatureSettings: '"tnum"',
+          fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap',
+          height: heroSlotRef.current ? heroSlotRef.current + 'px' : undefined,
         }}>
           {oddsOneIn ? `1-in-${oddsOneIn.toLocaleString()}` : '1-in-—'}
         </div>
@@ -154,36 +169,38 @@ function Miners({ bitaxe, chain }) {
         }}>
           odds of finding a block today —<br />
           {onlineCount > 0
-            ? `${totalHashTH.toFixed(2)} TH/s · ${fmtPower(totalPower)} across ${onlineCount} active ${onlineCount === 1 ? 'rig' : 'rigs'}`
+            ? `${totalHashTH.toFixed(2)} TH/s · ${fmtPower(totalPower)}${errRate ? ` · ${errRate}% err` : ''} across ${onlineCount} active ${onlineCount === 1 ? 'rig' : 'rigs'}`
             : 'no rigs online'}
         </div>
       </div>
 
-      {/* Agate table */}
-      <div style={{ position: 'relative' }}>
-        {/* Headers */}
-        <div style={{
-          display: 'grid', gridTemplateColumns: GRID,
-          gap: `0 ${u(4)}`, padding: `${u(3)} ${u(2)}`,
-          borderTop: `1px solid ${T.rule2}`, borderBottom: `1px solid ${T.rule2}`,
-          marginBottom: 1,
-        }}>
-          {HEADERS.map(({ label, fade }, i) => (
-            <div key={i} style={{
-              fontFamily: T.sans, fontSize: u(8), fontWeight: 700,
-              letterSpacing: u(1.1), textTransform: 'uppercase',
-              color: fade ? T.ink4 : T.ink3,
-              textAlign: i > 0 ? 'right' : 'left',
-              whiteSpace: 'nowrap',
-            }}>
-              {label}
-            </div>
-          ))}
-        </div>
+      {/*
+        Single flat grid — header, data rows, and fleet are all direct children
+        of one grid container so every column is guaranteed to align perfectly.
+      */}
+      <div style={{ display: 'grid', gridTemplateColumns: GRID, columnGap: u(4), alignItems: 'center' }}>
 
+        {/* ── Column headers ── */}
+        <div key="rule-hdr-top" style={{ gridColumn: '1 / -1', borderTop: `1px solid ${T.rule2}`, padding: 0 }} />
+        {HEADERS.map(({ label, fade }, i) => (
+          <div key={`h${i}`} style={{
+            fontFamily: T.sans, fontSize: u(8), fontWeight: 700,
+            letterSpacing: u(1.1), textTransform: 'uppercase',
+            color: fade ? T.ink4 : T.ink3,
+            textAlign: i > 0 ? 'right' : 'left',
+            whiteSpace: 'nowrap',
+            padding: i === 0 ? `${u(3)} 0 ${u(3)} ${u(11)}` : `${u(3)} 0`,
+          }}>
+            {label}
+          </div>
+        ))}
+        <div key="rule-hdr-bot" style={{ gridColumn: '1 / -1', borderTop: `1px solid ${T.rule2}`, padding: 0 }} />
+
+        {/* ── No miners stub ── */}
         {showStubs && (
           <div style={{
-            padding: `${u(8)} ${u(2)}`,
+            gridColumn: '1 / -1',
+            padding: `${u(8)} 0`,
             borderBottom: `1px solid ${T.rule3}`,
             fontFamily: T.mono, fontSize: u(11), color: T.ink4,
           }}>
@@ -191,89 +208,97 @@ function Miners({ bitaxe, chain }) {
           </div>
         )}
 
-        {/* Data rows */}
-        {bitaxe.miners.map((miner, i) => {
+        {/* ── Data rows ── */}
+        {bitaxe.miners.map((miner, ri) => {
           const status = getMinerStatus(miner);
-          const isOff  = status === 'offline';
+          const isOff  = status === 'unreachable';
           const md     = miner.data;
 
-          const hr    = md ? (md.hashRate || 0) / 1000 : 0;
-          const watts = md?.power || 0;
-          const eff   = hr > 0 ? watts / hr : 0;
-          const temp  = md ? (md.temp || md.temperature || 0) : 0;
-          const vrT   = md?.vrTemp ?? null;
-          const upSec = md?.uptimeSeconds ?? null;
-          const upPct = upSec != null ? Math.min(99.9, (upSec / 86400) * 100) : null;
-          const accS  = md?.sharesAccepted || 0;
-          const rejS  = md?.sharesRejected || 0;
+          const hr       = md ? (md.hashRate || 0) / 1000 : 0;
+          const watts    = md?.power || 0;
+          const eff      = hr > 0 ? watts / hr : 0;
+          const temp     = md ? (md.temp || md.temperature || 0) : 0;
+          const vrT      = md?.vrTemp ?? null;
+          const upSec    = md?.uptimeSeconds ?? null;
+          const upPct    = upSec != null ? Math.min(99.9, (upSec / 86400) * 100) : null;
+          const accS     = md?.sharesAccepted || 0;
+          const rejS     = md?.sharesRejected || 0;
           const pwrLimit = md?.powerLimit || null;
 
-          return (
-            <div key={i} style={{
-              display: 'grid', gridTemplateColumns: GRID,
-              gap: `0 ${u(4)}`, padding: `${u(5)} ${u(2)}`,
-              borderBottom: `1px solid ${T.rule3}`,
-              opacity: isOff ? 0.4 : 1,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
-                <Dot status={status} />
-                <span style={{ fontFamily: T.sans, fontSize: u(11), fontWeight: 600, color: T.ink }}>
-                  {getMinerName(miner)}
-                </span>
-              </div>
-              {cell(isOff ? '—' : hr.toFixed(2), T.ink)}
-              {cell(isOff ? '—' : `${eff.toFixed(1)}`, eff > 25 ? T.red : T.ink)}
-              {cell(isOff ? '—' : (upPct != null ? `${upPct.toFixed(0)}%` : '—'), upPct != null && upPct < 80 ? T.red : T.ink2)}
-              <div style={{
-                fontFamily: T.mono, fontSize: u(11), textAlign: 'right',
-                fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap', color: T.ink2,
-              }}>
-                {isOff ? '—' : (
-                  <>
-                    {accS.toLocaleString()}
-                    <span style={{ color: rejS > 50 ? T.red : T.ink4 }}> /{rejS}</span>
-                  </>
-                )}
-              </div>
-              {cell(isOff ? '—' : `${temp.toFixed(1)}°`, temp > 69 ? T.red : T.ink2)}
-              {cell(isOff ? '—' : (vrT != null ? `${vrT.toFixed(1)}°` : '—'), vrT != null && vrT > 69 ? T.red : T.ink2)}
-              {cell(isOff ? '—' : `${Math.round(watts)}W`, pwrLimit && watts > pwrLimit ? T.red : T.ink2)}
-            </div>
-          );
-        })}
-      </div>
+          const rowBase = {
+            padding: `${u(5)} 0`,
+            opacity: isOff ? 0.4 : 1,
+          };
 
-      {/* Fleet totals row */}
-      {bitaxe.miners.length > 0 && (
-        <div style={{
-          display: 'grid', gridTemplateColumns: GRID,
-          gap: `0 ${u(4)}`, padding: `${u(6)} ${u(4)}`,
-          borderTop: `1px solid ${T.rule2}`,
-          marginTop: 1,
-          background: T.paper2,
-        }}>
-          <div style={{
-            fontFamily: T.sans, fontSize: u(9), fontWeight: 700,
-            letterSpacing: u(1.1), textTransform: 'uppercase',
-            color: T.ink3, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap',
-          }}>
-            Fleet
-          </div>
-          {fcell(`${totalHashTH.toFixed(2)}`, T.ink)}
-          {fcell(`${avgEff.toFixed(1)}`, avgEff > 25 ? T.red : T.ink)}
-          {fcell(avgUp != null ? `${avgUp.toFixed(0)}%` : '—', avgUp != null && avgUp < 80 ? T.red : T.ink)}
-          <div style={{
-            fontFamily: T.mono, fontSize: u(11), textAlign: 'right',
-            fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap', fontWeight: 700, color: T.ink,
-          }}>
-            {totalAcc.toLocaleString()}
-            <span style={{ color: totalRej > 200 ? T.red : T.ink4 }}> /{totalRej}</span>
-          </div>
-          {fcell(`${Math.round(avgAsic)}°`, avgAsic > 69 ? T.red : T.ink)}
-          {fcell(avgVr != null ? `${Math.round(avgVr)}°` : '—', avgVr != null && avgVr > 69 ? T.red : T.ink)}
-          {fcell(fmtPower(totalPower), T.ink)}
-        </div>
-      )}
+          return [
+            // Name + dot
+            <div key={`${ri}-0`} style={{ ...rowBase, display: 'flex', alignItems: 'flex-start' }}>
+              <Dot status={status} />
+              <span style={{ fontFamily: T.sans, fontSize: u(11), fontWeight: 600, color: T.ink, overflowWrap: 'break-word', lineHeight: 1.3 }}>
+                {getMinerName(miner).split('_').map((part, i) => (
+                  <React.Fragment key={i}>{i > 0 && <>{`_`}<wbr /></>}{part}</React.Fragment>
+                ))}
+              </span>
+            </div>,
+            // TH/s
+            <div key={`${ri}-1`} style={{ ...rowBase, ...tnum, color: T.ink }}>
+              {isOff ? '—' : hr.toFixed(2)}
+            </div>,
+            // J/T
+            <div key={`${ri}-2`} style={{ ...rowBase, ...tnum, color: eff > 25 ? T.red : T.ink }}>
+              {isOff ? '—' : eff.toFixed(1)}
+            </div>,
+            // Up%
+            <div key={`${ri}-3`} style={{ ...rowBase, ...tnum, color: upPct != null && upPct < 80 ? T.red : T.ink2 }}>
+              {isOff ? '—' : (upPct != null ? `${upPct.toFixed(0)}%` : '—')}
+            </div>,
+            // Shares
+            <div key={`${ri}-4`} style={{ ...rowBase, ...tnum, color: T.ink2 }}>
+              {isOff ? '—' : (
+                <>{accS.toLocaleString()}<span style={{ color: rejS > 50 ? T.red : T.ink4 }}> /{rejS}</span></>
+              )}
+            </div>,
+            // ASIC°
+            <div key={`${ri}-5`} style={{ ...rowBase, ...tnum, color: temp > 69 ? T.red : T.ink2 }}>
+              {isOff ? '—' : `${temp.toFixed(1)}°`}
+            </div>,
+            // VR°
+            <div key={`${ri}-6`} style={{ ...rowBase, ...tnum, color: vrT != null && vrT > 69 ? T.red : T.ink2 }}>
+              {isOff ? '—' : (vrT != null ? `${vrT.toFixed(1)}°` : '—')}
+            </div>,
+            // Watts
+            <div key={`${ri}-7`} style={{ ...rowBase, ...tnum, color: pwrLimit && watts > pwrLimit ? T.red : T.ink2 }}>
+              {isOff ? '—' : `${Math.round(watts)}W`}
+            </div>,
+            // Separator — full-width rule between miners (fleet rule covers the last one)
+            ri < bitaxe.miners.length - 1
+              ? <div key={`rule-row-${ri}`} style={{ gridColumn: '1 / -1', borderTop: `1px solid ${T.rule3}`, padding: 0 }} />
+              : null,
+          ];
+        })}
+
+        {/* ── Fleet totals ── */}
+        {bitaxe.miners.length > 0 && (() => {
+          const fleetBase = { padding: `${u(5)} 0` };
+          const ft = { ...tnum, fontWeight: 700, padding: `${u(5)} 0` };
+          return [
+            <div key="rule-fleet" style={{ gridColumn: '1 / -1', borderTop: `1px solid ${T.ink}`, padding: 0 }} />,
+            <div key="f0" style={{ ...fleetBase, fontFamily: T.sans, fontSize: u(9), fontWeight: 700, letterSpacing: u(1.1), textTransform: 'uppercase', color: T.ink, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
+              Fleet
+            </div>,
+            <div key="f1" style={{ ...ft, color: T.ink }}>{totalHashTH.toFixed(2)}</div>,
+            <div key="f2" style={{ ...ft, color: avgEff > 25 ? T.red : T.ink }}>{avgEff.toFixed(1)}</div>,
+            <div key="f3" style={{ ...ft, color: avgUp != null && avgUp < 80 ? T.red : T.ink }}>{avgUp != null ? `${avgUp.toFixed(0)}%` : '—'}</div>,
+            <div key="f4" style={{ ...ft, color: T.ink }}>
+              {totalAcc.toLocaleString()}<span style={{ color: totalRej > 200 ? T.red : T.ink4 }}> /{totalRej}</span>
+            </div>,
+            <div key="f5" style={{ ...ft, color: avgAsic > 69 ? T.red : T.ink }}>{Math.round(avgAsic)}°</div>,
+            <div key="f6" style={{ ...ft, color: avgVr != null && avgVr > 69 ? T.red : T.ink }}>{avgVr != null ? `${Math.round(avgVr)}°` : '—'}</div>,
+            <div key="f7" style={{ ...ft, color: T.ink }}>{fmtPower(totalPower)}</div>,
+          ];
+        })()}
+
+      </div>
     </div>
   );
 }
