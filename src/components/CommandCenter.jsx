@@ -247,7 +247,7 @@ export function CommandCenter({
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
-            <div style={{ fontFamily: T.mono, fontSize: 11, color: T.ink3 }}>
+            <div style={{ fontFamily: T.num, fontSize: 11, color: T.ink3 }}>
               {clock.timeHM}{clock.amPm ? ` ${clock.amPm}` : ''}
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
@@ -274,21 +274,21 @@ export function CommandCenter({
               Markets · BTC / USD
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 4 }}>
-              <div style={{ fontFamily: T.mono, fontSize: 42, fontWeight: 700, letterSpacing: -2, lineHeight: 1, color: T.ink }}>
+              <div style={{ fontFamily: T.numDisplay, fontSize: 42, fontWeight: 700, letterSpacing: -2, lineHeight: 1, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
                 {btcPrice}
               </div>
-              <div style={{ fontFamily: T.mono, fontSize: 18, fontWeight: 600, color: btcUp ? T.green : T.red, paddingBottom: 4 }}>
+              <div style={{ fontFamily: T.num, fontSize: 18, fontWeight: 400, color: btcUp ? T.green : T.red, paddingBottom: 4, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
                 {btcUp ? '▲' : '▼'} {btcChgPct}%
               </div>
             </div>
-            <div style={{ fontFamily: T.mono, fontSize: 11, color: T.ink3, marginBottom: 12 }}>
+            <div style={{ fontFamily: T.num, fontSize: 11, color: T.ink3, marginBottom: 12, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
               Hi ${btcHi} · Lo ${btcLo} · Cap {btcCap}
             </div>
             {/* Chart */}
             <div style={{ height: 80, marginBottom: 4 }}>
               <LineChart color={T.orange} points={btc.chartPts} vwap={btc.data?.vwap} fill />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.mono, fontSize: 9, color: T.ink4 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.num, fontSize: 9, color: T.ink4 }}>
               <span>24h ago</span><span>−12h</span><span>now</span>
             </div>
           </div>
@@ -302,13 +302,13 @@ export function CommandCenter({
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <WxGlyph kind={wmoIcon(wx.wxCode, new Date().getHours(), wx.wxWindSpeed, wx.wxSunriseHr, wx.wxSunsetHr)} size={48} speed={wmoSpeed(wx.wxCode, wx.wxWindSpeed)} />
                 <div>
-                  <div style={{ fontFamily: T.mono, fontSize: 32, fontWeight: 700, letterSpacing: -1, color: T.ink, lineHeight: 1 }}>
+                  <div style={{ fontFamily: T.num, fontSize: 32, fontWeight: 400, letterSpacing: -1, color: T.ink, lineHeight: 1 }}>
                     {wx.temp}° <span style={{ fontSize: 16, color: T.ink3 }}>{prefs.tempUnit === 'celsius' ? 'C' : 'F'}</span>
                   </div>
                   <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 13, color: T.ink2, marginTop: 3 }}>
                     {wx.wxCond} · H{wx.wxHi} L{wx.wxLo}
                   </div>
-                  <div style={{ fontFamily: T.mono, fontSize: 11, color: T.ink3, marginTop: 2 }}>
+                  <div style={{ fontFamily: T.num, fontSize: 11, color: T.ink3, marginTop: 2 }}>
                     {wx.wxWind} · {wx.wxHum} humidity
                   </div>
                 </div>
@@ -329,7 +329,7 @@ export function CommandCenter({
                 { val: mempoolMB,   label: 'Mempool', color: mempoolCol },
               ].map(({ val, label, color }, i) => (
                 <div key={i}>
-                  <div style={{ fontFamily: T.mono, fontSize: 18, fontWeight: 700, color: color || T.ink, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>
+                  <div style={{ fontFamily: T.num, fontSize: 18, fontWeight: 400, color: color || T.ink, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>
                     {val}
                   </div>
                   <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 1.2, textTransform: 'uppercase', color: T.ink3, marginTop: 3 }}>
@@ -353,7 +353,7 @@ export function CommandCenter({
                 { val: soloOdds ? `1:${fmtNum(soloOdds.oddsPerDay)}/d` : '—', label: 'Solo Odds' },
               ].map(({ val, label }, i) => (
                 <div key={i}>
-                  <div style={{ fontFamily: T.mono, fontSize: 18, fontWeight: 700, color: T.ink, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>
+                  <div style={{ fontFamily: T.num, fontSize: 18, fontWeight: 700, color: T.ink, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>
                     {val}
                   </div>
                   <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 1.2, textTransform: 'uppercase', color: T.ink3, marginTop: 3 }}>
@@ -384,7 +384,7 @@ export function CommandCenter({
               Bitcoin News
             </div>
             {newsItems.length === 0 ? (
-              <div style={{ fontFamily: T.mono, fontSize: 12, color: T.ink3 }}>
+              <div style={{ fontFamily: T.num, fontSize: 12, color: T.ink3 }}>
                 {rss.err ? 'Feed unavailable' : 'Loading…'}
               </div>
             ) : newsItems.slice(0, 20).map((it, i) => (
@@ -495,6 +495,9 @@ export function CommandCenter({
               display: 'inline-flex',
               whiteSpace: 'nowrap',
               animation: 'ticker-scroll 100s linear infinite',
+              willChange: 'transform',
+              backfaceVisibility: 'hidden',
+              WebkitFontSmoothing: 'subpixel-antialiased',
             }}
           >
             {(() => {
@@ -559,7 +562,7 @@ export function CommandCenter({
               <div style={{ display: 'flex', alignItems: 'baseline', gap: u(6) }}>
                 <Num size="lg" value={clock.timeHM} unit={clock.timeSec} style={{ alignItems: 'baseline' }} />
                 {clock.amPm && (
-                  <span style={{ fontFamily: T.mono, fontSize: u(16), color: T.ink2, lineHeight: 1 }}>
+                  <span style={{ fontFamily: T.num, fontSize: u(16), color: T.ink2, lineHeight: 1 }}>
                     {clock.amPm}
                   </span>
                 )}
@@ -603,7 +606,7 @@ export function CommandCenter({
                 >
                   {wx.hourly.map((h, i) => (
                     <div key={i} style={{ textAlign: 'center' }}>
-                      <div style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink3 }}>
+                      <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3 }}>
                         {fmtHour(h.hr, prefs.timeFormat)}
                       </div>
                       <div style={{ margin: `${u(3)} auto` }}>
@@ -615,12 +618,12 @@ export function CommandCenter({
                       </div>
                       <Num size="xs" value={`${h.t}°`} />
                       {h.pop >= 30 && (
-                        <div style={{ fontFamily: T.mono, fontSize: u(9), color: T.ink3, marginTop: u(1) }}>
+                        <div style={{ fontFamily: T.num, fontSize: u(9), color: T.ink3, marginTop: u(1) }}>
                           {h.pop}%
                         </div>
                       )}
                       {h.precip > 0 && (
-                        <div style={{ fontFamily: T.mono, fontSize: u(9), color: T.ink3 }}>
+                        <div style={{ fontFamily: T.num, fontSize: u(9), color: T.ink3 }}>
                           {h.precip.toFixed(1)}mm
                         </div>
                       )}
@@ -639,8 +642,8 @@ export function CommandCenter({
                   const cellMB = { padding: `${u(8)} ${u(8)} 0 ${u(8)}`, borderRight: br, borderTop: br };
                   const cellRB = { padding: `${u(8)} 0 0 ${u(8)}`,        borderTop: br };
                   const lbl = { fontFamily: T.sans, fontSize: u(8), fontWeight: 600, letterSpacing: u(1.6), textTransform: 'uppercase', color: T.ink3, marginBottom: u(3) };
-                  const val = { fontFamily: T.mono, fontSize: u(13), fontWeight: 500, letterSpacing: -0.5, lineHeight: 1, color: T.ink };
-                  const sub = { fontFamily: T.mono, fontSize: u(9), color: T.ink3, marginTop: u(2) };
+                  const val = { fontFamily: T.num, fontSize: u(13), fontWeight: 400, letterSpacing: -0.5, lineHeight: 1, color: T.ink };
+                  const sub = { fontFamily: T.num, fontSize: u(9), color: T.ink3, marginTop: u(2) };
                   return (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', marginTop: u(10), borderTop: br }}>
                       <div style={cellL}>
@@ -682,7 +685,7 @@ export function CommandCenter({
                 })()}
               </>
             ) : (
-              <div style={{ fontFamily: T.mono, fontSize: u(12), color: T.ink3, marginTop: u(8) }}>
+              <div style={{ fontFamily: T.num, fontSize: u(12), color: T.ink3, marginTop: u(8) }}>
                 {weather.err ? 'weather unavailable' : 'loading…'}
               </div>
             )}
@@ -702,12 +705,12 @@ export function CommandCenter({
             >
               {sys.map((s, i) => (
                 <React.Fragment key={i}>
-                  <span style={{ fontFamily: T.mono, fontSize: u(12), color: T.ink2 }}>
+                  <span style={{ fontFamily: T.num, fontSize: u(12), color: T.ink2 }}>
                     <StatusDot ok={s.v === 'ok'} />
                     {s.k}
                   </span>
                   <Num size="xs" value={s.v} style={{ justifyContent: 'flex-end' }} />
-                  <span style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink3, textAlign: 'right' }}>
+                  <span style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, textAlign: 'right' }}>
                     {s.d}
                   </span>
                 </React.Fragment>
@@ -755,17 +758,17 @@ export function CommandCenter({
           <Kicker>Markets · BTC / USD</Kicker>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
             <Num size="hero" value={btcPrice} />
-            <div style={{ fontFamily: T.mono, fontSize: u(22), fontWeight: 600, color: btcUp ? T.green : T.red, paddingBottom: u(10) }}>
+            <div style={{ fontFamily: T.num, fontSize: u(22), fontWeight: 400, color: btcUp ? T.green : T.red, paddingBottom: u(10), fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
               {btcUp ? '▲' : '▼'} {btcChgPct}%
             </div>
           </div>
           {btc.data?.ath && (
-            <div style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink4, marginTop: u(-8), marginBottom: u(2) }}>
+            <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink4, marginTop: u(-8), marginBottom: u(2) }}>
               {'ATH $' + Math.round(btc.data.ath).toLocaleString() + (btc.data.athDate ? ' · ' + new Date(btc.data.athDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '') + ' · '}
               <span style={{ color: athAtNew ? T.green : T.red }}>{athAtNew ? '▲ new ATH' : ('▼ ' + Math.abs(athPct).toFixed(1) + '%')}</span>
             </div>
           )}
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.mono, fontSize: u(11), borderTop: `1px solid ${T.rule2}`, borderBottom: `1px solid ${T.rule2}`, padding: `${u(5)} 0`, marginBottom: u(6) }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.num, fontSize: u(11), borderTop: `1px solid ${T.rule2}`, borderBottom: `1px solid ${T.rule2}`, padding: `${u(5)} 0`, marginBottom: u(6), fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
             <span style={{ color: T.green }}>hi ${btcHi}</span>
             <span style={{ color: T.ink3 }}>·</span>
             <span style={{ color: T.red }}>lo ${btcLo}</span>
@@ -782,7 +785,7 @@ export function CommandCenter({
           <div style={{ width: '100%', height: u(110), flexShrink: 0 }}>
             <LineChart color={T.orange} points={btc.chartPts} vwap={btc.data?.vwap} fill />
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.mono, fontSize: u(10), color: T.ink3 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.num, fontSize: u(10), color: T.ink3 }}>
             <span>24h ago</span><span>−18h</span><span>−12h</span><span>−6h</span><span>now</span>
           </div>
           <Rule dash />
@@ -868,7 +871,7 @@ export function CommandCenter({
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: u(4) }}>
                             <Kicker color={it.topic === 'BREAKING' ? T.red : T.ink3}>{it.cat}</Kicker>
-                            <span style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink3 }}>{it.t}</span>
+                            <span style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3 }}>{it.t}</span>
                           </div>
                           <div style={{ fontFamily: T.body, fontSize: u(14.5), lineHeight: 1.3, color: T.ink, letterSpacing: u(-0.1) }}>
                             {it.hed}
@@ -880,7 +883,7 @@ export function CommandCenter({
                       ))}
                     </React.Fragment>
                   )) : (
-                    <div style={{ fontFamily: T.mono, fontSize: u(12), color: T.ink3, marginTop: u(16) }}>
+                    <div style={{ fontFamily: T.num, fontSize: u(12), color: T.ink3, marginTop: u(16) }}>
                       {rss.err ? 'All feeds unavailable' : 'Loading headlines…'}
                     </div>
                   )}

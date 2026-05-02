@@ -109,11 +109,11 @@ function Chain({ chain }) {
       {pools.length > 0 && (
         <div style={{ marginTop:14 }}>
           <Kicker>Mining Pools · 7d</Kicker>
-          <div style={{ fontFamily:T.mono, fontSize:10, color:T.ink2, marginTop:5, lineHeight:1.8, wordBreak:'break-word' }}>
+          <div style={{ fontFamily:T.num, fontSize:10, color:T.ink2, marginTop:5, lineHeight:1.8, wordBreak:'break-word' }}>
             {pools.map(p => `${p.name} ${p.sharePct}%`).join('  ·  ')}
           </div>
           {topPool && topPoolBlocks.length > 0 && (
-            <div style={{ fontFamily:T.mono, fontSize:9, color:T.ink3, marginTop:3 }}>
+            <div style={{ fontFamily:T.num, fontSize:9, color:T.ink3, marginTop:3 }}>
               Top pool: {topPool.name} · last block #{fmtNum(topPoolBlocks[0].height)} · {timeAgoUnix(topPoolBlocks[0].timestamp)}
             </div>
           )}
