@@ -44,27 +44,12 @@ import {
 
 
 /**
- * CommandCenter — Main layout orchestrator (1920x1080)
- * Displays:
- *   - Top chrome (Masthead with time, weather, settings)
- *   - Scrolling ticker with chain vitals
- *   - 4-column grid:
- *     0: Logo, clock, weather, system status sidebar
- *     1: BTC price, chart, lead story
- *     2: Headlines feed
- *     3: Home fleet, solo odds, miners, chain vitals
- *   - Settings modal (MastheadPanel)
+ * CommandCenter — Main layout orchestrator
+ * Renders a responsive 4-column newspaper dashboard on desktop/TV,
+ * and a single-column scrollable view on mobile (< 900px).
  *
- * Props:
- *   - dark: boolean
- *   - onToggleDark: () => void
- *   - bitaxeApiUrl: string
- *   - bitaxeIps: string[]
- *   - prefs: { lat, lng, cityName, timeFormat, tempUnit }
- *   - settingsOpen: boolean
- *   - onOpenSettings: () => void
- *   - onSaveSettings: (url, ips[], prefs) => void
- *   - onCloseSettings: () => void
+ * Layout uses CSS --u variable (set by index.html) so all dimensions
+ * scale proportionally across 4K, 2K, 1080p, and smaller screens.
  */
 function LeadImage({ src, domain }) {
   const T = useT();
@@ -73,14 +58,14 @@ function LeadImage({ src, domain }) {
     return (
       <div style={{
         width: '100%',
-        height: 80,
+        height: u(80),
         background: `repeating-linear-gradient(45deg, ${T.rule3} 0, ${T.rule3} 1px, transparent 0, transparent 8px)`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: 3,
       }}>
-        <span style={{ fontFamily: T.mono, fontSize: 10, color: T.ink4 }}>{domain}</span>
+        <span style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink4 }}>{domain}</span>
       </div>
     );
   }
@@ -88,7 +73,7 @@ function LeadImage({ src, domain }) {
     <img
       src={src}
       alt=""
-      style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 3, display: 'block' }}
+      style={{ width: '100%', height: u(160), objectFit: 'cover', borderRadius: 3, display: 'block' }}
       onError={() => setErrored(true)}
     />
   );
@@ -106,6 +91,7 @@ export function CommandCenter({
   onCloseSettings,
 }) {
   const T = useT();
+  const { isMobile } = useLayoutSize();
   const clock = useClock(prefs.timeFormat);
   const btc = useBTC();
   const chain = useChain();
@@ -113,7 +99,6 @@ export function CommandCenter({
   const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
   const rss = useRSS();
 
-  // Auto dark mode — fires once when sunrise/sunset first loads; respects manual toggle after
   const autoThemeDone = React.useRef(false);
   React.useEffect(() => {
     if (autoThemeDone.current) return;
@@ -166,12 +151,10 @@ export function CommandCenter({
   const totalPower = onlineMiners.reduce((sum, m) => sum + (m.data.power || 0), 0);
   const combinedEff = totalHashrateTHS > 0 ? (totalPower / totalHashrateTHS).toFixed(1) : '—';
 
-  // Solo odds from combined fleet hashrate
   const soloOdds =
     chain.data && totalHashrateTHS > 0 ? calcSoloOdds(chain.data.hashrate / 1e18, totalHashrateTHS) : null;
   const etaStr = soloOdds ? `~${fmtNum(soloOdds.etaYears)} yrs` : '—';
 
-  // Chain vitals rows
   const diffAdjVal = chain.data?.diffAdj;
   const diffAdjStr = diffAdjVal != null ? `${diffAdjVal >= 0 ? '+' : ''}${diffAdjVal.toFixed(2)}%` : '—';
   const diffAdjCol = diffAdjVal != null ? (diffAdjVal >= 0 ? T.green : T.red) : T.ink;
@@ -202,10 +185,7 @@ export function CommandCenter({
     { k: 'Difficulty', v: difficulty },
     { k: 'Avg block', v: chain.data?.blockTimeMs ? fmtBlockTime(chain.data.blockTimeMs) : '—', c: blockTimeCol },
     { k: 'Diff retarget', v: diffAdjStr, c: diffAdjCol },
-    {
-      k: 'Retarget in',
-      v: chain.data?.remainingBlocks != null ? `${fmtNum(chain.data.remainingBlocks)} blk` : '—',
-    },
+    { k: 'Retarget in', v: chain.data?.remainingBlocks != null ? `${fmtNum(chain.data.remainingBlocks)} blk` : '—' },
     { k: 'Retarget date', v: retargetDate },
     { k: 'Epoch', v: epochStr },
   ];
@@ -226,43 +206,238 @@ export function CommandCenter({
     })),
   ];
 
-  // System status
   const sys = [
-    {
-      k: 'miners',
-      v: bitaxe.err ? 'err' : onlineCount > 0 ? 'ok' : bitaxe.loading ? '…' : 'err',
-      d: bitaxe.loading ? 'connecting' : `${onlineCount}/${minerCount} online`,
-    },
+    { k: 'miners', v: bitaxe.err ? 'err' : onlineCount > 0 ? 'ok' : bitaxe.loading ? '…' : 'err', d: bitaxe.loading ? 'connecting' : `${onlineCount}/${minerCount} online` },
     { k: 'mempool', v: chain.err ? 'err' : chain.data ? 'ok' : '…', d: chain.data ? `${mempoolMB}` : '—' },
     { k: 'kraken', v: btc.err ? 'err' : btc.data ? 'ok' : '…', d: btc.data ? `${btcChgPct}% 24h` : '—' },
-    {
-      k: 'weather',
-      v: weather.err ? 'err' : weather.data ? 'ok' : '…',
-      d: weather.data ? weather.data.wxCond.toLowerCase() : '—',
-    },
+    { k: 'weather', v: weather.err ? 'err' : weather.data ? 'ok' : '…', d: weather.data ? weather.data.wxCond.toLowerCase() : '—' },
     { k: 'rss', v: rss.err ? 'err' : rss.items.length > 0 ? 'ok' : '…', d: rss.items.length > 0 ? `${rss.items.length} stories` : '—' },
   ];
 
   const wx = weather.data;
   const lead = rss.leadStory;
   const newsItems = rss.items;
-
-  // Top-bar summary
   const tempUnitLabel = prefs.tempUnit === 'celsius' ? '°C' : '°F';
   const wxSummary = wx ? `${wx.temp}${tempUnitLabel} ${wx.wxCond.toLowerCase()}` : `—${tempUnitLabel}`;
 
+  // ── MOBILE LAYOUT ──────────────────────────────────────────────
+  if (isMobile) {
+    return (
+      <div style={{
+        position: 'relative',
+        width: '100%',
+        background: T.paper,
+        color: T.ink,
+        fontFamily: T.body,
+      }}>
+        {/* Mobile header */}
+        <div style={{
+          padding: '14px 16px 10px',
+          borderBottom: `1px solid ${T.rule2}`,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-end',
+        }}>
+          <div>
+            <div style={{ fontFamily: T.body, fontSize: 9, fontWeight: 500, letterSpacing: 2, textTransform: 'uppercase', color: T.ink3, marginBottom: 3 }}>
+              Bitcoin Command Center
+            </div>
+            <div style={{ fontFamily: T.serif, fontSize: 30, fontWeight: 800, letterSpacing: -1, lineHeight: 1 }}>
+              The Daily Node
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
+            <div style={{ fontFamily: T.mono, fontSize: 11, color: T.ink3 }}>
+              {clock.timeHM}{clock.amPm ? ` ${clock.amPm}` : ''}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                onClick={onToggleDark}
+                style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', padding: '4px 10px', cursor: 'pointer', background: dark ? T.ink : 'none', color: dark ? T.paper : T.ink2, border: `1px solid ${dark ? T.ink : T.ink3}` }}
+              >
+                {dark ? '◑' : '◐'}
+              </button>
+              <button
+                onClick={onOpenSettings}
+                style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', padding: '4px 10px', cursor: 'pointer', background: 'none', color: T.ink2, border: `1px solid ${T.ink3}` }}
+              >
+                ⚙
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: '0 16px 48px' }}>
+          {/* BTC Price */}
+          <div style={{ paddingTop: 16, paddingBottom: 16, borderBottom: `1px solid ${T.rule2}` }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: T.ink3, marginBottom: 8 }}>
+              Markets · BTC / USD
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 4 }}>
+              <div style={{ fontFamily: T.mono, fontSize: 42, fontWeight: 700, letterSpacing: -2, lineHeight: 1, color: T.ink }}>
+                {btcPrice}
+              </div>
+              <div style={{ fontFamily: T.mono, fontSize: 18, fontWeight: 600, color: btcUp ? T.green : T.red, paddingBottom: 4 }}>
+                {btcUp ? '▲' : '▼'} {btcChgPct}%
+              </div>
+            </div>
+            <div style={{ fontFamily: T.mono, fontSize: 11, color: T.ink3, marginBottom: 12 }}>
+              Hi ${btcHi} · Lo ${btcLo} · Cap {btcCap}
+            </div>
+            {/* Chart */}
+            <div style={{ height: 80, marginBottom: 4 }}>
+              <LineChart color={T.orange} points={btc.chartPts} vwap={btc.data?.vwap} fill />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.mono, fontSize: 9, color: T.ink4 }}>
+              <span>24h ago</span><span>−12h</span><span>now</span>
+            </div>
+          </div>
+
+          {/* Weather */}
+          {wx && (
+            <div style={{ paddingTop: 14, paddingBottom: 14, borderBottom: `1px solid ${T.rule2}` }}>
+              <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: T.ink3, marginBottom: 8 }}>
+                Weather
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <WxGlyph kind={wmoIcon(wx.wxCode, new Date().getHours(), wx.wxWindSpeed, wx.wxSunriseHr, wx.wxSunsetHr)} size={48} speed={wmoSpeed(wx.wxCode, wx.wxWindSpeed)} />
+                <div>
+                  <div style={{ fontFamily: T.mono, fontSize: 32, fontWeight: 700, letterSpacing: -1, color: T.ink, lineHeight: 1 }}>
+                    {wx.temp}° <span style={{ fontSize: 16, color: T.ink3 }}>{prefs.tempUnit === 'celsius' ? 'C' : 'F'}</span>
+                  </div>
+                  <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 13, color: T.ink2, marginTop: 3 }}>
+                    {wx.wxCond} · H{wx.wxHi} L{wx.wxLo}
+                  </div>
+                  <div style={{ fontFamily: T.mono, fontSize: 11, color: T.ink3, marginTop: 2 }}>
+                    {wx.wxWind} · {wx.wxHum} humidity
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Network */}
+          <div style={{ paddingTop: 14, paddingBottom: 14, borderBottom: `1px solid ${T.rule2}` }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: T.ink3, marginBottom: 8 }}>
+              Network
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px' }}>
+              {[
+                { val: hashrate,    label: 'Hashrate' },
+                { val: difficulty,  label: 'Difficulty' },
+                { val: chain.data ? `${(chain.data.blockTimeMs / 60000).toFixed(1)}m` : '—', label: 'Block Time', color: blockTimeCol },
+                { val: mempoolMB,   label: 'Mempool', color: mempoolCol },
+              ].map(({ val, label, color }, i) => (
+                <div key={i}>
+                  <div style={{ fontFamily: T.mono, fontSize: 18, fontWeight: 700, color: color || T.ink, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>
+                    {val}
+                  </div>
+                  <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 1.2, textTransform: 'uppercase', color: T.ink3, marginTop: 3 }}>
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Fleet */}
+          <div style={{ paddingTop: 14, paddingBottom: 14, borderBottom: `1px solid ${T.rule2}` }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: T.ink3, marginBottom: 8 }}>
+              Fleet
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px' }}>
+              {[
+                { val: `${onlineCount}/${minerCount}`,   label: 'Online' },
+                { val: totalHashrateTHS > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s` : '—', label: 'Hashrate' },
+                { val: totalPower > 0 ? `${(totalPower / 1000).toFixed(1)} kW` : '—', label: 'Power' },
+                { val: soloOdds ? `1:${fmtNum(soloOdds.oddsPerDay)}/d` : '—', label: 'Solo Odds' },
+              ].map(({ val, label }, i) => (
+                <div key={i}>
+                  <div style={{ fontFamily: T.mono, fontSize: 18, fontWeight: 700, color: T.ink, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>
+                    {val}
+                  </div>
+                  <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 1.2, textTransform: 'uppercase', color: T.ink3, marginTop: 3 }}>
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Lead story */}
+          {lead && (
+            <div style={{ paddingTop: 14, paddingBottom: 14, borderBottom: `1px solid ${T.rule2}` }}>
+              <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: T.orange, marginBottom: 8 }}>
+                ● {lead.cat} · {lead.src}
+              </div>
+              <a href={lead.link} target="_blank" rel="noopener noreferrer">
+                <h2 style={{ fontFamily: T.serif, fontSize: 24, fontWeight: 700, lineHeight: 1.1, letterSpacing: -0.5, color: T.ink, margin: 0 }}>
+                  {lead.hed}
+                </h2>
+              </a>
+            </div>
+          )}
+
+          {/* Headlines */}
+          <div style={{ paddingTop: 14 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: T.ink3, marginBottom: 8 }}>
+              Bitcoin News
+            </div>
+            {newsItems.length === 0 ? (
+              <div style={{ fontFamily: T.mono, fontSize: 12, color: T.ink3 }}>
+                {rss.err ? 'Feed unavailable' : 'Loading…'}
+              </div>
+            ) : newsItems.slice(0, 20).map((it, i) => (
+              <a
+                key={it.link || i}
+                href={it.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'block',
+                  padding: '10px 0',
+                  borderBottom: `1px solid ${T.rule3}`,
+                  borderLeft: it.topic === 'BREAKING' ? `3px solid ${T.red}` : 'none',
+                  paddingLeft: it.topic === 'BREAKING' ? 10 : 0,
+                }}
+              >
+                <div style={{ fontFamily: T.body, fontSize: 15, lineHeight: 1.3, color: T.ink, letterSpacing: -0.1 }}>
+                  {it.hed}
+                </div>
+                <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3, marginTop: 3 }}>
+                  {it.src} · {it.t}
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {settingsOpen && (
+          <MastheadPanel
+            apiUrl={bitaxeApiUrl}
+            ips={bitaxeIps}
+            prefs={prefs}
+            onSave={onSaveSettings}
+            onClose={onCloseSettings}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ── DESKTOP LAYOUT ─────────────────────────────────────────────
   return (
     <div
       style={{
         position: 'relative',
-        width: 1920,
-        height: 1080,
+        width: '100%',
+        height: '100%',
         background: T.paper,
         color: T.ink,
         fontFamily: T.body,
         display: 'flex',
         flexDirection: 'column',
-        padding: '28px 56px 32px',
+        padding: `${u(28)} ${u(56)} ${u(32)}`,
       }}
     >
       {/* TOP CHROME */}
@@ -281,10 +456,10 @@ export function CommandCenter({
         style={{
           display: 'flex',
           alignItems: 'center',
-          padding: '9px 0',
+          padding: `${u(9)} 0`,
           borderBottom: `1px solid ${T.rule2}`,
           fontFamily: T.mono,
-          fontSize: 12,
+          fontSize: u(12),
           overflow: 'hidden',
         }}
       >
@@ -292,14 +467,14 @@ export function CommandCenter({
           style={{
             fontFamily: T.sans,
             fontWeight: 700,
-            fontSize: 9,
-            letterSpacing: 2,
+            fontSize: u(9),
+            letterSpacing: u(2),
             color: T.ink3,
             display: 'flex',
             alignItems: 'center',
-            gap: 4,
+            gap: u(4),
             flexShrink: 0,
-            marginRight: 20,
+            marginRight: u(20),
           }}
         >
           LIVE
@@ -328,61 +503,20 @@ export function CommandCenter({
                 : '—';
               const items = [
                 ['BLOCK', blockHeight, 'latest', T.ink3],
-                [
-                  'HASH',
-                  chain.data ? fmtHashrate(chain.data.hashrate) : '—',
-                  chain.data && chain.data.diffAdj != null
-                    ? `${chain.data.diffAdj >= 0 ? '+' : ''}${chain.data.diffAdj.toFixed(1)}%`
-                    : '',
-                  T.ink3,
-                ],
+                ['HASH', chain.data ? fmtHashrate(chain.data.hashrate) : '—', chain.data && chain.data.diffAdj != null ? `${chain.data.diffAdj >= 0 ? '+' : ''}${chain.data.diffAdj.toFixed(1)}%` : '', T.ink3],
                 ['TIME', chain.data ? fmtBlockTime(chain.data.blockTimeMs) : '—', 'avg', blockTimeCol],
-                [
-                  'EPOCH',
-                  epochPct != null ? `${epochPct.toFixed(0)}%` : '—',
-                  chain.data ? `${fmtNum(chain.data.remainingBlocks)} blk left` : '',
-                  T.ink3,
-                ],
-                [
-                  'FEE',
-                  chain.data ? `${chain.data.feeFast} sat/vB` : '—',
-                  chain.data ? `eco ${chain.data.feeEco}` : '',
-                  T.ink3,
-                ],
+                ['EPOCH', epochPct != null ? `${epochPct.toFixed(0)}%` : '—', chain.data ? `${fmtNum(chain.data.remainingBlocks)} blk left` : '', T.ink3],
+                ['FEE', chain.data ? `${chain.data.feeFast} sat/vB` : '—', chain.data ? `eco ${chain.data.feeEco}` : '', T.ink3],
                 ['MEMPOOL', mempoolMB, `${mempoolTx} tx`, mempoolCol],
                 ['CLR', blocksToClr != null ? `${blocksToClr} blk` : '—', 'to clear', blocksToClrCol],
                 ['SUPPLY', chain.data ? chain.data.circulating : '—', '', T.ink3],
-                [
-                  'HALVING',
-                  chain.data?.nextHalvingDate || '—',
-                  halvingBlocksLeft !== '—' ? `${halvingBlocksLeft} blk` : '',
-                  T.ink3,
-                ],
-                [
-                  'FLEET',
-                  onlineCount > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s` : bitaxe.err ? 'offline' : '…',
-                  onlineCount > 0 ? `${combinedEff} J/TH` : '',
-                  T.ink3,
-                ],
-                [
-                  'SOLO',
-                  `1:${soloOdds ? fmtNum(soloOdds.oddsPerDay) : '—'}/d`,
-                  etaStr,
-                  T.ink3,
-                ],
+                ['HALVING', chain.data?.nextHalvingDate || '—', halvingBlocksLeft !== '—' ? `${halvingBlocksLeft} blk` : '', T.ink3],
+                ['FLEET', onlineCount > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s` : bitaxe.err ? 'offline' : '…', onlineCount > 0 ? `${combinedEff} J/TH` : '', T.ink3],
+                ['SOLO', `1:${soloOdds ? fmtNum(soloOdds.oddsPerDay) : '—'}/d`, etaStr, T.ink3],
               ];
               const renderItem = ([k, v, s, sc], pfx) => (
-                <span
-                  key={pfx}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'baseline',
-                    gap: 5,
-                    paddingRight: 36,
-                    flexShrink: 0,
-                  }}
-                >
-                  <span style={{ color: T.ink3, letterSpacing: 1 }}>{k}</span>
+                <span key={pfx} style={{ display: 'inline-flex', alignItems: 'baseline', gap: u(5), paddingRight: u(36), flexShrink: 0 }}>
+                  <span style={{ color: T.ink3, letterSpacing: u(1) }}>{k}</span>
                   <b style={{ fontWeight: 600, color: T.ink }}>{v}</b>
                   {s && <span style={{ color: sc }}>{s}</span>}
                 </span>
@@ -400,9 +534,9 @@ export function CommandCenter({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '300px 1.1fr 1fr 1fr',
-          gap: 28,
-          paddingTop: 22,
+          gridTemplateColumns: `${u(300)} 1.1fr 1fr 1fr`,
+          gap: u(28),
+          paddingTop: u(22),
           flex: 1,
           minHeight: 0,
         }}
@@ -411,27 +545,27 @@ export function CommandCenter({
         <div
           style={{
             borderRight: `1px solid ${T.rule2}`,
-            paddingRight: 22,
+            paddingRight: u(22),
             display: 'flex',
             flexDirection: 'column',
-            gap: 18,
+            gap: u(18),
             overflow: 'hidden',
           }}
         >
           {/* Clock */}
           <div>
             <Kicker>Today</Kicker>
-            <div style={{ marginTop: 6 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+            <div style={{ marginTop: u(6) }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: u(6) }}>
                 <Num size="lg" value={clock.timeHM} unit={clock.timeSec} style={{ alignItems: 'baseline' }} />
                 {clock.amPm && (
-                  <span style={{ fontFamily: T.mono, fontSize: 16, color: T.ink2, lineHeight: 1 }}>
+                  <span style={{ fontFamily: T.mono, fontSize: u(16), color: T.ink2, lineHeight: 1 }}>
                     {clock.amPm}
                   </span>
                 )}
               </div>
             </div>
-            <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 13, color: T.ink2, marginTop: 4 }}>
+            <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: u(13), color: T.ink2, marginTop: u(4) }}>
               {clock.dayStr}
             </div>
           </div>
@@ -444,21 +578,15 @@ export function CommandCenter({
             <Kicker>Weather</Kicker>
             {wx ? (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: u(12), marginTop: u(8) }}>
                   <WxGlyph
-                    kind={wmoIcon(
-                      wx.wxCode,
-                      new Date().getHours(),
-                      wx.wxWindSpeed,
-                      wx.wxSunriseHr,
-                      wx.wxSunsetHr
-                    )}
+                    kind={wmoIcon(wx.wxCode, new Date().getHours(), wx.wxWindSpeed, wx.wxSunriseHr, wx.wxSunsetHr)}
                     size={48}
                     speed={wmoSpeed(wx.wxCode, wx.wxWindSpeed)}
                   />
                   <div>
                     <Num size="lg" value={`${wx.temp}°`} unit={prefs.tempUnit === 'celsius' ? 'C' : 'F'} />
-                    <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 12, color: T.ink2, marginTop: 3 }}>
+                    <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: u(12), color: T.ink2, marginTop: u(3) }}>
                       {wx.wxCond} · H{wx.wxHi} L{wx.wxLo}
                     </div>
                   </div>
@@ -467,18 +595,18 @@ export function CommandCenter({
                   style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(8,1fr)',
-                    gap: 4,
-                    marginTop: 12,
-                    paddingTop: 10,
+                    gap: u(4),
+                    marginTop: u(12),
+                    paddingTop: u(10),
                     borderTop: `1px solid ${T.rule3}`,
                   }}
                 >
                   {wx.hourly.map((h, i) => (
                     <div key={i} style={{ textAlign: 'center' }}>
-                      <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink3 }}>
+                      <div style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink3 }}>
                         {fmtHour(h.hr, prefs.timeFormat)}
                       </div>
-                      <div style={{ margin: '3px auto' }}>
+                      <div style={{ margin: `${u(3)} auto` }}>
                         <WxGlyph
                           kind={wmoIcon(h.code, h.hr, null, wx.wxSunriseHr, wx.wxSunsetHr)}
                           size={24}
@@ -487,12 +615,12 @@ export function CommandCenter({
                       </div>
                       <Num size="xs" value={`${h.t}°`} />
                       {h.pop >= 30 && (
-                        <div style={{ fontFamily: T.mono, fontSize: 9, color: T.ink3, marginTop: 1 }}>
+                        <div style={{ fontFamily: T.mono, fontSize: u(9), color: T.ink3, marginTop: u(1) }}>
                           {h.pop}%
                         </div>
                       )}
                       {h.precip > 0 && (
-                        <div style={{ fontFamily: T.mono, fontSize: 9, color: T.ink3 }}>
+                        <div style={{ fontFamily: T.mono, fontSize: u(9), color: T.ink3 }}>
                           {h.precip.toFixed(1)}mm
                         </div>
                       )}
@@ -504,17 +632,17 @@ export function CommandCenter({
                   const uvColor = uv >= 8 ? T.red : uv >= 6 ? T.orange : uv < 3 ? T.green : T.ink;
                   const uvLabel = uv >= 8 ? 'Very High' : uv >= 6 ? 'High' : uv >= 3 ? 'Moderate' : 'Low';
                   const br = `1px solid ${T.rule3}`;
-                  const cellL  = { padding: '8px 8px 8px 0',  borderRight: br };
-                  const cellM  = { padding: '8px 8px 8px 8px', borderRight: br };
-                  const cellR  = { padding: '8px 0 8px 8px' };
-                  const cellLB = { padding: '8px 8px 0 0',    borderRight: br, borderTop: br };
-                  const cellMB = { padding: '8px 8px 0 8px',  borderRight: br, borderTop: br };
-                  const cellRB = { padding: '8px 0 0 8px',    borderTop: br };
-                  const lbl = { fontFamily: T.sans, fontSize: 8, fontWeight: 600, letterSpacing: 1.6, textTransform: 'uppercase', color: T.ink3, marginBottom: 3 };
-                  const val = { fontFamily: T.mono, fontSize: 13, fontWeight: 500, letterSpacing: -0.5, lineHeight: 1, color: T.ink };
-                  const sub = { fontFamily: T.mono, fontSize: 9, color: T.ink3, marginTop: 2 };
+                  const cellL  = { padding: `${u(8)} ${u(8)} ${u(8)} 0`,  borderRight: br };
+                  const cellM  = { padding: `${u(8)}`,                     borderRight: br };
+                  const cellR  = { padding: `${u(8)} 0 ${u(8)} ${u(8)}` };
+                  const cellLB = { padding: `${u(8)} ${u(8)} 0 0`,        borderRight: br, borderTop: br };
+                  const cellMB = { padding: `${u(8)} ${u(8)} 0 ${u(8)}`, borderRight: br, borderTop: br };
+                  const cellRB = { padding: `${u(8)} 0 0 ${u(8)}`,        borderTop: br };
+                  const lbl = { fontFamily: T.sans, fontSize: u(8), fontWeight: 600, letterSpacing: u(1.6), textTransform: 'uppercase', color: T.ink3, marginBottom: u(3) };
+                  const val = { fontFamily: T.mono, fontSize: u(13), fontWeight: 500, letterSpacing: -0.5, lineHeight: 1, color: T.ink };
+                  const sub = { fontFamily: T.mono, fontSize: u(9), color: T.ink3, marginTop: u(2) };
                   return (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', marginTop: 10, borderTop: br }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', marginTop: u(10), borderTop: br }}>
                       <div style={cellL}>
                         <div style={lbl}>Feels Like</div>
                         <div style={val}>{wx.feels}°{prefs.tempUnit === 'celsius' ? 'C' : 'F'}</div>
@@ -536,11 +664,11 @@ export function CommandCenter({
                       </div>
                       <div style={cellMB}>
                         <div style={lbl}>UV Index</div>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: u(4) }}>
                           <div style={{ ...val, color: uvColor }}>{uv}</div>
-                          <div style={{ fontFamily: T.sans, fontSize: 8, fontWeight: 600, color: uv >= 6 ? uvColor : T.ink3 }}>{uvLabel}</div>
+                          <div style={{ fontFamily: T.sans, fontSize: u(8), fontWeight: 600, color: uv >= 6 ? uvColor : T.ink3 }}>{uvLabel}</div>
                         </div>
-                        <div style={{ height: 2, background: T.rule3, borderRadius: 2, marginTop: 5 }}>
+                        <div style={{ height: u(2), background: T.rule3, borderRadius: 2, marginTop: u(5) }}>
                           <div style={{ height: '100%', width: `${Math.min(uv / 11, 1) * 100}%`, background: uvColor, borderRadius: 2 }} />
                         </div>
                       </div>
@@ -554,7 +682,7 @@ export function CommandCenter({
                 })()}
               </>
             ) : (
-              <div style={{ fontFamily: T.mono, fontSize: 12, color: T.ink3, marginTop: 8 }}>
+              <div style={{ fontFamily: T.mono, fontSize: u(12), color: T.ink3, marginTop: u(8) }}>
                 {weather.err ? 'weather unavailable' : 'loading…'}
               </div>
             )}
@@ -567,19 +695,19 @@ export function CommandCenter({
               style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr auto auto',
-                rowGap: 5,
-                columnGap: 12,
-                marginTop: 8,
+                rowGap: u(5),
+                columnGap: u(12),
+                marginTop: u(8),
               }}
             >
               {sys.map((s, i) => (
                 <React.Fragment key={i}>
-                  <span style={{ fontFamily: T.mono, fontSize: 12, color: T.ink2 }}>
+                  <span style={{ fontFamily: T.mono, fontSize: u(12), color: T.ink2 }}>
                     <StatusDot ok={s.v === 'ok'} />
                     {s.k}
                   </span>
                   <Num size="xs" value={s.v} style={{ justifyContent: 'flex-end' }} />
-                  <span style={{ fontFamily: T.mono, fontSize: 10, color: T.ink3, textAlign: 'right' }}>
+                  <span style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink3, textAlign: 'right' }}>
                     {s.d}
                   </span>
                 </React.Fragment>
@@ -591,10 +719,10 @@ export function CommandCenter({
             style={{
               fontFamily: T.body,
               fontStyle: 'italic',
-              fontSize: 10,
+              fontSize: u(10),
               color: T.ink3,
               borderTop: `1px solid ${T.rule2}`,
-              paddingTop: 8,
+              paddingTop: u(8),
             }}
           >
             Published from a home on the internet. Set in Playfair Display &amp; Newsreader.
@@ -605,14 +733,13 @@ export function CommandCenter({
         <div
           style={{
             borderRight: `1px solid ${T.rule2}`,
-            paddingRight: 24,
+            paddingRight: u(24),
             display: 'flex',
             flexDirection: 'column',
-            gap: 13,
+            gap: u(13),
             overflow: 'hidden',
           }}
         >
-          {/* Proof of Read briefing */}
           <ProofOfRead
             btc={btc}
             chain={chain}
@@ -625,42 +752,20 @@ export function CommandCenter({
             btcLo={btcLo}
             btcHi={btcHi}
           />
-          {/* BTC market */}
           <Kicker>Markets · BTC / USD</Kicker>
-          {/* Row 1: price left, % change right */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
             <Num size="hero" value={btcPrice} />
-            <div
-              style={{
-                fontFamily: T.mono,
-                fontSize: 22,
-                fontWeight: 600,
-                color: btcUp ? T.green : T.red,
-                paddingBottom: 10,
-              }}
-            >
+            <div style={{ fontFamily: T.mono, fontSize: u(22), fontWeight: 600, color: btcUp ? T.green : T.red, paddingBottom: u(10) }}>
               {btcUp ? '▲' : '▼'} {btcChgPct}%
             </div>
           </div>
           {btc.data?.ath && (
-            <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink4, marginTop: -8, marginBottom: 2 }}>
+            <div style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink4, marginTop: u(-8), marginBottom: u(2) }}>
               {'ATH $' + Math.round(btc.data.ath).toLocaleString() + (btc.data.athDate ? ' · ' + new Date(btc.data.athDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '') + ' · '}
               <span style={{ color: athAtNew ? T.green : T.red }}>{athAtNew ? '▲ new ATH' : ('▼ ' + Math.abs(athPct).toFixed(1) + '%')}</span>
             </div>
           )}
-          {/* Row 2: hi · lo · cap bar */}
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              fontFamily: T.mono,
-              fontSize: 11,
-              borderTop: `1px solid ${T.rule2}`,
-              borderBottom: `1px solid ${T.rule2}`,
-              padding: '5px 0',
-              marginBottom: 6,
-            }}
-          >
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.mono, fontSize: u(11), borderTop: `1px solid ${T.rule2}`, borderBottom: `1px solid ${T.rule2}`, padding: `${u(5)} 0`, marginBottom: u(6) }}>
             <span style={{ color: T.green }}>hi ${btcHi}</span>
             <span style={{ color: T.ink3 }}>·</span>
             <span style={{ color: T.red }}>lo ${btcLo}</span>
@@ -673,76 +778,30 @@ export function CommandCenter({
               {btc.data ? fmtNum(Math.round(1e8 / btc.data.price)) : '—'} sat/$
             </span>
           </div>
-          <LineChart w={470} h={110} color={T.orange} points={btc.chartPts} vwap={btc.data?.vwap} fill />
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              fontFamily: T.mono,
-              fontSize: 10,
-              color: T.ink3,
-            }}
-          >
-            <span>24h ago</span>
-            <span>−18h</span>
-            <span>−12h</span>
-            <span>−6h</span>
-            <span>now</span>
+          {/* LineChart: parent div provides CSS dimensions, chart fills it */}
+          <div style={{ width: '100%', height: u(110), flexShrink: 0 }}>
+            <LineChart color={T.orange} points={btc.chartPts} vwap={btc.data?.vwap} fill />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.mono, fontSize: u(10), color: T.ink3 }}>
+            <span>24h ago</span><span>−18h</span><span>−12h</span><span>−6h</span><span>now</span>
           </div>
           <Rule dash />
           {/* Lead story */}
           {lead ? (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden', minHeight: 0 }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: u(8), overflow: 'hidden', minHeight: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <Kicker color={T.orange}>
-                  ● {lead.cat} · {lead.src}
-                </Kicker>
+                <Kicker color={T.orange}>● {lead.cat} · {lead.src}</Kicker>
                 <Kicker>{lead.t}</Kicker>
               </div>
               <a href={lead.link} target="_blank" rel="noopener noreferrer">
-                <h1
-                  style={{
-                    fontFamily: T.serif,
-                    fontSize: 32,
-                    fontWeight: 700,
-                    lineHeight: 1.04,
-                    letterSpacing: -1,
-                    color: T.ink,
-                    textWrap: 'balance',
-                    margin: 0,
-                  }}
-                >
+                <h1 style={{ fontFamily: T.serif, fontSize: u(32), fontWeight: 700, lineHeight: 1.04, letterSpacing: u(-1), color: T.ink, textWrap: 'balance', margin: 0 }}>
                   {lead.hed}
                 </h1>
               </a>
-              {lead.img ? (
-                <LeadImage src={lead.img} domain={lead.src} />
-              ) : null}
+              {lead.img ? <LeadImage src={lead.img} domain={lead.src} /> : null}
               {lead.snippet ? (
-                <div
-                  className="no-scrollbar"
-                  style={{
-                    flex: 1,
-                    overflowY: 'auto',
-                    minHeight: 0,
-                    fontFamily: T.body,
-                    fontSize: 13.5,
-                    lineHeight: 1.5,
-                    color: T.ink2,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: T.serif,
-                      fontSize: 44,
-                      fontWeight: 700,
-                      color: T.ink,
-                      float: 'left',
-                      lineHeight: 0.88,
-                      marginRight: 8,
-                      marginTop: 3,
-                    }}
-                  >
+                <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', minHeight: 0, fontFamily: T.body, fontSize: u(13.5), lineHeight: 1.5, color: T.ink2 }}>
+                  <span style={{ fontFamily: T.serif, fontSize: u(44), fontWeight: 700, color: T.ink, float: 'left', lineHeight: 0.88, marginRight: u(8), marginTop: u(3) }}>
                     {lead.snippet.charAt(0)}
                   </span>
                   {lead.snippet.slice(1)}
@@ -752,17 +811,7 @@ export function CommandCenter({
           ) : (
             <>
               <Kicker color={T.orange}>● {rss.err ? 'RSS unavailable' : 'Loading feed…'}</Kicker>
-              <h1
-                style={{
-                  fontFamily: T.serif,
-                  fontSize: 32,
-                  fontWeight: 700,
-                  lineHeight: 1.04,
-                  letterSpacing: -1,
-                  color: T.ink4,
-                  margin: 0,
-                }}
-              >
+              <h1 style={{ fontFamily: T.serif, fontSize: u(32), fontWeight: 700, lineHeight: 1.04, letterSpacing: u(-1), color: T.ink4, margin: 0 }}>
                 {rss.err ? 'All feeds unavailable' : 'Fetching headlines…'}
               </h1>
             </>
@@ -778,24 +827,12 @@ export function CommandCenter({
             return acc;
           }, []);
           return (
-            <div
-              style={{
-                borderRight: `1px solid ${T.rule2}`,
-                paddingRight: 24,
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: 0,
-              }}
-            >
+            <div style={{ borderRight: `1px solid ${T.rule2}`, paddingRight: u(24), overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <Kicker>Bitcoin news</Kicker>
                 {rss.err && <Kicker color={T.red}>feed error</Kicker>}
               </div>
-              <div
-                className={`news-col-wrap${newsItems.length < 8 ? ' at-bottom' : ''}`}
-                style={{ marginTop: 8, flex: 1, minHeight: 0 }}
-              >
+              <div className={`news-col-wrap${newsItems.length < 8 ? ' at-bottom' : ''}`} style={{ marginTop: u(8), flex: 1, minHeight: 0 }}>
                 <div
                   className="news-scroll"
                   style={{ height: '100%', overflowY: 'auto' }}
@@ -810,9 +847,9 @@ export function CommandCenter({
                 >
                   {newsItems.length > 0 ? grouped.map(({ topic, group }) => (
                     <React.Fragment key={topic}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0 6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: u(10), padding: `${u(10)} 0 ${u(6)}` }}>
                         <div style={{ flex: 1, borderTop: `1px solid ${T.rule2}` }} />
-                        <span style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2.5, textTransform: 'uppercase', color: T.ink4 }}>{topic}</span>
+                        <span style={{ fontFamily: T.sans, fontSize: u(9), fontWeight: 600, letterSpacing: u(2.5), textTransform: 'uppercase', color: T.ink4 }}>{topic}</span>
                         <div style={{ flex: 1, borderTop: `1px solid ${T.rule2}` }} />
                       </div>
                       {group.map((it, i) => (
@@ -823,35 +860,27 @@ export function CommandCenter({
                           rel="noopener noreferrer"
                           style={{
                             display: 'block',
-                            padding: '8px 0',
+                            padding: `${u(8)} 0`,
                             borderBottom: `1px solid ${T.rule3}`,
-                            borderLeft: topic === 'BREAKING' ? `3px solid ${T.red}` : 'none',
-                            paddingLeft: topic === 'BREAKING' ? 10 : 0,
+                            borderLeft: it.topic === 'BREAKING' ? `${u(3)} solid ${T.red}` : 'none',
+                            paddingLeft: it.topic === 'BREAKING' ? u(10) : 0,
                           }}
                         >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                            <Kicker color={topic === 'BREAKING' ? T.red : T.ink3}>{it.cat}</Kicker>
-                            <span style={{ fontFamily: T.mono, fontSize: 10, color: T.ink3 }}>{it.t}</span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: u(4) }}>
+                            <Kicker color={it.topic === 'BREAKING' ? T.red : T.ink3}>{it.cat}</Kicker>
+                            <span style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink3 }}>{it.t}</span>
                           </div>
-                          <div
-                            style={{
-                              fontFamily: T.body,
-                              fontSize: 14.5,
-                              lineHeight: 1.3,
-                              color: T.ink,
-                              letterSpacing: -0.1,
-                            }}
-                          >
+                          <div style={{ fontFamily: T.body, fontSize: u(14.5), lineHeight: 1.3, color: T.ink, letterSpacing: u(-0.1) }}>
                             {it.hed}
                           </div>
-                          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3, marginTop: 2 }}>
+                          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: u(11), color: T.ink3, marginTop: u(2) }}>
                             {it.src}
                           </div>
                         </a>
                       ))}
                     </React.Fragment>
                   )) : (
-                    <div style={{ fontFamily: T.mono, fontSize: 12, color: T.ink3, marginTop: 16 }}>
+                    <div style={{ fontFamily: T.mono, fontSize: u(12), color: T.ink3, marginTop: u(16) }}>
                       {rss.err ? 'All feeds unavailable' : 'Loading headlines…'}
                     </div>
                   )}
@@ -864,7 +893,7 @@ export function CommandCenter({
         {/* COL 3 — FIELD REPORT + CHAIN VITALS */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0, overflow: 'hidden' }}>
           <Miners bitaxe={bitaxe} chain={chain} />
-          <div className="no-scrollbar" style={{ marginTop: 32, overflowY: 'auto', flexShrink: 1, minHeight: 0 }}>
+          <div className="no-scrollbar" style={{ marginTop: u(32), overflowY: 'auto', flexShrink: 1, minHeight: 0 }}>
             <NetworkStatusWidget chain={chain} T={T} />
           </div>
         </div>

@@ -21,10 +21,15 @@
     background: inherit;
   }
   #canvas {
-    width: 1920px; height: 1080px;
-    transform-origin: center center;
+    width: calc(var(--u) * 1920);
+    height: calc(var(--u) * 1080);
     flex-shrink: 0;
     overflow: hidden;
+  }
+  /* SYNC: must match MOBILE_BREAKPOINT in useLayoutSize.js and isMobile check in updateScale() */
+  @media (max-width: 900px) {
+    #canvas { width: 100vw; height: auto; min-height: 100vh; }
+    #stage { align-items: flex-start; overflow-y: auto; }
   }
   @keyframes live-pulse {
     0%, 100% { opacity: 1; }
@@ -36,20 +41,20 @@
   }
   .live-dot {
     display: inline-block;
-    width: 6px; height: 6px;
+    width: calc(var(--u) * 6); height: calc(var(--u) * 6);
     border-radius: 50%;
     background: #9c2a1a;
-    margin-right: 5px;
+    margin-right: calc(var(--u) * 5);
     position: relative; top: -1px;
     animation: pulse-dot 1.8s ease-in-out infinite;
     flex-shrink: 0;
   }
   .live-dot-static {
     display: inline-block;
-    width: 6px; height: 6px;
+    width: calc(var(--u) * 6); height: calc(var(--u) * 6);
     border-radius: 50%;
     background: #b8b0a0;
-    margin-right: 5px;
+    margin-right: calc(var(--u) * 5);
     position: relative; top: -1px;
     flex-shrink: 0;
   }
@@ -72,6 +77,8 @@
   .news-col-wrap::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 48px; background: linear-gradient(to bottom, transparent, var(--paper)); pointer-events: none; transition: opacity 0.3s; }
   .news-col-wrap.at-bottom::after { opacity: 0; }
   :root {
+    --u: 1px;       /* updated by JS — scale factor for 1920×1080 design */
+    --u-scale: 1;   /* unitless version of --u for CSS transform: scale() */
     --f-serif:    "Playfair Display", Georgia, serif;
     --f-body:     "Newsreader", Georgia, serif;
     --f-sans:     "Inter Tight", system-ui, sans-serif;
@@ -104,16 +111,18 @@
 
 <script>
 const CANVAS_W = 1920, CANVAS_H = 1080;
-function applyScale() {
-  const canvas = document.getElementById('canvas');
-  const s = Math.min(window.innerWidth / CANVAS_W, window.innerHeight / CANVAS_H);
-  canvas.style.transform = `scale(${s})`;
+function updateScale() {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const isMobile = vw < 900; // SYNC: must match MOBILE_BREAKPOINT in useLayoutSize.js and @media (max-width:900px)
+  const s = isMobile ? 1 : Math.min(vw / CANVAS_W, vh / CANVAS_H);
+  const r = document.documentElement;
+  r.style.setProperty('--u', s + 'px');
+  r.style.setProperty('--u-scale', s);
 }
-window.addEventListener('resize', applyScale);
-window.addEventListener('load', applyScale);
-// Run immediately as well — before load fires
-applyScale();
-window.applyScale = applyScale;
+window.addEventListener('resize', updateScale);
+window.addEventListener('load', updateScale);
+updateScale();
+window.updateScale = updateScale;
 </script>
 
 <script type="text/babel">
