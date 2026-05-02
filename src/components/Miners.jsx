@@ -236,7 +236,7 @@ function Miners({ bitaxe, chain }) {
                 )}
               </div>
               {cell(isOff ? '—' : `${temp.toFixed(1)}°`, temp > 69 ? T.red : T.ink2)}
-              {cell(isOff ? '—' : (vrT != null ? `${vrT}°` : '—'), vrT != null && vrT > 69 ? T.red : T.ink2)}
+              {cell(isOff ? '—' : (vrT != null ? `${vrT.toFixed(1)}°` : '—'), vrT != null && vrT > 69 ? T.red : T.ink2)}
               {cell(isOff ? '—' : `${Math.round(watts)}W`, pwrLimit && watts > pwrLimit ? T.red : T.ink2)}
             </div>
           );
