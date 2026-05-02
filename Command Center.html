@@ -26,6 +26,7 @@
     flex-shrink: 0;
     overflow: hidden;
   }
+  /* SYNC: must match MOBILE_BREAKPOINT in useLayoutSize.js and isMobile check in updateScale() */
   @media (max-width: 900px) {
     #canvas { width: 100vw; height: auto; min-height: 100vh; }
     #stage { align-items: flex-start; overflow-y: auto; }
@@ -40,20 +41,20 @@
   }
   .live-dot {
     display: inline-block;
-    width: 6px; height: 6px;
+    width: calc(var(--u) * 6); height: calc(var(--u) * 6);
     border-radius: 50%;
     background: #9c2a1a;
-    margin-right: 5px;
+    margin-right: calc(var(--u) * 5);
     position: relative; top: -1px;
     animation: pulse-dot 1.8s ease-in-out infinite;
     flex-shrink: 0;
   }
   .live-dot-static {
     display: inline-block;
-    width: 6px; height: 6px;
+    width: calc(var(--u) * 6); height: calc(var(--u) * 6);
     border-radius: 50%;
     background: #b8b0a0;
-    margin-right: 5px;
+    margin-right: calc(var(--u) * 5);
     position: relative; top: -1px;
     flex-shrink: 0;
   }
@@ -112,7 +113,7 @@
 const CANVAS_W = 1920, CANVAS_H = 1080;
 function updateScale() {
   const vw = window.innerWidth, vh = window.innerHeight;
-  const isMobile = vw < 900;
+  const isMobile = vw < 900; // SYNC: must match MOBILE_BREAKPOINT in useLayoutSize.js and @media (max-width:900px)
   const s = isMobile ? 1 : Math.min(vw / CANVAS_W, vh / CANVAS_H);
   const r = document.documentElement;
   r.style.setProperty('--u', s + 'px');
@@ -1763,26 +1764,19 @@ function usePageRefresh(refreshFns) {
 }
 
 
+// SYNC: must match isMobile check in index.html updateScale() and @media (max-width:900px)
 const MOBILE_BREAKPOINT = 900;
 
 function useLayoutSize() {
-  const [size, setSize] = useState(() => ({
-    width: window.innerWidth,
-    height: window.innerHeight,
-    isMobile: window.innerWidth < MOBILE_BREAKPOINT,
-  }));
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < MOBILE_BREAKPOINT);
 
   useEffect(() => {
-    const obs = new ResizeObserver(() => {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      setSize({ width: w, height: h, isMobile: w < MOBILE_BREAKPOINT });
-    });
-    obs.observe(document.documentElement);
-    return () => obs.disconnect();
+    const handle = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    window.addEventListener('resize', handle);
+    return () => window.removeEventListener('resize', handle);
   }, []);
 
-  return size;
+  return { isMobile };
 }
 
 

@@ -1,23 +1,16 @@
 import { useState, useEffect } from 'react';
 
+// SYNC: must match isMobile check in index.html updateScale() and @media (max-width:900px)
 const MOBILE_BREAKPOINT = 900;
 
 export function useLayoutSize() {
-  const [size, setSize] = useState(() => ({
-    width: window.innerWidth,
-    height: window.innerHeight,
-    isMobile: window.innerWidth < MOBILE_BREAKPOINT,
-  }));
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < MOBILE_BREAKPOINT);
 
   useEffect(() => {
-    const obs = new ResizeObserver(() => {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      setSize({ width: w, height: h, isMobile: w < MOBILE_BREAKPOINT });
-    });
-    obs.observe(document.documentElement);
-    return () => obs.disconnect();
+    const handle = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    window.addEventListener('resize', handle);
+    return () => window.removeEventListener('resize', handle);
   }, []);
 
-  return size;
+  return { isMobile };
 }
