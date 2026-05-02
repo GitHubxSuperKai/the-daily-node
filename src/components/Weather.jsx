@@ -28,7 +28,16 @@ function Weather({ weather, prefs }) {
           <WxGlyph kind={wmoIcon(wx.wxCode, new Date().getHours(), wx.wxWindSpeed, wx.wxSunriseHr, wx.wxSunsetHr)} size={48} speed={wmoSpeed(wx.wxCode, wx.wxWindSpeed)} />
           {(() => {
             const h = new Date().getHours();
-            const label = h < 12 ? (wx.wxSunset ? `↓ ${fmtHHMM(wx.wxSunset, prefs.timeFormat)}` : null) : (wx.wxSunriseTomorrow ? `↑ ${fmtHHMM(wx.wxSunriseTomorrow, prefs.timeFormat)}` : null);
+            let label = null;
+            if (wx.wxSunriseHr != null && wx.wxSunsetHr != null) {
+              if (h < wx.wxSunriseHr) {
+                label = wx.wxSunrise ? `↑ ${fmtHHMM(wx.wxSunrise, prefs.timeFormat)}` : null;
+              } else if (h < wx.wxSunsetHr) {
+                label = wx.wxSunset ? `↓ ${fmtHHMM(wx.wxSunset, prefs.timeFormat)}` : null;
+              } else {
+                label = wx.wxSunriseTomorrow ? `↑ ${fmtHHMM(wx.wxSunriseTomorrow, prefs.timeFormat)}` : null;
+              }
+            }
             return label ? <div style={{ fontFamily: T.num, fontSize: u(9), color: T.ink3, lineHeight: 1 }}>{label}</div> : null;
           })()}
         </div>

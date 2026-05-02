@@ -889,12 +889,14 @@ function Num({ size = 'md', value, unit, delta, deltaUp, style = {} }) {
 
 
 
+
 // Import useT hook from theme context (available in build context)
 
 function StatusDot({ ok }) {
   const T = useT();
   return <span style={{ color: ok ? T.green : T.red, marginRight: 5 }}>●</span>;
 }
+
 
 
 
@@ -907,6 +909,7 @@ function Kicker({ children, color, style = {} }) {
 
 
 
+
 // Import useT hook from theme context (available in build context)
 
 function Rule({ double, dash, weight = 1, style = {} }) {
@@ -914,6 +917,7 @@ function Rule({ double, dash, weight = 1, style = {} }) {
   if (double) return <div style={{ borderTop: '2px solid ' + T.rule, borderBottom: '1px solid ' + T.rule, height: 5, ...style }} />;
   return <div style={{ borderTop: `${weight}px ${dash ? 'dashed' : 'solid'} ${T.rule2}`, ...style }} />;
 }
+
 
 
 
@@ -1212,6 +1216,8 @@ function useResettableInterval(callback, delay) {
 
   return { reset };
 }
+
+
 
 
 /**
@@ -2258,7 +2264,16 @@ function Weather({ weather, prefs }) {
           <WxGlyph kind={wmoIcon(wx.wxCode, new Date().getHours(), wx.wxWindSpeed, wx.wxSunriseHr, wx.wxSunsetHr)} size={48} speed={wmoSpeed(wx.wxCode, wx.wxWindSpeed)} />
           {(() => {
             const h = new Date().getHours();
-            const label = h < 12 ? (wx.wxSunset ? `↓ ${fmtHHMM(wx.wxSunset, prefs.timeFormat)}` : null) : (wx.wxSunriseTomorrow ? `↑ ${fmtHHMM(wx.wxSunriseTomorrow, prefs.timeFormat)}` : null);
+            let label = null;
+            if (wx.wxSunriseHr != null && wx.wxSunsetHr != null) {
+              if (h < wx.wxSunriseHr) {
+                label = wx.wxSunrise ? `↑ ${fmtHHMM(wx.wxSunrise, prefs.timeFormat)}` : null;
+              } else if (h < wx.wxSunsetHr) {
+                label = wx.wxSunset ? `↓ ${fmtHHMM(wx.wxSunset, prefs.timeFormat)}` : null;
+              } else {
+                label = wx.wxSunriseTomorrow ? `↑ ${fmtHHMM(wx.wxSunriseTomorrow, prefs.timeFormat)}` : null;
+              }
+            }
             return label ? <div style={{ fontFamily: T.num, fontSize: u(9), color: T.ink3, lineHeight: 1 }}>{label}</div> : null;
           })()}
         </div>
