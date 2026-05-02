@@ -27,8 +27,22 @@ function Weather({ weather, prefs }) {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: u(4) }}>
           <WxGlyph kind={wmoIcon(wx.wxCode, new Date().getHours(), wx.wxWindSpeed, wx.wxSunriseHr, wx.wxSunsetHr)} size={48} speed={wmoSpeed(wx.wxCode, wx.wxWindSpeed)} />
           {(() => {
-            const h = new Date().getHours();
-            const label = h < 12 ? (wx.wxSunset ? `↓ ${fmtHHMM(wx.wxSunset, prefs.timeFormat)}` : null) : (wx.wxSunriseTomorrow ? `↑ ${fmtHHMM(wx.wxSunriseTomorrow, prefs.timeFormat)}` : null);
+            let label = null;
+            if (wx.wxSunrise && wx.wxSunset) {
+              const now = new Date();
+              const nowMins = now.getHours() * 60 + now.getMinutes();
+              const [srH, srM] = wx.wxSunrise.split(':').map(Number);
+              const [ssH, ssM] = wx.wxSunset.split(':').map(Number);
+              const sunriseMins = srH * 60 + srM;
+              const sunsetMins = ssH * 60 + ssM;
+              if (nowMins < sunriseMins) {
+                label = `↑ ${fmtHHMM(wx.wxSunrise, prefs.timeFormat)}`;
+              } else if (nowMins < sunsetMins) {
+                label = `↓ ${fmtHHMM(wx.wxSunset, prefs.timeFormat)}`;
+              } else {
+                label = wx.wxSunriseTomorrow ? `↑ ${fmtHHMM(wx.wxSunriseTomorrow, prefs.timeFormat)}` : null;
+              }
+            }
             return label ? <div style={{ fontFamily: T.num, fontSize: u(9), color: T.ink3, lineHeight: 1 }}>{label}</div> : null;
           })()}
         </div>
