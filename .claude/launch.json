@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "The Daily Node",
+      "name": "the-daily-node",
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "3002"],
       "port": 3002
