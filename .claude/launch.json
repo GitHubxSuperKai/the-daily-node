@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "The Daily Node (static server)",
-      "runtimeExecutable": "node",
-      "runtimeArgs": ["server.js"],
-      "autoPort": true
+      "name": "The Daily Node",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "3002"],
+      "port": 3002
     }
   ]
 }
