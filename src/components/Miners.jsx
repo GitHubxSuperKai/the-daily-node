@@ -1,117 +1,279 @@
 import React from 'react';
 import { useT } from '../theme';
-import Num from './Num';
-import Kicker from './Kicker';
-import StatusDot from './StatusDot';
-import { fmtNum, calcSoloOdds } from '../utils/formatting';
-import { fmtBestDiff } from '../utils/format';
+import { calcSoloOdds } from '../utils/formatting';
+
+const GRID = '1fr 52px 46px 44px 80px 48px 48px 52px';
+
+const statusColor = {
+  online:   '#3a6b2e',
+  degraded: '#c8641a',
+  offline:  '#9c2a1a',
+};
+
+function Dot({ status }) {
+  const T = useT();
+  return (
+    <span style={{
+      display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
+      background: statusColor[status] || T.ink3,
+      flexShrink: 0, marginRight: 5, position: 'relative', top: -1,
+    }} />
+  );
+}
+
+function getMinerStatus(miner) {
+  if (!miner.online || !miner.data) return 'offline';
+  const temp = miner.data.temp || miner.data.temperature || 0;
+  const hr = (miner.data.hashRate || 0) / 1000;
+  const eff = hr > 0 ? (miner.data.power || 0) / hr : 0;
+  if (temp > 69 || eff > 25) return 'degraded';
+  return 'online';
+}
+
+function getMinerName(miner) {
+  if (miner.data?.hostname) return miner.data.hostname;
+  const parts = (miner.ip || '').split('.');
+  return `rig-${parts[parts.length - 1] || '?'}`;
+}
 
 function Miners({ bitaxe, chain }) {
   const T = useT();
 
-  const onlineMiners    = bitaxe.miners.filter(m => m.online && m.data);
-  const minerCount      = bitaxe.miners.length;
-  const onlineCount     = onlineMiners.length;
-  const totalHashrateTHS = onlineMiners.reduce((sum, m) => sum + ((m.data.hashRate || 0) / 1000), 0);
-  const totalPower      = onlineMiners.reduce((sum, m) => sum + (m.data.power || 0), 0);
-  const combinedEff     = totalHashrateTHS > 0 ? (totalPower / totalHashrateTHS).toFixed(1) : '—';
-  const totalShOk       = onlineMiners.reduce((sum, m) => sum + (m.data.sharesAccepted || 0), 0);
-  const totalShRej      = onlineMiners.reduce((sum, m) => sum + (m.data.sharesRejected || 0), 0);
-  const firstMiner      = onlineMiners[0]?.data;
-  const bxPool          = firstMiner ? (firstMiner.stratumURL || 'solo.ckpool.org') : 'solo.ckpool.org';
+  const onlineMiners = bitaxe.miners.filter(m => m.online && m.data);
+  const minerCount   = bitaxe.miners.length;
+  const onlineCount  = onlineMiners.length;
 
-  const soloOdds = chain.data && totalHashrateTHS > 0
-    ? calcSoloOdds(chain.data.hashrate / 1e18, totalHashrateTHS)
+  const totalHashTH  = onlineMiners.reduce((s, m) => s + (m.data.hashRate || 0) / 1000, 0);
+  const totalPower   = onlineMiners.reduce((s, m) => s + (m.data.power || 0), 0);
+  const totalAcc     = bitaxe.miners.reduce((s, m) => s + (m.data?.sharesAccepted || 0), 0);
+  const totalRej     = bitaxe.miners.reduce((s, m) => s + (m.data?.sharesRejected || 0), 0);
+
+  const networkHashEH = chain.data ? chain.data.hashrate / 1e18 : 0;
+  const oddsResult = chain.data && totalHashTH > 0
+    ? calcSoloOdds(networkHashEH, totalHashTH)
     : null;
-  const oddsStr  = soloOdds ? `1 : ${fmtNum(soloOdds.oddsPerDay)}` : '—';
-  const etaStr   = soloOdds ? `~${fmtNum(soloOdds.etaYears)} yrs` : '—';
+  const oddsOneIn = oddsResult ? oddsResult.oddsPerDay : null;
 
-  // Best difficulty + Field Report prose
-  const bestDiffRaw = onlineMiners.reduce((best, m) => {
-    const bd = parseFloat(m.data?.bestDiff || m.data?.bestDifficulty || 0);
-    return bd > best ? bd : best;
-  }, 0);
-  const bestDiffStr = fmtBestDiff(bestDiffRaw);
-  const diffRatio = bestDiffRaw > 0 && chain.data?.difficulty
-    ? bestDiffRaw / chain.data.difficulty : 0;
-  const blockPun = diffRatio >= 0.01    ? 'That is dangerously close. Hold your breath.'
-    : diffRatio >= 0.001  ? 'One in a thousand of the way there. Progress.'
-    : diffRatio >= 0.0001 ? 'A polite knock on the door.'
-    : diffRatio >= 0.00001 ? 'Statistically present. Practically invisible.'
-    : 'The block does not know you exist yet. Keep hashing.';
+  const lastOkSec = bitaxe.lastOk ? Math.round((Date.now() - bitaxe.lastOk) / 60000) : null;
+  const agoStr = lastOkSec != null ? `${lastOkSec}m ago` : '—';
 
-  const sharesNote = totalShRej > 0
-    ? `${((totalShRej / (totalShOk + totalShRej + 1)) * 100).toFixed(1)}% rejected`
-    : 'running clean';
+  // Fleet totals
+  const activeMiners = bitaxe.miners.filter(m => getMinerStatus(m) !== 'offline');
+  const avgEff = activeMiners.length > 0
+    ? activeMiners.reduce((s, m) => {
+        const hr = (m.data?.hashRate || 0) / 1000;
+        const eff = hr > 0 ? (m.data?.power || 0) / hr : 0;
+        return s + eff;
+      }, 0) / activeMiners.length
+    : 0;
+  const avgUp = activeMiners.length > 0
+    ? activeMiners.reduce((s, m) => {
+        const up = m.data?.uptimeSeconds != null
+          ? Math.min(99.9, (m.data.uptimeSeconds / 86400) * 100)
+          : 0;
+        return s + up;
+      }, 0) / activeMiners.length
+    : 0;
+  const avgAsic = activeMiners.length > 0
+    ? activeMiners.reduce((s, m) => s + (m.data?.temp || m.data?.temperature || 0), 0) / activeMiners.length
+    : 0;
+  const vrAvailable = bitaxe.miners.some(m => m.data?.vrTemp != null);
+  const avgVr = vrAvailable && activeMiners.length > 0
+    ? activeMiners.reduce((s, m) => s + (m.data?.vrTemp || 0), 0) / activeMiners.length
+    : null;
 
-  const fieldReportProse = onlineCount === 0
-    ? `All units offline. The network hashes on at ${chain.data ? fmtNum(Math.round(chain.data.hashrate / 1e18)) + ' EH/s' : '—'} without you.`
-    : `${onlineCount === 1 ? 'A single unit pushes' : `${onlineCount} miners push`} ${totalHashrateTHS.toFixed(2)} TH/s into ${bxPool}, drawing ${Math.round(totalPower)} W at ${combinedEff} J/TH. Shares ${sharesNote}. Best diff this session: ${bestDiffStr}. ${blockPun}`;
+  const cell = (val, color, T) => (
+    <div style={{
+      fontFamily: T.mono, fontSize: 11, textAlign: 'right',
+      fontFeatureSettings: '"tnum"', color: color || T.ink, whiteSpace: 'nowrap',
+    }}>
+      {val}
+    </div>
+  );
+
+  const fcell = (val, color, T) => (
+    <div style={{
+      fontFamily: T.mono, fontSize: 11, textAlign: 'right',
+      fontFeatureSettings: '"tnum"', color: color || T.ink, whiteSpace: 'nowrap',
+      fontWeight: 700,
+    }}>
+      {val}
+    </div>
+  );
+
+  const HEADERS = [
+    { label: '',       fade: false },
+    { label: 'TH/s',  fade: false },
+    { label: 'J/T',   fade: false },
+    { label: 'Up%',   fade: true  },
+    { label: 'Shares', fade: true },
+    { label: 'ASIC°', fade: true  },
+    { label: 'VR°',   fade: true  },
+    { label: 'Watts',  fade: true  },
+  ];
+
+  const showStubs = bitaxe.miners.length === 0 && !bitaxe.loading;
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:10, overflow:'hidden' }}>
-      <Kicker>Field Report · Home Fleet</Kicker>
+    <div style={{ marginBottom: 4 }}>
 
-      {/* Editorial prose dispatch */}
-      <p style={{ fontFamily:T.body, fontSize:13.5, lineHeight:1.55, color:T.ink2, fontStyle:'italic', margin:0 }}>
-        {fieldReportProse}
-      </p>
-
-      {/* 4-stat compact row */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:8, paddingTop:4 }}>
-        {[
-          { v: onlineCount > 0 ? totalHashrateTHS.toFixed(2) : '—', u: 'TH/s', k: 'Hashrate' },
-          { v: onlineCount > 0 ? String(Math.round(totalPower)) : '—', u: 'W', k: 'Power' },
-          { v: onlineCount > 0 ? combinedEff : '—', u: 'J/TH', k: 'Efficiency' },
-          { v: bestDiffStr, u: '', k: 'Best Diff' },
-        ].map(({ v, u, k }) => (
-          <div key={k} style={{ borderLeft:`2px solid ${T.rule2}`, paddingLeft:8 }}>
-            <div style={{ display:'flex', alignItems:'baseline', gap:2 }}>
-              <span style={{ fontFamily:T.mono, fontSize:16, fontWeight:600, color:T.ink, fontFeatureSettings:'"tnum"' }}>{v}</span>
-              {u && <span style={{ fontFamily:T.mono, fontSize:10, color:T.ink3 }}>{u}</span>}
-            </div>
-            <Kicker style={{ marginTop:2 }}>{k}</Kicker>
-          </div>
-        ))}
+      {/* Masthead */}
+      <div style={{
+        borderTop: `3px solid ${T.ink}`,
+        borderBottom: `1px solid ${T.ink}`,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+        padding: '5px 0', marginBottom: 14,
+      }}>
+        <span style={{
+          fontFamily: T.sans, fontSize: 10, fontWeight: 700,
+          letterSpacing: 2, textTransform: 'uppercase', color: T.ink, whiteSpace: 'nowrap',
+        }}>
+          Field Report
+        </span>
+        <span style={{
+          fontFamily: T.body, fontSize: 10, fontStyle: 'italic',
+          color: T.ink3, whiteSpace: 'nowrap',
+        }}>
+          {onlineCount}/{minerCount} active · {agoStr}
+        </span>
       </div>
 
-      {/* Per-miner cards */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-        {bitaxe.miners.length === 0 && !bitaxe.loading && (
-          <div style={{ gridColumn:'1/-1', fontFamily:T.mono, fontSize:12, color:T.ink3 }}>
-            No miners reachable
+      {/* Pull-quote hero */}
+      <div style={{ borderLeft: `3px solid ${T.ink}`, paddingLeft: 12, marginBottom: 14 }}>
+        <div style={{
+          fontFamily: T.serif, fontSize: 38, fontWeight: 800, fontStyle: 'italic',
+          color: oddsOneIn ? T.ink : T.ink4, lineHeight: 1, letterSpacing: -0.5,
+          fontFeatureSettings: '"tnum"',
+        }}>
+          {oddsOneIn ? `1-in-${oddsOneIn.toLocaleString()}` : '1-in-—'}
+        </div>
+        <div style={{
+          fontFamily: T.body, fontSize: 12, fontStyle: 'italic',
+          color: T.ink2, marginTop: 5, lineHeight: 1.45,
+        }}>
+          odds of finding a block today —<br />
+          {onlineCount > 0
+            ? `${totalHashTH.toFixed(2)} TH/s · ${(totalPower / 1000).toFixed(1)} kW across ${onlineCount} active ${onlineCount === 1 ? 'rig' : 'rigs'}`
+            : 'no rigs online'}
+        </div>
+      </div>
+
+      {/* Agate table */}
+      <div style={{ position: 'relative' }}>
+        {/* Headers */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: GRID,
+          gap: '0 4px', padding: '3px 2px',
+          borderTop: `1px solid ${T.rule2}`, borderBottom: `1px solid ${T.rule2}`,
+          marginBottom: 1,
+        }}>
+          {HEADERS.map(({ label, fade }, i) => (
+            <div key={i} style={{
+              fontFamily: T.sans, fontSize: 8, fontWeight: 700,
+              letterSpacing: 1.1, textTransform: 'uppercase',
+              color: fade ? T.ink4 : T.ink3,
+              textAlign: i > 0 ? 'right' : 'left',
+              whiteSpace: 'nowrap',
+            }}>
+              {label}
+            </div>
+          ))}
+        </div>
+
+        {/* Stub row when no miners configured */}
+        {showStubs && (
+          <div style={{
+            padding: '8px 2px',
+            borderBottom: `1px solid ${T.rule3}`,
+            fontFamily: T.mono, fontSize: 11, color: T.ink4,
+          }}>
+            No miners configured
           </div>
         )}
+
+        {/* Data rows */}
         {bitaxe.miners.map((miner, i) => {
-          const md = miner.online ? miner.data : null;
-          const hrTHS  = md ? ((md.hashRate || 0) / 1000).toFixed(2) : '—';
-          const temp   = md ? (md.temp || md.temperature || '—') : '—';
-          const power  = md ? (md.power || '—') : '—';
-          const eff    = md && md.power && md.hashRate ? (md.power / (md.hashRate / 1000)).toFixed(1) : '—';
-          const model  = md ? (md.boardVersion || md.ASICModel || 'Bitaxe') : 'Bitaxe';
+          const status = getMinerStatus(miner);
+          const isOff  = status === 'offline';
+          const md     = miner.data;
+
+          const hr    = md ? (md.hashRate || 0) / 1000 : 0;
+          const watts = md?.power || 0;
+          const eff   = hr > 0 ? watts / hr : 0;
+          const temp  = md ? (md.temp || md.temperature || 0) : 0;
+          const vrT   = md?.vrTemp ?? null;
+          const upSec = md?.uptimeSeconds ?? null;
+          const upPct = upSec != null ? Math.min(99.9, (upSec / 86400) * 100) : null;
+          const accS  = md?.sharesAccepted || 0;
+          const rejS  = md?.sharesRejected || 0;
+          const pwrLimit = md?.powerLimit || null;
+
           return (
-            <div key={i} style={{ borderLeft:`2px solid ${miner.online ? T.green : T.red}`, paddingLeft:8, paddingTop:4, paddingBottom:4 }}>
-              <div style={{ fontFamily:T.mono, fontSize:10, color:T.ink3, marginBottom:3 }}>
-                <StatusDot ok={miner.online} />{miner.ip}
+            <div key={i} style={{
+              display: 'grid', gridTemplateColumns: GRID,
+              gap: '0 4px', padding: '5px 2px',
+              borderBottom: `1px solid ${T.rule3}`,
+              opacity: isOff ? 0.4 : 1,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
+                <Dot status={status} />
+                <span style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.ink }}>
+                  {getMinerName(miner)}
+                </span>
               </div>
-              <div style={{ fontFamily:T.mono, fontSize:10, color:T.ink2, marginBottom:6 }}>{model}</div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px 8px' }}>
-                {[
-                  [hrTHS, 'TH/s', 'Hashrate'],
-                  [temp,  '°C',   'Temp'],
-                  [power, 'W',    'Power'],
-                  [eff,   'J/TH', 'Eff'],
-                ].map(([v, u, label], j) => (
-                  <div key={j} style={{ borderLeft:`1px solid ${T.rule3}`, paddingLeft:6 }}>
-                    <Num size="xs" value={v} unit={u} />
-                    <Kicker style={{ marginTop:2 }}>{label}</Kicker>
-                  </div>
-                ))}
+              {cell(isOff ? '—' : hr.toFixed(2), T.ink, T)}
+              {cell(isOff ? '—' : `${eff.toFixed(1)}`, eff > 25 ? T.red : T.ink, T)}
+              {cell(isOff ? '—' : (upPct != null ? `${upPct.toFixed(0)}%` : '—'), upPct != null && upPct < 80 ? T.red : T.ink2, T)}
+              <div style={{
+                fontFamily: T.mono, fontSize: 11, textAlign: 'right',
+                fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap', color: T.ink2,
+              }}>
+                {isOff ? '—' : (
+                  <>
+                    {accS.toLocaleString()}
+                    <span style={{ color: rejS > 50 ? T.red : T.ink4 }}> /{rejS}</span>
+                  </>
+                )}
               </div>
+              {cell(isOff ? '—' : `${temp}°`, temp > 69 ? T.red : T.ink2, T)}
+              {cell(isOff ? '—' : (vrT != null ? `${vrT}°` : '—'), vrT != null && vrT > 69 ? T.red : T.ink2, T)}
+              {cell(isOff ? '—' : `${watts}W`, pwrLimit && watts > pwrLimit ? T.red : T.ink2, T)}
             </div>
           );
         })}
       </div>
+
+      {/* Fleet totals row */}
+      {bitaxe.miners.length > 0 && (
+        <div style={{
+          display: 'grid', gridTemplateColumns: GRID,
+          gap: '0 4px', padding: '6px 4px',
+          borderTop: `1px solid ${T.rule2}`,
+          marginTop: 1,
+          background: T.paper2,
+        }}>
+          <div style={{
+            fontFamily: T.sans, fontSize: 9, fontWeight: 700,
+            letterSpacing: 1.1, textTransform: 'uppercase',
+            color: T.ink3, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap',
+          }}>
+            Fleet
+          </div>
+          {fcell(`${totalHashTH.toFixed(2)}`, T.ink, T)}
+          {fcell(`${avgEff.toFixed(1)}`, avgEff > 25 ? T.red : T.ink, T)}
+          {fcell(`${avgUp.toFixed(0)}%`, avgUp < 80 ? T.red : T.ink, T)}
+          <div style={{
+            fontFamily: T.mono, fontSize: 11, textAlign: 'right',
+            fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap', fontWeight: 700, color: T.ink,
+          }}>
+            {totalAcc.toLocaleString()}
+            <span style={{ color: totalRej > 200 ? T.red : T.ink4 }}> /{totalRej}</span>
+          </div>
+          {fcell(`${Math.round(avgAsic)}°`, avgAsic > 69 ? T.red : T.ink, T)}
+          {fcell(avgVr != null ? `${Math.round(avgVr)}°` : '—', avgVr != null && avgVr > 69 ? T.red : T.ink, T)}
+          {fcell(`${(totalPower / 1000).toFixed(1)}kW`, T.ink, T)}
+        </div>
+      )}
     </div>
   );
 }

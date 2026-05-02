@@ -44,13 +44,52 @@ function Weather({ weather, prefs }) {
           </div>
         ))}
       </div>
-      <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginTop:10, fontFamily:T.mono, fontSize:10, color:T.ink3 }}>
-        <span>wind {wx.wxWind}</span>
-        <span>hum {wx.wxHum}</span>
-        {wx.wxUVIndex != null && <span>UV {wx.wxUVIndex}</span>}
-        {wx.wxDailyWindMax != null && <span>peak {wx.wxDailyWindMax} mph</span>}
-        {wx.wxPrecipTotal != null && parseFloat(wx.wxPrecipTotal) > 0 && <span>{wx.wxPrecipTotal} mm today</span>}
-      </div>
+      {/* 2×2 stat grid */}
+      {(() => {
+        const uv = wx.wxUVIndex ?? 0;
+        const uvColor = uv >= 8 ? T.red : uv >= 6 ? T.orange : uv < 3 ? T.green : T.ink;
+        const uvLabel = uv >= 8 ? 'Very High' : uv >= 6 ? 'High' : uv >= 3 ? 'Moderate' : 'Low';
+        const cellL = { padding: '8px 10px 8px 0', borderRight: `1px solid ${T.rule3}` };
+        const cellR = { padding: '8px 0 8px 10px' };
+        const cellLB = { padding: '8px 10px 0 0', borderRight: `1px solid ${T.rule3}`, borderTop: `1px solid ${T.rule3}` };
+        const cellRB = { padding: '8px 0 0 10px', borderTop: `1px solid ${T.rule3}` };
+        const lbl = { fontFamily: T.sans, fontSize: 8, fontWeight: 600, letterSpacing: 1.6, textTransform: 'uppercase', color: T.ink3, marginBottom: 3 };
+        const val = { fontFamily: T.mono, fontSize: 14, fontWeight: 500, letterSpacing: -0.5, lineHeight: 1, color: T.ink };
+        const sub = { fontFamily: T.mono, fontSize: 9, color: T.ink3, marginTop: 2 };
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', marginTop: 10, borderTop: `1px solid ${T.rule3}` }}>
+            {/* Wind */}
+            <div style={cellL}>
+              <div style={lbl}>Wind</div>
+              <div style={val}>{wx.wxWind}</div>
+              {wx.wxDailyWindMax != null && <div style={sub}>peak {wx.wxDailyWindMax} mph</div>}
+            </div>
+            {/* Humidity */}
+            <div style={cellR}>
+              <div style={lbl}>Humidity</div>
+              <div style={val}>{wx.wxHum}</div>
+              {wx.wxSunrise && <div style={sub}>↑{wx.wxSunrise} ↓{wx.wxSunset}</div>}
+            </div>
+            {/* UV Index */}
+            <div style={cellLB}>
+              <div style={lbl}>UV Index</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                <div style={{ ...val, color: uvColor }}>{uv}</div>
+                <div style={{ fontFamily: T.sans, fontSize: 8, fontWeight: 600, color: uv >= 6 ? uvColor : T.ink3 }}>{uvLabel}</div>
+              </div>
+              <div style={{ height: 2, background: T.rule3, borderRadius: 2, marginTop: 5 }}>
+                <div style={{ height: '100%', width: `${Math.min(uv / 11, 1) * 100}%`, background: uvColor, borderRadius: 2 }} />
+              </div>
+            </div>
+            {/* Feels Like */}
+            <div style={cellRB}>
+              <div style={lbl}>Feels Like</div>
+              <div style={val}>{wx.feels}°{prefs.tempUnit === 'celsius' ? 'C' : 'F'}</div>
+              <div style={sub}>H{wx.wxHi} · L{wx.wxLo}</div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
