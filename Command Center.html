@@ -889,12 +889,14 @@ function Num({ size = 'md', value, unit, delta, deltaUp, style = {} }) {
 
 
 
+
 // Import useT hook from theme context (available in build context)
 
 function StatusDot({ ok }) {
   const T = useT();
   return <span style={{ color: ok ? T.green : T.red, marginRight: 5 }}>●</span>;
 }
+
 
 
 
@@ -907,6 +909,7 @@ function Kicker({ children, color, style = {} }) {
 
 
 
+
 // Import useT hook from theme context (available in build context)
 
 function Rule({ double, dash, weight = 1, style = {} }) {
@@ -914,6 +917,7 @@ function Rule({ double, dash, weight = 1, style = {} }) {
   if (double) return <div style={{ borderTop: '2px solid ' + T.rule, borderBottom: '1px solid ' + T.rule, height: 5, ...style }} />;
   return <div style={{ borderTop: `${weight}px ${dash ? 'dashed' : 'solid'} ${T.rule2}`, ...style }} />;
 }
+
 
 
 
@@ -1212,6 +1216,8 @@ function useResettableInterval(callback, delay) {
 
   return { reset };
 }
+
+
 
 
 /**
@@ -2828,9 +2834,9 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
           />
 
           <div style={{ height: u(14) }} />
-          <Kicker>Miner IPs (direct polling fallback)</Kicker>
+          <Kicker>Miner IPs</Kicker>
           <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: u(11), color: T.ink3, marginTop: u(3), marginBottom: u(6) }}>
-            Used when API URL is blank or unreachable. Comma-separated.
+            Used when API URL is blank. Comma-separated.
           </div>
           <input
             style={inp}
