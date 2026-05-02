@@ -833,7 +833,6 @@ async function fetchBitAxeMiner(ip) {
 // CommonJS exports
 
 
-
 // Import useT hook from theme context (available in build context)
 // Import fmtNum from formatting utilities (available in build context)
 // Both imports assume they're globally available or provided via bundler
@@ -860,8 +859,6 @@ function Num({ size = 'md', value, unit, delta, deltaUp, style = {} }) {
 
 
 
-
-
 // Import useT hook from theme context (available in build context)
 
 function StatusDot({ ok }) {
@@ -871,16 +868,12 @@ function StatusDot({ ok }) {
 
 
 
-
-
 // Import useT hook from theme context (available in build context)
 
 function Kicker({ children, color, style = {} }) {
   const T = useT();
   return <div style={{ fontFamily: T.sans, fontSize: 10, fontWeight: 600, letterSpacing: 1.8, textTransform: 'uppercase', color: color || T.ink3, ...style }}>{children}</div>;
 }
-
-
 
 
 
@@ -894,16 +887,12 @@ function Rule({ double, dash, weight = 1, style = {} }) {
 
 
 
-
-
 // Import useT hook from theme context (available in build context)
 
 function ItalicDeck({ children, style = {} }) {
   const T = useT();
   return <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 18, lineHeight: 1.45, color: T.ink2, ...style }}>{children}</div>;
 }
-
-
 
 
 
@@ -961,7 +950,6 @@ function LineChart({ w, h, color, points, fill, vwap }) {
     </svg>
   );
 }
-
 
 
 
@@ -1114,11 +1102,6 @@ function ProofOfRead({ btc, chain, hashrate, mempoolTx, mempoolMB, feeFast, feeE
 
 
 
-
-
-
-
-
 function WxGlyph({ kind, size, speed: speedProp }) {
   const T      = useT();
   const isDark = T.paper === DARK.paper;
@@ -1166,8 +1149,6 @@ function useResettableInterval(callback, delay) {
 
   return { reset };
 }
-
-
 
 
 /**
@@ -1891,13 +1872,6 @@ function Masthead({ clock, wxSummary, blockReward, rewardEra, dark, onToggleDark
 }
 
 
-
-
-
-
-
-
-
 function Price({ btc }) {
   const T = useT();
 
@@ -1940,10 +1914,6 @@ function Price({ btc }) {
     </div>
   );
 }
-
-
-
-
 
 
 
@@ -2004,7 +1974,6 @@ function Ticker({ chain, feedHealth }) {
     </div>
   );
 }
-
 
 
 
@@ -2267,6 +2236,9 @@ function Weather({ weather, prefs }) {
     </div>
   );
 }
+
+
+
 
 
 
@@ -2546,6 +2518,7 @@ function Miners({ bitaxe, chain }) {
     </div>
   );
 }
+
 
 
 
@@ -2835,6 +2808,7 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
     </div>
   );
 }
+
 
 
 // fmtNum, fmtHashrate, fmtDiff, fmtBlockSize are available globally via build manifest.
