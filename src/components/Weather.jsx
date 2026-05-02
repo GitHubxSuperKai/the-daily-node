@@ -13,7 +13,7 @@ function Weather({ weather, prefs }) {
     return (
       <div>
         <Kicker>Weather</Kicker>
-        <div style={{ fontFamily: T.mono, fontSize: u(12), color: T.ink3, marginTop: u(8) }}>
+        <div style={{ fontFamily: T.num, fontSize: u(12), color: T.ink3, marginTop: u(8) }}>
           {weather.err ? 'weather unavailable' : 'loading…'}
         </div>
       </div>
@@ -35,11 +35,11 @@ function Weather({ weather, prefs }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8,1fr)', gap: u(4), marginTop: u(12), paddingTop: u(10), borderTop: `1px solid ${T.rule3}` }}>
         {wx.hourly.map((h, i) => (
           <div key={i} style={{ textAlign: 'center' }}>
-            <div style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink3 }}>{fmtHour(h.hr, prefs.timeFormat)}</div>
+            <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3 }}>{fmtHour(h.hr, prefs.timeFormat)}</div>
             <div style={{ margin: `${u(3)} auto` }}><WxGlyph kind={wmoIcon(h.code, h.hr, null, wx.wxSunriseHr, wx.wxSunsetHr)} size={24} speed={wmoSpeed(h.code)} /></div>
             <Num size="xs" value={`${h.t}°`} />
-            {h.pop >= 30 && <div style={{ fontFamily: T.mono, fontSize: u(9), color: T.ink3, marginTop: u(1) }}>{h.pop}%</div>}
-            {h.precip > 0 && <div style={{ fontFamily: T.mono, fontSize: u(9), color: T.ink3 }}>{h.precip.toFixed(1)}mm</div>}
+            {h.pop >= 30 && <div style={{ fontFamily: T.num, fontSize: u(9), color: T.ink3, marginTop: u(1) }}>{h.pop}%</div>}
+            {h.precip > 0 && <div style={{ fontFamily: T.num, fontSize: u(9), color: T.ink3 }}>{h.precip.toFixed(1)}mm</div>}
           </div>
         ))}
       </div>
@@ -61,8 +61,8 @@ function Weather({ weather, prefs }) {
         const cellMB = { padding: `${u(8)} ${u(8)} 0 ${u(8)}`,  borderRight: br, borderTop: br };
         const cellRB = { padding: `${u(8)} 0 0 ${u(8)}`,         borderTop: br };
         const lbl = { fontFamily: T.sans, fontSize: u(8), fontWeight: 600, letterSpacing: u(1.6), textTransform: 'uppercase', color: T.ink3, marginBottom: u(3) };
-        const val = { fontFamily: T.mono, fontSize: u(13), fontWeight: 500, letterSpacing: -0.5, lineHeight: 1, color: T.ink };
-        const sub = { fontFamily: T.mono, fontSize: u(9), color: T.ink3, marginTop: u(2) };
+        const val = { fontFamily: T.num, fontSize: u(13), fontWeight: 400, letterSpacing: -0.5, lineHeight: 1, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1', fontOpticalSizing: 'auto' };
+        const sub = { fontFamily: T.num, fontSize: u(9), color: T.ink3, marginTop: u(2) };
         return (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', marginTop: u(10), borderTop: br }}>
             <div style={cellL}>

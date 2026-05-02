@@ -57,18 +57,18 @@ export function OnThisDay() {
       <div style={{ marginTop: 7 }}>
         <div style={{
           fontFamily: T.sans,
-          fontSize: 9,
+          fontSize: u(9),
           fontWeight: 600,
-          letterSpacing: 2,
+          letterSpacing: u(2),
           textTransform: 'uppercase',
           color: T.orange,
-          marginBottom: 4,
+          marginBottom: u(4),
         }}>
           {MONTHS[entry.mo - 1]} {entry.d}, {entry.y}
         </div>
         <div style={{
           fontFamily: T.body,
-          fontSize: 13,
+          fontSize: u(13),
           lineHeight: 1.5,
           color: T.ink2,
         }}>

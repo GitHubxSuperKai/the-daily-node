@@ -26,7 +26,7 @@ function Ticker({ chain, feedHealth }) {
         }}>⏺</span>
       </span>
       <div style={{ flex:1, overflow:'hidden' }}>
-        <div style={{ display:'inline-flex', whiteSpace:'nowrap', animation:'ticker-scroll 100s linear infinite' }}>
+        <div style={{ display:'inline-flex', whiteSpace:'nowrap', animation:'ticker-scroll 100s linear infinite', willChange:'transform', backfaceVisibility:'hidden', WebkitFontSmoothing:'subpixel-antialiased' }}>
           {(() => {
             const halvingBlocksLeft = chain.data
               ? fmtNum(Math.ceil((chain.data.height + 1) / 210000) * 210000 - chain.data.height)
