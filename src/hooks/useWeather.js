@@ -7,7 +7,7 @@ import { useResettableInterval } from './useResettableInterval.js';
  * Fetches weather from Open-Meteo API
  *
  * Returns: {
- *   data: object with { temp, feels, wxCond, wxCode, wxWindSpeed, wxWind, wxHum, wxHi, wxLo, wxSunriseHr, wxSunsetHr, hourly },
+ *   data: object with { temp, feels, wxCond, wxCode, wxWindSpeed, wxWind, wxHum, wxHi, wxLo, wxSunriseHr, wxSunsetHr, hourly, wxUVIndexTomorrow },
  *   err: boolean,
  *   lastOk: timestamp or null,
  *   interval: number (for feed health tracking)
