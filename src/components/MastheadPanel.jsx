@@ -164,9 +164,9 @@ export function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
           />
 
           <div style={{ height: u(14) }} />
-          <Kicker>Miner IPs (direct polling fallback)</Kicker>
+          <Kicker>Miner IPs</Kicker>
           <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: u(11), color: T.ink3, marginTop: u(3), marginBottom: u(6) }}>
-            Used when API URL is blank or unreachable. Comma-separated.
+            Used when API URL is blank. Comma-separated.
           </div>
           <input
             style={inp}
