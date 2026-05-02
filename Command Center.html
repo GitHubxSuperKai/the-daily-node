@@ -1868,7 +1868,7 @@ function Masthead({ clock, wxSummary, blockReward, rewardEra, dark, onToggleDark
       }}>
         {/* LEFT — edition info + rotating quote below */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: u(2) }}>
-          <div style={metaStyle}>Home Edition · Vol. XXI, Nº 238</div>
+          <div style={metaStyle}>Home Miner Edition · Vol. XXI, Nº 007</div>
           <div style={{ ...metaStyle, color: T.ink4 }}>Est. 2026 · Printed on the blockchain</div>
           <div style={{ marginTop: u(5), fontFamily: T.body, fontStyle: 'italic', fontSize: u(11), color: T.ink2, lineHeight: 1.4, maxWidth: u(340) }}>
             "{quote.text}"
@@ -1913,14 +1913,20 @@ function Masthead({ clock, wxSummary, blockReward, rewardEra, dark, onToggleDark
           <div style={{ display: 'flex', gap: u(5) }}>
             <button
               onClick={onToggleDark}
+              title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
               style={{
-                ...btnBase,
-                background: dark ? T.ink : 'none',
-                color: dark ? T.paper : T.ink2,
-                border: `1px solid ${dark ? T.ink : T.ink3}`,
+                cursor: 'pointer',
+                background: 'none',
+                border: 'none',
+                padding: `${u(5)} ${u(6)}`,
+                color: T.ink4,
+                fontSize: u(14),
+                lineHeight: 1,
+                display: 'flex',
+                alignItems: 'center',
               }}
             >
-              {dark ? '◑ Light' : '◐ Dark'}
+              {dark ? '◑' : '◐'}
             </button>
             <button
               onClick={onOpenSettings}
@@ -2384,8 +2390,7 @@ function Miners({ bitaxe, chain }) {
     : null;
   const oddsOneIn = oddsResult ? oddsResult.oddsPerDay : null;
 
-  const lastOkMin = bitaxe.lastOk ? Math.round((Date.now() - bitaxe.lastOk) / 60000) : null;
-  const agoStr = lastOkMin != null ? `${lastOkMin}m ago` : '—';
+  const agoStr = bitaxe.lastOk ? timeAgoUnix(Math.floor(bitaxe.lastOk / 1000)) : '—';
 
   const activeMiners = bitaxe.miners.filter(m => getMinerStatus(m) !== 'offline');
   const avgEff = activeMiners.length > 0
@@ -2403,6 +2408,8 @@ function Miners({ bitaxe, chain }) {
         return s + up;
       }, 0) / activeMiners.length
     : null;
+  const fmtPower = (w) => w < 1000 ? `${Math.round(w)}W` : `${(w / 1000).toFixed(1)}kW`;
+
   const avgAsic = activeMiners.length > 0
     ? activeMiners.reduce((s, m) => s + (m.data?.temp || m.data?.temperature || 0), 0) / activeMiners.length
     : 0;
@@ -2482,7 +2489,7 @@ function Miners({ bitaxe, chain }) {
         }}>
           odds of finding a block today —<br />
           {onlineCount > 0
-            ? `${totalHashTH.toFixed(2)} TH/s · ${(totalPower / 1000).toFixed(1)} kW across ${onlineCount} active ${onlineCount === 1 ? 'rig' : 'rigs'}`
+            ? `${totalHashTH.toFixed(2)} TH/s · ${fmtPower(totalPower)} across ${onlineCount} active ${onlineCount === 1 ? 'rig' : 'rigs'}`
             : 'no rigs online'}
         </div>
       </div>
@@ -2563,9 +2570,9 @@ function Miners({ bitaxe, chain }) {
                   </>
                 )}
               </div>
-              {cell(isOff ? '—' : `${temp}°`, temp > 69 ? T.red : T.ink2)}
+              {cell(isOff ? '—' : `${temp.toFixed(1)}°`, temp > 69 ? T.red : T.ink2)}
               {cell(isOff ? '—' : (vrT != null ? `${vrT}°` : '—'), vrT != null && vrT > 69 ? T.red : T.ink2)}
-              {cell(isOff ? '—' : `${watts}W`, pwrLimit && watts > pwrLimit ? T.red : T.ink2)}
+              {cell(isOff ? '—' : `${Math.round(watts)}W`, pwrLimit && watts > pwrLimit ? T.red : T.ink2)}
             </div>
           );
         })}
@@ -2599,7 +2606,7 @@ function Miners({ bitaxe, chain }) {
           </div>
           {fcell(`${Math.round(avgAsic)}°`, avgAsic > 69 ? T.red : T.ink)}
           {fcell(avgVr != null ? `${Math.round(avgVr)}°` : '—', avgVr != null && avgVr > 69 ? T.red : T.ink)}
-          {fcell(`${(totalPower / 1000).toFixed(1)}kW`, T.ink)}
+          {fcell(fmtPower(totalPower), T.ink)}
         </div>
       )}
     </div>
@@ -4039,8 +4046,17 @@ function CommandCenter({
         {/* COL 3 — FIELD REPORT + CHAIN VITALS */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0, overflow: 'hidden' }}>
           <Miners bitaxe={bitaxe} chain={chain} />
-          <div className="no-scrollbar" style={{ marginTop: u(32), overflowY: 'auto', flexShrink: 1, minHeight: 0 }}>
-            <NetworkStatusWidget chain={chain} T={T} />
+          <div className="news-col-wrap" style={{ marginTop: u(32), flexShrink: 1, minHeight: 0 }}>
+            <div
+              className="no-scrollbar"
+              style={{ height: '100%', overflowY: 'auto' }}
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                el.parentElement.classList.toggle('at-bottom', el.scrollHeight - el.scrollTop - el.clientHeight < 4);
+              }}
+            >
+              <NetworkStatusWidget chain={chain} T={T} />
+            </div>
           </div>
         </div>
       </div>
