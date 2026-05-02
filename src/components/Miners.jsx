@@ -2,8 +2,6 @@ import React from 'react';
 import { useT } from '../theme';
 import { calcSoloOdds } from '../utils/formatting';
 
-const GRID = '1fr 52px 46px 44px 80px 48px 48px 52px';
-
 const statusColor = {
   online:   '#3a6b2e',
   degraded: '#c8641a',
@@ -14,9 +12,9 @@ function Dot({ status }) {
   const T = useT();
   return (
     <span style={{
-      display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
+      display: 'inline-block', width: u(6), height: u(6), borderRadius: '50%',
       background: statusColor[status] || T.ink3,
-      flexShrink: 0, marginRight: 5, position: 'relative', top: -1,
+      flexShrink: 0, marginRight: u(5), position: 'relative', top: -1,
     }} />
   );
 }
@@ -39,6 +37,9 @@ function getMinerName(miner) {
 function Miners({ bitaxe, chain }) {
   const T = useT();
 
+  // Grid template: first col flexible, rest fixed design-px widths
+  const GRID = `1fr ${u(52)} ${u(46)} ${u(44)} ${u(80)} ${u(48)} ${u(48)} ${u(52)}`;
+
   const onlineMiners = bitaxe.miners.filter(m => m.online && m.data);
   const minerCount   = bitaxe.miners.length;
   const onlineCount  = onlineMiners.length;
@@ -57,7 +58,6 @@ function Miners({ bitaxe, chain }) {
   const lastOkMin = bitaxe.lastOk ? Math.round((Date.now() - bitaxe.lastOk) / 60000) : null;
   const agoStr = lastOkMin != null ? `${lastOkMin}m ago` : '—';
 
-  // Fleet totals
   const activeMiners = bitaxe.miners.filter(m => getMinerStatus(m) !== 'offline');
   const avgEff = activeMiners.length > 0
     ? activeMiners.reduce((s, m) => {
@@ -84,7 +84,7 @@ function Miners({ bitaxe, chain }) {
 
   const cell = (val, color) => (
     <div style={{
-      fontFamily: T.mono, fontSize: 11, textAlign: 'right',
+      fontFamily: T.mono, fontSize: u(11), textAlign: 'right',
       fontFeatureSettings: '"tnum"', color: color || T.ink, whiteSpace: 'nowrap',
     }}>
       {val}
@@ -93,7 +93,7 @@ function Miners({ bitaxe, chain }) {
 
   const fcell = (val, color) => (
     <div style={{
-      fontFamily: T.mono, fontSize: 11, textAlign: 'right',
+      fontFamily: T.mono, fontSize: u(11), textAlign: 'right',
       fontFeatureSettings: '"tnum"', color: color || T.ink, whiteSpace: 'nowrap',
       fontWeight: 700,
     }}>
@@ -115,23 +115,23 @@ function Miners({ bitaxe, chain }) {
   const showStubs = bitaxe.miners.length === 0 && !bitaxe.loading;
 
   return (
-    <div style={{ marginBottom: 4 }}>
+    <div style={{ marginBottom: u(4) }}>
 
       {/* Masthead */}
       <div style={{
-        borderTop: `3px solid ${T.ink}`,
+        borderTop: `${u(3)} solid ${T.ink}`,
         borderBottom: `1px solid ${T.ink}`,
         display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-        padding: '5px 0', marginBottom: 14,
+        padding: `${u(5)} 0`, marginBottom: u(14),
       }}>
         <span style={{
-          fontFamily: T.sans, fontSize: 10, fontWeight: 700,
-          letterSpacing: 2, textTransform: 'uppercase', color: T.ink, whiteSpace: 'nowrap',
+          fontFamily: T.sans, fontSize: u(10), fontWeight: 700,
+          letterSpacing: u(2), textTransform: 'uppercase', color: T.ink, whiteSpace: 'nowrap',
         }}>
           Field Report
         </span>
         <span style={{
-          fontFamily: T.body, fontSize: 10, fontStyle: 'italic',
+          fontFamily: T.body, fontSize: u(10), fontStyle: 'italic',
           color: T.ink3, whiteSpace: 'nowrap',
         }}>
           {onlineCount}/{minerCount} active · {agoStr}
@@ -139,17 +139,17 @@ function Miners({ bitaxe, chain }) {
       </div>
 
       {/* Pull-quote hero */}
-      <div style={{ borderLeft: `3px solid ${T.ink}`, paddingLeft: 12, marginBottom: 14 }}>
+      <div style={{ borderLeft: `${u(3)} solid ${T.ink}`, paddingLeft: u(12), marginBottom: u(14) }}>
         <div style={{
-          fontFamily: T.serif, fontSize: 38, fontWeight: 800, fontStyle: 'italic',
+          fontFamily: T.serif, fontSize: u(38), fontWeight: 800, fontStyle: 'italic',
           color: oddsOneIn ? T.ink : T.ink4, lineHeight: 1, letterSpacing: -0.5,
           fontFeatureSettings: '"tnum"',
         }}>
           {oddsOneIn ? `1-in-${oddsOneIn.toLocaleString()}` : '1-in-—'}
         </div>
         <div style={{
-          fontFamily: T.body, fontSize: 12, fontStyle: 'italic',
-          color: T.ink2, marginTop: 5, lineHeight: 1.45,
+          fontFamily: T.body, fontSize: u(12), fontStyle: 'italic',
+          color: T.ink2, marginTop: u(5), lineHeight: 1.45,
         }}>
           odds of finding a block today —<br />
           {onlineCount > 0
@@ -163,14 +163,14 @@ function Miners({ bitaxe, chain }) {
         {/* Headers */}
         <div style={{
           display: 'grid', gridTemplateColumns: GRID,
-          gap: '0 4px', padding: '3px 2px',
+          gap: `0 ${u(4)}`, padding: `${u(3)} ${u(2)}`,
           borderTop: `1px solid ${T.rule2}`, borderBottom: `1px solid ${T.rule2}`,
           marginBottom: 1,
         }}>
           {HEADERS.map(({ label, fade }, i) => (
             <div key={i} style={{
-              fontFamily: T.sans, fontSize: 8, fontWeight: 700,
-              letterSpacing: 1.1, textTransform: 'uppercase',
+              fontFamily: T.sans, fontSize: u(8), fontWeight: 700,
+              letterSpacing: u(1.1), textTransform: 'uppercase',
               color: fade ? T.ink4 : T.ink3,
               textAlign: i > 0 ? 'right' : 'left',
               whiteSpace: 'nowrap',
@@ -180,12 +180,11 @@ function Miners({ bitaxe, chain }) {
           ))}
         </div>
 
-        {/* Stub row when no miners configured */}
         {showStubs && (
           <div style={{
-            padding: '8px 2px',
+            padding: `${u(8)} ${u(2)}`,
             borderBottom: `1px solid ${T.rule3}`,
-            fontFamily: T.mono, fontSize: 11, color: T.ink4,
+            fontFamily: T.mono, fontSize: u(11), color: T.ink4,
           }}>
             No miners configured
           </div>
@@ -211,13 +210,13 @@ function Miners({ bitaxe, chain }) {
           return (
             <div key={i} style={{
               display: 'grid', gridTemplateColumns: GRID,
-              gap: '0 4px', padding: '5px 2px',
+              gap: `0 ${u(4)}`, padding: `${u(5)} ${u(2)}`,
               borderBottom: `1px solid ${T.rule3}`,
               opacity: isOff ? 0.4 : 1,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
                 <Dot status={status} />
-                <span style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.ink }}>
+                <span style={{ fontFamily: T.sans, fontSize: u(11), fontWeight: 600, color: T.ink }}>
                   {getMinerName(miner)}
                 </span>
               </div>
@@ -225,7 +224,7 @@ function Miners({ bitaxe, chain }) {
               {cell(isOff ? '—' : `${eff.toFixed(1)}`, eff > 25 ? T.red : T.ink)}
               {cell(isOff ? '—' : (upPct != null ? `${upPct.toFixed(0)}%` : '—'), upPct != null && upPct < 80 ? T.red : T.ink2)}
               <div style={{
-                fontFamily: T.mono, fontSize: 11, textAlign: 'right',
+                fontFamily: T.mono, fontSize: u(11), textAlign: 'right',
                 fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap', color: T.ink2,
               }}>
                 {isOff ? '—' : (
@@ -247,14 +246,14 @@ function Miners({ bitaxe, chain }) {
       {bitaxe.miners.length > 0 && (
         <div style={{
           display: 'grid', gridTemplateColumns: GRID,
-          gap: '0 4px', padding: '6px 4px',
+          gap: `0 ${u(4)}`, padding: `${u(6)} ${u(4)}`,
           borderTop: `1px solid ${T.rule2}`,
           marginTop: 1,
           background: T.paper2,
         }}>
           <div style={{
-            fontFamily: T.sans, fontSize: 9, fontWeight: 700,
-            letterSpacing: 1.1, textTransform: 'uppercase',
+            fontFamily: T.sans, fontSize: u(9), fontWeight: 700,
+            letterSpacing: u(1.1), textTransform: 'uppercase',
             color: T.ink3, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap',
           }}>
             Fleet
@@ -263,7 +262,7 @@ function Miners({ bitaxe, chain }) {
           {fcell(`${avgEff.toFixed(1)}`, avgEff > 25 ? T.red : T.ink)}
           {fcell(avgUp != null ? `${avgUp.toFixed(0)}%` : '—', avgUp != null && avgUp < 80 ? T.red : T.ink)}
           <div style={{
-            fontFamily: T.mono, fontSize: 11, textAlign: 'right',
+            fontFamily: T.mono, fontSize: u(11), textAlign: 'right',
             fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap', fontWeight: 700, color: T.ink,
           }}>
             {totalAcc.toLocaleString()}
