@@ -846,6 +846,7 @@ async function fetchBitAxeMiner(ip) {
 const u = (n) => `calc(var(--u) * ${n})`;
 
 
+
 const NUM_PX = { hero: 64, lg: 28, md: 20, sm: 15, xs: 12 };
 
 function Num({ size = 'md', value, unit, delta, deltaUp, style = {} }) {
@@ -871,6 +872,7 @@ function Num({ size = 'md', value, unit, delta, deltaUp, style = {} }) {
 
 
 
+
 // Import useT hook from theme context (available in build context)
 
 function StatusDot({ ok }) {
@@ -881,10 +883,12 @@ function StatusDot({ ok }) {
 
 
 
+
 function Kicker({ children, color, style = {} }) {
   const T = useT();
   return <div style={{ fontFamily: T.sans, fontSize: u(10), fontWeight: 600, letterSpacing: u(1.8), textTransform: 'uppercase', color: color || T.ink3, ...style }}>{children}</div>;
 }
+
 
 
 
@@ -907,6 +911,7 @@ function ItalicDeck({ children, style = {} }) {
   const T = useT();
   return <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 18, lineHeight: 1.45, color: T.ink2, ...style }}>{children}</div>;
 }
+
 
 
 
@@ -986,6 +991,7 @@ function LineChart({ color, points, fill, vwap }) {
     </div>
   );
 }
+
 
 
 
@@ -1134,6 +1140,11 @@ function ProofOfRead({ btc, chain, hashrate, mempoolTx, mempoolMB, feeFast, feeE
     </div>
   );
 }
+
+
+
+
+
 
 
 
@@ -1503,7 +1514,7 @@ function useBitaxe(apiUrl, ips) {
  * Fetches weather from Open-Meteo API
  *
  * Returns: {
- *   data: object with { temp, feels, wxCond, wxCode, wxWindSpeed, wxWind, wxHum, wxHi, wxLo, wxSunriseHr, wxSunsetHr, hourly },
+ *   data: object with { temp, feels, wxCond, wxCode, wxWindSpeed, wxWind, wxHum, wxHi, wxLo, wxSunriseHr, wxSunsetHr, hourly, wxUVIndexTomorrow },
  *   err: boolean,
  *   lastOk: timestamp or null,
  *   interval: number (for feed health tracking)
@@ -1516,7 +1527,7 @@ function useWeather(lat, lng, tempUnit) {
 
   const fetchWeather = useCallback(async () => {
     try {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,wind_gusts_10m,pressure_msl,dew_point_2m&hourly=temperature_2m,weather_code,precipitation_probability,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,uv_index_max,wind_speed_10m_max&temperature_unit=${tempUnit}&wind_speed_unit=mph&forecast_days=1&timezone=auto`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,wind_gusts_10m,pressure_msl,dew_point_2m&hourly=temperature_2m,weather_code,precipitation_probability,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,uv_index_max,wind_speed_10m_max&temperature_unit=${tempUnit}&wind_speed_unit=mph&forecast_days=2&timezone=auto`;
       const r = await fetch(url);
       if (!r.ok) throw new Error('weather');
       const j = await r.json();
@@ -1563,6 +1574,7 @@ function useWeather(lat, lng, tempUnit) {
         wxSunset: j.daily.sunset[0].split('T')[1]?.slice(0, 5),
         wxPrecipTotal: j.daily.precipitation_sum?.[0] != null ? j.daily.precipitation_sum[0].toFixed(1) : null,
         wxUVIndex: j.daily.uv_index_max?.[0] != null ? Math.round(j.daily.uv_index_max[0]) : null,
+        wxUVIndexTomorrow: j.daily.uv_index_max?.[1] != null ? Math.round(j.daily.uv_index_max[1]) : null,
         wxDailyWindMax: j.daily.wind_speed_10m_max?.[0] != null ? Math.round(j.daily.wind_speed_10m_max[0]) : null,
         wxGusts: cur.wind_gusts_10m != null ? Math.round(cur.wind_gusts_10m) : null,
         wxPressure: cur.pressure_msl != null ? Math.round(cur.pressure_msl) : null,
@@ -1764,6 +1776,7 @@ function usePageRefresh(refreshFns) {
 }
 
 
+
 // SYNC: must match isMobile check in index.html updateScale() and @media (max-width:900px)
 const MOBILE_BREAKPOINT = 900;
 
@@ -1778,6 +1791,8 @@ function useLayoutSize() {
 
   return { isMobile };
 }
+
+
 
 
 const MASTHEAD_QUOTES = [
@@ -2196,6 +2211,12 @@ function Chain({ chain }) {
 
 
 
+
+
+
+
+
+
 function Weather({ weather, prefs }) {
   const T = useT();
   const wx = weather.data;
@@ -2236,9 +2257,14 @@ function Weather({ weather, prefs }) {
       </div>
       {/* 3×2 stat grid */}
       {(() => {
-        const uv = wx.wxUVIndex ?? 0;
+        const curHour = new Date().getHours();
+        const isNight = wx.wxSunriseHr != null && wx.wxSunsetHr != null
+          ? (curHour < wx.wxSunriseHr || curHour >= wx.wxSunsetHr)
+          : (curHour < 6 || curHour >= 20);
+        const uv = isNight ? (wx.wxUVIndexTomorrow ?? 0) : (wx.wxUVIndex ?? 0);
         const uvColor = uv >= 8 ? T.red : uv >= 6 ? T.orange : uv < 3 ? T.green : T.ink;
         const uvLabel = uv >= 8 ? 'Very High' : uv >= 6 ? 'High' : uv >= 3 ? 'Moderate' : 'Low';
+        const uvCellLabel = isNight ? 'UV Tomorrow' : 'UV Index';
         const br = `1px solid ${T.rule3}`;
         const cellL  = { padding: `${u(8)} ${u(8)} ${u(8)} 0`,  borderRight: br };
         const cellM  = { padding: `${u(8)}`,                     borderRight: br };
@@ -2271,7 +2297,7 @@ function Weather({ weather, prefs }) {
               {wx.wxGusts != null && <div style={sub}>gusts {wx.wxGusts} mph</div>}
             </div>
             <div style={cellMB}>
-              <div style={lbl}>UV Index</div>
+              <div style={lbl}>{uvCellLabel}</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: u(4) }}>
                 <div style={{ ...val, color: uvColor }}>{uv}</div>
                 <div style={{ fontFamily: T.sans, fontSize: u(8), fontWeight: 600, color: uv >= 6 ? uvColor : T.ink3 }}>{uvLabel}</div>
@@ -2291,6 +2317,10 @@ function Weather({ weather, prefs }) {
     </div>
   );
 }
+
+
+
+
 
 
 
@@ -2568,6 +2598,10 @@ function Miners({ bitaxe, chain }) {
     </div>
   );
 }
+
+
+
+
 
 
 
@@ -2852,6 +2886,7 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
 }
 
 
+
 function SubLabel({ children, right, alert, rightColor, T }) {
   return (
     <div style={{
@@ -3120,6 +3155,22 @@ function NetworkStatusWidget({ chain, T }) {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3708,9 +3759,14 @@ function CommandCenter({
                   ))}
                 </div>
                 {(() => {
-                  const uv = wx.wxUVIndex ?? 0;
+                  const curHour = new Date().getHours();
+                  const isNight = wx.wxSunriseHr != null && wx.wxSunsetHr != null
+                    ? (curHour < wx.wxSunriseHr || curHour >= wx.wxSunsetHr)
+                    : (curHour < 6 || curHour >= 20);
+                  const uv = isNight ? (wx.wxUVIndexTomorrow ?? 0) : (wx.wxUVIndex ?? 0);
                   const uvColor = uv >= 8 ? T.red : uv >= 6 ? T.orange : uv < 3 ? T.green : T.ink;
                   const uvLabel = uv >= 8 ? 'Very High' : uv >= 6 ? 'High' : uv >= 3 ? 'Moderate' : 'Low';
+                  const uvCellLabel = isNight ? 'UV Tomorrow' : 'UV Index';
                   const br = `1px solid ${T.rule3}`;
                   const cellL  = { padding: `${u(8)} ${u(8)} ${u(8)} 0`,  borderRight: br };
                   const cellM  = { padding: `${u(8)}`,                     borderRight: br };
@@ -3743,7 +3799,7 @@ function CommandCenter({
                         {wx.wxGusts != null && <div style={sub}>gusts {wx.wxGusts} mph</div>}
                       </div>
                       <div style={cellMB}>
-                        <div style={lbl}>UV Index</div>
+                        <div style={lbl}>{uvCellLabel}</div>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: u(4) }}>
                           <div style={{ ...val, color: uvColor }}>{uv}</div>
                           <div style={{ fontFamily: T.sans, fontSize: u(8), fontWeight: 600, color: uv >= 6 ? uvColor : T.ink3 }}>{uvLabel}</div>
