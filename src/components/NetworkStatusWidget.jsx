@@ -4,10 +4,10 @@ function SubLabel({ children, right, alert, rightColor, T }) {
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-      marginBottom: u(6),
+      paddingBottom: u(6), marginBottom: u(6), borderBottom: `1px solid ${T.rule3}`,
     }}>
       <div style={{
-        fontFamily: T.sans, fontSize: u(9), fontWeight: 700,
+        fontFamily: T.sans, fontSize: u(9), fontWeight: 600,
         letterSpacing: u(1.4), textTransform: 'uppercase', color: T.ink3,
       }}>
         {children}
@@ -24,7 +24,7 @@ function SubLabel({ children, right, alert, rightColor, T }) {
   );
 }
 
-function Row({ label, value, valueColor, last, T }) {
+function Row({ label, value, valueColor, valueAlt, last, T }) {
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
@@ -37,11 +37,21 @@ function Row({ label, value, valueColor, last, T }) {
       }}>
         {label}
       </div>
-      <div style={{
-        fontFamily: T.num, fontSize: u(13), fontWeight: 400,
-        color: valueColor || T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1',
-      }}>
-        {value}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: u(6) }}>
+        {valueAlt && (
+          <div style={{
+            fontFamily: T.num, fontSize: u(9), fontWeight: 400,
+            color: T.ink4, fontFeatureSettings: '"tnum" 1, "lnum" 1',
+          }}>
+            {valueAlt}
+          </div>
+        )}
+        <div style={{
+          fontFamily: T.num, fontSize: u(13), fontWeight: 400,
+          color: valueColor || T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1',
+        }}>
+          {value}
+        </div>
       </div>
     </div>
   );
@@ -66,6 +76,12 @@ export function NetworkStatusWidget({ chain, T }) {
   const diffAdjPct = d?.progressPercent || 0;
   const remainingBlocks = d?.remainingBlocks ?? 0;
   const remainingDays = Math.round(remainingBlocks * 10 / 60 / 24);
+  const prevDiffAdj = d?.previousDiffAdj;
+  const prevDiffAdjStr = prevDiffAdj != null ? `${prevDiffAdj >= 0 ? '+' : ''}${prevDiffAdj.toFixed(2)}%` : '—';
+  const prevDiffAdjCol = prevDiffAdj == null ? T.ink4 : prevDiffAdj > 0 ? T.red : T.green;
+  const prevRetargetDateStr = d?.previousRetargetDate != null
+    ? new Date(d.previousRetargetDate * 1000).toISOString().slice(0, 10)
+    : null;
 
   const halvingYrs = (halvingBlocks * 10 / 60 / 24 / 365).toFixed(1);
 
@@ -81,6 +97,13 @@ export function NetworkStatusWidget({ chain, T }) {
   const blockAge = latestBlock?.timestamp
     ? `${Math.round((Date.now() / 1000 - latestBlock.timestamp) / 60)}m ago`
     : '—';
+  const blockWeight = latestBlock?.weight != null
+    ? `${(latestBlock.weight / 1e6).toFixed(2)} MWU` : '—';
+  const feeSpan = latestBlock?.feeRange?.length >= 2
+    ? `${Math.round(latestBlock.feeRange[0])} – ${Math.round(latestBlock.feeRange[latestBlock.feeRange.length - 1])} sat/vB`
+    : '—';
+  const totalFees = latestBlock?.totalFees != null
+    ? `${(latestBlock.totalFees / 1e8).toFixed(4)} BTC` : '—';
 
   const topPool = pools[0];
   const poolRisk = topPool && parseFloat(topPool.sharePct) > 40;
@@ -102,15 +125,17 @@ export function NetworkStatusWidget({ chain, T }) {
         </span>
       </div>
 
-      {/* Headline stats 2×2 */}
+      {/* Headline stats 3×2 */}
       <div style={{ marginBottom: u(20) }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: `${u(12)} ${u(16)}` }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: `${u(12)} ${u(10)}` }}>
           {[
-            { val: d ? fmtHashrate(d.hashrate) : '—', label: 'Hashrate',      size: 24, color: T.ink },
-            { val: d ? fmtDiff(d.difficulty)   : '—', label: 'Difficulty',    size: 24, color: T.ink },
-            { val: `${blockIntervalMin}m`,             label: 'Block Interval', size: 18, color: blockIntervalCol },
-            { val: `${blockSubsidy} BTC`,              label: 'Block Reward',  size: 18, color: T.ink },
-          ].map(({ val, label, size, color }, i) => (
+            { val: d ? fmtHashrate(d.hashrate) : '—', label: 'Hashrate',      size: 22, color: T.ink },
+            { val: d ? fmtDiff(d.difficulty)   : '—', label: 'Difficulty',    size: 22, color: T.ink },
+            { val: `${halvingBlocks.toLocaleString()} blks`, label: 'Halving', size: 18, color: T.ink, sub: `~${halvingYrs}yr` },
+            { val: `${blockIntervalMin}m`,              label: 'Block Interval', size: 16, color: blockIntervalCol },
+            { val: `${blockSubsidy} BTC`,               label: 'Block Reward', size: 16, color: T.ink },
+            { val: `${Number((blockSubsidy / 2).toFixed(8))} BTC`, label: 'Next Reward', size: 16, color: T.ink4 },
+          ].map(({ val, label, size, color, sub }, i) => (
             <div key={i}>
               <div style={{
                 fontFamily: T.num, fontSize: u(size), fontWeight: 400,
@@ -119,10 +144,23 @@ export function NetworkStatusWidget({ chain, T }) {
                 {val}
               </div>
               <div style={{
-                fontFamily: T.sans, fontSize: u(9), fontWeight: 600,
-                letterSpacing: u(1.2), textTransform: 'uppercase', color: T.ink3, marginTop: u(4),
+                display: 'flex', alignItems: 'baseline', gap: u(5),
+                marginTop: u(4),
               }}>
-                {label}
+                <span style={{
+                  fontFamily: T.sans, fontSize: u(9), fontWeight: 600,
+                  letterSpacing: u(1.2), textTransform: 'uppercase', color: T.ink3,
+                }}>
+                  {label}
+                </span>
+                {sub && (
+                  <span style={{
+                    fontFamily: T.num, fontSize: u(9), color: T.ink4,
+                    fontFeatureSettings: '"tnum" 1, "lnum" 1',
+                  }}>
+                    {sub}
+                  </span>
+                )}
               </div>
             </div>
           ))}
@@ -134,10 +172,10 @@ export function NetworkStatusWidget({ chain, T }) {
         <SubLabel right={diffAdjStr} rightColor={diffAdjCol} T={T}>
           Difficulty Adj.
         </SubLabel>
-        <div style={{ height: u(2), background: T.rule3, marginBottom: u(5), position: 'relative' }}>
+        <div style={{ height: u(6), background: T.rule3, marginBottom: u(5), position: 'relative' }}>
           <div style={{
             position: 'absolute', left: 0, top: 0, height: '100%',
-            width: `${Math.min(100, diffAdjPct)}%`, background: T.ink3,
+            width: `${Math.min(100, diffAdjPct)}%`, background: T.orange,
           }} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -148,24 +186,8 @@ export function NetworkStatusWidget({ chain, T }) {
             ~{remainingDays}d
           </div>
         </div>
-      </div>
-
-      {/* Halving Countdown */}
-      <div style={{ marginBottom: u(20), paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
-        <SubLabel right={`~${halvingYrs}yr`} rightColor={T.ink3} T={T}>
-          Halving
-        </SubLabel>
-        <div style={{
-          fontFamily: T.num, fontSize: u(24), fontWeight: 400,
-          color: T.ink, lineHeight: 1, fontFeatureSettings: '"tnum" 1, "lnum" 1',
-        }}>
-          {halvingBlocks.toLocaleString()}
-          <span style={{ fontSize: u(11), fontWeight: 400, color: T.ink3, marginLeft: u(4) }}>blocks</span>
-        </div>
-        <div style={{
-          fontFamily: T.sans, fontSize: u(9), color: T.ink4, marginTop: u(3), letterSpacing: 0.5,
-        }}>
-          Next reward: {blockSubsidy / 2} BTC
+        <div style={{ marginTop: u(6) }}>
+          <Row label="Prev Adj" value={prevDiffAdjStr} valueColor={prevDiffAdjCol} valueAlt={prevRetargetDateStr || undefined} T={T} last />
         </div>
       </div>
 
@@ -201,8 +223,11 @@ export function NetworkStatusWidget({ chain, T }) {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: u(5) }}>
               <Row label="Transactions" value={fmtNum(latestBlock.txCount)} T={T} />
+              <Row label="Block Weight" value={blockWeight} T={T} />
               <Row label="Block Size"   value={fmtBlockSize(latestBlock.size)} T={T} />
+              <Row label="Fee Span"     value={feeSpan} T={T} />
               <Row label="Median Fee"   value={latestBlock.medianFee != null ? `${latestBlock.medianFee} sat/vB` : '—'} T={T} />
+              <Row label="Total Fees"   value={totalFees} T={T} />
               <Row label="Mined By"     value={latestBlock.poolName || '—'} T={T} last />
             </div>
           </>
@@ -232,7 +257,7 @@ export function NetworkStatusWidget({ chain, T }) {
                   borderBottom: i < pools.length - 1 ? `1px solid ${T.rule3}` : 'none',
                 }}>
                   <div style={{
-                    fontFamily: T.sans, fontSize: u(12), color: T.ink2,
+                    fontFamily: T.sans, fontSize: u(12), fontWeight: 400, color: T.ink2,
                     width: u(72), flexShrink: 0, overflow: 'hidden',
                     textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
