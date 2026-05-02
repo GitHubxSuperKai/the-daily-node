@@ -628,9 +628,14 @@ export function CommandCenter({
                   ))}
                 </div>
                 {(() => {
-                  const uv = wx.wxUVIndex ?? 0;
+                  const curHour = new Date().getHours();
+                  const isNight = wx.wxSunriseHr != null && wx.wxSunsetHr != null
+                    ? (curHour < wx.wxSunriseHr || curHour >= wx.wxSunsetHr)
+                    : (curHour < 6 || curHour >= 20);
+                  const uv = isNight ? (wx.wxUVIndexTomorrow ?? 0) : (wx.wxUVIndex ?? 0);
                   const uvColor = uv >= 8 ? T.red : uv >= 6 ? T.orange : uv < 3 ? T.green : T.ink;
                   const uvLabel = uv >= 8 ? 'Very High' : uv >= 6 ? 'High' : uv >= 3 ? 'Moderate' : 'Low';
+                  const uvCellLabel = isNight ? 'UV Tomorrow' : 'UV Index';
                   const br = `1px solid ${T.rule3}`;
                   const cellL  = { padding: `${u(8)} ${u(8)} ${u(8)} 0`,  borderRight: br };
                   const cellM  = { padding: `${u(8)}`,                     borderRight: br };
@@ -663,7 +668,7 @@ export function CommandCenter({
                         {wx.wxGusts != null && <div style={sub}>gusts {wx.wxGusts} mph</div>}
                       </div>
                       <div style={cellMB}>
-                        <div style={lbl}>UV Index</div>
+                        <div style={lbl}>{uvCellLabel}</div>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: u(4) }}>
                           <div style={{ ...val, color: uvColor }}>{uv}</div>
                           <div style={{ fontFamily: T.sans, fontSize: u(8), fontWeight: 600, color: uv >= 6 ? uvColor : T.ink3 }}>{uvLabel}</div>
