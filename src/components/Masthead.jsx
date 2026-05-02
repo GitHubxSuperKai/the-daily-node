@@ -31,14 +31,13 @@ const MASTHEAD_QUOTES = [
 export function Masthead({ clock, wxSummary, blockReward, rewardEra, dark, onToggleDark, onOpenSettings }) {
   const T = useT();
 
-  // One quote per hour — 24 quotes maps perfectly to hours 0–23
   const quote = MASTHEAD_QUOTES[new Date().getHours()];
 
   const metaStyle = {
     fontFamily: T.sans,
-    fontSize: 10,
+    fontSize: u(10),
     fontWeight: 500,
-    letterSpacing: 1.6,
+    letterSpacing: u(1.6),
     textTransform: 'uppercase',
     color: T.ink3,
     lineHeight: 1.7,
@@ -47,46 +46,46 @@ export function Masthead({ clock, wxSummary, blockReward, rewardEra, dark, onTog
   const btnBase = {
     cursor: 'pointer',
     fontFamily: T.sans,
-    fontSize: 9,
+    fontSize: u(9),
     fontWeight: 700,
-    letterSpacing: 1.6,
+    letterSpacing: u(1.6),
     textTransform: 'uppercase',
-    padding: '5px 12px',
+    padding: `${u(5)} ${u(12)}`,
     whiteSpace: 'nowrap',
     border: `1px solid ${T.ink3}`,
   };
 
   return (
-    <div style={{ width: '100%', paddingBottom: 10 }}>
-      <div style={{ borderTop: `1px solid ${T.rule}`, marginBottom: 7 }} />
+    <div style={{ width: '100%', paddingBottom: u(10) }}>
+      <div style={{ borderTop: `1px solid ${T.rule}`, marginBottom: u(7) }} />
 
       <div style={{
         display: 'grid',
         gridTemplateColumns: '1fr auto 1fr',
         alignItems: 'center',
-        gap: 24,
+        gap: u(24),
       }}>
         {/* LEFT — edition info + rotating quote below */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: u(2) }}>
           <div style={metaStyle}>Home Edition · Vol. XXI, Nº 238</div>
           <div style={{ ...metaStyle, color: T.ink4 }}>Est. 2026 · Printed on the blockchain</div>
-          <div style={{ marginTop: 5, fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink2, lineHeight: 1.4, maxWidth: 340 }}>
+          <div style={{ marginTop: u(5), fontFamily: T.body, fontStyle: 'italic', fontSize: u(11), color: T.ink2, lineHeight: 1.4, maxWidth: u(340) }}>
             "{quote.text}"
           </div>
-          <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 1.4, textTransform: 'uppercase', color: T.ink4, marginTop: 2 }}>
+          <div style={{ fontFamily: T.sans, fontSize: u(9), fontWeight: 600, letterSpacing: u(1.4), textTransform: 'uppercase', color: T.ink4, marginTop: u(2) }}>
             — {quote.attr}
           </div>
         </div>
 
         {/* CENTER — wordmark */}
-        <div style={{ textAlign: 'center', padding: '0 40px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 5 }}>
+        <div style={{ textAlign: 'center', padding: `0 ${u(40)}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: u(14), marginBottom: u(5) }}>
             <div style={{ flex: 1, borderTop: `1px solid ${T.rule2}` }} />
             <div style={{
               fontFamily: T.sans,
-              fontSize: 9,
+              fontSize: u(9),
               fontWeight: 600,
-              letterSpacing: 3.5,
+              letterSpacing: u(3.5),
               textTransform: 'uppercase',
               color: T.ink3,
               whiteSpace: 'nowrap',
@@ -96,22 +95,21 @@ export function Masthead({ clock, wxSummary, blockReward, rewardEra, dark, onTog
 
           <div style={{
             fontFamily: T.serif,
-            fontSize: 80,
+            fontSize: u(80),
             fontWeight: 800,
             lineHeight: 1,
-            letterSpacing: -2.5,
+            letterSpacing: u(-2.5),
             color: T.ink,
             whiteSpace: 'nowrap',
-            paddingBottom: 6,
+            paddingBottom: u(6),
           }}>
             The Daily Node
           </div>
         </div>
 
         {/* RIGHT — controls top, data below */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
-          {/* Controls — prominent, top position */}
-          <div style={{ display: 'flex', gap: 5 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: u(5) }}>
+          <div style={{ display: 'flex', gap: u(5) }}>
             <button
               onClick={onToggleDark}
               style={{
@@ -130,19 +128,18 @@ export function Masthead({ clock, wxSummary, blockReward, rewardEra, dark, onTog
               ⚙ Settings
             </button>
           </div>
-          {/* Data */}
           {blockReward && (
             <div style={metaStyle}>
               Block Reward {blockReward} · Era {rewardEra} of 33
             </div>
           )}
-          <div style={{ ...metaStyle, color: T.ink4, fontStyle: 'italic', fontFamily: T.body, fontSize: 9, letterSpacing: 0.3, textTransform: 'none' }}>
+          <div style={{ ...metaStyle, color: T.ink4, fontStyle: 'italic', fontFamily: T.body, fontSize: u(9), letterSpacing: u(0.3), textTransform: 'none' }}>
             "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
           </div>
         </div>
       </div>
 
-      <div style={{ borderTop: `1px solid ${T.rule}`, marginTop: 9 }} />
+      <div style={{ borderTop: `1px solid ${T.rule}`, marginTop: u(9) }} />
     </div>
   );
 }

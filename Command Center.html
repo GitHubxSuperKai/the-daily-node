@@ -21,10 +21,15 @@
     background: inherit;
   }
   #canvas {
-    width: 1920px; height: 1080px;
-    transform-origin: center center;
+    width: calc(var(--u) * 1920);
+    height: calc(var(--u) * 1080);
     flex-shrink: 0;
     overflow: hidden;
+  }
+  /* SYNC: must match MOBILE_BREAKPOINT in useLayoutSize.js and isMobile check in updateScale() */
+  @media (max-width: 900px) {
+    #canvas { width: 100vw; height: auto; min-height: 100vh; }
+    #stage { align-items: flex-start; overflow-y: auto; }
   }
   @keyframes live-pulse {
     0%, 100% { opacity: 1; }
@@ -36,20 +41,20 @@
   }
   .live-dot {
     display: inline-block;
-    width: 6px; height: 6px;
+    width: calc(var(--u) * 6); height: calc(var(--u) * 6);
     border-radius: 50%;
     background: #9c2a1a;
-    margin-right: 5px;
+    margin-right: calc(var(--u) * 5);
     position: relative; top: -1px;
     animation: pulse-dot 1.8s ease-in-out infinite;
     flex-shrink: 0;
   }
   .live-dot-static {
     display: inline-block;
-    width: 6px; height: 6px;
+    width: calc(var(--u) * 6); height: calc(var(--u) * 6);
     border-radius: 50%;
     background: #b8b0a0;
-    margin-right: 5px;
+    margin-right: calc(var(--u) * 5);
     position: relative; top: -1px;
     flex-shrink: 0;
   }
@@ -72,6 +77,8 @@
   .news-col-wrap::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 48px; background: linear-gradient(to bottom, transparent, var(--paper)); pointer-events: none; transition: opacity 0.3s; }
   .news-col-wrap.at-bottom::after { opacity: 0; }
   :root {
+    --u: 1px;       /* updated by JS — scale factor for 1920×1080 design */
+    --u-scale: 1;   /* unitless version of --u for CSS transform: scale() */
     --f-serif:    "Playfair Display", Georgia, serif;
     --f-body:     "Newsreader", Georgia, serif;
     --f-sans:     "Inter Tight", system-ui, sans-serif;
@@ -104,16 +111,18 @@
 
 <script>
 const CANVAS_W = 1920, CANVAS_H = 1080;
-function applyScale() {
-  const canvas = document.getElementById('canvas');
-  const s = Math.min(window.innerWidth / CANVAS_W, window.innerHeight / CANVAS_H);
-  canvas.style.transform = `scale(${s})`;
+function updateScale() {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const isMobile = vw < 900; // SYNC: must match MOBILE_BREAKPOINT in useLayoutSize.js and @media (max-width:900px)
+  const s = isMobile ? 1 : Math.min(vw / CANVAS_W, vh / CANVAS_H);
+  const r = document.documentElement;
+  r.style.setProperty('--u', s + 'px');
+  r.style.setProperty('--u-scale', s);
 }
-window.addEventListener('resize', applyScale);
-window.addEventListener('load', applyScale);
-// Run immediately as well — before load fires
-applyScale();
-window.applyScale = applyScale;
+window.addEventListener('resize', updateScale);
+window.addEventListener('load', updateScale);
+updateScale();
+window.updateScale = updateScale;
 </script>
 
 <script type="text/babel">
@@ -832,30 +841,33 @@ async function fetchBitAxeMiner(ip) {
 
 // CommonJS exports
 
+// Returns a CSS calc() expression scaling design-px value by the --u viewport unit.
+// Usage: u(300) → 'calc(var(--u) * 300)'
+const u = (n) => `calc(var(--u) * ${n})`;
 
-// Import useT hook from theme context (available in build context)
-// Import fmtNum from formatting utilities (available in build context)
-// Both imports assume they're globally available or provided via bundler
 
 const NUM_PX = { hero: 64, lg: 28, md: 20, sm: 15, xs: 12 };
 
 function Num({ size = 'md', value, unit, delta, deltaUp, style = {} }) {
   const T = useT();
   const px = NUM_PX[size];
+  const unitPx = Math.max(10, Math.round(px * 0.52));
+  const deltaPx = Math.max(10, Math.round(px * 0.46));
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 3, ...style }}>
+    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: u(3), ...style }}>
       <span style={{
-        fontFamily: T.mono, fontSize: px, fontWeight: 500,
+        fontFamily: T.mono, fontSize: u(px), fontWeight: 500,
         color: style.color || T.ink, letterSpacing: -0.5,
         fontFeatureSettings: '"tnum"', lineHeight: 1,
       }}>{value}</span>
-      {unit && <span style={{ fontFamily: T.mono, fontSize: Math.max(10, px * 0.52), color: T.ink3, letterSpacing: 0 }}>{unit}</span>}
-      {delta && <span style={{ fontFamily: T.mono, fontSize: Math.max(10, px * 0.46), color: deltaUp ? T.orange : T.ink3, marginLeft: 3 }}>
+      {unit && <span style={{ fontFamily: T.mono, fontSize: u(unitPx), color: T.ink3, letterSpacing: 0 }}>{unit}</span>}
+      {delta && <span style={{ fontFamily: T.mono, fontSize: u(deltaPx), color: deltaUp ? T.orange : T.ink3, marginLeft: u(3) }}>
         {deltaUp ? '▲ ' : '▼ '}{delta}
       </span>}
     </span>
   );
 }
+
 
 
 
@@ -868,12 +880,12 @@ function StatusDot({ ok }) {
 
 
 
-// Import useT hook from theme context (available in build context)
 
 function Kicker({ children, color, style = {} }) {
   const T = useT();
-  return <div style={{ fontFamily: T.sans, fontSize: 10, fontWeight: 600, letterSpacing: 1.8, textTransform: 'uppercase', color: color || T.ink3, ...style }}>{children}</div>;
+  return <div style={{ fontFamily: T.sans, fontSize: u(10), fontWeight: 600, letterSpacing: u(1.8), textTransform: 'uppercase', color: color || T.ink3, ...style }}>{children}</div>;
 }
+
 
 
 
@@ -887,6 +899,8 @@ function Rule({ double, dash, weight = 1, style = {} }) {
 
 
 
+
+
 // Import useT hook from theme context (available in build context)
 
 function ItalicDeck({ children, style = {} }) {
@@ -896,38 +910,53 @@ function ItalicDeck({ children, style = {} }) {
 
 
 
-// ─── Real chart from price data ────────────────────────────────
-function LineChart({ w, h, color, points, fill, vwap }) {
+
+function LineChart({ color, points, fill, vwap }) {
   const T = useT();
   color = color ?? T.orange;
-  // points: array of [timestamp, price] pairs, or null for placeholder
+
+  const containerRef = React.useRef(null);
+  const [dims, setDims] = React.useState({ w: 0, h: 0 });
+
+  React.useLayoutEffect(() => {
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setDims({ w: Math.round(width), h: Math.round(height) });
+    });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  const { w, h } = dims;
   const useFallback = !points || points.length < 2;
   let pts = [];
 
-  if (useFallback) {
-    // deterministic placeholder while loading
-    let s = 12347;
-    const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
-    for (let i = 0; i <= 80; i++) {
-      const x = (i / 80) * w;
-      const base = Math.sin(i * 0.18) * h * 0.3 + Math.sin(i * 0.42) * h * 0.08 + (i / 80) * h * 0.18;
-      const y = h * 0.6 - base + (rnd() - 0.5) * 2;
-      pts.push([x.toFixed(1), Math.max(2, Math.min(h - 2, y)).toFixed(1)]);
+  if (w > 0 && h > 0) {
+    if (useFallback) {
+      let s = 12347;
+      const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+      for (let i = 0; i <= 80; i++) {
+        const x = (i / 80) * w;
+        const base = Math.sin(i * 0.18) * h * 0.3 + Math.sin(i * 0.42) * h * 0.08 + (i / 80) * h * 0.18;
+        const y = h * 0.6 - base + (rnd() - 0.5) * 2;
+        pts.push([x.toFixed(1), Math.max(2, Math.min(h - 2, y)).toFixed(1)]);
+      }
+    } else {
+      const prices = points.map(p => p[1]);
+      const minP = Math.min(...prices);
+      const maxP = Math.max(...prices);
+      const range = maxP - minP || 1;
+      pts = points.map((p, i) => {
+        const x = (i / (points.length - 1)) * w;
+        const y = h - 4 - ((p[1] - minP) / range) * (h - 8);
+        return [x.toFixed(1), Math.max(2, Math.min(h - 2, y)).toFixed(1)];
+      });
     }
-  } else {
-    const prices = points.map(p => p[1]);
-    const minP = Math.min(...prices);
-    const maxP = Math.max(...prices);
-    const range = maxP - minP || 1;
-    pts = points.map((p, i) => {
-      const x = (i / (points.length - 1)) * w;
-      const y = h - 4 - ((p[1] - minP) / range) * (h - 8);
-      return [x.toFixed(1), Math.max(2, Math.min(h - 2, y)).toFixed(1)];
-    });
   }
 
   let vwapY = null;
-  if (!useFallback && vwap != null) {
+  if (w > 0 && h > 0 && !useFallback && vwap != null) {
     const prices = points.map(p => p[1]);
     const minP = Math.min(...prices);
     const maxP = Math.max(...prices);
@@ -935,19 +964,26 @@ function LineChart({ w, h, color, points, fill, vwap }) {
     vwapY = Math.max(2, Math.min(h - 2, h - 4 - ((vwap - minP) / range) * (h - 8)));
   }
 
-  const d = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0]},${p[1]}`).join(' ');
-  const [lx, ly] = pts[pts.length - 1];
+  const d = pts.length > 0
+    ? pts.map((p, i) => `${i ? 'L' : 'M'}${p[0]},${p[1]}`).join(' ')
+    : '';
+  const lastPt = pts[pts.length - 1];
+
   return (
-    <svg width={w} height={h} style={{ display: 'block', flexShrink: 0 }}>
-      {fill && <path d={`${d} L${w},${h} L0,${h}Z`} fill={color} fillOpacity={0.07} />}
-      {vwapY != null && (
-        <line x1={0} y1={vwapY} x2={w} y2={vwapY}
-          stroke={T.ink3} strokeWidth={1} strokeDasharray="3 4" />
+    <div ref={containerRef} style={{ width: '100%', height: '100%', display: 'block', flexShrink: 0 }}>
+      {w > 0 && h > 0 && (
+        <svg width={w} height={h} style={{ display: 'block' }}>
+          {fill && d && <path d={`${d} L${w},${h} L0,${h}Z`} fill={color} fillOpacity={0.07} />}
+          {vwapY != null && (
+            <line x1={0} y1={vwapY} x2={w} y2={vwapY}
+              stroke={T.ink3} strokeWidth={1} strokeDasharray="3 4" />
+          )}
+          {d && <path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />}
+          {lastPt && <circle cx={lastPt[0]} cy={lastPt[1]} r={3} fill={color} />}
+          {lastPt && <circle cx={lastPt[0]} cy={lastPt[1]} r={7} fill="none" stroke={color} strokeOpacity={0.3} strokeWidth={1} />}
+        </svg>
       )}
-      <path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={lx} cy={ly} r={3} fill={color} />
-      <circle cx={lx} cy={ly} r={7} fill="none" stroke={color} strokeOpacity={0.3} strokeWidth={1} />
-    </svg>
+    </div>
   );
 }
 
@@ -1111,9 +1147,12 @@ function WxGlyph({ kind, size, speed: speedProp }) {
   const raw = METEOCONS_SVG[kind] || METEOCONS_SVG['overcast'];
   const speed = speedProp ?? wmoSpeed(kind) ?? 2.5;
   const svg = React.useMemo(() => _processSvg(raw, uid.current, speed, size), [raw, size, speed]);
+  // Outer div uses --u to set visual size; inner div scales the fixed-px SVG via --u-scale
   return (
-    <div style={{ width:size, height:size, color, display:'block', flexShrink:0 }}
-      dangerouslySetInnerHTML={{ __html: svg }} />
+    <div style={{ width: u(size), height: u(size), color, display: 'block', flexShrink: 0, overflow: 'hidden' }}>
+      <div style={{ width: size, height: size, transformOrigin: '0 0', transform: 'scale(var(--u-scale))' }}
+        dangerouslySetInnerHTML={{ __html: svg }} />
+    </div>
   );
 }
 
@@ -1149,6 +1188,8 @@ function useResettableInterval(callback, delay) {
 
   return { reset };
 }
+
+
 
 
 /**
@@ -1723,6 +1764,20 @@ function usePageRefresh(refreshFns) {
 }
 
 
+// SYNC: must match isMobile check in index.html updateScale() and @media (max-width:900px)
+const MOBILE_BREAKPOINT = 900;
+
+function useLayoutSize() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < MOBILE_BREAKPOINT);
+
+  useEffect(() => {
+    const handle = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    window.addEventListener('resize', handle);
+    return () => window.removeEventListener('resize', handle);
+  }, []);
+
+  return { isMobile };
+}
 
 
 const MASTHEAD_QUOTES = [
@@ -1755,14 +1810,13 @@ const MASTHEAD_QUOTES = [
 function Masthead({ clock, wxSummary, blockReward, rewardEra, dark, onToggleDark, onOpenSettings }) {
   const T = useT();
 
-  // One quote per hour — 24 quotes maps perfectly to hours 0–23
   const quote = MASTHEAD_QUOTES[new Date().getHours()];
 
   const metaStyle = {
     fontFamily: T.sans,
-    fontSize: 10,
+    fontSize: u(10),
     fontWeight: 500,
-    letterSpacing: 1.6,
+    letterSpacing: u(1.6),
     textTransform: 'uppercase',
     color: T.ink3,
     lineHeight: 1.7,
@@ -1771,46 +1825,46 @@ function Masthead({ clock, wxSummary, blockReward, rewardEra, dark, onToggleDark
   const btnBase = {
     cursor: 'pointer',
     fontFamily: T.sans,
-    fontSize: 9,
+    fontSize: u(9),
     fontWeight: 700,
-    letterSpacing: 1.6,
+    letterSpacing: u(1.6),
     textTransform: 'uppercase',
-    padding: '5px 12px',
+    padding: `${u(5)} ${u(12)}`,
     whiteSpace: 'nowrap',
     border: `1px solid ${T.ink3}`,
   };
 
   return (
-    <div style={{ width: '100%', paddingBottom: 10 }}>
-      <div style={{ borderTop: `1px solid ${T.rule}`, marginBottom: 7 }} />
+    <div style={{ width: '100%', paddingBottom: u(10) }}>
+      <div style={{ borderTop: `1px solid ${T.rule}`, marginBottom: u(7) }} />
 
       <div style={{
         display: 'grid',
         gridTemplateColumns: '1fr auto 1fr',
         alignItems: 'center',
-        gap: 24,
+        gap: u(24),
       }}>
         {/* LEFT — edition info + rotating quote below */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: u(2) }}>
           <div style={metaStyle}>Home Edition · Vol. XXI, Nº 238</div>
           <div style={{ ...metaStyle, color: T.ink4 }}>Est. 2026 · Printed on the blockchain</div>
-          <div style={{ marginTop: 5, fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink2, lineHeight: 1.4, maxWidth: 340 }}>
+          <div style={{ marginTop: u(5), fontFamily: T.body, fontStyle: 'italic', fontSize: u(11), color: T.ink2, lineHeight: 1.4, maxWidth: u(340) }}>
             "{quote.text}"
           </div>
-          <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 1.4, textTransform: 'uppercase', color: T.ink4, marginTop: 2 }}>
+          <div style={{ fontFamily: T.sans, fontSize: u(9), fontWeight: 600, letterSpacing: u(1.4), textTransform: 'uppercase', color: T.ink4, marginTop: u(2) }}>
             — {quote.attr}
           </div>
         </div>
 
         {/* CENTER — wordmark */}
-        <div style={{ textAlign: 'center', padding: '0 40px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 5 }}>
+        <div style={{ textAlign: 'center', padding: `0 ${u(40)}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: u(14), marginBottom: u(5) }}>
             <div style={{ flex: 1, borderTop: `1px solid ${T.rule2}` }} />
             <div style={{
               fontFamily: T.sans,
-              fontSize: 9,
+              fontSize: u(9),
               fontWeight: 600,
-              letterSpacing: 3.5,
+              letterSpacing: u(3.5),
               textTransform: 'uppercase',
               color: T.ink3,
               whiteSpace: 'nowrap',
@@ -1820,22 +1874,21 @@ function Masthead({ clock, wxSummary, blockReward, rewardEra, dark, onToggleDark
 
           <div style={{
             fontFamily: T.serif,
-            fontSize: 80,
+            fontSize: u(80),
             fontWeight: 800,
             lineHeight: 1,
-            letterSpacing: -2.5,
+            letterSpacing: u(-2.5),
             color: T.ink,
             whiteSpace: 'nowrap',
-            paddingBottom: 6,
+            paddingBottom: u(6),
           }}>
             The Daily Node
           </div>
         </div>
 
         {/* RIGHT — controls top, data below */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
-          {/* Controls — prominent, top position */}
-          <div style={{ display: 'flex', gap: 5 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: u(5) }}>
+          <div style={{ display: 'flex', gap: u(5) }}>
             <button
               onClick={onToggleDark}
               style={{
@@ -1854,22 +1907,28 @@ function Masthead({ clock, wxSummary, blockReward, rewardEra, dark, onToggleDark
               ⚙ Settings
             </button>
           </div>
-          {/* Data */}
           {blockReward && (
             <div style={metaStyle}>
               Block Reward {blockReward} · Era {rewardEra} of 33
             </div>
           )}
-          <div style={{ ...metaStyle, color: T.ink4, fontStyle: 'italic', fontFamily: T.body, fontSize: 9, letterSpacing: 0.3, textTransform: 'none' }}>
+          <div style={{ ...metaStyle, color: T.ink4, fontStyle: 'italic', fontFamily: T.body, fontSize: u(9), letterSpacing: u(0.3), textTransform: 'none' }}>
             "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
           </div>
         </div>
       </div>
 
-      <div style={{ borderTop: `1px solid ${T.rule}`, marginTop: 9 }} />
+      <div style={{ borderTop: `1px solid ${T.rule}`, marginTop: u(9) }} />
     </div>
   );
 }
+
+
+
+
+
+
+
 
 
 function Price({ btc }) {
@@ -1914,6 +1973,10 @@ function Price({ btc }) {
     </div>
   );
 }
+
+
+
+
 
 
 
@@ -1974,6 +2037,7 @@ function Ticker({ chain, feedHealth }) {
     </div>
   );
 }
+
 
 
 
@@ -2132,22 +2196,15 @@ function Chain({ chain }) {
 
 
 
-
-
-
-
-
-
 function Weather({ weather, prefs }) {
   const T = useT();
-
   const wx = weather.data;
 
   if (!wx) {
     return (
       <div>
         <Kicker>Weather</Kicker>
-        <div style={{ fontFamily:T.mono, fontSize:12, color:T.ink3, marginTop:8 }}>
+        <div style={{ fontFamily: T.mono, fontSize: u(12), color: T.ink3, marginTop: u(8) }}>
           {weather.err ? 'weather unavailable' : 'loading…'}
         </div>
       </div>
@@ -2157,44 +2214,43 @@ function Weather({ weather, prefs }) {
   return (
     <div>
       <Kicker>Weather</Kicker>
-      <div style={{ display:'flex', alignItems:'center', gap:12, marginTop:8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: u(12), marginTop: u(8) }}>
         <WxGlyph kind={wmoIcon(wx.wxCode, new Date().getHours(), wx.wxWindSpeed, wx.wxSunriseHr, wx.wxSunsetHr)} size={48} speed={wmoSpeed(wx.wxCode, wx.wxWindSpeed)} />
         <div>
           <Num size="lg" value={`${wx.temp}°`} unit={prefs.tempUnit === 'celsius' ? 'C' : 'F'} />
-          <div style={{ fontFamily:T.body, fontStyle:'italic', fontSize:12, color:T.ink2, marginTop:3 }}>
+          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: u(12), color: T.ink2, marginTop: u(3) }}>
             {wx.wxCond} · H{wx.wxHi} L{wx.wxLo}
           </div>
         </div>
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(8,1fr)', gap:4, marginTop:12, paddingTop:10, borderTop:`1px solid ${T.rule3}` }}>
-        {wx.hourly.map((h,i)=>(
-          <div key={i} style={{ textAlign:'center' }}>
-            <div style={{ fontFamily:T.mono, fontSize:10, color:T.ink3 }}>{fmtHour(h.hr, prefs.timeFormat)}</div>
-            <div style={{ margin:'3px auto' }}><WxGlyph kind={wmoIcon(h.code, h.hr, null, wx.wxSunriseHr, wx.wxSunsetHr)} size={24} speed={wmoSpeed(h.code)} /></div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8,1fr)', gap: u(4), marginTop: u(12), paddingTop: u(10), borderTop: `1px solid ${T.rule3}` }}>
+        {wx.hourly.map((h, i) => (
+          <div key={i} style={{ textAlign: 'center' }}>
+            <div style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink3 }}>{fmtHour(h.hr, prefs.timeFormat)}</div>
+            <div style={{ margin: `${u(3)} auto` }}><WxGlyph kind={wmoIcon(h.code, h.hr, null, wx.wxSunriseHr, wx.wxSunsetHr)} size={24} speed={wmoSpeed(h.code)} /></div>
             <Num size="xs" value={`${h.t}°`} />
-            {h.pop >= 30 && <div style={{ fontFamily:T.mono, fontSize:9, color:T.ink3, marginTop:1 }}>{h.pop}%</div>}
-            {h.precip > 0 && <div style={{ fontFamily:T.mono, fontSize:9, color:T.ink3 }}>{h.precip.toFixed(1)}mm</div>}
+            {h.pop >= 30 && <div style={{ fontFamily: T.mono, fontSize: u(9), color: T.ink3, marginTop: u(1) }}>{h.pop}%</div>}
+            {h.precip > 0 && <div style={{ fontFamily: T.mono, fontSize: u(9), color: T.ink3 }}>{h.precip.toFixed(1)}mm</div>}
           </div>
         ))}
       </div>
-      {/* 2×2 stat grid */}
+      {/* 3×2 stat grid */}
       {(() => {
         const uv = wx.wxUVIndex ?? 0;
         const uvColor = uv >= 8 ? T.red : uv >= 6 ? T.orange : uv < 3 ? T.green : T.ink;
         const uvLabel = uv >= 8 ? 'Very High' : uv >= 6 ? 'High' : uv >= 3 ? 'Moderate' : 'Low';
         const br = `1px solid ${T.rule3}`;
-        const cellL  = { padding: '8px 8px 8px 0',  borderRight: br };
-        const cellM  = { padding: '8px 8px 8px 8px', borderRight: br };
-        const cellR  = { padding: '8px 0 8px 8px' };
-        const cellLB = { padding: '8px 8px 0 0',     borderRight: br, borderTop: br };
-        const cellMB = { padding: '8px 8px 0 8px',   borderRight: br, borderTop: br };
-        const cellRB = { padding: '8px 0 0 8px',     borderTop: br };
-        const lbl = { fontFamily: T.sans, fontSize: 8, fontWeight: 600, letterSpacing: 1.6, textTransform: 'uppercase', color: T.ink3, marginBottom: 3 };
-        const val = { fontFamily: T.mono, fontSize: 13, fontWeight: 500, letterSpacing: -0.5, lineHeight: 1, color: T.ink };
-        const sub = { fontFamily: T.mono, fontSize: 9, color: T.ink3, marginTop: 2 };
+        const cellL  = { padding: `${u(8)} ${u(8)} ${u(8)} 0`,  borderRight: br };
+        const cellM  = { padding: `${u(8)}`,                     borderRight: br };
+        const cellR  = { padding: `${u(8)} 0 ${u(8)} ${u(8)}` };
+        const cellLB = { padding: `${u(8)} ${u(8)} 0 0`,         borderRight: br, borderTop: br };
+        const cellMB = { padding: `${u(8)} ${u(8)} 0 ${u(8)}`,  borderRight: br, borderTop: br };
+        const cellRB = { padding: `${u(8)} 0 0 ${u(8)}`,         borderTop: br };
+        const lbl = { fontFamily: T.sans, fontSize: u(8), fontWeight: 600, letterSpacing: u(1.6), textTransform: 'uppercase', color: T.ink3, marginBottom: u(3) };
+        const val = { fontFamily: T.mono, fontSize: u(13), fontWeight: 500, letterSpacing: -0.5, lineHeight: 1, color: T.ink };
+        const sub = { fontFamily: T.mono, fontSize: u(9), color: T.ink3, marginTop: u(2) };
         return (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', marginTop: 10, borderTop: br }}>
-            {/* Row 1: body/comfort */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', marginTop: u(10), borderTop: br }}>
             <div style={cellL}>
               <div style={lbl}>Feels Like</div>
               <div style={val}>{wx.feels}°{prefs.tempUnit === 'celsius' ? 'C' : 'F'}</div>
@@ -2209,7 +2265,6 @@ function Weather({ weather, prefs }) {
               <div style={lbl}>Dew Point</div>
               <div style={val}>{wx.wxDewPoint != null ? `${wx.wxDewPoint}°` : '—'}</div>
             </div>
-            {/* Row 2: environmental */}
             <div style={cellLB}>
               <div style={lbl}>Wind</div>
               <div style={val}>{wx.wxWind}</div>
@@ -2217,11 +2272,11 @@ function Weather({ weather, prefs }) {
             </div>
             <div style={cellMB}>
               <div style={lbl}>UV Index</div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: u(4) }}>
                 <div style={{ ...val, color: uvColor }}>{uv}</div>
-                <div style={{ fontFamily: T.sans, fontSize: 8, fontWeight: 600, color: uv >= 6 ? uvColor : T.ink3 }}>{uvLabel}</div>
+                <div style={{ fontFamily: T.sans, fontSize: u(8), fontWeight: 600, color: uv >= 6 ? uvColor : T.ink3 }}>{uvLabel}</div>
               </div>
-              <div style={{ height: 2, background: T.rule3, borderRadius: 2, marginTop: 5 }}>
+              <div style={{ height: u(2), background: T.rule3, borderRadius: 2, marginTop: u(5) }}>
                 <div style={{ height: '100%', width: `${Math.min(uv / 11, 1) * 100}%`, background: uvColor, borderRadius: 2 }} />
               </div>
             </div>
@@ -2239,9 +2294,6 @@ function Weather({ weather, prefs }) {
 
 
 
-
-const GRID = '1fr 52px 46px 44px 80px 48px 48px 52px';
-
 const statusColor = {
   online:   '#3a6b2e',
   degraded: '#c8641a',
@@ -2252,9 +2304,9 @@ function Dot({ status }) {
   const T = useT();
   return (
     <span style={{
-      display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
+      display: 'inline-block', width: u(6), height: u(6), borderRadius: '50%',
       background: statusColor[status] || T.ink3,
-      flexShrink: 0, marginRight: 5, position: 'relative', top: -1,
+      flexShrink: 0, marginRight: u(5), position: 'relative', top: -1,
     }} />
   );
 }
@@ -2277,6 +2329,9 @@ function getMinerName(miner) {
 function Miners({ bitaxe, chain }) {
   const T = useT();
 
+  // Grid template: first col flexible, rest fixed design-px widths
+  const GRID = `1fr ${u(52)} ${u(46)} ${u(44)} ${u(80)} ${u(48)} ${u(48)} ${u(52)}`;
+
   const onlineMiners = bitaxe.miners.filter(m => m.online && m.data);
   const minerCount   = bitaxe.miners.length;
   const onlineCount  = onlineMiners.length;
@@ -2295,7 +2350,6 @@ function Miners({ bitaxe, chain }) {
   const lastOkMin = bitaxe.lastOk ? Math.round((Date.now() - bitaxe.lastOk) / 60000) : null;
   const agoStr = lastOkMin != null ? `${lastOkMin}m ago` : '—';
 
-  // Fleet totals
   const activeMiners = bitaxe.miners.filter(m => getMinerStatus(m) !== 'offline');
   const avgEff = activeMiners.length > 0
     ? activeMiners.reduce((s, m) => {
@@ -2322,7 +2376,7 @@ function Miners({ bitaxe, chain }) {
 
   const cell = (val, color) => (
     <div style={{
-      fontFamily: T.mono, fontSize: 11, textAlign: 'right',
+      fontFamily: T.mono, fontSize: u(11), textAlign: 'right',
       fontFeatureSettings: '"tnum"', color: color || T.ink, whiteSpace: 'nowrap',
     }}>
       {val}
@@ -2331,7 +2385,7 @@ function Miners({ bitaxe, chain }) {
 
   const fcell = (val, color) => (
     <div style={{
-      fontFamily: T.mono, fontSize: 11, textAlign: 'right',
+      fontFamily: T.mono, fontSize: u(11), textAlign: 'right',
       fontFeatureSettings: '"tnum"', color: color || T.ink, whiteSpace: 'nowrap',
       fontWeight: 700,
     }}>
@@ -2353,23 +2407,23 @@ function Miners({ bitaxe, chain }) {
   const showStubs = bitaxe.miners.length === 0 && !bitaxe.loading;
 
   return (
-    <div style={{ marginBottom: 4 }}>
+    <div style={{ marginBottom: u(4) }}>
 
       {/* Masthead */}
       <div style={{
-        borderTop: `3px solid ${T.ink}`,
+        borderTop: `${u(3)} solid ${T.ink}`,
         borderBottom: `1px solid ${T.ink}`,
         display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-        padding: '5px 0', marginBottom: 14,
+        padding: `${u(5)} 0`, marginBottom: u(14),
       }}>
         <span style={{
-          fontFamily: T.sans, fontSize: 10, fontWeight: 700,
-          letterSpacing: 2, textTransform: 'uppercase', color: T.ink, whiteSpace: 'nowrap',
+          fontFamily: T.sans, fontSize: u(10), fontWeight: 700,
+          letterSpacing: u(2), textTransform: 'uppercase', color: T.ink, whiteSpace: 'nowrap',
         }}>
           Field Report
         </span>
         <span style={{
-          fontFamily: T.body, fontSize: 10, fontStyle: 'italic',
+          fontFamily: T.body, fontSize: u(10), fontStyle: 'italic',
           color: T.ink3, whiteSpace: 'nowrap',
         }}>
           {onlineCount}/{minerCount} active · {agoStr}
@@ -2377,17 +2431,17 @@ function Miners({ bitaxe, chain }) {
       </div>
 
       {/* Pull-quote hero */}
-      <div style={{ borderLeft: `3px solid ${T.ink}`, paddingLeft: 12, marginBottom: 14 }}>
+      <div style={{ borderLeft: `${u(3)} solid ${T.ink}`, paddingLeft: u(12), marginBottom: u(14) }}>
         <div style={{
-          fontFamily: T.serif, fontSize: 38, fontWeight: 800, fontStyle: 'italic',
+          fontFamily: T.serif, fontSize: u(38), fontWeight: 800, fontStyle: 'italic',
           color: oddsOneIn ? T.ink : T.ink4, lineHeight: 1, letterSpacing: -0.5,
           fontFeatureSettings: '"tnum"',
         }}>
           {oddsOneIn ? `1-in-${oddsOneIn.toLocaleString()}` : '1-in-—'}
         </div>
         <div style={{
-          fontFamily: T.body, fontSize: 12, fontStyle: 'italic',
-          color: T.ink2, marginTop: 5, lineHeight: 1.45,
+          fontFamily: T.body, fontSize: u(12), fontStyle: 'italic',
+          color: T.ink2, marginTop: u(5), lineHeight: 1.45,
         }}>
           odds of finding a block today —<br />
           {onlineCount > 0
@@ -2401,14 +2455,14 @@ function Miners({ bitaxe, chain }) {
         {/* Headers */}
         <div style={{
           display: 'grid', gridTemplateColumns: GRID,
-          gap: '0 4px', padding: '3px 2px',
+          gap: `0 ${u(4)}`, padding: `${u(3)} ${u(2)}`,
           borderTop: `1px solid ${T.rule2}`, borderBottom: `1px solid ${T.rule2}`,
           marginBottom: 1,
         }}>
           {HEADERS.map(({ label, fade }, i) => (
             <div key={i} style={{
-              fontFamily: T.sans, fontSize: 8, fontWeight: 700,
-              letterSpacing: 1.1, textTransform: 'uppercase',
+              fontFamily: T.sans, fontSize: u(8), fontWeight: 700,
+              letterSpacing: u(1.1), textTransform: 'uppercase',
               color: fade ? T.ink4 : T.ink3,
               textAlign: i > 0 ? 'right' : 'left',
               whiteSpace: 'nowrap',
@@ -2418,12 +2472,11 @@ function Miners({ bitaxe, chain }) {
           ))}
         </div>
 
-        {/* Stub row when no miners configured */}
         {showStubs && (
           <div style={{
-            padding: '8px 2px',
+            padding: `${u(8)} ${u(2)}`,
             borderBottom: `1px solid ${T.rule3}`,
-            fontFamily: T.mono, fontSize: 11, color: T.ink4,
+            fontFamily: T.mono, fontSize: u(11), color: T.ink4,
           }}>
             No miners configured
           </div>
@@ -2449,13 +2502,13 @@ function Miners({ bitaxe, chain }) {
           return (
             <div key={i} style={{
               display: 'grid', gridTemplateColumns: GRID,
-              gap: '0 4px', padding: '5px 2px',
+              gap: `0 ${u(4)}`, padding: `${u(5)} ${u(2)}`,
               borderBottom: `1px solid ${T.rule3}`,
               opacity: isOff ? 0.4 : 1,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
                 <Dot status={status} />
-                <span style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 600, color: T.ink }}>
+                <span style={{ fontFamily: T.sans, fontSize: u(11), fontWeight: 600, color: T.ink }}>
                   {getMinerName(miner)}
                 </span>
               </div>
@@ -2463,7 +2516,7 @@ function Miners({ bitaxe, chain }) {
               {cell(isOff ? '—' : `${eff.toFixed(1)}`, eff > 25 ? T.red : T.ink)}
               {cell(isOff ? '—' : (upPct != null ? `${upPct.toFixed(0)}%` : '—'), upPct != null && upPct < 80 ? T.red : T.ink2)}
               <div style={{
-                fontFamily: T.mono, fontSize: 11, textAlign: 'right',
+                fontFamily: T.mono, fontSize: u(11), textAlign: 'right',
                 fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap', color: T.ink2,
               }}>
                 {isOff ? '—' : (
@@ -2485,14 +2538,14 @@ function Miners({ bitaxe, chain }) {
       {bitaxe.miners.length > 0 && (
         <div style={{
           display: 'grid', gridTemplateColumns: GRID,
-          gap: '0 4px', padding: '6px 4px',
+          gap: `0 ${u(4)}`, padding: `${u(6)} ${u(4)}`,
           borderTop: `1px solid ${T.rule2}`,
           marginTop: 1,
           background: T.paper2,
         }}>
           <div style={{
-            fontFamily: T.sans, fontSize: 9, fontWeight: 700,
-            letterSpacing: 1.1, textTransform: 'uppercase',
+            fontFamily: T.sans, fontSize: u(9), fontWeight: 700,
+            letterSpacing: u(1.1), textTransform: 'uppercase',
             color: T.ink3, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap',
           }}>
             Fleet
@@ -2501,7 +2554,7 @@ function Miners({ bitaxe, chain }) {
           {fcell(`${avgEff.toFixed(1)}`, avgEff > 25 ? T.red : T.ink)}
           {fcell(avgUp != null ? `${avgUp.toFixed(0)}%` : '—', avgUp != null && avgUp < 80 ? T.red : T.ink)}
           <div style={{
-            fontFamily: T.mono, fontSize: 11, textAlign: 'right',
+            fontFamily: T.mono, fontSize: u(11), textAlign: 'right',
             fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap', fontWeight: 700, color: T.ink,
           }}>
             {totalAcc.toLocaleString()}
@@ -2515,9 +2568,6 @@ function Miners({ bitaxe, chain }) {
     </div>
   );
 }
-
-
-
 
 
 
@@ -2578,11 +2628,11 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
 
   const inp = {
     fontFamily: T.mono,
-    fontSize: 13,
+    fontSize: u(13),
     color: T.ink,
     background: T.paper2,
     border: `1px solid ${T.rule2}`,
-    padding: '8px 10px',
+    padding: `${u(8)} ${u(10)}`,
     outline: 'none',
     boxSizing: 'border-box',
     display: 'block',
@@ -2591,11 +2641,11 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
 
   const btnPrimary = {
     fontFamily: T.sans,
-    fontSize: 10,
+    fontSize: u(10),
     fontWeight: 700,
-    letterSpacing: 1.8,
+    letterSpacing: u(1.8),
     textTransform: 'uppercase',
-    padding: '9px 22px',
+    padding: `${u(9)} ${u(22)}`,
     cursor: 'pointer',
     border: 'none',
     background: T.ink,
@@ -2604,11 +2654,11 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
 
   const btnSecondary = {
     fontFamily: T.sans,
-    fontSize: 10,
+    fontSize: u(10),
     fontWeight: 700,
-    letterSpacing: 1.8,
+    letterSpacing: u(1.8),
     textTransform: 'uppercase',
-    padding: '9px 22px',
+    padding: `${u(9)} ${u(22)}`,
     cursor: 'pointer',
     border: 'none',
     background: 'transparent',
@@ -2617,9 +2667,9 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
 
   const toggleBtn = (active) => ({
     fontFamily: T.mono,
-    fontSize: 12,
-    letterSpacing: 1,
-    padding: '7px 14px',
+    fontSize: u(12),
+    letterSpacing: u(1),
+    padding: `${u(7)} ${u(14)}`,
     cursor: 'pointer',
     border: 'none',
     background: active ? T.ink : T.paper2,
@@ -2631,48 +2681,47 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
       style={{ position: 'absolute', inset: 0, zIndex: 10 }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      {/* Right-side drawer */}
+      {/* Right-side drawer — clamps to full width on mobile */}
       <div style={{
         position: 'absolute',
         top: 0,
         right: 0,
         bottom: 0,
-        width: 480,
+        width: `min(${u(480)}, 100%)`,
         background: T.paper,
         borderLeft: `1px solid ${T.rule}`,
         display: 'flex',
         flexDirection: 'column',
         overflowY: 'auto',
-        boxShadow: '-8px 0 32px rgba(0,0,0,0.14)',
+        boxShadow: `${u(-8)} 0 ${u(32)} rgba(0,0,0,0.14)`,
       }}>
         {/* Masthead header */}
-        <div style={{ padding: '22px 28px 0', flexShrink: 0 }}>
-          <div style={{ borderTop: `3px solid ${T.rule}`, borderBottom: `1px solid ${T.rule}`, height: 6, marginBottom: 14 }} />
+        <div style={{ padding: `${u(22)} ${u(28)} 0`, flexShrink: 0 }}>
+          <div style={{ borderTop: `${u(3)} solid ${T.rule}`, borderBottom: `1px solid ${T.rule}`, height: u(6), marginBottom: u(14) }} />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 3, textTransform: 'uppercase', color: T.ink3, marginBottom: 4 }}>
+              <div style={{ fontFamily: T.sans, fontSize: u(9), fontWeight: 600, letterSpacing: u(3), textTransform: 'uppercase', color: T.ink3, marginBottom: u(4) }}>
                 Configuration
               </div>
-              <div style={{ fontFamily: T.serif, fontSize: 26, fontWeight: 800, letterSpacing: -0.8, color: T.ink, lineHeight: 1 }}>
+              <div style={{ fontFamily: T.serif, fontSize: u(26), fontWeight: 800, letterSpacing: u(-0.8), color: T.ink, lineHeight: 1 }}>
                 The Masthead
               </div>
             </div>
             <button
               onClick={onClose}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: T.mono, fontSize: 16, color: T.ink3, padding: 4 }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: T.mono, fontSize: u(16), color: T.ink3, padding: u(4) }}
             >
               ✕
             </button>
           </div>
         </div>
 
-        <div style={{ padding: '18px 28px 28px', display: 'flex', flexDirection: 'column', gap: 0 }}>
-          {/* ── Home Fleet ── */}
+        <div style={{ padding: `${u(18)} ${u(28)} ${u(28)}`, display: 'flex', flexDirection: 'column', gap: 0 }}>
           <Kicker>Home Fleet</Kicker>
-          <div style={{ height: 10 }} />
+          <div style={{ height: u(10) }} />
 
           <Kicker>BitAxe API URL</Kicker>
-          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3, marginTop: 3, marginBottom: 6 }}>
+          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: u(11), color: T.ink3, marginTop: u(3), marginBottom: u(6) }}>
             Run bitaxe_api.py on a local server. Leave blank to poll miners directly.
           </div>
           <input
@@ -2683,9 +2732,9 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
             spellCheck={false}
           />
 
-          <div style={{ height: 14 }} />
+          <div style={{ height: u(14) }} />
           <Kicker>Miner IPs (direct polling fallback)</Kicker>
-          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3, marginTop: 3, marginBottom: 6 }}>
+          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: u(11), color: T.ink3, marginTop: u(3), marginBottom: u(6) }}>
             Used when API URL is blank or unreachable. Comma-separated.
           </div>
           <input
@@ -2696,13 +2745,12 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
             spellCheck={false}
           />
 
-          {/* ── Preferences ── */}
-          <div style={{ borderTop: `1px solid ${T.rule2}`, margin: '20px 0 16px' }} />
+          <div style={{ borderTop: `1px solid ${T.rule2}`, margin: `${u(20)} 0 ${u(16)}` }} />
           <Kicker>Preferences</Kicker>
-          <div style={{ height: 10 }} />
+          <div style={{ height: u(10) }} />
 
           <Kicker>Location</Kicker>
-          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3, marginTop: 3, marginBottom: 6 }}>
+          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: u(11), color: T.ink3, marginTop: u(3), marginBottom: u(6) }}>
             Type a city name and select from results.
           </div>
           <div style={{ display: 'flex' }}>
@@ -2719,9 +2767,9 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
               disabled={geoLoading}
               style={{
                 fontFamily: T.mono,
-                fontSize: 11,
-                letterSpacing: 1,
-                padding: '0 14px',
+                fontSize: u(11),
+                letterSpacing: u(1),
+                padding: `0 ${u(14)}`,
                 background: T.ink,
                 color: T.paper,
                 border: 'none',
@@ -2733,10 +2781,10 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
             </button>
           </div>
           {geoResults === 'error' && (
-            <div style={{ fontFamily: T.mono, fontSize: 11, color: T.red, marginTop: 4 }}>Search unavailable</div>
+            <div style={{ fontFamily: T.mono, fontSize: u(11), color: T.red, marginTop: u(4) }}>Search unavailable</div>
           )}
           {Array.isArray(geoResults) && geoResults.length === 0 && (
-            <div style={{ fontFamily: T.mono, fontSize: 11, color: T.ink3, marginTop: 4 }}>No results found</div>
+            <div style={{ fontFamily: T.mono, fontSize: u(11), color: T.ink3, marginTop: u(4) }}>No results found</div>
           )}
           {Array.isArray(geoResults) && geoResults.length > 0 && (
             <div style={{ border: `1px solid ${T.rule2}`, borderTop: 'none' }}>
@@ -2747,11 +2795,11 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
                     key={i}
                     onClick={() => handleSelectCity(r)}
                     style={{
-                      padding: '7px 10px',
+                      padding: `${u(7)} ${u(10)}`,
                       borderTop: i > 0 ? `1px solid ${T.rule3}` : 'none',
                       cursor: 'pointer',
                       fontFamily: T.mono,
-                      fontSize: 12,
+                      fontSize: u(12),
                       color: T.ink,
                       display: 'flex',
                       justifyContent: 'space-between',
@@ -2762,7 +2810,7 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
                     onMouseLeave={(e) => (e.currentTarget.style.background = T.paper)}
                   >
                     <span>{label}</span>
-                    <span style={{ color: T.ink3, fontSize: 10 }}>
+                    <span style={{ color: T.ink3, fontSize: u(10) }}>
                       {r.latitude.toFixed(2)}, {r.longitude.toFixed(2)}
                     </span>
                   </div>
@@ -2771,31 +2819,29 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
             </div>
           )}
           {pendingCityName && (
-            <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink3, marginTop: 5 }}>
+            <div style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink3, marginTop: u(5) }}>
               Active: {pendingCityName} ({pendingLat.toFixed(4)}, {pendingLng.toFixed(4)})
             </div>
           )}
 
-          {/* Time + Temp toggles */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: u(16), marginTop: u(16) }}>
             <div>
               <Kicker>Time Format</Kicker>
-              <div style={{ display: 'flex', border: `1px solid ${T.rule2}`, marginTop: 8, width: 'fit-content' }}>
+              <div style={{ display: 'flex', border: `1px solid ${T.rule2}`, marginTop: u(8), width: 'fit-content' }}>
                 <button style={toggleBtn(timeFormat === '12h')} onClick={() => setTimeFormat('12h')}>12h AM/PM</button>
                 <button style={toggleBtn(timeFormat === '24h')} onClick={() => setTimeFormat('24h')}>24h</button>
               </div>
             </div>
             <div>
               <Kicker>Temperature</Kicker>
-              <div style={{ display: 'flex', border: `1px solid ${T.rule2}`, marginTop: 8, width: 'fit-content' }}>
+              <div style={{ display: 'flex', border: `1px solid ${T.rule2}`, marginTop: u(8), width: 'fit-content' }}>
                 <button style={toggleBtn(tempUnit === 'fahrenheit')} onClick={() => setTempUnit('fahrenheit')}>°F</button>
                 <button style={toggleBtn(tempUnit === 'celsius')} onClick={() => setTempUnit('celsius')}>°C</button>
               </div>
             </div>
           </div>
 
-          {/* Actions */}
-          <div style={{ display: 'flex', gap: 10, marginTop: 24, borderTop: `1px solid ${T.rule2}`, paddingTop: 18 }}>
+          <div style={{ display: 'flex', gap: u(10), marginTop: u(24), borderTop: `1px solid ${T.rule2}`, paddingTop: u(18) }}>
             <button style={btnPrimary} onClick={handleSave}>Save</button>
             <button style={btnSecondary} onClick={onClose}>Cancel</button>
           </div>
@@ -2806,24 +2852,21 @@ function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
 }
 
 
-
-// fmtNum, fmtHashrate, fmtDiff, fmtBlockSize are available globally via build manifest.
-
 function SubLabel({ children, right, alert, rightColor, T }) {
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-      marginBottom: 6,
+      marginBottom: u(6),
     }}>
       <div style={{
-        fontFamily: T.sans, fontSize: 9, fontWeight: 700,
-        letterSpacing: 1.4, textTransform: 'uppercase', color: T.ink3,
+        fontFamily: T.sans, fontSize: u(9), fontWeight: 700,
+        letterSpacing: u(1.4), textTransform: 'uppercase', color: T.ink3,
       }}>
         {children}
       </div>
       {right && (
         <div style={{
-          fontFamily: T.mono, fontSize: 10, fontWeight: 600,
+          fontFamily: T.mono, fontSize: u(10), fontWeight: 600,
           color: rightColor || (alert ? T.red : T.green),
         }}>
           {right}
@@ -2837,17 +2880,17 @@ function Row({ label, value, valueColor, last, T }) {
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-      paddingBottom: last ? 0 : 6,
+      paddingBottom: last ? 0 : u(6),
       borderBottom: last ? 'none' : `1px solid ${T.rule3}`,
     }}>
       <div style={{
-        fontFamily: T.sans, fontSize: 9, fontWeight: 600,
-        letterSpacing: 1.2, textTransform: 'uppercase', color: T.ink3,
+        fontFamily: T.sans, fontSize: u(9), fontWeight: 600,
+        letterSpacing: u(1.2), textTransform: 'uppercase', color: T.ink3,
       }}>
         {label}
       </div>
       <div style={{
-        fontFamily: T.mono, fontSize: 13, fontWeight: 600,
+        fontFamily: T.mono, fontSize: u(13), fontWeight: 600,
         color: valueColor || T.ink, fontFeatureSettings: '"tnum"',
       }}>
         {value}
@@ -2861,17 +2904,14 @@ function NetworkStatusWidget({ chain, T }) {
   const pools = chain.pools || [];
   const d = chain.data;
 
-  // Block reward from height
   const halvings = Math.floor((d?.height || 0) / 210000);
   const halvingBlocks = (halvings + 1) * 210000 - (d?.height || 0);
   const blockSubsidy = 50 / Math.pow(2, halvings);
 
-  // Block interval
   const blockIntervalMin = d?.blockTimeMs ? (d.blockTimeMs / 60000).toFixed(1) : '—';
   const blockIntervalCol = !d ? T.ink
     : (d.blockTimeMs / 60000 < 8 || d.blockTimeMs / 60000 > 12) ? T.red : T.ink;
 
-  // Difficulty adjustment
   const diffAdj = d?.diffAdj;
   const diffAdjStr = diffAdj != null ? `${diffAdj >= 0 ? '+' : ''}${diffAdj.toFixed(2)}% est.` : '—';
   const diffAdjCol = diffAdj == null ? T.ink3 : diffAdj > 0 ? T.red : T.green;
@@ -2879,10 +2919,8 @@ function NetworkStatusWidget({ chain, T }) {
   const remainingBlocks = d?.remainingBlocks ?? 0;
   const remainingDays = Math.round(remainingBlocks * 10 / 60 / 24);
 
-  // Halving
   const halvingYrs = (halvingBlocks * 10 / 60 / 24 / 365).toFixed(1);
 
-  // Mempool
   const mempoolMBRaw = d ? d.mempoolBytes / 1e6 : null;
   const mempoolLabel = mempoolMBRaw == null ? '—'
     : mempoolMBRaw < 50 ? 'Clear' : mempoolMBRaw < 200 ? 'Moderate' : 'Congested';
@@ -2892,12 +2930,10 @@ function NetworkStatusWidget({ chain, T }) {
   const feeMid  = d?.feeMid  != null ? `${d.feeMid}`  : '—';
   const feeFast = d?.feeFast != null ? `${d.feeFast}` : '—';
 
-  // Latest block age
   const blockAge = latestBlock?.timestamp
     ? `${Math.round((Date.now() / 1000 - latestBlock.timestamp) / 60)}m ago`
     : '—';
 
-  // Mining pools
   const topPool = pools[0];
   const poolRisk = topPool && parseFloat(topPool.sharePct) > 40;
 
@@ -2906,21 +2942,21 @@ function NetworkStatusWidget({ chain, T }) {
 
       {/* Masthead */}
       <div style={{
-        borderTop: `3px solid ${T.ink}`, borderBottom: `1px solid ${T.ink}`,
+        borderTop: `${u(3)} solid ${T.ink}`, borderBottom: `1px solid ${T.ink}`,
         display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-        padding: '5px 0', marginBottom: 16,
+        padding: `${u(5)} 0`, marginBottom: u(16),
       }}>
         <span style={{
-          fontFamily: T.sans, fontSize: 10, fontWeight: 700,
-          letterSpacing: 2, textTransform: 'uppercase', color: T.ink, whiteSpace: 'nowrap',
+          fontFamily: T.sans, fontSize: u(10), fontWeight: 700,
+          letterSpacing: u(2), textTransform: 'uppercase', color: T.ink, whiteSpace: 'nowrap',
         }}>
           Network Status
         </span>
       </div>
 
       {/* Headline stats 2×2 */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px' }}>
+      <div style={{ marginBottom: u(20) }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: `${u(12)} ${u(16)}` }}>
           {[
             { val: d ? fmtHashrate(d.hashrate) : '—', label: 'Hashrate',      size: 24, color: T.ink },
             { val: d ? fmtDiff(d.difficulty)   : '—', label: 'Difficulty',    size: 24, color: T.ink },
@@ -2929,14 +2965,14 @@ function NetworkStatusWidget({ chain, T }) {
           ].map(({ val, label, size, color }, i) => (
             <div key={i}>
               <div style={{
-                fontFamily: T.mono, fontSize: size, fontWeight: 700,
+                fontFamily: T.mono, fontSize: u(size), fontWeight: 700,
                 color, lineHeight: 1, fontFeatureSettings: '"tnum"',
               }}>
                 {val}
               </div>
               <div style={{
-                fontFamily: T.sans, fontSize: 9, fontWeight: 600,
-                letterSpacing: 1.2, textTransform: 'uppercase', color: T.ink3, marginTop: 4,
+                fontFamily: T.sans, fontSize: u(9), fontWeight: 600,
+                letterSpacing: u(1.2), textTransform: 'uppercase', color: T.ink3, marginTop: u(4),
               }}>
                 {label}
               </div>
@@ -2946,51 +2982,51 @@ function NetworkStatusWidget({ chain, T }) {
       </div>
 
       {/* Difficulty Adjustment */}
-      <div style={{ marginBottom: 20, paddingTop: 12, borderTop: `1px solid ${T.rule3}` }}>
+      <div style={{ marginBottom: u(20), paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
         <SubLabel right={diffAdjStr} rightColor={diffAdjCol} T={T}>
           Difficulty Adj.
         </SubLabel>
-        <div style={{ height: 2, background: T.rule3, marginBottom: 5, position: 'relative' }}>
+        <div style={{ height: u(2), background: T.rule3, marginBottom: u(5), position: 'relative' }}>
           <div style={{
             position: 'absolute', left: 0, top: 0, height: '100%',
             width: `${Math.min(100, diffAdjPct)}%`, background: T.ink3,
           }} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink3, fontFeatureSettings: '"tnum"' }}>
+          <div style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink3, fontFeatureSettings: '"tnum"' }}>
             {fmtNum(remainingBlocks)} blocks remaining
           </div>
-          <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink4, fontFeatureSettings: '"tnum"' }}>
+          <div style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink4, fontFeatureSettings: '"tnum"' }}>
             ~{remainingDays}d
           </div>
         </div>
       </div>
 
       {/* Halving Countdown */}
-      <div style={{ marginBottom: 20, paddingTop: 12, borderTop: `1px solid ${T.rule3}` }}>
+      <div style={{ marginBottom: u(20), paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
         <SubLabel right={`~${halvingYrs}yr`} rightColor={T.ink3} T={T}>
           Halving
         </SubLabel>
         <div style={{
-          fontFamily: T.mono, fontSize: 24, fontWeight: 700,
+          fontFamily: T.mono, fontSize: u(24), fontWeight: 700,
           color: T.ink, lineHeight: 1, fontFeatureSettings: '"tnum"',
         }}>
           {halvingBlocks.toLocaleString()}
-          <span style={{ fontSize: 11, fontWeight: 400, color: T.ink3, marginLeft: 4 }}>blocks</span>
+          <span style={{ fontSize: u(11), fontWeight: 400, color: T.ink3, marginLeft: u(4) }}>blocks</span>
         </div>
         <div style={{
-          fontFamily: T.sans, fontSize: 9, color: T.ink4, marginTop: 3, letterSpacing: 0.5,
+          fontFamily: T.sans, fontSize: u(9), color: T.ink4, marginTop: u(3), letterSpacing: 0.5,
         }}>
           Next reward: {blockSubsidy / 2} BTC
         </div>
       </div>
 
       {/* Mempool */}
-      <div style={{ marginBottom: 20, paddingTop: 12, borderTop: `1px solid ${T.rule3}` }}>
+      <div style={{ marginBottom: u(20), paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
         <SubLabel right={mempoolLabel} rightColor={mempoolColor} T={T}>
           Mempool
         </SubLabel>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: u(5) }}>
           <Row label="Pending Txs" value={d ? fmtNum(d.mempoolTx) : '—'} T={T} />
           <Row label="Size" value={d ? `${(d.mempoolBytes / 1e6).toFixed(1)} MB` : '—'} T={T} />
           <Row
@@ -3003,19 +3039,19 @@ function NetworkStatusWidget({ chain, T }) {
       </div>
 
       {/* Latest Block */}
-      <div style={{ marginBottom: 20, paddingTop: 12, borderTop: `1px solid ${T.rule3}` }}>
+      <div style={{ marginBottom: u(20), paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
         <SubLabel right={blockAge} rightColor={T.ink3} T={T}>
           Latest Block
         </SubLabel>
         {latestBlock ? (
           <>
             <div style={{
-              fontFamily: T.mono, fontSize: 24, fontWeight: 700,
-              color: T.ink, lineHeight: 1, marginBottom: 8, fontFeatureSettings: '"tnum"',
+              fontFamily: T.mono, fontSize: u(24), fontWeight: 700,
+              color: T.ink, lineHeight: 1, marginBottom: u(8), fontFeatureSettings: '"tnum"',
             }}>
               #{fmtNum(latestBlock.height)}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: u(5) }}>
               <Row label="Transactions" value={fmtNum(latestBlock.txCount)} T={T} />
               <Row label="Block Size"   value={fmtBlockSize(latestBlock.size)} T={T} />
               <Row label="Median Fee"   value={latestBlock.medianFee != null ? `${latestBlock.medianFee} sat/vB` : '—'} T={T} />
@@ -3023,13 +3059,13 @@ function NetworkStatusWidget({ chain, T }) {
             </div>
           </>
         ) : (
-          <div style={{ fontFamily: T.mono, fontSize: 14, color: T.ink4 }}>—</div>
+          <div style={{ fontFamily: T.mono, fontSize: u(14), color: T.ink4 }}>—</div>
         )}
       </div>
 
       {/* Mining Pools */}
       {pools.length > 0 && (
-        <div style={{ paddingTop: 12, borderTop: `1px solid ${T.rule3}` }}>
+        <div style={{ paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
           <SubLabel
             right={poolRisk ? 'Concentration ⚠' : null}
             alert={poolRisk}
@@ -3044,18 +3080,18 @@ function NetworkStatusWidget({ chain, T }) {
               return (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '5px 0',
+                  padding: `${u(5)} 0`,
                   borderBottom: i < pools.length - 1 ? `1px solid ${T.rule3}` : 'none',
                 }}>
                   <div style={{
-                    fontFamily: T.sans, fontSize: 12, color: T.ink2,
-                    width: 72, flexShrink: 0, overflow: 'hidden',
+                    fontFamily: T.sans, fontSize: u(12), color: T.ink2,
+                    width: u(72), flexShrink: 0, overflow: 'hidden',
                     textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
                     {pool.name}
                   </div>
                   <div style={{
-                    flex: 1, height: 2, background: T.rule3, margin: '0 8px', position: 'relative',
+                    flex: 1, height: u(2), background: T.rule3, margin: `0 ${u(8)}`, position: 'relative',
                   }}>
                     <div style={{
                       position: 'absolute', left: 0, top: 0, height: '100%',
@@ -3063,15 +3099,15 @@ function NetworkStatusWidget({ chain, T }) {
                     }} />
                   </div>
                   <div style={{
-                    fontFamily: T.mono, fontSize: 12, fontWeight: 600,
+                    fontFamily: T.mono, fontSize: u(12), fontWeight: 600,
                     color: isRisk ? T.red : T.ink, fontFeatureSettings: '"tnum"',
-                    width: 38, textAlign: 'right', flexShrink: 0,
+                    width: u(38), textAlign: 'right', flexShrink: 0,
                   }}>
                     {pool.sharePct}%
                   </div>
                   <div style={{
-                    fontFamily: T.mono, fontSize: 11, color: T.ink3,
-                    width: 28, textAlign: 'right', flexShrink: 0, fontFeatureSettings: '"tnum"',
+                    fontFamily: T.mono, fontSize: u(11), color: T.ink3,
+                    width: u(28), textAlign: 'right', flexShrink: 0, fontFeatureSettings: '"tnum"',
                   }}>
                     {fmtNum(pool.blockCount || 0)}
                   </div>
@@ -3087,44 +3123,13 @@ function NetworkStatusWidget({ chain, T }) {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /**
- * CommandCenter — Main layout orchestrator (1920x1080)
- * Displays:
- *   - Top chrome (Masthead with time, weather, settings)
- *   - Scrolling ticker with chain vitals
- *   - 4-column grid:
- *     0: Logo, clock, weather, system status sidebar
- *     1: BTC price, chart, lead story
- *     2: Headlines feed
- *     3: Home fleet, solo odds, miners, chain vitals
- *   - Settings modal (MastheadPanel)
+ * CommandCenter — Main layout orchestrator
+ * Renders a responsive 4-column newspaper dashboard on desktop/TV,
+ * and a single-column scrollable view on mobile (< 900px).
  *
- * Props:
- *   - dark: boolean
- *   - onToggleDark: () => void
- *   - bitaxeApiUrl: string
- *   - bitaxeIps: string[]
- *   - prefs: { lat, lng, cityName, timeFormat, tempUnit }
- *   - settingsOpen: boolean
- *   - onOpenSettings: () => void
- *   - onSaveSettings: (url, ips[], prefs) => void
- *   - onCloseSettings: () => void
+ * Layout uses CSS --u variable (set by index.html) so all dimensions
+ * scale proportionally across 4K, 2K, 1080p, and smaller screens.
  */
 function LeadImage({ src, domain }) {
   const T = useT();
@@ -3133,14 +3138,14 @@ function LeadImage({ src, domain }) {
     return (
       <div style={{
         width: '100%',
-        height: 80,
+        height: u(80),
         background: `repeating-linear-gradient(45deg, ${T.rule3} 0, ${T.rule3} 1px, transparent 0, transparent 8px)`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: 3,
       }}>
-        <span style={{ fontFamily: T.mono, fontSize: 10, color: T.ink4 }}>{domain}</span>
+        <span style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink4 }}>{domain}</span>
       </div>
     );
   }
@@ -3148,7 +3153,7 @@ function LeadImage({ src, domain }) {
     <img
       src={src}
       alt=""
-      style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 3, display: 'block' }}
+      style={{ width: '100%', height: u(160), objectFit: 'cover', borderRadius: 3, display: 'block' }}
       onError={() => setErrored(true)}
     />
   );
@@ -3166,6 +3171,7 @@ function CommandCenter({
   onCloseSettings,
 }) {
   const T = useT();
+  const { isMobile } = useLayoutSize();
   const clock = useClock(prefs.timeFormat);
   const btc = useBTC();
   const chain = useChain();
@@ -3173,7 +3179,6 @@ function CommandCenter({
   const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
   const rss = useRSS();
 
-  // Auto dark mode — fires once when sunrise/sunset first loads; respects manual toggle after
   const autoThemeDone = React.useRef(false);
   React.useEffect(() => {
     if (autoThemeDone.current) return;
@@ -3226,12 +3231,10 @@ function CommandCenter({
   const totalPower = onlineMiners.reduce((sum, m) => sum + (m.data.power || 0), 0);
   const combinedEff = totalHashrateTHS > 0 ? (totalPower / totalHashrateTHS).toFixed(1) : '—';
 
-  // Solo odds from combined fleet hashrate
   const soloOdds =
     chain.data && totalHashrateTHS > 0 ? calcSoloOdds(chain.data.hashrate / 1e18, totalHashrateTHS) : null;
   const etaStr = soloOdds ? `~${fmtNum(soloOdds.etaYears)} yrs` : '—';
 
-  // Chain vitals rows
   const diffAdjVal = chain.data?.diffAdj;
   const diffAdjStr = diffAdjVal != null ? `${diffAdjVal >= 0 ? '+' : ''}${diffAdjVal.toFixed(2)}%` : '—';
   const diffAdjCol = diffAdjVal != null ? (diffAdjVal >= 0 ? T.green : T.red) : T.ink;
@@ -3262,10 +3265,7 @@ function CommandCenter({
     { k: 'Difficulty', v: difficulty },
     { k: 'Avg block', v: chain.data?.blockTimeMs ? fmtBlockTime(chain.data.blockTimeMs) : '—', c: blockTimeCol },
     { k: 'Diff retarget', v: diffAdjStr, c: diffAdjCol },
-    {
-      k: 'Retarget in',
-      v: chain.data?.remainingBlocks != null ? `${fmtNum(chain.data.remainingBlocks)} blk` : '—',
-    },
+    { k: 'Retarget in', v: chain.data?.remainingBlocks != null ? `${fmtNum(chain.data.remainingBlocks)} blk` : '—' },
     { k: 'Retarget date', v: retargetDate },
     { k: 'Epoch', v: epochStr },
   ];
@@ -3286,43 +3286,238 @@ function CommandCenter({
     })),
   ];
 
-  // System status
   const sys = [
-    {
-      k: 'miners',
-      v: bitaxe.err ? 'err' : onlineCount > 0 ? 'ok' : bitaxe.loading ? '…' : 'err',
-      d: bitaxe.loading ? 'connecting' : `${onlineCount}/${minerCount} online`,
-    },
+    { k: 'miners', v: bitaxe.err ? 'err' : onlineCount > 0 ? 'ok' : bitaxe.loading ? '…' : 'err', d: bitaxe.loading ? 'connecting' : `${onlineCount}/${minerCount} online` },
     { k: 'mempool', v: chain.err ? 'err' : chain.data ? 'ok' : '…', d: chain.data ? `${mempoolMB}` : '—' },
     { k: 'kraken', v: btc.err ? 'err' : btc.data ? 'ok' : '…', d: btc.data ? `${btcChgPct}% 24h` : '—' },
-    {
-      k: 'weather',
-      v: weather.err ? 'err' : weather.data ? 'ok' : '…',
-      d: weather.data ? weather.data.wxCond.toLowerCase() : '—',
-    },
+    { k: 'weather', v: weather.err ? 'err' : weather.data ? 'ok' : '…', d: weather.data ? weather.data.wxCond.toLowerCase() : '—' },
     { k: 'rss', v: rss.err ? 'err' : rss.items.length > 0 ? 'ok' : '…', d: rss.items.length > 0 ? `${rss.items.length} stories` : '—' },
   ];
 
   const wx = weather.data;
   const lead = rss.leadStory;
   const newsItems = rss.items;
-
-  // Top-bar summary
   const tempUnitLabel = prefs.tempUnit === 'celsius' ? '°C' : '°F';
   const wxSummary = wx ? `${wx.temp}${tempUnitLabel} ${wx.wxCond.toLowerCase()}` : `—${tempUnitLabel}`;
 
+  // ── MOBILE LAYOUT ──────────────────────────────────────────────
+  if (isMobile) {
+    return (
+      <div style={{
+        position: 'relative',
+        width: '100%',
+        background: T.paper,
+        color: T.ink,
+        fontFamily: T.body,
+      }}>
+        {/* Mobile header */}
+        <div style={{
+          padding: '14px 16px 10px',
+          borderBottom: `1px solid ${T.rule2}`,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-end',
+        }}>
+          <div>
+            <div style={{ fontFamily: T.body, fontSize: 9, fontWeight: 500, letterSpacing: 2, textTransform: 'uppercase', color: T.ink3, marginBottom: 3 }}>
+              Bitcoin Command Center
+            </div>
+            <div style={{ fontFamily: T.serif, fontSize: 30, fontWeight: 800, letterSpacing: -1, lineHeight: 1 }}>
+              The Daily Node
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
+            <div style={{ fontFamily: T.mono, fontSize: 11, color: T.ink3 }}>
+              {clock.timeHM}{clock.amPm ? ` ${clock.amPm}` : ''}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                onClick={onToggleDark}
+                style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', padding: '4px 10px', cursor: 'pointer', background: dark ? T.ink : 'none', color: dark ? T.paper : T.ink2, border: `1px solid ${dark ? T.ink : T.ink3}` }}
+              >
+                {dark ? '◑' : '◐'}
+              </button>
+              <button
+                onClick={onOpenSettings}
+                style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', padding: '4px 10px', cursor: 'pointer', background: 'none', color: T.ink2, border: `1px solid ${T.ink3}` }}
+              >
+                ⚙
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: '0 16px 48px' }}>
+          {/* BTC Price */}
+          <div style={{ paddingTop: 16, paddingBottom: 16, borderBottom: `1px solid ${T.rule2}` }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: T.ink3, marginBottom: 8 }}>
+              Markets · BTC / USD
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 4 }}>
+              <div style={{ fontFamily: T.mono, fontSize: 42, fontWeight: 700, letterSpacing: -2, lineHeight: 1, color: T.ink }}>
+                {btcPrice}
+              </div>
+              <div style={{ fontFamily: T.mono, fontSize: 18, fontWeight: 600, color: btcUp ? T.green : T.red, paddingBottom: 4 }}>
+                {btcUp ? '▲' : '▼'} {btcChgPct}%
+              </div>
+            </div>
+            <div style={{ fontFamily: T.mono, fontSize: 11, color: T.ink3, marginBottom: 12 }}>
+              Hi ${btcHi} · Lo ${btcLo} · Cap {btcCap}
+            </div>
+            {/* Chart */}
+            <div style={{ height: 80, marginBottom: 4 }}>
+              <LineChart color={T.orange} points={btc.chartPts} vwap={btc.data?.vwap} fill />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.mono, fontSize: 9, color: T.ink4 }}>
+              <span>24h ago</span><span>−12h</span><span>now</span>
+            </div>
+          </div>
+
+          {/* Weather */}
+          {wx && (
+            <div style={{ paddingTop: 14, paddingBottom: 14, borderBottom: `1px solid ${T.rule2}` }}>
+              <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: T.ink3, marginBottom: 8 }}>
+                Weather
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <WxGlyph kind={wmoIcon(wx.wxCode, new Date().getHours(), wx.wxWindSpeed, wx.wxSunriseHr, wx.wxSunsetHr)} size={48} speed={wmoSpeed(wx.wxCode, wx.wxWindSpeed)} />
+                <div>
+                  <div style={{ fontFamily: T.mono, fontSize: 32, fontWeight: 700, letterSpacing: -1, color: T.ink, lineHeight: 1 }}>
+                    {wx.temp}° <span style={{ fontSize: 16, color: T.ink3 }}>{prefs.tempUnit === 'celsius' ? 'C' : 'F'}</span>
+                  </div>
+                  <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 13, color: T.ink2, marginTop: 3 }}>
+                    {wx.wxCond} · H{wx.wxHi} L{wx.wxLo}
+                  </div>
+                  <div style={{ fontFamily: T.mono, fontSize: 11, color: T.ink3, marginTop: 2 }}>
+                    {wx.wxWind} · {wx.wxHum} humidity
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Network */}
+          <div style={{ paddingTop: 14, paddingBottom: 14, borderBottom: `1px solid ${T.rule2}` }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: T.ink3, marginBottom: 8 }}>
+              Network
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px' }}>
+              {[
+                { val: hashrate,    label: 'Hashrate' },
+                { val: difficulty,  label: 'Difficulty' },
+                { val: chain.data ? `${(chain.data.blockTimeMs / 60000).toFixed(1)}m` : '—', label: 'Block Time', color: blockTimeCol },
+                { val: mempoolMB,   label: 'Mempool', color: mempoolCol },
+              ].map(({ val, label, color }, i) => (
+                <div key={i}>
+                  <div style={{ fontFamily: T.mono, fontSize: 18, fontWeight: 700, color: color || T.ink, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>
+                    {val}
+                  </div>
+                  <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 1.2, textTransform: 'uppercase', color: T.ink3, marginTop: 3 }}>
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Fleet */}
+          <div style={{ paddingTop: 14, paddingBottom: 14, borderBottom: `1px solid ${T.rule2}` }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: T.ink3, marginBottom: 8 }}>
+              Fleet
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px' }}>
+              {[
+                { val: `${onlineCount}/${minerCount}`,   label: 'Online' },
+                { val: totalHashrateTHS > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s` : '—', label: 'Hashrate' },
+                { val: totalPower > 0 ? `${(totalPower / 1000).toFixed(1)} kW` : '—', label: 'Power' },
+                { val: soloOdds ? `1:${fmtNum(soloOdds.oddsPerDay)}/d` : '—', label: 'Solo Odds' },
+              ].map(({ val, label }, i) => (
+                <div key={i}>
+                  <div style={{ fontFamily: T.mono, fontSize: 18, fontWeight: 700, color: T.ink, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>
+                    {val}
+                  </div>
+                  <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 1.2, textTransform: 'uppercase', color: T.ink3, marginTop: 3 }}>
+                    {label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Lead story */}
+          {lead && (
+            <div style={{ paddingTop: 14, paddingBottom: 14, borderBottom: `1px solid ${T.rule2}` }}>
+              <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: T.orange, marginBottom: 8 }}>
+                ● {lead.cat} · {lead.src}
+              </div>
+              <a href={lead.link} target="_blank" rel="noopener noreferrer">
+                <h2 style={{ fontFamily: T.serif, fontSize: 24, fontWeight: 700, lineHeight: 1.1, letterSpacing: -0.5, color: T.ink, margin: 0 }}>
+                  {lead.hed}
+                </h2>
+              </a>
+            </div>
+          )}
+
+          {/* Headlines */}
+          <div style={{ paddingTop: 14 }}>
+            <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: T.ink3, marginBottom: 8 }}>
+              Bitcoin News
+            </div>
+            {newsItems.length === 0 ? (
+              <div style={{ fontFamily: T.mono, fontSize: 12, color: T.ink3 }}>
+                {rss.err ? 'Feed unavailable' : 'Loading…'}
+              </div>
+            ) : newsItems.slice(0, 20).map((it, i) => (
+              <a
+                key={it.link || i}
+                href={it.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'block',
+                  padding: '10px 0',
+                  borderBottom: `1px solid ${T.rule3}`,
+                  borderLeft: it.topic === 'BREAKING' ? `3px solid ${T.red}` : 'none',
+                  paddingLeft: it.topic === 'BREAKING' ? 10 : 0,
+                }}
+              >
+                <div style={{ fontFamily: T.body, fontSize: 15, lineHeight: 1.3, color: T.ink, letterSpacing: -0.1 }}>
+                  {it.hed}
+                </div>
+                <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3, marginTop: 3 }}>
+                  {it.src} · {it.t}
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {settingsOpen && (
+          <MastheadPanel
+            apiUrl={bitaxeApiUrl}
+            ips={bitaxeIps}
+            prefs={prefs}
+            onSave={onSaveSettings}
+            onClose={onCloseSettings}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ── DESKTOP LAYOUT ─────────────────────────────────────────────
   return (
     <div
       style={{
         position: 'relative',
-        width: 1920,
-        height: 1080,
+        width: '100%',
+        height: '100%',
         background: T.paper,
         color: T.ink,
         fontFamily: T.body,
         display: 'flex',
         flexDirection: 'column',
-        padding: '28px 56px 32px',
+        padding: `${u(28)} ${u(56)} ${u(32)}`,
       }}
     >
       {/* TOP CHROME */}
@@ -3341,10 +3536,10 @@ function CommandCenter({
         style={{
           display: 'flex',
           alignItems: 'center',
-          padding: '9px 0',
+          padding: `${u(9)} 0`,
           borderBottom: `1px solid ${T.rule2}`,
           fontFamily: T.mono,
-          fontSize: 12,
+          fontSize: u(12),
           overflow: 'hidden',
         }}
       >
@@ -3352,14 +3547,14 @@ function CommandCenter({
           style={{
             fontFamily: T.sans,
             fontWeight: 700,
-            fontSize: 9,
-            letterSpacing: 2,
+            fontSize: u(9),
+            letterSpacing: u(2),
             color: T.ink3,
             display: 'flex',
             alignItems: 'center',
-            gap: 4,
+            gap: u(4),
             flexShrink: 0,
-            marginRight: 20,
+            marginRight: u(20),
           }}
         >
           LIVE
@@ -3388,61 +3583,20 @@ function CommandCenter({
                 : '—';
               const items = [
                 ['BLOCK', blockHeight, 'latest', T.ink3],
-                [
-                  'HASH',
-                  chain.data ? fmtHashrate(chain.data.hashrate) : '—',
-                  chain.data && chain.data.diffAdj != null
-                    ? `${chain.data.diffAdj >= 0 ? '+' : ''}${chain.data.diffAdj.toFixed(1)}%`
-                    : '',
-                  T.ink3,
-                ],
+                ['HASH', chain.data ? fmtHashrate(chain.data.hashrate) : '—', chain.data && chain.data.diffAdj != null ? `${chain.data.diffAdj >= 0 ? '+' : ''}${chain.data.diffAdj.toFixed(1)}%` : '', T.ink3],
                 ['TIME', chain.data ? fmtBlockTime(chain.data.blockTimeMs) : '—', 'avg', blockTimeCol],
-                [
-                  'EPOCH',
-                  epochPct != null ? `${epochPct.toFixed(0)}%` : '—',
-                  chain.data ? `${fmtNum(chain.data.remainingBlocks)} blk left` : '',
-                  T.ink3,
-                ],
-                [
-                  'FEE',
-                  chain.data ? `${chain.data.feeFast} sat/vB` : '—',
-                  chain.data ? `eco ${chain.data.feeEco}` : '',
-                  T.ink3,
-                ],
+                ['EPOCH', epochPct != null ? `${epochPct.toFixed(0)}%` : '—', chain.data ? `${fmtNum(chain.data.remainingBlocks)} blk left` : '', T.ink3],
+                ['FEE', chain.data ? `${chain.data.feeFast} sat/vB` : '—', chain.data ? `eco ${chain.data.feeEco}` : '', T.ink3],
                 ['MEMPOOL', mempoolMB, `${mempoolTx} tx`, mempoolCol],
                 ['CLR', blocksToClr != null ? `${blocksToClr} blk` : '—', 'to clear', blocksToClrCol],
                 ['SUPPLY', chain.data ? chain.data.circulating : '—', '', T.ink3],
-                [
-                  'HALVING',
-                  chain.data?.nextHalvingDate || '—',
-                  halvingBlocksLeft !== '—' ? `${halvingBlocksLeft} blk` : '',
-                  T.ink3,
-                ],
-                [
-                  'FLEET',
-                  onlineCount > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s` : bitaxe.err ? 'offline' : '…',
-                  onlineCount > 0 ? `${combinedEff} J/TH` : '',
-                  T.ink3,
-                ],
-                [
-                  'SOLO',
-                  `1:${soloOdds ? fmtNum(soloOdds.oddsPerDay) : '—'}/d`,
-                  etaStr,
-                  T.ink3,
-                ],
+                ['HALVING', chain.data?.nextHalvingDate || '—', halvingBlocksLeft !== '—' ? `${halvingBlocksLeft} blk` : '', T.ink3],
+                ['FLEET', onlineCount > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s` : bitaxe.err ? 'offline' : '…', onlineCount > 0 ? `${combinedEff} J/TH` : '', T.ink3],
+                ['SOLO', `1:${soloOdds ? fmtNum(soloOdds.oddsPerDay) : '—'}/d`, etaStr, T.ink3],
               ];
               const renderItem = ([k, v, s, sc], pfx) => (
-                <span
-                  key={pfx}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'baseline',
-                    gap: 5,
-                    paddingRight: 36,
-                    flexShrink: 0,
-                  }}
-                >
-                  <span style={{ color: T.ink3, letterSpacing: 1 }}>{k}</span>
+                <span key={pfx} style={{ display: 'inline-flex', alignItems: 'baseline', gap: u(5), paddingRight: u(36), flexShrink: 0 }}>
+                  <span style={{ color: T.ink3, letterSpacing: u(1) }}>{k}</span>
                   <b style={{ fontWeight: 600, color: T.ink }}>{v}</b>
                   {s && <span style={{ color: sc }}>{s}</span>}
                 </span>
@@ -3460,9 +3614,9 @@ function CommandCenter({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '300px 1.1fr 1fr 1fr',
-          gap: 28,
-          paddingTop: 22,
+          gridTemplateColumns: `${u(300)} 1.1fr 1fr 1fr`,
+          gap: u(28),
+          paddingTop: u(22),
           flex: 1,
           minHeight: 0,
         }}
@@ -3471,27 +3625,27 @@ function CommandCenter({
         <div
           style={{
             borderRight: `1px solid ${T.rule2}`,
-            paddingRight: 22,
+            paddingRight: u(22),
             display: 'flex',
             flexDirection: 'column',
-            gap: 18,
+            gap: u(18),
             overflow: 'hidden',
           }}
         >
           {/* Clock */}
           <div>
             <Kicker>Today</Kicker>
-            <div style={{ marginTop: 6 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+            <div style={{ marginTop: u(6) }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: u(6) }}>
                 <Num size="lg" value={clock.timeHM} unit={clock.timeSec} style={{ alignItems: 'baseline' }} />
                 {clock.amPm && (
-                  <span style={{ fontFamily: T.mono, fontSize: 16, color: T.ink2, lineHeight: 1 }}>
+                  <span style={{ fontFamily: T.mono, fontSize: u(16), color: T.ink2, lineHeight: 1 }}>
                     {clock.amPm}
                   </span>
                 )}
               </div>
             </div>
-            <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 13, color: T.ink2, marginTop: 4 }}>
+            <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: u(13), color: T.ink2, marginTop: u(4) }}>
               {clock.dayStr}
             </div>
           </div>
@@ -3504,21 +3658,15 @@ function CommandCenter({
             <Kicker>Weather</Kicker>
             {wx ? (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: u(12), marginTop: u(8) }}>
                   <WxGlyph
-                    kind={wmoIcon(
-                      wx.wxCode,
-                      new Date().getHours(),
-                      wx.wxWindSpeed,
-                      wx.wxSunriseHr,
-                      wx.wxSunsetHr
-                    )}
+                    kind={wmoIcon(wx.wxCode, new Date().getHours(), wx.wxWindSpeed, wx.wxSunriseHr, wx.wxSunsetHr)}
                     size={48}
                     speed={wmoSpeed(wx.wxCode, wx.wxWindSpeed)}
                   />
                   <div>
                     <Num size="lg" value={`${wx.temp}°`} unit={prefs.tempUnit === 'celsius' ? 'C' : 'F'} />
-                    <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 12, color: T.ink2, marginTop: 3 }}>
+                    <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: u(12), color: T.ink2, marginTop: u(3) }}>
                       {wx.wxCond} · H{wx.wxHi} L{wx.wxLo}
                     </div>
                   </div>
@@ -3527,18 +3675,18 @@ function CommandCenter({
                   style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(8,1fr)',
-                    gap: 4,
-                    marginTop: 12,
-                    paddingTop: 10,
+                    gap: u(4),
+                    marginTop: u(12),
+                    paddingTop: u(10),
                     borderTop: `1px solid ${T.rule3}`,
                   }}
                 >
                   {wx.hourly.map((h, i) => (
                     <div key={i} style={{ textAlign: 'center' }}>
-                      <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink3 }}>
+                      <div style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink3 }}>
                         {fmtHour(h.hr, prefs.timeFormat)}
                       </div>
-                      <div style={{ margin: '3px auto' }}>
+                      <div style={{ margin: `${u(3)} auto` }}>
                         <WxGlyph
                           kind={wmoIcon(h.code, h.hr, null, wx.wxSunriseHr, wx.wxSunsetHr)}
                           size={24}
@@ -3547,12 +3695,12 @@ function CommandCenter({
                       </div>
                       <Num size="xs" value={`${h.t}°`} />
                       {h.pop >= 30 && (
-                        <div style={{ fontFamily: T.mono, fontSize: 9, color: T.ink3, marginTop: 1 }}>
+                        <div style={{ fontFamily: T.mono, fontSize: u(9), color: T.ink3, marginTop: u(1) }}>
                           {h.pop}%
                         </div>
                       )}
                       {h.precip > 0 && (
-                        <div style={{ fontFamily: T.mono, fontSize: 9, color: T.ink3 }}>
+                        <div style={{ fontFamily: T.mono, fontSize: u(9), color: T.ink3 }}>
                           {h.precip.toFixed(1)}mm
                         </div>
                       )}
@@ -3564,17 +3712,17 @@ function CommandCenter({
                   const uvColor = uv >= 8 ? T.red : uv >= 6 ? T.orange : uv < 3 ? T.green : T.ink;
                   const uvLabel = uv >= 8 ? 'Very High' : uv >= 6 ? 'High' : uv >= 3 ? 'Moderate' : 'Low';
                   const br = `1px solid ${T.rule3}`;
-                  const cellL  = { padding: '8px 8px 8px 0',  borderRight: br };
-                  const cellM  = { padding: '8px 8px 8px 8px', borderRight: br };
-                  const cellR  = { padding: '8px 0 8px 8px' };
-                  const cellLB = { padding: '8px 8px 0 0',    borderRight: br, borderTop: br };
-                  const cellMB = { padding: '8px 8px 0 8px',  borderRight: br, borderTop: br };
-                  const cellRB = { padding: '8px 0 0 8px',    borderTop: br };
-                  const lbl = { fontFamily: T.sans, fontSize: 8, fontWeight: 600, letterSpacing: 1.6, textTransform: 'uppercase', color: T.ink3, marginBottom: 3 };
-                  const val = { fontFamily: T.mono, fontSize: 13, fontWeight: 500, letterSpacing: -0.5, lineHeight: 1, color: T.ink };
-                  const sub = { fontFamily: T.mono, fontSize: 9, color: T.ink3, marginTop: 2 };
+                  const cellL  = { padding: `${u(8)} ${u(8)} ${u(8)} 0`,  borderRight: br };
+                  const cellM  = { padding: `${u(8)}`,                     borderRight: br };
+                  const cellR  = { padding: `${u(8)} 0 ${u(8)} ${u(8)}` };
+                  const cellLB = { padding: `${u(8)} ${u(8)} 0 0`,        borderRight: br, borderTop: br };
+                  const cellMB = { padding: `${u(8)} ${u(8)} 0 ${u(8)}`, borderRight: br, borderTop: br };
+                  const cellRB = { padding: `${u(8)} 0 0 ${u(8)}`,        borderTop: br };
+                  const lbl = { fontFamily: T.sans, fontSize: u(8), fontWeight: 600, letterSpacing: u(1.6), textTransform: 'uppercase', color: T.ink3, marginBottom: u(3) };
+                  const val = { fontFamily: T.mono, fontSize: u(13), fontWeight: 500, letterSpacing: -0.5, lineHeight: 1, color: T.ink };
+                  const sub = { fontFamily: T.mono, fontSize: u(9), color: T.ink3, marginTop: u(2) };
                   return (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', marginTop: 10, borderTop: br }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', marginTop: u(10), borderTop: br }}>
                       <div style={cellL}>
                         <div style={lbl}>Feels Like</div>
                         <div style={val}>{wx.feels}°{prefs.tempUnit === 'celsius' ? 'C' : 'F'}</div>
@@ -3596,11 +3744,11 @@ function CommandCenter({
                       </div>
                       <div style={cellMB}>
                         <div style={lbl}>UV Index</div>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: u(4) }}>
                           <div style={{ ...val, color: uvColor }}>{uv}</div>
-                          <div style={{ fontFamily: T.sans, fontSize: 8, fontWeight: 600, color: uv >= 6 ? uvColor : T.ink3 }}>{uvLabel}</div>
+                          <div style={{ fontFamily: T.sans, fontSize: u(8), fontWeight: 600, color: uv >= 6 ? uvColor : T.ink3 }}>{uvLabel}</div>
                         </div>
-                        <div style={{ height: 2, background: T.rule3, borderRadius: 2, marginTop: 5 }}>
+                        <div style={{ height: u(2), background: T.rule3, borderRadius: 2, marginTop: u(5) }}>
                           <div style={{ height: '100%', width: `${Math.min(uv / 11, 1) * 100}%`, background: uvColor, borderRadius: 2 }} />
                         </div>
                       </div>
@@ -3614,7 +3762,7 @@ function CommandCenter({
                 })()}
               </>
             ) : (
-              <div style={{ fontFamily: T.mono, fontSize: 12, color: T.ink3, marginTop: 8 }}>
+              <div style={{ fontFamily: T.mono, fontSize: u(12), color: T.ink3, marginTop: u(8) }}>
                 {weather.err ? 'weather unavailable' : 'loading…'}
               </div>
             )}
@@ -3627,19 +3775,19 @@ function CommandCenter({
               style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr auto auto',
-                rowGap: 5,
-                columnGap: 12,
-                marginTop: 8,
+                rowGap: u(5),
+                columnGap: u(12),
+                marginTop: u(8),
               }}
             >
               {sys.map((s, i) => (
                 <React.Fragment key={i}>
-                  <span style={{ fontFamily: T.mono, fontSize: 12, color: T.ink2 }}>
+                  <span style={{ fontFamily: T.mono, fontSize: u(12), color: T.ink2 }}>
                     <StatusDot ok={s.v === 'ok'} />
                     {s.k}
                   </span>
                   <Num size="xs" value={s.v} style={{ justifyContent: 'flex-end' }} />
-                  <span style={{ fontFamily: T.mono, fontSize: 10, color: T.ink3, textAlign: 'right' }}>
+                  <span style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink3, textAlign: 'right' }}>
                     {s.d}
                   </span>
                 </React.Fragment>
@@ -3651,10 +3799,10 @@ function CommandCenter({
             style={{
               fontFamily: T.body,
               fontStyle: 'italic',
-              fontSize: 10,
+              fontSize: u(10),
               color: T.ink3,
               borderTop: `1px solid ${T.rule2}`,
-              paddingTop: 8,
+              paddingTop: u(8),
             }}
           >
             Published from a home on the internet. Set in Playfair Display &amp; Newsreader.
@@ -3665,14 +3813,13 @@ function CommandCenter({
         <div
           style={{
             borderRight: `1px solid ${T.rule2}`,
-            paddingRight: 24,
+            paddingRight: u(24),
             display: 'flex',
             flexDirection: 'column',
-            gap: 13,
+            gap: u(13),
             overflow: 'hidden',
           }}
         >
-          {/* Proof of Read briefing */}
           <ProofOfRead
             btc={btc}
             chain={chain}
@@ -3685,42 +3832,20 @@ function CommandCenter({
             btcLo={btcLo}
             btcHi={btcHi}
           />
-          {/* BTC market */}
           <Kicker>Markets · BTC / USD</Kicker>
-          {/* Row 1: price left, % change right */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
             <Num size="hero" value={btcPrice} />
-            <div
-              style={{
-                fontFamily: T.mono,
-                fontSize: 22,
-                fontWeight: 600,
-                color: btcUp ? T.green : T.red,
-                paddingBottom: 10,
-              }}
-            >
+            <div style={{ fontFamily: T.mono, fontSize: u(22), fontWeight: 600, color: btcUp ? T.green : T.red, paddingBottom: u(10) }}>
               {btcUp ? '▲' : '▼'} {btcChgPct}%
             </div>
           </div>
           {btc.data?.ath && (
-            <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink4, marginTop: -8, marginBottom: 2 }}>
+            <div style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink4, marginTop: u(-8), marginBottom: u(2) }}>
               {'ATH $' + Math.round(btc.data.ath).toLocaleString() + (btc.data.athDate ? ' · ' + new Date(btc.data.athDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '') + ' · '}
               <span style={{ color: athAtNew ? T.green : T.red }}>{athAtNew ? '▲ new ATH' : ('▼ ' + Math.abs(athPct).toFixed(1) + '%')}</span>
             </div>
           )}
-          {/* Row 2: hi · lo · cap bar */}
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              fontFamily: T.mono,
-              fontSize: 11,
-              borderTop: `1px solid ${T.rule2}`,
-              borderBottom: `1px solid ${T.rule2}`,
-              padding: '5px 0',
-              marginBottom: 6,
-            }}
-          >
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.mono, fontSize: u(11), borderTop: `1px solid ${T.rule2}`, borderBottom: `1px solid ${T.rule2}`, padding: `${u(5)} 0`, marginBottom: u(6) }}>
             <span style={{ color: T.green }}>hi ${btcHi}</span>
             <span style={{ color: T.ink3 }}>·</span>
             <span style={{ color: T.red }}>lo ${btcLo}</span>
@@ -3733,76 +3858,30 @@ function CommandCenter({
               {btc.data ? fmtNum(Math.round(1e8 / btc.data.price)) : '—'} sat/$
             </span>
           </div>
-          <LineChart w={470} h={110} color={T.orange} points={btc.chartPts} vwap={btc.data?.vwap} fill />
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              fontFamily: T.mono,
-              fontSize: 10,
-              color: T.ink3,
-            }}
-          >
-            <span>24h ago</span>
-            <span>−18h</span>
-            <span>−12h</span>
-            <span>−6h</span>
-            <span>now</span>
+          {/* LineChart: parent div provides CSS dimensions, chart fills it */}
+          <div style={{ width: '100%', height: u(110), flexShrink: 0 }}>
+            <LineChart color={T.orange} points={btc.chartPts} vwap={btc.data?.vwap} fill />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.mono, fontSize: u(10), color: T.ink3 }}>
+            <span>24h ago</span><span>−18h</span><span>−12h</span><span>−6h</span><span>now</span>
           </div>
           <Rule dash />
           {/* Lead story */}
           {lead ? (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden', minHeight: 0 }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: u(8), overflow: 'hidden', minHeight: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <Kicker color={T.orange}>
-                  ● {lead.cat} · {lead.src}
-                </Kicker>
+                <Kicker color={T.orange}>● {lead.cat} · {lead.src}</Kicker>
                 <Kicker>{lead.t}</Kicker>
               </div>
               <a href={lead.link} target="_blank" rel="noopener noreferrer">
-                <h1
-                  style={{
-                    fontFamily: T.serif,
-                    fontSize: 32,
-                    fontWeight: 700,
-                    lineHeight: 1.04,
-                    letterSpacing: -1,
-                    color: T.ink,
-                    textWrap: 'balance',
-                    margin: 0,
-                  }}
-                >
+                <h1 style={{ fontFamily: T.serif, fontSize: u(32), fontWeight: 700, lineHeight: 1.04, letterSpacing: u(-1), color: T.ink, textWrap: 'balance', margin: 0 }}>
                   {lead.hed}
                 </h1>
               </a>
-              {lead.img ? (
-                <LeadImage src={lead.img} domain={lead.src} />
-              ) : null}
+              {lead.img ? <LeadImage src={lead.img} domain={lead.src} /> : null}
               {lead.snippet ? (
-                <div
-                  className="no-scrollbar"
-                  style={{
-                    flex: 1,
-                    overflowY: 'auto',
-                    minHeight: 0,
-                    fontFamily: T.body,
-                    fontSize: 13.5,
-                    lineHeight: 1.5,
-                    color: T.ink2,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: T.serif,
-                      fontSize: 44,
-                      fontWeight: 700,
-                      color: T.ink,
-                      float: 'left',
-                      lineHeight: 0.88,
-                      marginRight: 8,
-                      marginTop: 3,
-                    }}
-                  >
+                <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', minHeight: 0, fontFamily: T.body, fontSize: u(13.5), lineHeight: 1.5, color: T.ink2 }}>
+                  <span style={{ fontFamily: T.serif, fontSize: u(44), fontWeight: 700, color: T.ink, float: 'left', lineHeight: 0.88, marginRight: u(8), marginTop: u(3) }}>
                     {lead.snippet.charAt(0)}
                   </span>
                   {lead.snippet.slice(1)}
@@ -3812,17 +3891,7 @@ function CommandCenter({
           ) : (
             <>
               <Kicker color={T.orange}>● {rss.err ? 'RSS unavailable' : 'Loading feed…'}</Kicker>
-              <h1
-                style={{
-                  fontFamily: T.serif,
-                  fontSize: 32,
-                  fontWeight: 700,
-                  lineHeight: 1.04,
-                  letterSpacing: -1,
-                  color: T.ink4,
-                  margin: 0,
-                }}
-              >
+              <h1 style={{ fontFamily: T.serif, fontSize: u(32), fontWeight: 700, lineHeight: 1.04, letterSpacing: u(-1), color: T.ink4, margin: 0 }}>
                 {rss.err ? 'All feeds unavailable' : 'Fetching headlines…'}
               </h1>
             </>
@@ -3838,24 +3907,12 @@ function CommandCenter({
             return acc;
           }, []);
           return (
-            <div
-              style={{
-                borderRight: `1px solid ${T.rule2}`,
-                paddingRight: 24,
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: 0,
-              }}
-            >
+            <div style={{ borderRight: `1px solid ${T.rule2}`, paddingRight: u(24), overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <Kicker>Bitcoin news</Kicker>
                 {rss.err && <Kicker color={T.red}>feed error</Kicker>}
               </div>
-              <div
-                className={`news-col-wrap${newsItems.length < 8 ? ' at-bottom' : ''}`}
-                style={{ marginTop: 8, flex: 1, minHeight: 0 }}
-              >
+              <div className={`news-col-wrap${newsItems.length < 8 ? ' at-bottom' : ''}`} style={{ marginTop: u(8), flex: 1, minHeight: 0 }}>
                 <div
                   className="news-scroll"
                   style={{ height: '100%', overflowY: 'auto' }}
@@ -3870,9 +3927,9 @@ function CommandCenter({
                 >
                   {newsItems.length > 0 ? grouped.map(({ topic, group }) => (
                     <React.Fragment key={topic}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0 6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: u(10), padding: `${u(10)} 0 ${u(6)}` }}>
                         <div style={{ flex: 1, borderTop: `1px solid ${T.rule2}` }} />
-                        <span style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2.5, textTransform: 'uppercase', color: T.ink4 }}>{topic}</span>
+                        <span style={{ fontFamily: T.sans, fontSize: u(9), fontWeight: 600, letterSpacing: u(2.5), textTransform: 'uppercase', color: T.ink4 }}>{topic}</span>
                         <div style={{ flex: 1, borderTop: `1px solid ${T.rule2}` }} />
                       </div>
                       {group.map((it, i) => (
@@ -3883,35 +3940,27 @@ function CommandCenter({
                           rel="noopener noreferrer"
                           style={{
                             display: 'block',
-                            padding: '8px 0',
+                            padding: `${u(8)} 0`,
                             borderBottom: `1px solid ${T.rule3}`,
-                            borderLeft: topic === 'BREAKING' ? `3px solid ${T.red}` : 'none',
-                            paddingLeft: topic === 'BREAKING' ? 10 : 0,
+                            borderLeft: it.topic === 'BREAKING' ? `${u(3)} solid ${T.red}` : 'none',
+                            paddingLeft: it.topic === 'BREAKING' ? u(10) : 0,
                           }}
                         >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                            <Kicker color={topic === 'BREAKING' ? T.red : T.ink3}>{it.cat}</Kicker>
-                            <span style={{ fontFamily: T.mono, fontSize: 10, color: T.ink3 }}>{it.t}</span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: u(4) }}>
+                            <Kicker color={it.topic === 'BREAKING' ? T.red : T.ink3}>{it.cat}</Kicker>
+                            <span style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink3 }}>{it.t}</span>
                           </div>
-                          <div
-                            style={{
-                              fontFamily: T.body,
-                              fontSize: 14.5,
-                              lineHeight: 1.3,
-                              color: T.ink,
-                              letterSpacing: -0.1,
-                            }}
-                          >
+                          <div style={{ fontFamily: T.body, fontSize: u(14.5), lineHeight: 1.3, color: T.ink, letterSpacing: u(-0.1) }}>
                             {it.hed}
                           </div>
-                          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3, marginTop: 2 }}>
+                          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: u(11), color: T.ink3, marginTop: u(2) }}>
                             {it.src}
                           </div>
                         </a>
                       ))}
                     </React.Fragment>
                   )) : (
-                    <div style={{ fontFamily: T.mono, fontSize: 12, color: T.ink3, marginTop: 16 }}>
+                    <div style={{ fontFamily: T.mono, fontSize: u(12), color: T.ink3, marginTop: u(16) }}>
                       {rss.err ? 'All feeds unavailable' : 'Loading headlines…'}
                     </div>
                   )}
@@ -3924,7 +3973,7 @@ function CommandCenter({
         {/* COL 3 — FIELD REPORT + CHAIN VITALS */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0, overflow: 'hidden' }}>
           <Miners bitaxe={bitaxe} chain={chain} />
-          <div className="no-scrollbar" style={{ marginTop: 32, overflowY: 'auto', flexShrink: 1, minHeight: 0 }}>
+          <div className="no-scrollbar" style={{ marginTop: u(32), overflowY: 'auto', flexShrink: 1, minHeight: 0 }}>
             <NetworkStatusWidget chain={chain} T={T} />
           </div>
         </div>
