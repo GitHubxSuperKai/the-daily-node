@@ -136,7 +136,7 @@ export function NetworkStatusWidget({ chain, T }) {
             { val: `${blockSubsidy} BTC`,               label: 'Block Reward', size: 16, color: T.ink },
             { val: `${Number((blockSubsidy / 2).toFixed(8))} BTC`, label: 'Next Reward', size: 16, color: T.ink4 },
           ].map(({ val, label, size, color, sub }, i) => (
-            <div key={i}>
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <div style={{
                 fontFamily: T.num, fontSize: u(size), fontWeight: 400,
                 color, lineHeight: 1, fontFeatureSettings: '"tnum" 1, "lnum" 1',
@@ -186,8 +186,21 @@ export function NetworkStatusWidget({ chain, T }) {
             ~{remainingDays}d
           </div>
         </div>
-        <div style={{ marginTop: u(6) }}>
-          <Row label="Prev Adj" value={prevDiffAdjStr} valueColor={prevDiffAdjCol} valueAlt={prevRetargetDateStr || undefined} T={T} last />
+        <div style={{ marginTop: u(8), display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <div style={{
+            fontFamily: T.sans, fontSize: u(9), fontWeight: 600,
+            letterSpacing: u(1.2), textTransform: 'uppercase', color: T.ink3,
+          }}>
+            {prevRetargetDateStr
+              ? <span><span style={{ fontFamily: T.num, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>{prevRetargetDateStr} </span>Prev Adj</span>
+              : 'Prev Adj'}
+          </div>
+          <div style={{
+            fontFamily: T.num, fontSize: u(10), fontWeight: 400,
+            color: prevDiffAdjCol, fontFeatureSettings: '"tnum" 1, "lnum" 1',
+          }}>
+            {prevDiffAdjStr}
+          </div>
         </div>
       </div>
 
