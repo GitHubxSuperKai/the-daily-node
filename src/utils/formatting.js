@@ -61,6 +61,16 @@ function fmtHour(hr, timeFormat) {
   return `${hr - 12}pm`;
 }
 
+// Format a "HH:MM" string (e.g. "18:00") per timeFormat preference
+function fmtHHMM(hhmm, timeFormat) {
+  if (!hhmm) return '';
+  const [h, m] = hhmm.split(':').map(Number);
+  if (timeFormat === '24h') return hhmm;
+  const suffix = h < 12 ? 'am' : 'pm';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, '0')}${suffix}`;
+}
+
 function nextHalving(height) {
   const halvingInterval = 210000;
   const nextHalvingBlock = Math.ceil((height + 1) / halvingInterval) * halvingInterval;
@@ -185,6 +195,7 @@ if (typeof module !== 'undefined' && module.exports) {
     timeAgoUnix,
     timeAgo,
     fmtHour,
+    fmtHHMM,
     nextHalving,
     circulatingBTC,
     calcSoloOdds,
