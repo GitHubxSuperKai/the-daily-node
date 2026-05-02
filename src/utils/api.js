@@ -73,6 +73,10 @@ async function fetchChainStats() {
       feeMid:  fees.halfHourFee,
       feeEco:  fees.economyFee,
       diffAdj: diff.difficultyChange,
+      previousDiffAdj: diff.previousRetarget,
+      previousRetargetDate: (diff.remainingBlocks != null && diff.timeAvg)
+        ? Math.round((Date.now() - (2016 - diff.remainingBlocks) * diff.timeAvg) / 1000)
+        : null,
       blockTimeMs: diff.timeAvg,
       remainingBlocks: diff.remainingBlocks,
       progressPercent: diff.progressPercent,
@@ -262,7 +266,10 @@ async function fetchRecentBlocks() {
         timestamp: b.timestamp,
         txCount:   b.tx_count,
         size:      b.size,
+        weight:    b.weight ?? null,
         medianFee: ext.medianFee != null ? Math.round(ext.medianFee * 10) / 10 : null,
+        totalFees: ext.totalFees ?? null,
+        feeRange:  ext.feeRange ?? null,
         poolName:  ext.pool?.name ?? '—',
       };
     });
