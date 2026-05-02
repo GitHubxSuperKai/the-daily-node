@@ -30,6 +30,29 @@
     0%, 100% { opacity: 1; }
     50%       { opacity: 0.25; }
   }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.4; transform: scale(0.75); }
+  }
+  .live-dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #9c2a1a;
+    margin-right: 5px;
+    position: relative; top: -1px;
+    animation: pulse-dot 1.8s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  .live-dot-static {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #b8b0a0;
+    margin-right: 5px;
+    position: relative; top: -1px;
+    flex-shrink: 0;
+  }
   @keyframes ticker-scroll {
     from { transform: translateX(0); }
     to   { transform: translateX(-50%); }
