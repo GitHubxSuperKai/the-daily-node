@@ -221,9 +221,9 @@ function Miners({ bitaxe, chain }) {
                   {getMinerName(miner)}
                 </span>
               </div>
-              {cell(isOff ? '—' : hr.toFixed(2), T.ink})
-              {cell(isOff ? '—' : `${eff.toFixed(1)}`, eff > 25 ? T.red : T.ink})
-              {cell(isOff ? '—' : (upPct != null ? `${upPct.toFixed(0)}%` : '—'), upPct != null && upPct < 80 ? T.red : T.ink2})
+              {cell(isOff ? '—' : hr.toFixed(2), T.ink)}
+              {cell(isOff ? '—' : `${eff.toFixed(1)}`, eff > 25 ? T.red : T.ink)}
+              {cell(isOff ? '—' : (upPct != null ? `${upPct.toFixed(0)}%` : '—'), upPct != null && upPct < 80 ? T.red : T.ink2)}
               <div style={{
                 fontFamily: T.mono, fontSize: 11, textAlign: 'right',
                 fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap', color: T.ink2,
@@ -235,9 +235,9 @@ function Miners({ bitaxe, chain }) {
                   </>
                 )}
               </div>
-              {cell(isOff ? '—' : `${temp}°`, temp > 69 ? T.red : T.ink2})
-              {cell(isOff ? '—' : (vrT != null ? `${vrT}°` : '—'), vrT != null && vrT > 69 ? T.red : T.ink2})
-              {cell(isOff ? '—' : `${watts}W`, pwrLimit && watts > pwrLimit ? T.red : T.ink2})
+              {cell(isOff ? '—' : `${temp}°`, temp > 69 ? T.red : T.ink2)}
+              {cell(isOff ? '—' : (vrT != null ? `${vrT}°` : '—'), vrT != null && vrT > 69 ? T.red : T.ink2)}
+              {cell(isOff ? '—' : `${watts}W`, pwrLimit && watts > pwrLimit ? T.red : T.ink2)}
             </div>
           );
         })}
@@ -259,9 +259,9 @@ function Miners({ bitaxe, chain }) {
           }}>
             Fleet
           </div>
-          {fcell(`${totalHashTH.toFixed(2)}`, T.ink})
-          {fcell(`${avgEff.toFixed(1)}`, avgEff > 25 ? T.red : T.ink})
-          {fcell(avgUp != null ? `${avgUp.toFixed(0)}%` : '—', avgUp != null && avgUp < 80 ? T.red : T.ink})
+          {fcell(`${totalHashTH.toFixed(2)}`, T.ink)}
+          {fcell(`${avgEff.toFixed(1)}`, avgEff > 25 ? T.red : T.ink)}
+          {fcell(avgUp != null ? `${avgUp.toFixed(0)}%` : '—', avgUp != null && avgUp < 80 ? T.red : T.ink)}
           <div style={{
             fontFamily: T.mono, fontSize: 11, textAlign: 'right',
             fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap', fontWeight: 700, color: T.ink,
@@ -269,9 +269,9 @@ function Miners({ bitaxe, chain }) {
             {totalAcc.toLocaleString()}
             <span style={{ color: totalRej > 200 ? T.red : T.ink4 }}> /{totalRej}</span>
           </div>
-          {fcell(`${Math.round(avgAsic)}°`, avgAsic > 69 ? T.red : T.ink})
-          {fcell(avgVr != null ? `${Math.round(avgVr)}°` : '—', avgVr != null && avgVr > 69 ? T.red : T.ink})
-          {fcell(`${(totalPower / 1000).toFixed(1)}kW`, T.ink})
+          {fcell(`${Math.round(avgAsic)}°`, avgAsic > 69 ? T.red : T.ink)}
+          {fcell(avgVr != null ? `${Math.round(avgVr)}°` : '—', avgVr != null && avgVr > 69 ? T.red : T.ink)}
+          {fcell(`${(totalPower / 1000).toFixed(1)}kW`, T.ink)}
         </div>
       )}
     </div>
