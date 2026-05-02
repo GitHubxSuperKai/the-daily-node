@@ -2,14 +2,13 @@ import React from 'react';
 import { useT } from '../theme';
 import { calcSoloOdds } from '../utils/formatting';
 
-function Dot({ status, extraStyle }) {
+function Dot({ status }) {
   const T = useT();
   return (
     <span style={{
       display: 'inline-block', width: u(6), height: u(6), borderRadius: '50%',
       background: status === 'hashing' ? T.green : T.red,
       flexShrink: 0, marginRight: u(5), marginTop: u(1.5),
-      ...extraStyle,
     }} />
   );
 }
@@ -21,12 +20,11 @@ function getMinerStatus(miner) {
 function getMinerName(miner) {
   if (miner.data?.hostname) return miner.data.hostname;
   const parts = (miner.ip || '').split('.');
-  return `rig-${parts[parts.length - 1] || '?'}`;
+  return `rig-${parts[parts.length - 1] || '(no IP)'}`;
 }
 
 function Miners({ bitaxe, chain }) {
   const T = useT();
-  const heroRef = React.useRef(null);
   const heroWrapRef = React.useRef(null);
   const heroSlotRef = React.useRef(null);
   const [heroFontSize, setHeroFontSize] = React.useState(null);
@@ -61,7 +59,9 @@ function Miners({ bitaxe, chain }) {
       const cs = getComputedStyle(wrap);
       const availW = wrap.getBoundingClientRect().width
         - parseFloat(cs.paddingLeft)
-        - parseFloat(cs.borderLeftWidth || '0');
+        - parseFloat(cs.paddingRight || '0')
+        - parseFloat(cs.borderLeftWidth || '0')
+        - parseFloat(cs.borderRightWidth || '0');
       if (availW <= 0) return;
       const clone = document.createElement('div');
       clone.style.cssText = 'position:absolute;top:-9999px;white-space:nowrap;' +
@@ -151,7 +151,10 @@ function Miners({ bitaxe, chain }) {
 
       {/* Pull-quote hero */}
       <div ref={heroWrapRef} style={{ borderLeft: `${u(3)} solid ${T.ink}`, paddingLeft: u(12), marginBottom: u(14) }}>
-        <div ref={heroRef} style={{
+        {/* height is locked to first-measured font size (px) to prevent layout shift on data
+            refresh. Safe because lineHeight:1 makes line-box height === font size, and
+            whiteSpace:nowrap prevents wrapping — removing either breaks this invariant. */}
+        <div style={{
           fontFamily: T.serif, fontSize: heroFontSize ? heroFontSize + 'px' : u(38),
           fontWeight: 800, fontStyle: 'italic',
           color: oddsOneIn ? T.ink : T.ink4, lineHeight: 1, letterSpacing: -0.5,
@@ -232,7 +235,7 @@ function Miners({ bitaxe, chain }) {
             <div key={`${ri}-0`} style={{ ...rowBase, display: 'flex', alignItems: 'flex-start' }}>
               <Dot status={status} />
               <span style={{ fontFamily: T.sans, fontSize: u(11), fontWeight: 600, color: T.ink, overflowWrap: 'break-word', lineHeight: 1.3 }}>
-                {getMinerName(miner).split('_').map((part, i, arr) => (
+                {getMinerName(miner).split('_').map((part, i) => (
                   <React.Fragment key={i}>{i > 0 && <>{`_`}<wbr /></>}{part}</React.Fragment>
                 ))}
               </span>
@@ -268,8 +271,9 @@ function Miners({ bitaxe, chain }) {
               {isOff ? '—' : `${Math.round(watts)}W`}
             </div>,
             // Separator — full-width rule between miners (fleet rule covers the last one)
-            ri < bitaxe.miners.length - 1 &&
-              <div key={`rule-row-${ri}`} style={{ gridColumn: '1 / -1', borderTop: `1px solid ${T.rule3}`, padding: 0 }} />,
+            ri < bitaxe.miners.length - 1
+              ? <div key={`rule-row-${ri}`} style={{ gridColumn: '1 / -1', borderTop: `1px solid ${T.rule3}`, padding: 0 }} />
+              : null,
           ];
         })}
 
