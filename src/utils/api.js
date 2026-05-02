@@ -36,7 +36,9 @@ async function fetchBTCPrice() {
 
 /**
  * Fetch chain stats from Mempool.space
- * Returns: { height, hashrate, difficulty, mempoolBytes, mempoolTx, feeFast, feeEco, diffAdj, blockTimeMs, remainingBlocks, progressPercent, estimatedRetargetDate }
+ * Returns: { height, hashrate, difficulty, mempoolBytes, mempoolTx, feeFast, feeMid, feeEco,
+ *            diffAdj, previousDiffAdj, previousRetargetDate, blockTimeMs, remainingBlocks,
+ *            progressPercent, estimatedRetargetDate }
  */
 async function fetchChainStats() {
   try {
@@ -73,6 +75,11 @@ async function fetchChainStats() {
       feeMid:  fees.halfHourFee,
       feeEco:  fees.economyFee,
       diffAdj: diff.difficultyChange,
+      previousDiffAdj: diff.previousRetarget,
+      // Approximation: elapsed blocks × current-epoch timeAvg. Accurate to within a few hours.
+      previousRetargetDate: (diff.remainingBlocks != null && diff.timeAvg)
+        ? Math.round((Date.now() - (2016 - diff.remainingBlocks) * diff.timeAvg) / 1000)
+        : null,
       blockTimeMs: diff.timeAvg,
       remainingBlocks: diff.remainingBlocks,
       progressPercent: diff.progressPercent,
@@ -245,7 +252,7 @@ async function fetchPoolBlocks(slug) {
 
 /**
  * Fetch recent confirmed blocks
- * Returns: [{ height, timestamp, txCount, size, medianFee, poolName }] (first 6)
+ * Returns: [{ height, timestamp, txCount, size, weight, medianFee, totalFees, feeRange, poolName }] (first 6)
  */
 async function fetchRecentBlocks() {
   try {
@@ -262,7 +269,10 @@ async function fetchRecentBlocks() {
         timestamp: b.timestamp,
         txCount:   b.tx_count,
         size:      b.size,
+        weight:    b.weight ?? null,
         medianFee: ext.medianFee != null ? Math.round(ext.medianFee * 10) / 10 : null,
+        totalFees: b.extras?.totalFees ?? null,
+        feeRange:  b.extras?.feeRange ?? null,
         poolName:  ext.pool?.name ?? '—',
       };
     });
