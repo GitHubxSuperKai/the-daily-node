@@ -11,6 +11,7 @@ import { StatusDot } from './StatusDot';
 import { WxGlyph } from './WxGlyph';
 import { LineChart } from './LineChart';
 import { NetworkStatusWidget } from './NetworkStatusWidget';
+import Miners from './Miners';
 import {
   useClock,
   useBTC,
@@ -164,14 +165,6 @@ export function CommandCenter({
   const totalHashrateTHS = onlineMiners.reduce((sum, m) => sum + ((m.data.hashRate || 0) / 1000), 0);
   const totalPower = onlineMiners.reduce((sum, m) => sum + (m.data.power || 0), 0);
   const combinedEff = totalHashrateTHS > 0 ? (totalPower / totalHashrateTHS).toFixed(1) : '—';
-  const totalShOk = onlineMiners.reduce((sum, m) => sum + (m.data.sharesAccepted || 0), 0);
-  const totalShRej = onlineMiners.reduce((sum, m) => sum + (m.data.sharesRejected || 0), 0);
-  const firstMiner = onlineMiners[0]?.data;
-  const bxPool = firstMiner ? firstMiner.stratumURL || 'solo.ckpool.org' : 'solo.ckpool.org';
-  const bestDiffRaw = onlineMiners.length > 0
-    ? Math.max(...onlineMiners.map(m => m.data?.bestDiff || 0))
-    : 0;
-  const bestDiffStr = fmtBestDiff(bestDiffRaw);
 
   // Solo odds from combined fleet hashrate
   const soloOdds =
@@ -466,7 +459,7 @@ export function CommandCenter({
                   <div>
                     <Num size="lg" value={`${wx.temp}°`} unit={prefs.tempUnit === 'celsius' ? 'C' : 'F'} />
                     <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 12, color: T.ink2, marginTop: 3 }}>
-                      {wx.wxCond} · feels {wx.feels}° · H{wx.wxHi} L{wx.wxLo}
+                      {wx.wxCond} · H{wx.wxHi} L{wx.wxLo}
                     </div>
                   </div>
                 </div>
@@ -506,13 +499,59 @@ export function CommandCenter({
                     </div>
                   ))}
                 </div>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 10, fontFamily: T.mono, fontSize: 10, color: T.ink3 }}>
-                  <span>wind {wx.wxWind}</span>
-                  <span>hum {wx.wxHum}</span>
-                  {wx.wxUVIndex != null && <span>UV {wx.wxUVIndex}</span>}
-                  {wx.wxDailyWindMax != null && <span>peak {wx.wxDailyWindMax} mph</span>}
-                  {wx.wxPrecipTotal != null && parseFloat(wx.wxPrecipTotal) > 0 && <span>{wx.wxPrecipTotal} mm today</span>}
-                </div>
+                {(() => {
+                  const uv = wx.wxUVIndex ?? 0;
+                  const uvColor = uv >= 8 ? T.red : uv >= 6 ? T.orange : uv < 3 ? T.green : T.ink;
+                  const uvLabel = uv >= 8 ? 'Very High' : uv >= 6 ? 'High' : uv >= 3 ? 'Moderate' : 'Low';
+                  const br = `1px solid ${T.rule3}`;
+                  const cellL  = { padding: '8px 8px 8px 0',  borderRight: br };
+                  const cellM  = { padding: '8px 8px 8px 8px', borderRight: br };
+                  const cellR  = { padding: '8px 0 8px 8px' };
+                  const cellLB = { padding: '8px 8px 0 0',    borderRight: br, borderTop: br };
+                  const cellMB = { padding: '8px 8px 0 8px',  borderRight: br, borderTop: br };
+                  const cellRB = { padding: '8px 0 0 8px',    borderTop: br };
+                  const lbl = { fontFamily: T.sans, fontSize: 8, fontWeight: 600, letterSpacing: 1.6, textTransform: 'uppercase', color: T.ink3, marginBottom: 3 };
+                  const val = { fontFamily: T.mono, fontSize: 13, fontWeight: 500, letterSpacing: -0.5, lineHeight: 1, color: T.ink };
+                  const sub = { fontFamily: T.mono, fontSize: 9, color: T.ink3, marginTop: 2 };
+                  return (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', marginTop: 10, borderTop: br }}>
+                      <div style={cellL}>
+                        <div style={lbl}>Feels Like</div>
+                        <div style={val}>{wx.feels}°{prefs.tempUnit === 'celsius' ? 'C' : 'F'}</div>
+                        <div style={sub}>H{wx.wxHi} · L{wx.wxLo}</div>
+                      </div>
+                      <div style={cellM}>
+                        <div style={lbl}>Humidity</div>
+                        <div style={val}>{wx.wxHum}</div>
+                        {wx.wxSunrise && <div style={sub}>↑{wx.wxSunrise} ↓{wx.wxSunset}</div>}
+                      </div>
+                      <div style={cellR}>
+                        <div style={lbl}>Dew Point</div>
+                        <div style={val}>{wx.wxDewPoint != null ? `${wx.wxDewPoint}°` : '—'}</div>
+                      </div>
+                      <div style={cellLB}>
+                        <div style={lbl}>Wind</div>
+                        <div style={val}>{wx.wxWind}</div>
+                        {wx.wxGusts != null && <div style={sub}>gusts {wx.wxGusts} mph</div>}
+                      </div>
+                      <div style={cellMB}>
+                        <div style={lbl}>UV Index</div>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                          <div style={{ ...val, color: uvColor }}>{uv}</div>
+                          <div style={{ fontFamily: T.sans, fontSize: 8, fontWeight: 600, color: uv >= 6 ? uvColor : T.ink3 }}>{uvLabel}</div>
+                        </div>
+                        <div style={{ height: 2, background: T.rule3, borderRadius: 2, marginTop: 5 }}>
+                          <div style={{ height: '100%', width: `${Math.min(uv / 11, 1) * 100}%`, background: uvColor, borderRadius: 2 }} />
+                        </div>
+                      </div>
+                      <div style={cellRB}>
+                        <div style={lbl}>Pressure</div>
+                        <div style={val}>{wx.wxPressure != null ? `${wx.wxPressure}` : '—'}</div>
+                        <div style={sub}>hPa</div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </>
             ) : (
               <div style={{ fontFamily: T.mono, fontSize: 12, color: T.ink3, marginTop: 8 }}>
@@ -823,97 +862,11 @@ export function CommandCenter({
         })()}
 
         {/* COL 3 — FIELD REPORT + CHAIN VITALS */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden' }}>
-          <Kicker>Field Report · {onlineCount}/{minerCount} online</Kicker>
-
-          {/* Editorial prose dispatch — single line */}
-          <p style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink2, lineHeight: 1.5, margin: 0 }}>
-            {bitaxe.loading
-              ? 'Awaiting telemetry…'
-              : onlineCount === 0
-              ? 'All units offline.'
-              : `${onlineCount} ${onlineCount === 1 ? 'unit' : 'units'} · ${totalHashrateTHS.toFixed(2)} TH/s at ${totalPower.toFixed(0)} W.`}
-          </p>
-
-          {/* Hero solo odds */}
-          {soloOdds ? (
-            <div style={{ borderLeft: `3px solid ${T.ink2}`, paddingLeft: 10 }}>
-              <div style={{ fontFamily: T.mono, fontSize: 22, fontWeight: 700, color: T.ink, lineHeight: 1, fontFeatureSettings: '"tnum"' }}>
-                1 : {fmtNum(soloOdds.oddsPerDay)}
-              </div>
-              <div style={{ fontFamily: T.sans, fontSize: 8, fontWeight: 600, letterSpacing: 1.5, textTransform: 'uppercase', color: T.ink3, marginTop: 3 }}>
-                Chance / Day · {etaStr} expected
-              </div>
-            </div>
-          ) : (
-            <div style={{ borderLeft: `3px solid ${T.ink4}`, paddingLeft: 10 }}>
-              <div style={{ fontFamily: T.mono, fontSize: 22, fontWeight: 700, color: T.ink4, lineHeight: 1 }}>—</div>
-              <div style={{ fontFamily: T.sans, fontSize: 8, fontWeight: 600, letterSpacing: 1.5, textTransform: 'uppercase', color: T.ink4, marginTop: 3 }}>
-                Chance / Day
-              </div>
-            </div>
-          )}
-
-          {/* 4-stat summary row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0 6px', borderTop: `1px solid ${T.rule3}`, borderBottom: `1px solid ${T.rule3}`, padding: '5px 0' }}>
-            {[
-              { label: 'Hashrate', v: onlineCount > 0 ? `${totalHashrateTHS.toFixed(2)}` : '—', u: 'TH/s' },
-              { label: 'Best diff', v: bestDiffStr, u: '' },
-              { label: 'Power', v: onlineCount > 0 ? `${totalPower.toFixed(0)}` : '—', u: 'W' },
-              { label: 'Efficiency', v: onlineCount > 0 ? combinedEff : '—', u: 'J/TH' },
-            ].map(({ label, v, u }) => (
-              <div key={label} style={{ textAlign: 'center' }}>
-                <div style={{ fontFamily: T.mono, fontSize: 11, color: T.ink }}>
-                  {v}<span style={{ fontSize: 8, color: T.ink3 }}>{u && ' '}{u}</span>
-                </div>
-                <div style={{ fontFamily: T.sans, fontSize: 8, fontWeight: 600, letterSpacing: 1.2, textTransform: 'uppercase', color: T.ink4, marginTop: 2 }}>{label}</div>
-              </div>
-            ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 0, overflow: 'hidden' }}>
+          <Miners bitaxe={bitaxe} chain={chain} />
+          <div className="no-scrollbar" style={{ marginTop: 32, overflowY: 'auto', flexShrink: 1, minHeight: 0 }}>
+            <NetworkStatusWidget chain={chain} T={T} />
           </div>
-
-          {/* Per-miner cards — compact 2-col grid */}
-          {(() => {
-            const STUB = { ip: '—.—.—.—', online: false, data: null, stub: true };
-            const displayMiners = bitaxe.miners.length === 0 && !bitaxe.loading
-              ? [STUB, STUB]
-              : bitaxe.miners;
-            return (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
-                {displayMiners.map((miner, i) => {
-                  const md = miner.online ? miner.data : null;
-                  const hrTHS = md ? ((md.hashRate || 0) / 1000).toFixed(2) : '—';
-                  const temp = md ? md.temp || md.temperature || '—' : '—';
-                  const power = md ? md.power || '—' : '—';
-                  const eff = md && md.power && md.hashRate ? (md.power / (md.hashRate / 1000)).toFixed(1) : '—';
-                  const model = md ? md.boardVersion || md.ASICModel || 'Bitaxe' : 'Bitaxe';
-                  return (
-                    <div key={i} style={{ borderLeft: `2px solid ${miner.online ? T.green : T.ink4}`, paddingLeft: 7, paddingTop: 3, paddingBottom: 3 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-                        <span style={{ fontFamily: T.mono, fontSize: 9, color: T.ink3 }}>
-                          <StatusDot ok={miner.online} />{miner.stub ? 'no miner' : miner.ip}
-                        </span>
-                        <span style={{ fontFamily: T.mono, fontSize: 9, color: T.ink4 }}>{miner.stub ? '—' : model}</span>
-                      </div>
-                      <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-                        {[['TH/s', hrTHS], ['°C', temp], ['W', power], ['J/T', eff]].map(([u, v], j) => (
-                          <span key={j} style={{ fontFamily: T.mono, fontSize: 10, color: T.ink }}>
-                            {v}<span style={{ fontSize: 8, color: T.ink3 }}>{u}</span>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-          <div style={{ fontFamily: T.mono, fontSize: 9, color: T.ink4 }}>
-            {fmtNum(totalShOk)} ok · {fmtNum(totalShRej)} rej
-          </div>
-          <Rule dash />
-
-          {/* Network Status Widget — redesigned column 3 */}
-          <NetworkStatusWidget chain={chain} T={T} />
         </div>
       </div>
 
