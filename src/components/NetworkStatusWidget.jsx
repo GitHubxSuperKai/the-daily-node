@@ -145,7 +145,6 @@ export function NetworkStatusWidget({ chain, T }) {
               </div>
               <div style={{
                 display: 'flex', alignItems: 'baseline', gap: u(5),
-                marginTop: u(4),
               }}>
                 <span style={{
                   fontFamily: T.sans, fontSize: u(9), fontWeight: 600,
