@@ -24,7 +24,7 @@ function SubLabel({ children, right, alert, rightColor, T }) {
   );
 }
 
-function Row({ label, value, valueColor, last, T }) {
+function Row({ label, value, valueColor, valueAlt, last, T }) {
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
@@ -37,11 +37,21 @@ function Row({ label, value, valueColor, last, T }) {
       }}>
         {label}
       </div>
-      <div style={{
-        fontFamily: T.num, fontSize: u(13), fontWeight: 400,
-        color: valueColor || T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1',
-      }}>
-        {value}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: u(6) }}>
+        {valueAlt && (
+          <div style={{
+            fontFamily: T.num, fontSize: u(9), fontWeight: 400,
+            color: T.ink4, fontFeatureSettings: '"tnum" 1, "lnum" 1',
+          }}>
+            {valueAlt}
+          </div>
+        )}
+        <div style={{
+          fontFamily: T.num, fontSize: u(13), fontWeight: 400,
+          color: valueColor || T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1',
+        }}>
+          {value}
+        </div>
       </div>
     </div>
   );
@@ -124,7 +134,7 @@ export function NetworkStatusWidget({ chain, T }) {
             { val: `${halvingBlocks.toLocaleString()} blks`, label: 'Halving', size: 18, color: T.ink, sub: `~${halvingYrs}yr` },
             { val: `${blockIntervalMin}m`,              label: 'Block Interval', size: 16, color: blockIntervalCol },
             { val: `${blockSubsidy} BTC`,               label: 'Block Reward', size: 16, color: T.ink },
-            { val: `${blockSubsidy / 2} BTC`,           label: 'Next Reward',  size: 16, color: T.ink4 },
+            { val: `${Number((blockSubsidy / 2).toFixed(8))} BTC`, label: 'Next Reward', size: 16, color: T.ink4 },
           ].map(({ val, label, size, color, sub }, i) => (
             <div key={i}>
               <div style={{
@@ -176,23 +186,8 @@ export function NetworkStatusWidget({ chain, T }) {
             ~{remainingDays}d
           </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: u(6) }}>
-          <div style={{
-            fontFamily: T.sans, fontSize: u(9), fontWeight: 600,
-            letterSpacing: u(1.2), textTransform: 'uppercase', color: T.ink4,
-          }}>
-            Prev Adj
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: u(6) }}>
-            {prevRetargetDateStr && (
-              <div style={{ fontFamily: T.num, fontSize: u(9), color: T.ink4, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
-                {prevRetargetDateStr}
-              </div>
-            )}
-            <div style={{ fontFamily: T.num, fontSize: u(10), color: prevDiffAdjCol, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
-              {prevDiffAdjStr}
-            </div>
-          </div>
+        <div style={{ marginTop: u(6) }}>
+          <Row label="Prev Adj" value={prevDiffAdjStr} valueColor={prevDiffAdjCol} valueAlt={prevRetargetDateStr || undefined} T={T} last />
         </div>
       </div>
 
