@@ -7,7 +7,7 @@ import { useResettableInterval } from './useResettableInterval.js';
  * Fetches weather from Open-Meteo API
  *
  * Returns: {
- *   data: object with { temp, feels, wxCond, wxCode, wxWindSpeed, wxWind, wxHum, wxHi, wxLo, wxSunriseHr, wxSunsetHr, hourly, wxUVIndexTomorrow },
+ *   data: object with { temp, feels, wxCond, wxCode, wxWindSpeed, wxWind, wxHum, wxHi, wxLo, wxSunriseHr, wxSunsetHr, wxSunrise, wxSunset, wxSunriseTomorrow, hourly, wxUVIndex, wxUVIndexTomorrow, wxPressure, wxDewPoint, wxGusts, wxDailyWindMax, wxPrecipTotal },
  *   err: boolean,
  *   lastOk: timestamp or null,
  *   interval: number (for feed health tracking)
@@ -65,6 +65,7 @@ export function useWeather(lat, lng, tempUnit) {
         wxSunsetHr: parseInt(j.daily.sunset[0].split('T')[1]),
         wxSunrise: j.daily.sunrise[0].split('T')[1]?.slice(0, 5),
         wxSunset: j.daily.sunset[0].split('T')[1]?.slice(0, 5),
+        wxSunriseTomorrow: j.daily.sunrise[1]?.split('T')[1]?.slice(0, 5),
         wxPrecipTotal: j.daily.precipitation_sum?.[0] != null ? j.daily.precipitation_sum[0].toFixed(1) : null,
         wxUVIndex: j.daily.uv_index_max?.[0] != null ? Math.round(j.daily.uv_index_max[0]) : null,
         wxUVIndexTomorrow: j.daily.uv_index_max?.[1] != null ? Math.round(j.daily.uv_index_max[1]) : null,
