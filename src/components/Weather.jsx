@@ -45,7 +45,10 @@ function Weather({ weather, prefs }) {
       </div>
       {/* 3×2 stat grid */}
       {(() => {
-        const isNight = new Date().getHours() >= wx.wxSunsetHr;
+        const curHour = new Date().getHours();
+        const isNight = wx.wxSunriseHr != null && wx.wxSunsetHr != null
+          ? (curHour < wx.wxSunriseHr || curHour >= wx.wxSunsetHr)
+          : (curHour < 6 || curHour >= 20);
         const uv = isNight ? (wx.wxUVIndexTomorrow ?? 0) : (wx.wxUVIndex ?? 0);
         const uvColor = uv >= 8 ? T.red : uv >= 6 ? T.orange : uv < 3 ? T.green : T.ink;
         const uvLabel = uv >= 8 ? 'Very High' : uv >= 6 ? 'High' : uv >= 3 ? 'Moderate' : 'Low';
