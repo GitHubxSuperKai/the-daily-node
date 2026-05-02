@@ -3,7 +3,7 @@ import { useT } from '../theme';
 import Num from './Num';
 import Kicker from './Kicker';
 import WxGlyph from './WxGlyph';
-import { fmtHour, wmoIcon, wmoSpeed } from '../utils/formatting';
+import { fmtHour, fmtHHMM, wmoIcon, wmoSpeed } from '../utils/formatting';
 
 function Weather({ weather, prefs }) {
   const T = useT();
@@ -24,7 +24,14 @@ function Weather({ weather, prefs }) {
     <div>
       <Kicker>Weather</Kicker>
       <div style={{ display: 'flex', alignItems: 'center', gap: u(12), marginTop: u(8) }}>
-        <WxGlyph kind={wmoIcon(wx.wxCode, new Date().getHours(), wx.wxWindSpeed, wx.wxSunriseHr, wx.wxSunsetHr)} size={48} speed={wmoSpeed(wx.wxCode, wx.wxWindSpeed)} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: u(4) }}>
+          <WxGlyph kind={wmoIcon(wx.wxCode, new Date().getHours(), wx.wxWindSpeed, wx.wxSunriseHr, wx.wxSunsetHr)} size={48} speed={wmoSpeed(wx.wxCode, wx.wxWindSpeed)} />
+          {(() => {
+            const h = new Date().getHours();
+            const label = h < 12 ? (wx.wxSunset ? `↓ ${fmtHHMM(wx.wxSunset, prefs.timeFormat)}` : null) : (wx.wxSunriseTomorrow ? `↑ ${fmtHHMM(wx.wxSunriseTomorrow, prefs.timeFormat)}` : null);
+            return label ? <div style={{ fontFamily: T.num, fontSize: u(9), color: T.ink3, lineHeight: 1 }}>{label}</div> : null;
+          })()}
+        </div>
         <div>
           <Num size="lg" value={`${wx.temp}°`} unit={prefs.tempUnit === 'celsius' ? 'C' : 'F'} />
           <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: u(12), color: T.ink2, marginTop: u(3) }}>
@@ -68,12 +75,16 @@ function Weather({ weather, prefs }) {
             <div style={cellL}>
               <div style={lbl}>Feels Like</div>
               <div style={val}>{wx.feels}°{prefs.tempUnit === 'celsius' ? 'C' : 'F'}</div>
-              <div style={sub}>H{wx.wxHi} · L{wx.wxLo}</div>
+              {(() => {
+                if (wx.wxPressure == null) return null;
+                if (wx.wxPressure >= 1020) return <div style={sub}>dry &amp; clear</div>;
+                if (wx.wxPressure < 1007) return <div style={sub}>humid &amp; unsettled</div>;
+                return null;
+              })()}
             </div>
             <div style={cellM}>
               <div style={lbl}>Humidity</div>
               <div style={val}>{wx.wxHum}</div>
-              {wx.wxSunrise && <div style={sub}>↑{wx.wxSunrise} ↓{wx.wxSunset}</div>}
             </div>
             <div style={cellR}>
               <div style={lbl}>Dew Point</div>
@@ -97,7 +108,13 @@ function Weather({ weather, prefs }) {
             <div style={cellRB}>
               <div style={lbl}>Pressure</div>
               <div style={val}>{wx.wxPressure != null ? `${wx.wxPressure}` : '—'}</div>
-              <div style={sub}>hPa</div>
+              {wx.wxPressure != null && (() => {
+                const isHigh = wx.wxPressure >= 1020;
+                const isLow  = wx.wxPressure < 1007;
+                const color  = isHigh ? T.green : isLow ? T.orange : T.ink3;
+                const label  = isHigh ? 'High' : isLow ? 'Low' : 'Normal';
+                return <div style={{ ...sub, color }}>{label} · hPa</div>;
+              })()}
             </div>
           </div>
         );
