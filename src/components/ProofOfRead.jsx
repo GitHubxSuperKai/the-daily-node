@@ -53,8 +53,8 @@ export function ProofOfRead({ btc, chain, hashrate, mempoolTx, mempoolMB, feeFas
       <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {[priceBullet, chainBullet].map((bullet, i) => (
           <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-            <span style={{ fontFamily: T.mono, fontSize: 10, color: T.orange, marginTop: 3, flexShrink: 0 }}>&#9670;</span>
-            <div style={{ fontFamily: T.body, fontSize: 13, lineHeight: 1.5, color: T.ink2 }}>{bullet}</div>
+            <span style={{ fontFamily: T.sans, fontSize: u(10), color: T.orange, marginTop: u(3), flexShrink: 0 }}>&#9670;</span>
+            <div style={{ fontFamily: T.body, fontSize: u(13), lineHeight: 1.5, color: T.ink2 }}>{bullet}</div>
           </div>
         ))}
       </div>

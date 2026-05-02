@@ -2,10 +2,12 @@ import React from 'react';
 
 // ─── Font Stack ───────────────────────────────────────────
 const FONTS = {
-  serif: '"Playfair Display", Georgia, serif',
-  body: '"Newsreader", Georgia, serif',
-  sans: '"Inter Tight", system-ui, sans-serif',
-  mono: '"Courier Prime", "Courier New", monospace',
+  serif:      '"Playfair Display", Georgia, serif',
+  body:       '"Newsreader", Georgia, serif',
+  sans:       '"Inter Tight", system-ui, sans-serif',
+  mono:       '"Courier Prime", "Courier New", monospace',
+  numDisplay: '"Playfair Display", Georgia, serif',
+  num:        '"Newsreader", Georgia, serif',
 };
 
 // ─── Light Theme ──────────────────────────────────────────

@@ -14,7 +14,7 @@ function SubLabel({ children, right, alert, rightColor, T }) {
       </div>
       {right && (
         <div style={{
-          fontFamily: T.mono, fontSize: u(10), fontWeight: 600,
+          fontFamily: T.num, fontSize: u(10), fontWeight: 400,
           color: rightColor || (alert ? T.red : T.green),
         }}>
           {right}
@@ -38,8 +38,8 @@ function Row({ label, value, valueColor, last, T }) {
         {label}
       </div>
       <div style={{
-        fontFamily: T.mono, fontSize: u(13), fontWeight: 600,
-        color: valueColor || T.ink, fontFeatureSettings: '"tnum"',
+        fontFamily: T.num, fontSize: u(13), fontWeight: 400,
+        color: valueColor || T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1',
       }}>
         {value}
       </div>
@@ -113,8 +113,8 @@ export function NetworkStatusWidget({ chain, T }) {
           ].map(({ val, label, size, color }, i) => (
             <div key={i}>
               <div style={{
-                fontFamily: T.mono, fontSize: u(size), fontWeight: 700,
-                color, lineHeight: 1, fontFeatureSettings: '"tnum"',
+                fontFamily: T.num, fontSize: u(size), fontWeight: 400,
+                color, lineHeight: 1, fontFeatureSettings: '"tnum" 1, "lnum" 1',
               }}>
                 {val}
               </div>
@@ -141,10 +141,10 @@ export function NetworkStatusWidget({ chain, T }) {
           }} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <div style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink3, fontFeatureSettings: '"tnum"' }}>
+          <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
             {fmtNum(remainingBlocks)} blocks remaining
           </div>
-          <div style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink4, fontFeatureSettings: '"tnum"' }}>
+          <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink4, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
             ~{remainingDays}d
           </div>
         </div>
@@ -156,8 +156,8 @@ export function NetworkStatusWidget({ chain, T }) {
           Halving
         </SubLabel>
         <div style={{
-          fontFamily: T.mono, fontSize: u(24), fontWeight: 700,
-          color: T.ink, lineHeight: 1, fontFeatureSettings: '"tnum"',
+          fontFamily: T.num, fontSize: u(24), fontWeight: 400,
+          color: T.ink, lineHeight: 1, fontFeatureSettings: '"tnum" 1, "lnum" 1',
         }}>
           {halvingBlocks.toLocaleString()}
           <span style={{ fontSize: u(11), fontWeight: 400, color: T.ink3, marginLeft: u(4) }}>blocks</span>
@@ -194,8 +194,8 @@ export function NetworkStatusWidget({ chain, T }) {
         {latestBlock ? (
           <>
             <div style={{
-              fontFamily: T.mono, fontSize: u(24), fontWeight: 700,
-              color: T.ink, lineHeight: 1, marginBottom: u(8), fontFeatureSettings: '"tnum"',
+              fontFamily: T.num, fontSize: u(24), fontWeight: 400,
+              color: T.ink, lineHeight: 1, marginBottom: u(8), fontFeatureSettings: '"tnum" 1, "lnum" 1',
             }}>
               #{fmtNum(latestBlock.height)}
             </div>
@@ -207,7 +207,7 @@ export function NetworkStatusWidget({ chain, T }) {
             </div>
           </>
         ) : (
-          <div style={{ fontFamily: T.mono, fontSize: u(14), color: T.ink4 }}>—</div>
+          <div style={{ fontFamily: T.num, fontSize: u(14), color: T.ink4 }}>—</div>
         )}
       </div>
 
@@ -247,15 +247,15 @@ export function NetworkStatusWidget({ chain, T }) {
                     }} />
                   </div>
                   <div style={{
-                    fontFamily: T.mono, fontSize: u(12), fontWeight: 600,
-                    color: isRisk ? T.red : T.ink, fontFeatureSettings: '"tnum"',
+                    fontFamily: T.num, fontSize: u(12), fontWeight: 400,
+                    color: isRisk ? T.red : T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1',
                     width: u(38), textAlign: 'right', flexShrink: 0,
                   }}>
                     {pool.sharePct}%
                   </div>
                   <div style={{
-                    fontFamily: T.mono, fontSize: u(11), color: T.ink3,
-                    width: u(28), textAlign: 'right', flexShrink: 0, fontFeatureSettings: '"tnum"',
+                    fontFamily: T.num, fontSize: u(11), color: T.ink3,
+                    width: u(28), textAlign: 'right', flexShrink: 0, fontFeatureSettings: '"tnum" 1, "lnum" 1',
                   }}>
                     {fmtNum(pool.blockCount || 0)}
                   </div>
