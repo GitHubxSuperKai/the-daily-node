@@ -1,10 +1,10 @@
 import React from 'react';
 
-function SubLabel({ children, right, alert, rightColor, T }) {
+function SubLabel({ children, right, alert, rightColor, noBorder, T }) {
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-      paddingBottom: u(6), marginBottom: u(6), borderBottom: `1px solid ${T.rule3}`,
+      paddingBottom: u(6), marginBottom: u(6), ...(!noBorder && { borderBottom: `1px solid ${T.rule3}` }),
     }}>
       <div style={{
         fontFamily: T.sans, fontSize: u(9), fontWeight: 600,
@@ -174,7 +174,7 @@ export function NetworkStatusWidget({ chain, T }) {
 
       {/* Difficulty Adjustment */}
       <div style={{ marginBottom: u(20), paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
-        <SubLabel right={diffAdjStr} rightColor={diffAdjCol} T={T}>
+        <SubLabel right={diffAdjStr} rightColor={diffAdjCol} noBorder T={T}>
           Difficulty Adjustment
         </SubLabel>
         <div style={{ height: u(6), background: T.rule3, marginBottom: u(5), position: 'relative' }}>
@@ -195,15 +195,10 @@ export function NetworkStatusWidget({ chain, T }) {
           </div>
         </div>
         <div style={{ marginTop: u(8), display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <div style={{
-            fontFamily: T.sans, fontSize: u(9), fontWeight: 600,
-            letterSpacing: u(1.2), textTransform: 'uppercase', color: T.ink3,
-          }}>
+          <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
             Previous Adjustment
             {prevRetargetDateStr && (
-              <span style={{ fontFamily: T.num, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
-                : {prevRetargetDateStr}
-              </span>
+              <span style={{ fontFamily: T.num, fontSize: u(9), color: T.ink4 }}>: {prevRetargetDateStr}</span>
             )}
           </div>
           <div style={{

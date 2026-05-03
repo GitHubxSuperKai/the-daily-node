@@ -176,7 +176,7 @@ async function fetchRSSFeeds(feeds = [], apiKey = '') {
 
         const src = j.feed.title || new URL(feedUrl).hostname;
         return j.items.map(it => ({
-          cat: (it.categories && it.categories[0]) ? it.categories[0].toUpperCase().slice(0, 10) : 'BITCOIN',
+          cat: (it.categories && it.categories[0]) ? it.categories[0].toUpperCase().slice(0, 20) : 'BITCOIN',
           hed: it.title,
           src,
           pubDate: it.pubDate,

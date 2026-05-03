@@ -202,7 +202,7 @@ function Miners({ bitaxe, chain }) {
             gridColumn: '1 / -1',
             padding: `${u(8)} 0`,
             borderBottom: `1px solid ${T.rule3}`,
-            fontFamily: T.mono, fontSize: u(11), color: T.ink4,
+            fontFamily: T.mono, fontSize: u(11), color: T.ink4, textAlign: 'center',
           }}>
             No miners configured
           </div>
