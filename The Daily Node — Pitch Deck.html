@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Daily Node — Pitch Deck</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,600;1,6..72,300;1,6..72,400;1,6..72,600&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+
+    /* ============================================================
+       RESET
+       ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    ul { list-style: none; }
+
+    /* ============================================================
+       MANDATORY VIEWPORT BASE (from STYLE_PRESETS.md)
+       ============================================================ */
+    html, body { height: 100%; overflow-x: hidden; }
+
+    html {
+      scroll-snap-type: y mandatory;
+      scroll-behavior: smooth;
+    }
+
+    .slide {
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      scroll-snap-align: start;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.2s !important;
+      }
+      html { scroll-behavior: auto; }
+    }
+
+    /* ============================================================
+       THEME TOKENS
+       ============================================================ */
+    :root {
+      --orange:       #F7931A;
+      --orange-dim:   rgba(247, 147, 26, 0.25);
+      --orange-faint: rgba(247, 147, 26, 0.08);
+
+      /* Dark slide palette */
+      --dk-bg:      #0d0d0d;
+      --dk-surface: #181818;
+      --dk-text:    #f5f0e8;
+      --dk-muted:   #888;
+      --dk-rule:    #2a2a2a;
+
+      /* Light slide palette */
+      --lt-bg:      #f5f0e8;
+      --lt-surface: #ede8de;
+      --lt-text:    #1a1a1a;
+      --lt-muted:   #6b6460;
+      --lt-rule:    #ccc5b7;
+
+      /* Type scale */
+      --size-display: clamp(2.75rem, 8vw, 6.5rem);
+      --size-h1:      clamp(2rem,    6vw, 4.5rem);
+      --size-h2:      clamp(1.4rem,  3.5vw, 2.75rem);
+      --size-h3:      clamp(1.1rem,  2.5vw, 1.9rem);
+      --size-body:    clamp(0.8rem,  1.4vw, 1.05rem);
+      --size-small:   clamp(0.7rem,  1.1vw, 0.875rem);
+      --size-label:   clamp(0.55rem, 0.85vw, 0.72rem);
+
+      /* Spacing */
+      --pad:  clamp(2rem, 5vw, 5rem);
+      --gap:  clamp(0.75rem, 1.8vw, 1.75rem);
+      --egap: clamp(0.35rem, 0.9vw, 0.8rem);
+    }
+
+    @media (max-height: 700px) {
+      :root {
+        --size-display: clamp(2rem, 6vw, 4rem);
+        --size-h1:      clamp(1.5rem, 4.5vw, 3rem);
+        --size-h2:      clamp(1.2rem, 3vw, 2rem);
+        --pad:  clamp(1.25rem, 3vw, 2.5rem);
+        --gap:  clamp(0.5rem,  1.2vw, 1.1rem);
+      }
+    }
+
+    @media (max-height: 600px) {
+      :root {
+        --size-display: clamp(1.5rem, 5vw, 3rem);
+        --size-h1:      clamp(1.25rem, 3.5vw, 2.25rem);
+        --pad:  clamp(0.75rem, 2.5vw, 1.75rem);
+        --gap:  clamp(0.35rem, 1vw, 0.75rem);
+      }
+    }
+
+    /* ============================================================
+       UTILITY CLASSES
+       ============================================================ */
+    .f-display { font-family: 'Playfair Display', Georgia, serif; }
+    .f-body    { font-family: 'Newsreader', Georgia, serif; }
+    .f-mono    { font-family: 'Courier Prime', 'Courier New', monospace; }
+
+    .slide-dark  { background: var(--dk-bg);  color: var(--dk-text); }
+    .slide-light { background: var(--lt-bg);  color: var(--lt-text); }
+
+    /* Slide counter */
+    .counter {
+      position: absolute;
+      top: clamp(1rem, 2vh, 1.5rem);
+      right: var(--pad);
+      font-family: 'Courier Prime', monospace;
+      font-size: var(--size-label);
+      letter-spacing: 0.12em;
+      z-index: 10;
+    }
+    .slide-dark  .counter { color: var(--dk-muted); }
+    .slide-light .counter { color: var(--lt-muted); }
+
+    /* Orange rule */
+    .rule {
+      display: block;
+      width: clamp(2.5rem, 7vw, 5.5rem);
+      height: 1px;
+      background: var(--orange);
+      flex-shrink: 0;
+    }
+    .rule-full {
+      display: block;
+      width: 100%;
+      height: 1px;
+      flex-shrink: 0;
+    }
+    .slide-dark  .rule-full { background: var(--dk-rule); }
+    .slide-light .rule-full { background: var(--lt-rule); }
+
+    /* Overline label */
+    .overline {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: var(--size-label);
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+    }
+    .slide-dark  .overline { color: var(--orange); }
+    .slide-light .overline { color: var(--lt-muted); }
+
+    /* Main content wrapper — used on all slides */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: var(--pad);
+      gap: var(--gap);
+      max-height: 100%;
+      overflow: hidden;
+    }
+
+    /* ============================================================
+       REVEAL ANIMATIONS
+       ============================================================ */
+    .reveal {
+      opacity: 0;
+      transform: translateY(14px);
+      transition: opacity 0.55s ease, transform 0.55s ease;
+    }
+    .reveal.d1 { transition-delay: 0.08s; }
+    .reveal.d2 { transition-delay: 0.18s; }
+    .reveal.d3 { transition-delay: 0.30s; }
+    .reveal.d4 { transition-delay: 0.44s; }
+    .reveal.d5 { transition-delay: 0.58s; }
+    .reveal.d6 { transition-delay: 0.72s; }
+    .reveal.is-visible { opacity: 1; transform: translateY(0); }
+
+    /* ============================================================
+       GLOBAL CHROME
+       ============================================================ */
+    /* Progress bar */
+    #progress {
+      position: fixed;
+      top: 0; left: 0;
+      height: 2px;
+      background: var(--orange);
+      z-index: 200;
+      transition: width 0.25s ease;
+      pointer-events: none;
+    }
+
+    /* Nav hint */
+    #nav-hint {
+      position: fixed;
+      bottom: clamp(0.75rem, 1.5vh, 1.25rem);
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'Courier Prime', monospace;
+      font-size: var(--size-label);
+      color: #555;
+      letter-spacing: 0.12em;
+      z-index: 200;
+      pointer-events: none;
+      transition: opacity 0.6s ease;
+      white-space: nowrap;
+    }
+    #nav-hint.gone { opacity: 0; }
+
+    /* ============================================================
+       SLIDE 1 — COVER (DARK)
+       ============================================================ */
+    #s1 .main {
+      padding-bottom: calc(var(--pad) + clamp(1.75rem, 3vh, 2.5rem)); /* room for ticker */
+      gap: 0;
+    }
+
+    #s1 .edition-line {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: var(--size-label);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--dk-muted);
+      margin-bottom: clamp(0.6rem, 1.5vh, 1rem);
+    }
+
+    #s1 .wordmark {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: var(--size-display);
+      font-weight: 900;
+      line-height: 0.93;
+      letter-spacing: -0.025em;
+      color: var(--dk-text);
+    }
+
+    #s1 .rule { margin: clamp(0.9rem, 2vh, 1.5rem) 0; }
+
+    #s1 .tagline {
+      font-family: 'Newsreader', Georgia, serif;
+      font-style: italic;
+      font-size: clamp(0.85rem, 1.8vw, 1.35rem);
+      color: var(--dk-muted);
+      max-width: 38ch;
+      line-height: 1.55;
+    }
+
+    #s1 .edition-foot {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: var(--size-label);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #444;
+      margin-top: clamp(0.8rem, 2vh, 1.4rem);
+    }
+
+    /* Ticker */
+    .ticker-wrap {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: clamp(1.6rem, 2.8vh, 2.2rem);
+      background: var(--orange);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+    }
+
+    .ticker-track {
+      display: flex;
+      white-space: nowrap;
+      animation: ticker 30s linear infinite;
+      will-change: transform;
+    }
+
+    .ticker-item {
+      font-family: 'Courier Prime', monospace;
+      font-size: var(--size-label);
+      font-weight: 700;
+      color: var(--dk-bg);
+      letter-spacing: 0.06em;
+      padding: 0 clamp(1rem, 2.5vw, 2.25rem);
+    }
+
+    .ticker-sep { color: rgba(13,13,13,0.35); padding: 0 0.25rem; }
+
+    @keyframes ticker {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+
+    .live-dot {
+      display: inline-block;
+      width: 5px; height: 5px;
+      background: var(--dk-bg);
+      border-radius: 50%;
+      margin-right: 0.45em;
+      vertical-align: middle;
+      animation: blink 1.6s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.25; }
+    }
+
+    /* ============================================================
+       SLIDE 2 — THE PROBLEM (DARK)
+       ============================================================ */
+    #s2 .main { gap: 0; }
+
+    #s2 .overline { margin-bottom: clamp(0.5rem, 1.2vh, 0.9rem); }
+    #s2 .rule     { margin-bottom: clamp(0.75rem, 2vh, 1.4rem); }
+
+    #s2 .problem-head {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: clamp(3.5rem, 11vw, 9rem);
+      font-weight: 900;
+      line-height: 0.9;
+      letter-spacing: -0.035em;
+      color: var(--dk-text);
+    }
+
+    #s2 .caption {
+      font-family: 'Newsreader', Georgia, serif;
+      font-style: italic;
+      font-size: var(--size-body);
+      color: var(--dk-muted);
+      max-width: 30ch;
+      line-height: 1.55;
+      margin-top: clamp(0.75rem, 1.8vh, 1.25rem);
+    }
+
+    /* Tab pills — absolutely positioned within slide */
+    #s2 .tabs-cloud {
+      position: absolute;
+      right: var(--pad);
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: clamp(0.4rem, 0.9vh, 0.75rem);
+      align-items: flex-end;
+    }
+
+    .tab-pill {
+      font-family: 'Courier Prime', monospace;
+      font-size: var(--size-small);
+      color: var(--dk-muted);
+      background: var(--dk-surface);
+      border: 1px solid var(--dk-rule);
+      padding: clamp(0.3rem, 0.7vh, 0.5rem) clamp(0.75rem, 1.5vw, 1.25rem);
+      border-radius: 3px;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+
+    .tab-pill.hot {
+      border-color: var(--orange);
+      color: var(--orange);
+    }
+
+    /* ============================================================
+       SLIDE 3 — SOLUTION (LIGHT)
+       ============================================================ */
+    #s3 .main {
+      align-items: center;
+      text-align: center;
+    }
+
+    #s3 .pull-quote {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: clamp(1.75rem, 5vw, 4rem);
+      font-weight: 700;
+      font-style: italic;
+      line-height: 1.15;
+      color: var(--lt-text);
+      max-width: 18ch;
+    }
+
+    #s3 .pull-quote em {
+      font-style: normal;
+      color: var(--orange);
+    }
+
+    #s3 .desc {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: var(--size-body);
+      color: var(--lt-muted);
+      max-width: 54ch;
+      line-height: 1.72;
+    }
+
+    #s3 .source-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: clamp(0.4rem, 1vw, 0.9rem);
+      justify-content: center;
+    }
+
+    .source-chip {
+      font-family: 'Courier Prime', monospace;
+      font-size: var(--size-label);
+      color: var(--lt-muted);
+      border: 1px solid var(--lt-rule);
+      padding: 0.3em 0.75em;
+      border-radius: 2px;
+      letter-spacing: 0.06em;
+    }
+
+    /* ============================================================
+       SLIDE 4 — WHAT'S INSIDE (LIGHT)
+       ============================================================ */
+    #s4 .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: clamp(0.75rem, 2vw, 2.5rem);
+    }
+
+    @media (max-width: 900px) {
+      #s4 .feature-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .fcol { display: flex; flex-direction: column; gap: var(--egap); }
+
+    .fcol-label {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: var(--size-label);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--orange);
+      padding-bottom: 0.4em;
+      border-bottom: 1px solid var(--orange);
+      flex-shrink: 0;
+    }
+
+    .fcol li {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: var(--size-small);
+      color: var(--lt-muted);
+      line-height: 1.45;
+      padding-left: 0.9em;
+      position: relative;
+    }
+
+    .fcol li::before {
+      content: '·';
+      position: absolute;
+      left: 0;
+      color: var(--orange);
+    }
+
+    #s4 .footer-note {
+      font-family: 'Newsreader', Georgia, serif;
+      font-style: italic;
+      font-size: var(--size-small);
+      color: var(--lt-muted);
+      opacity: 0.75;
+    }
+
+    /* ============================================================
+       SLIDE 5 — DESIGN (LIGHT)
+       ============================================================ */
+    #s5 .two-col {
+      display: flex;
+      align-items: center;
+      gap: clamp(2.5rem, 6vw, 7rem);
+    }
+
+    #s5 .left { flex: 1; display: flex; flex-direction: column; gap: var(--gap); }
+
+    #s5 .design-head {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: var(--size-h1);
+      font-weight: 900;
+      line-height: 1.05;
+      color: var(--lt-text);
+    }
+
+    #s5 .principles { display: flex; flex-direction: column; gap: clamp(0.45rem, 1vh, 0.8rem); }
+
+    .principle {
+      display: flex;
+      align-items: baseline;
+      gap: 0.9em;
+    }
+
+    .p-num {
+      font-family: 'Courier Prime', monospace;
+      font-size: var(--size-label);
+      color: var(--orange);
+      flex-shrink: 0;
+      width: 1.6em;
+    }
+
+    .p-text {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: var(--size-body);
+      color: var(--lt-muted);
+      line-height: 1.45;
+    }
+
+    #s5 .right { flex-shrink: 0; }
+
+    .tv-card {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: clamp(0.9rem, 1.8vw, 1.35rem);
+      font-style: italic;
+      color: var(--lt-muted);
+      max-width: 18ch;
+      text-align: center;
+      line-height: 1.55;
+      padding: clamp(1.25rem, 2.5vw, 2.25rem);
+      border: 1px solid var(--lt-rule);
+      border-left: 3px solid var(--orange);
+      background: var(--lt-surface);
+    }
+
+    /* ============================================================
+       SLIDE 6 — ONE HTML FILE (DARK)
+       ============================================================ */
+    #s6 .big-stat {
+      font-family: 'Courier Prime', monospace;
+      font-weight: 700;
+      font-size: clamp(1.75rem, 5.5vw, 4.5rem);
+      color: var(--orange);
+      line-height: 1.05;
+      letter-spacing: -0.01em;
+    }
+
+    #s6 .tech-list { display: flex; flex-direction: column; gap: clamp(0.35rem, 0.9vh, 0.65rem); }
+
+    .tech-item {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: var(--size-body);
+      color: var(--dk-muted);
+      display: flex;
+      align-items: baseline;
+      gap: 0.85em;
+    }
+
+    .tech-item::before {
+      content: '—';
+      color: var(--orange);
+      font-family: 'Courier Prime', monospace;
+      flex-shrink: 0;
+    }
+
+    #s6 .meta-note {
+      font-family: 'Newsreader', Georgia, serif;
+      font-style: italic;
+      font-size: var(--size-body);
+      color: var(--dk-muted);
+      opacity: 0.65;
+      max-width: 42ch;
+      padding-top: clamp(0.75rem, 1.8vh, 1.25rem);
+      border-top: 1px solid var(--dk-rule);
+    }
+
+    #s6 .meta-note em {
+      font-style: normal;
+      color: var(--orange);
+      opacity: 1;
+    }
+
+    /* ============================================================
+       SLIDE 7 — WHO IT'S FOR (LIGHT)
+       ============================================================ */
+    #s7 .persona-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: clamp(1.25rem, 3vw, 4rem);
+    }
+
+    @media (max-width: 700px) {
+      #s7 .persona-row { grid-template-columns: 1fr; }
+    }
+
+    .persona {
+      display: flex;
+      flex-direction: column;
+      gap: clamp(0.4rem, 1vh, 0.75rem);
+      border-top: 2px solid var(--orange);
+      padding-top: clamp(0.75rem, 1.5vh, 1.25rem);
+    }
+
+    .persona-name {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: var(--size-h3);
+      font-weight: 700;
+      color: var(--lt-text);
+    }
+
+    .persona-blurb {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: var(--size-small);
+      color: var(--lt-muted);
+      line-height: 1.62;
+    }
+
+    .persona-tag {
+      font-family: 'Courier Prime', monospace;
+      font-size: var(--size-label);
+      color: var(--orange);
+      letter-spacing: 0.06em;
+      margin-top: auto;
+    }
+
+    /* ============================================================
+       SLIDE 8 — CTA (DARK)
+       ============================================================ */
+    #s8 .main {
+      align-items: center;
+      text-align: center;
+    }
+
+    #s8 .cta-head {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: clamp(3.5rem, 10vw, 8rem);
+      font-weight: 900;
+      line-height: 0.92;
+      letter-spacing: -0.035em;
+    }
+
+    #s8 .cta-head .line1 { color: var(--dk-text); }
+    #s8 .cta-head .line2 { color: var(--orange); }
+
+    #s8 .cta-sub {
+      font-family: 'Newsreader', Georgia, serif;
+      font-style: italic;
+      font-size: clamp(1rem, 2.2vw, 1.6rem);
+      color: var(--dk-muted);
+    }
+
+    #s8 .cta-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(1.5rem, 4vw, 4rem);
+    }
+
+    /* QR placeholder */
+    .qr-box {
+      width:  clamp(80px, 11vw, 132px);
+      height: clamp(80px, 11vw, 132px);
+      border: 2px solid var(--orange);
+      position: relative;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Corner brackets */
+    .qr-box::before, .qr-box::after {
+      content: '';
+      position: absolute;
+      width: 14px; height: 14px;
+      border-color: var(--orange);
+      border-style: solid;
+    }
+    .qr-box::before { top: 4px; left: 4px; border-width: 2px 0 0 2px; }
+    .qr-box::after  { bottom: 4px; right: 4px; border-width: 0 2px 2px 0; }
+
+    .qr-inner {
+      position: absolute;
+      inset: 12px;
+      background-image:
+        repeating-linear-gradient(0deg,   var(--orange-dim) 0, var(--orange-dim) 1px, transparent 1px, transparent 7px),
+        repeating-linear-gradient(90deg,  var(--orange-dim) 0, var(--orange-dim) 1px, transparent 1px, transparent 7px);
+    }
+
+    .qr-label {
+      font-family: 'Courier Prime', monospace;
+      font-size: var(--size-label);
+      color: var(--dk-muted);
+      letter-spacing: 0.1em;
+      z-index: 1;
+      position: relative;
+    }
+
+    .cta-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55em;
+      text-align: left;
+    }
+
+    .gh-url {
+      font-family: 'Courier Prime', monospace;
+      font-size: var(--size-small);
+      color: var(--orange);
+      letter-spacing: 0.05em;
+    }
+
+    .star-line {
+      font-family: 'Newsreader', Georgia, serif;
+      font-style: italic;
+      font-size: var(--size-body);
+      color: var(--dk-muted);
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- Global chrome -->
+  <div id="progress"></div>
+  <div id="nav-hint" class="f-mono">↓  scroll · arrow keys · spacebar</div>
+
+  <!-- ===========================================================
+       SLIDE 1 — COVER
+       =========================================================== -->
+  <section class="slide slide-dark" id="s1">
+    <span class="counter f-mono">01 / 08</span>
+
+    <div class="main">
+      <div class="reveal">
+        <p class="edition-line f-body">Bitcoin Command Center</p>
+      </div>
+
+      <h1 class="wordmark f-display reveal d1">The Daily<br>Node</h1>
+
+      <span class="rule reveal d2"></span>
+
+      <div class="reveal d3">
+        <p class="tagline f-body">
+          "Your Bitcoin command center.<br>
+          One file. Everything."
+        </p>
+      </div>
+
+      <div class="reveal d4">
+        <p class="edition-foot f-body">
+          Home Miner Edition &nbsp;·&nbsp; Vol. XXI, Nº 001 &nbsp;·&nbsp; Est. 2026
+        </p>
+      </div>
+    </div>
+
+    <!-- Ticker bar -->
+    <div class="ticker-wrap" aria-hidden="true">
+      <div class="ticker-track" id="ticker">
+        <span class="ticker-item"><span class="live-dot"></span>LIVE</span>
+        <span class="ticker-item">BTC $103,420 ▲ +2.4%</span>
+        <span class="ticker-sep ticker-item">·</span>
+        <span class="ticker-item">BLOCK 897,241</span>
+        <span class="ticker-sep ticker-item">·</span>
+        <span class="ticker-item">MEMPOOL 4.2 MB</span>
+        <span class="ticker-sep ticker-item">·</span>
+        <span class="ticker-item">DIFFICULTY +1.8% in 847 blocks</span>
+        <span class="ticker-sep ticker-item">·</span>
+        <span class="ticker-item">FEE 12 sat/vB</span>
+        <span class="ticker-sep ticker-item">·</span>
+        <span class="ticker-item">FLEET 1.24 TH/s · 2 miners</span>
+        <span class="ticker-sep ticker-item">·</span>
+        <span class="ticker-item">SOLO ODDS 1:847,000 /day</span>
+        <span class="ticker-sep ticker-item">·</span>
+        <span class="ticker-item">HALVING in 96,759 blocks</span>
+        <span class="ticker-sep ticker-item">·</span>
+        <!-- duplicate for seamless loop -->
+        <span class="ticker-item"><span class="live-dot"></span>LIVE</span>
+        <span class="ticker-item">BTC $103,420 ▲ +2.4%</span>
+        <span class="ticker-sep ticker-item">·</span>
+        <span class="ticker-item">BLOCK 897,241</span>
+        <span class="ticker-sep ticker-item">·</span>
+        <span class="ticker-item">MEMPOOL 4.2 MB</span>
+        <span class="ticker-sep ticker-item">·</span>
+        <span class="ticker-item">DIFFICULTY +1.8% in 847 blocks</span>
+        <span class="ticker-sep ticker-item">·</span>
+        <span class="ticker-item">FEE 12 sat/vB</span>
+        <span class="ticker-sep ticker-item">·</span>
+        <span class="ticker-item">FLEET 1.24 TH/s · 2 miners</span>
+        <span class="ticker-sep ticker-item">·</span>
+        <span class="ticker-item">SOLO ODDS 1:847,000 /day</span>
+        <span class="ticker-sep ticker-item">·</span>
+        <span class="ticker-item">HALVING in 96,759 blocks</span>
+        <span class="ticker-sep ticker-item">·</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===========================================================
+       SLIDE 2 — THE PROBLEM
+       =========================================================== -->
+  <section class="slide slide-dark" id="s2">
+    <span class="counter f-mono">02 / 08</span>
+
+    <div class="main">
+      <p class="overline reveal">The Problem</p>
+      <span class="rule reveal d1"></span>
+      <h2 class="problem-head f-display reveal d2">Tab<br>Hell.</h2>
+      <p class="caption f-body reveal d3">
+        Six tabs. Six windows.<br>Zero coherence.
+      </p>
+    </div>
+
+    <!-- Tab cloud — absolutely positioned, relative to .slide -->
+    <div class="tabs-cloud reveal d3">
+      <div class="tab-pill f-mono">kraken.com/BTC-USD</div>
+      <div class="tab-pill f-mono hot">mempool.space</div>
+      <div class="tab-pill f-mono">BitAxe dashboard</div>
+      <div class="tab-pill f-mono">weather.com</div>
+      <div class="tab-pill f-mono hot">coindesk.com</div>
+      <div class="tab-pill f-mono">blockstream.info</div>
+    </div>
+  </section>
+
+  <!-- ===========================================================
+       SLIDE 3 — THE SOLUTION
+       =========================================================== -->
+  <section class="slide slide-light" id="s3">
+    <span class="counter f-mono">03 / 08</span>
+
+    <div class="main">
+      <p class="overline reveal">The Solution</p>
+      <span class="rule reveal d1"></span>
+
+      <blockquote class="pull-quote f-display reveal d2">
+        "Open it <em>once</em>.<br>Know everything."
+      </blockquote>
+
+      <span class="rule reveal d3"></span>
+
+      <p class="desc f-body reveal d4">
+        The Daily Node pulls live data from six sources — price, blockchain vitals, your mining fleet, weather, and the Bitcoin news cycle — into a single, newspaper-style command center. One tab. Always on.
+      </p>
+
+      <div class="source-row reveal d5">
+        <span class="source-chip f-mono">Kraken</span>
+        <span class="source-chip f-mono">mempool.space</span>
+        <span class="source-chip f-mono">BitAxe API</span>
+        <span class="source-chip f-mono">Open-Meteo</span>
+        <span class="source-chip f-mono">Bitcoin RSS</span>
+        <span class="source-chip f-mono">CoinGecko</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===========================================================
+       SLIDE 4 — WHAT'S INSIDE
+       =========================================================== -->
+  <section class="slide slide-light" id="s4">
+    <span class="counter f-mono">04 / 08</span>
+
+    <div class="main">
+      <p class="overline reveal">What's Inside</p>
+      <span class="rule reveal d1"></span>
+
+      <div class="feature-grid reveal d2">
+
+        <div class="fcol">
+          <span class="fcol-label f-body">Markets</span>
+          <ul>
+            <li>Live BTC / USD price</li>
+            <li>24h change &amp; ATH distance</li>
+            <li>24h chart with VWAP</li>
+            <li>Market cap &amp; volume</li>
+            <li>Satoshis per dollar</li>
+          </ul>
+        </div>
+
+        <div class="fcol">
+          <span class="fcol-label f-body">Chain Vitals</span>
+          <ul>
+            <li>Block height</li>
+            <li>Difficulty + retarget ETA</li>
+            <li>Avg block time (color-coded)</li>
+            <li>Mempool size &amp; tx count</li>
+            <li>Fee estimates: fast / eco</li>
+          </ul>
+        </div>
+
+        <div class="fcol">
+          <span class="fcol-label f-body">Fleet</span>
+          <ul>
+            <li>Solo odds: 1-in-X per day</li>
+            <li>Per-miner hashrate &amp; power</li>
+            <li>Efficiency (J/TH)</li>
+            <li>Uptime &amp; share stats</li>
+            <li>Fleet aggregates</li>
+          </ul>
+        </div>
+
+        <div class="fcol">
+          <span class="fcol-label f-body">News</span>
+          <ul>
+            <li>BREAKING · MARKETS · MINING</li>
+            <li>REGULATION · TECH · GLOBAL</li>
+            <li>3 live Bitcoin RSS feeds</li>
+            <li>Auto-categorized stories</li>
+            <li>On This Day in Bitcoin</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <span class="rule-full reveal d3"></span>
+
+      <p class="footer-note f-body reveal d4">
+        Plus: weather widget · rotating Bitcoin quotes · dark mode at local sunset · scrolling chain vitals ticker
+      </p>
+    </div>
+  </section>
+
+  <!-- ===========================================================
+       SLIDE 5 — BUILT LIKE A NEWSPAPER
+       =========================================================== -->
+  <section class="slide slide-light" id="s5">
+    <span class="counter f-mono">05 / 08</span>
+
+    <div class="main">
+      <p class="overline reveal">The Design</p>
+      <span class="rule reveal d1"></span>
+
+      <div class="two-col">
+        <div class="left">
+          <h2 class="design-head f-display reveal d2">
+            Built Like<br>a Newspaper.
+          </h2>
+
+          <div class="principles reveal d3">
+            <div class="principle">
+              <span class="p-num f-mono">01</span>
+              <span class="p-text f-body">Playfair Display headlines, Newsreader body, Courier Prime data — a complete typographic voice</span>
+            </div>
+            <div class="principle">
+              <span class="p-num f-mono">02</span>
+              <span class="p-text f-body">4-column newspaper grid — maximum information density without clutter</span>
+            </div>
+            <div class="principle">
+              <span class="p-num f-mono">03</span>
+              <span class="p-text f-body">Rotating Bitcoin quotes from the masthead — a new one every hour</span>
+            </div>
+            <div class="principle">
+              <span class="p-num f-mono">04</span>
+              <span class="p-text f-body">Dark mode triggers automatically at local sunset, using your live weather feed</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="right reveal d4">
+          <div class="tv-card f-display">
+            "Beautiful enough<br>to leave on<br>your TV."
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===========================================================
+       SLIDE 6 — ONE HTML FILE
+       =========================================================== -->
+  <section class="slide slide-dark" id="s6">
+    <span class="counter f-mono">06 / 08</span>
+
+    <div class="main">
+      <p class="overline reveal">The Technology</p>
+      <span class="rule reveal d1"></span>
+
+      <div class="big-stat f-mono reveal d2">
+        1 file.<br>
+        0 installs.<br>
+        ∞ Bitcoin.
+      </div>
+
+      <div class="tech-list reveal d3">
+        <div class="tech-item f-body">No app store. No server. No account required.</div>
+        <div class="tech-item f-body">Download the file. Open it in your browser. That's it.</div>
+        <div class="tech-item f-body">React + Babel — transpiles JSX in-browser, zero build step needed to run.</div>
+        <div class="tech-item f-body">BitAxe API runs locally — your fleet data never leaves your network.</div>
+      </div>
+
+      <p class="meta-note f-body reveal d4">
+        <em>This pitch deck</em> is also a single HTML file.
+      </p>
+    </div>
+  </section>
+
+  <!-- ===========================================================
+       SLIDE 7 — WHO IT'S FOR
+       =========================================================== -->
+  <section class="slide slide-light" id="s7">
+    <span class="counter f-mono">07 / 08</span>
+
+    <div class="main">
+      <p class="overline reveal">Who It's For</p>
+      <span class="rule reveal d1"></span>
+
+      <div class="persona-row reveal d2">
+
+        <div class="persona">
+          <h3 class="persona-name f-display">Home Miner</h3>
+          <p class="persona-blurb f-body">
+            Running one or more BitAxe rigs at home. Wants to track fleet health, solo odds, and power draw without juggling browser tabs — and know the Bitcoin network while doing it.
+          </p>
+          <span class="persona-tag f-mono">↳ FLEET + CHAIN + PRICE</span>
+        </div>
+
+        <div class="persona">
+          <h3 class="persona-name f-display">Node Operator</h3>
+          <p class="persona-blurb f-body">
+            Cares about mempool health, fee markets, block times, and difficulty adjustments. Wants a live pulse on the network in real time — all day, every day.
+          </p>
+          <span class="persona-tag f-mono">↳ CHAIN + MEMPOOL + NEWS</span>
+        </div>
+
+        <div class="persona">
+          <h3 class="persona-name f-display">Bitcoin Maximalist</h3>
+          <p class="persona-blurb f-body">
+            Wants a beautiful, always-on information hub for the Bitcoin network. Leaves The Daily Node on a TV or second monitor as a living dashboard.
+          </p>
+          <span class="persona-tag f-mono">↳ EVERYTHING, ALWAYS</span>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ===========================================================
+       SLIDE 8 — CTA
+       =========================================================== -->
+  <section class="slide slide-dark" id="s8">
+    <span class="counter f-mono">08 / 08</span>
+
+    <div class="main">
+      <p class="overline reveal">Coming Soon</p>
+      <span class="rule reveal d1"></span>
+
+      <h2 class="cta-head f-display reveal d2">
+        <span class="line1">Open</span><br>
+        <span class="line2">Source.</span>
+      </h2>
+
+      <p class="cta-sub f-body reveal d3">
+        Releasing to GitHub soon. One file. Free forever.
+      </p>
+
+      <div class="cta-row reveal d4">
+        <div class="qr-box" aria-label="QR code coming soon">
+          <div class="qr-inner" aria-hidden="true"></div>
+          <span class="qr-label f-mono">QR</span>
+        </div>
+
+        <div class="cta-info">
+          <span class="gh-url f-mono">github.com/GitHubxSuperKai/the-daily-node</span>
+          <span class="star-line f-body">Star it when it drops. ★</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // === PROGRESS BAR ===
+    const progressEl = document.getElementById('progress');
+    const navHint    = document.getElementById('nav-hint');
+    const slides     = Array.from(document.querySelectorAll('.slide'));
+    const total      = slides.length;
+
+    function updateProgress() {
+      const scrollTop  = window.scrollY;
+      const docHeight  = document.documentElement.scrollHeight - window.innerHeight;
+      const pct        = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+      progressEl.style.width = pct + '%';
+    }
+
+    // === NAV HINT — hide after 4s or first interaction ===
+    let hintGone = false;
+    function hideHint() {
+      if (!hintGone) {
+        navHint.classList.add('gone');
+        hintGone = true;
+      }
+    }
+    setTimeout(hideHint, 4000);
+
+    window.addEventListener('scroll', () => {
+      updateProgress();
+      hideHint();
+    }, { passive: true });
+
+    // === REVEAL ANIMATIONS via Intersection Observer ===
+    const revealEls = document.querySelectorAll('.reveal');
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+        } else {
+          // Re-arm for next entry (allows re-animation when scrolling back)
+          entry.target.classList.remove('is-visible');
+        }
+      });
+    }, { threshold: 0.1 });
+
+    revealEls.forEach(el => io.observe(el));
+
+    // === KEYBOARD & SCROLL NAVIGATION ===
+    function currentIndex() {
+      let best = 0, minDist = Infinity;
+      slides.forEach((s, i) => {
+        const dist = Math.abs(s.getBoundingClientRect().top);
+        if (dist < minDist) { minDist = dist; best = i; }
+      });
+      return best;
+    }
+
+    function goTo(i) {
+      const clamped = Math.max(0, Math.min(total - 1, i));
+      slides[clamped].scrollIntoView({ behavior: 'smooth' });
+    }
+
+    document.addEventListener('keydown', e => {
+      const idx = currentIndex();
+      if (['ArrowDown', 'PageDown', ' '].includes(e.key)) {
+        e.preventDefault(); goTo(idx + 1);
+      } else if (['ArrowUp', 'PageUp'].includes(e.key)) {
+        e.preventDefault(); goTo(idx - 1);
+      } else if (e.key === 'Home') {
+        e.preventDefault(); goTo(0);
+      } else if (e.key === 'End') {
+        e.preventDefault(); goTo(total - 1);
+      }
+    });
+
+    // === TOUCH SWIPE ===
+    let touchY0 = 0;
+    document.addEventListener('touchstart', e => {
+      touchY0 = e.touches[0].clientY;
+    }, { passive: true });
+
+    document.addEventListener('touchend', e => {
+      const dy = touchY0 - e.changedTouches[0].clientY;
+      if (Math.abs(dy) > 48) goTo(currentIndex() + (dy > 0 ? 1 : -1));
+    }, { passive: true });
+
+    // === INIT ===
+    updateProgress();
+  </script>
+
+</body>
+</html>
