@@ -32,7 +32,7 @@ export function useRSS() {
         if (j.status !== 'ok') throw new Error('rss-status');
         const src = j.feed.title || new URL(feedUrl).hostname;
         return j.items.map(it => ({
-          cat: it.categories && it.categories[0] ? it.categories[0].toUpperCase().slice(0, 10) : 'BITCOIN',
+          cat: it.categories && it.categories[0] ? it.categories[0].toUpperCase().slice(0, 20) : 'BITCOIN',
           topic: classifyTopic(it.title),
           hed: it.title,
           src,

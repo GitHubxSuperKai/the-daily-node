@@ -79,6 +79,8 @@ function LeadImage({ src, domain }) {
   );
 }
 
+const isFresh = t => t === 'just now' || /^\d+s ago$/.test(t) || /^[1-4]m ago$/.test(t);
+
 export function CommandCenter({
   dark,
   onToggleDark,
@@ -366,9 +368,9 @@ export function CommandCenter({
 
           {/* Lead story */}
           {lead && (
-            <div style={{ paddingTop: 14, paddingBottom: 14, borderBottom: `1px solid ${T.rule2}` }}>
-              <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: T.orange, marginBottom: 8 }}>
-                ● {lead.cat} · {lead.src}
+            <div style={{ paddingTop: 14, paddingBottom: 14, borderBottom: `1px solid ${T.rule2}`, borderLeft: lead.topic === 'BREAKING' ? `3px solid ${T.red}` : 'none', paddingLeft: lead.topic === 'BREAKING' ? 10 : 0 }}>
+              <div style={{ fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: lead.topic === 'BREAKING' ? T.red : T.orange, marginBottom: 8 }}>
+                {lead.topic === 'BREAKING' ? 'BREAKING' : `● ${lead.cat}`} · {lead.src}
               </div>
               <a href={lead.link} target="_blank" rel="noopener noreferrer">
                 <h2 style={{ fontFamily: T.serif, fontSize: 24, fontWeight: 700, lineHeight: 1.1, letterSpacing: -0.5, color: T.ink, margin: 0 }}>
@@ -405,7 +407,7 @@ export function CommandCenter({
                   {it.hed}
                 </div>
                 <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3, marginTop: 3 }}>
-                  {it.src} · {it.t}
+                  {it.src} · <span style={{ color: isFresh(it.t) ? T.orange : T.ink3 }}>{it.t}</span>
                 </div>
               </a>
             ))}
@@ -679,10 +681,12 @@ export function CommandCenter({
           <Rule dash />
           {/* Lead story */}
           {lead ? (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: u(8), overflow: 'hidden', minHeight: 0 }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: u(8), overflow: 'hidden', minHeight: 0, borderLeft: lead.topic === 'BREAKING' ? `${u(3)} solid ${T.red}` : 'none', paddingLeft: lead.topic === 'BREAKING' ? u(10) : 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <Kicker color={T.orange}>● {lead.cat} · {lead.src}</Kicker>
-                <Kicker>{lead.t}</Kicker>
+                <Kicker color={lead.topic === 'BREAKING' ? T.red : T.orange}>
+                  {lead.topic === 'BREAKING' ? 'BREAKING' : `● ${lead.cat}`} · {lead.src}
+                </Kicker>
+                <Kicker color={isFresh(lead.t) ? T.orange : undefined}>{lead.t}</Kicker>
               </div>
               <a href={lead.link} target="_blank" rel="noopener noreferrer">
                 <h1 style={{ fontFamily: T.serif, fontSize: u(32), fontWeight: 700, lineHeight: 1.04, letterSpacing: u(-1), color: T.ink, textWrap: 'balance', margin: 0 }}>
@@ -759,7 +763,7 @@ export function CommandCenter({
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: u(4) }}>
                             <Kicker color={it.topic === 'BREAKING' ? T.red : T.ink3}>{it.cat}</Kicker>
-                            <span style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3 }}>{it.t}</span>
+                            <span style={{ fontFamily: T.num, fontSize: u(10), color: isFresh(it.t) ? T.orange : T.ink3 }}>{it.t}</span>
                           </div>
                           <div style={{ fontFamily: T.body, fontSize: u(14.5), lineHeight: 1.3, color: T.ink, letterSpacing: u(-0.1) }}>
                             {it.hed}
