@@ -32,12 +32,13 @@ const CONFIG = {
   // ─── Refresh Intervals (milliseconds) ──────────────────
   REFRESH_INTERVALS: {
     clock:   1000,
-    price:   30000,        // BTC price every 30s
-    chain:   60000,        // Chain vitals every 60s
-    weather: 15 * 60 * 1000, // Weather every 15m
-    news:    5 * 60 * 1000,  // News every 5m
-    bitaxe:  10000,        // Miner stats every 10s
-    pools:   5 * 60 * 1000,  // Mining pools + bitcoin meta every 5m
+    price:   30000,           // BTC price every 30s
+    chart:   5 * 60 * 1000,   // CoinGecko 24h chart every 5m (hourly data)
+    chain:   60000,           // Chain vitals every 60s
+    weather: 15 * 60 * 1000,  // Weather every 15m
+    news:    5 * 60 * 1000,   // News every 5m
+    bitaxe:  30000,           // Miner stats every 30s
+    pools:   5 * 60 * 1000,   // Mining pools + bitcoin meta every 5m
   },
 
   // ─── Auto-Refresh ────────────────────────────────────
@@ -49,6 +50,7 @@ const CONFIG = {
 
 const INTERVALS = {
   BTC:     CONFIG.REFRESH_INTERVALS.price,
+  CHART:   CONFIG.REFRESH_INTERVALS.chart,
   CHAIN:   CONFIG.REFRESH_INTERVALS.chain,
   BITAXE:  CONFIG.REFRESH_INTERVALS.bitaxe,
   WEATHER: CONFIG.REFRESH_INTERVALS.weather,

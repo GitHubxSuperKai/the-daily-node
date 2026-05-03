@@ -69,7 +69,7 @@ export function useBTC() {
   }, []);
 
   const { reset: resetPrice } = useResettableInterval(fetchPrice,    CONFIG.REFRESH_INTERVALS.price);
-  const { reset: resetChart } = useResettableInterval(fetch24hChart, CONFIG.REFRESH_INTERVALS.price * 2);
+  const { reset: resetChart } = useResettableInterval(fetch24hChart, CONFIG.REFRESH_INTERVALS.chart);
   const { reset: resetMeta  } = useResettableInterval(fetchMeta,     CONFIG.REFRESH_INTERVALS.pools);
 
   const refresh = useCallback(() => {
