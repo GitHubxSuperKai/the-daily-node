@@ -165,12 +165,13 @@ const CONFIG = {
   // ─── Refresh Intervals (milliseconds) ──────────────────
   REFRESH_INTERVALS: {
     clock:   1000,
-    price:   30000,        // BTC price every 30s
-    chain:   60000,        // Chain vitals every 60s
-    weather: 15 * 60 * 1000, // Weather every 15m
-    news:    5 * 60 * 1000,  // News every 5m
-    bitaxe:  10000,        // Miner stats every 10s
-    pools:   5 * 60 * 1000,  // Mining pools + bitcoin meta every 5m
+    price:   30000,           // BTC price every 30s
+    chart:   5 * 60 * 1000,   // CoinGecko 24h chart every 5m (hourly data)
+    chain:   60000,           // Chain vitals every 60s
+    weather: 15 * 60 * 1000,  // Weather every 15m
+    news:    5 * 60 * 1000,   // News every 5m
+    bitaxe:  30000,           // Miner stats every 30s
+    pools:   5 * 60 * 1000,   // Mining pools + bitcoin meta every 5m
   },
 
   // ─── Auto-Refresh ────────────────────────────────────
@@ -911,12 +912,14 @@ function Num({ size = 'md', value, unit, delta, deltaUp, style = {} }) {
 
 
 
+
 // Import useT hook from theme context (available in build context)
 
 function StatusDot({ ok }) {
   const T = useT();
   return <span style={{ color: ok ? T.green : T.red, marginRight: 5 }}>●</span>;
 }
+
 
 
 
@@ -929,6 +932,7 @@ function Kicker({ children, color, style = {} }) {
 
 
 
+
 // Import useT hook from theme context (available in build context)
 
 function Rule({ double, dash, weight = 1, style = {} }) {
@@ -936,6 +940,7 @@ function Rule({ double, dash, weight = 1, style = {} }) {
   if (double) return <div style={{ borderTop: '2px solid ' + T.rule, borderBottom: '1px solid ' + T.rule, height: 5, ...style }} />;
   return <div style={{ borderTop: `${weight}px ${dash ? 'dashed' : 'solid'} ${T.rule2}`, ...style }} />;
 }
+
 
 
 
@@ -1236,6 +1241,8 @@ function useResettableInterval(callback, delay) {
 }
 
 
+
+
 /**
  * useClock Hook
  * Returns formatted time string that updates every second
@@ -1349,7 +1356,7 @@ function useBTC() {
   }, []);
 
   const { reset: resetPrice } = useResettableInterval(fetchPrice,    CONFIG.REFRESH_INTERVALS.price);
-  const { reset: resetChart } = useResettableInterval(fetch24hChart, CONFIG.REFRESH_INTERVALS.price * 2);
+  const { reset: resetChart } = useResettableInterval(fetch24hChart, CONFIG.REFRESH_INTERVALS.chart);
   const { reset: resetMeta  } = useResettableInterval(fetchMeta,     CONFIG.REFRESH_INTERVALS.pools);
 
   const refresh = useCallback(() => {
