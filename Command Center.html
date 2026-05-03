@@ -2992,7 +2992,7 @@ function SubLabel({ children, right, alert, rightColor, T }) {
       </div>
       {right && (
         <div style={{
-          fontFamily: T.num, fontSize: u(10), fontWeight: 400,
+          fontFamily: T.num, fontSize: u(13), fontWeight: 400,
           color: rightColor || (alert ? T.red : T.green),
         }}>
           {right}
@@ -3045,18 +3045,24 @@ function NetworkStatusWidget({ chain, T }) {
   const blockSubsidy = 50 / Math.pow(2, halvings);
 
   const blockIntervalMin = d?.blockTimeMs ? (d.blockTimeMs / 60000).toFixed(1) : '—';
+  const bMinRaw = d ? d.blockTimeMs / 60000 : 10;
   const blockIntervalCol = !d ? T.ink
-    : (d.blockTimeMs / 60000 < 8 || d.blockTimeMs / 60000 > 12) ? T.red : T.ink;
+    : bMinRaw < 9.9 ? T.green
+    : bMinRaw > 10.1 ? T.red
+    : T.ink;
 
   const diffAdj = d?.diffAdj;
   const diffAdjStr = diffAdj != null ? `${diffAdj >= 0 ? '+' : ''}${diffAdj.toFixed(2)}% est.` : '—';
-  const diffAdjCol = diffAdj == null ? T.ink3 : diffAdj > 0 ? T.red : T.green;
+  const diffAdjCol = diffAdj == null ? T.ink3 : diffAdj > 0 ? T.green : diffAdj < 0 ? T.red : T.ink;
   const diffAdjPct = d?.progressPercent || 0;
   const remainingBlocks = d?.remainingBlocks ?? 0;
   const remainingDays = Math.round(remainingBlocks * 10 / 60 / 24);
+  const projectedRetargetDateStr = remainingBlocks > 0
+    ? new Date(Date.now() + remainingBlocks * 10 * 60 * 1000).toISOString().slice(0, 10)
+    : null;
   const prevDiffAdj = d?.previousDiffAdj;
   const prevDiffAdjStr = prevDiffAdj != null ? `${prevDiffAdj >= 0 ? '+' : ''}${prevDiffAdj.toFixed(2)}%` : '—';
-  const prevDiffAdjCol = prevDiffAdj == null ? T.ink4 : prevDiffAdj > 0 ? T.red : T.green;
+  const prevDiffAdjCol = prevDiffAdj == null ? T.ink4 : prevDiffAdj > 0 ? T.green : prevDiffAdj < 0 ? T.red : T.ink4;
   const prevRetargetDateStr = d?.previousRetargetDate != null
     ? new Date(d.previousRetargetDate * 1000).toISOString().slice(0, 10)
     : null;
@@ -3108,9 +3114,9 @@ function NetworkStatusWidget({ chain, T }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: `${u(12)} ${u(10)}` }}>
           {[
             { val: d ? fmtHashrate(d.hashrate) : '—', label: 'Hashrate',      size: 22, color: T.ink },
-            { val: d ? fmtDiff(d.difficulty)   : '—', label: 'Difficulty',    size: 22, color: T.ink },
-            { val: `${halvingBlocks.toLocaleString()} blks`, label: 'Halving', size: 18, color: T.ink, sub: `~${halvingYrs}yr` },
             { val: `${blockIntervalMin}m`,              label: 'Block Interval', size: 16, color: blockIntervalCol },
+            { val: `${halvingBlocks.toLocaleString()} blks`, label: 'Halving', size: 16, color: T.ink, sub: `~${halvingYrs}yr` },
+            { val: d ? fmtDiff(d.difficulty)   : '—', label: 'Difficulty',    size: 22, color: T.ink },
             { val: `${blockSubsidy} BTC`,               label: 'Block Reward', size: 16, color: T.ink },
             { val: `${Number((blockSubsidy / 2).toFixed(8))} BTC`, label: 'Next Reward', size: 16, color: T.ink4 },
           ].map(({ val, label, size, color, sub }, i) => (
@@ -3147,7 +3153,7 @@ function NetworkStatusWidget({ chain, T }) {
       {/* Difficulty Adjustment */}
       <div style={{ marginBottom: u(20), paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
         <SubLabel right={diffAdjStr} rightColor={diffAdjCol} T={T}>
-          Difficulty Adj.
+          Difficulty Adjustment
         </SubLabel>
         <div style={{ height: u(6), background: T.rule3, marginBottom: u(5), position: 'relative' }}>
           <div style={{
@@ -3158,6 +3164,9 @@ function NetworkStatusWidget({ chain, T }) {
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
             {fmtNum(remainingBlocks)} blocks remaining
+            {projectedRetargetDateStr && (
+              <span style={{ fontFamily: T.num, fontSize: u(9), color: T.ink4 }}> ~ {projectedRetargetDateStr}</span>
+            )}
           </div>
           <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink4, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
             ~{remainingDays}d
@@ -3168,9 +3177,12 @@ function NetworkStatusWidget({ chain, T }) {
             fontFamily: T.sans, fontSize: u(9), fontWeight: 600,
             letterSpacing: u(1.2), textTransform: 'uppercase', color: T.ink3,
           }}>
-            {prevRetargetDateStr
-              ? <span><span style={{ fontFamily: T.num, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>{prevRetargetDateStr} </span>Prev Adj</span>
-              : 'Prev Adj'}
+            Previous Adjustment
+            {prevRetargetDateStr && (
+              <span style={{ fontFamily: T.num, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                : {prevRetargetDateStr}
+              </span>
+            )}
           </div>
           <div style={{
             fontFamily: T.num, fontSize: u(10), fontWeight: 400,
