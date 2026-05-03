@@ -67,15 +67,15 @@ export function NetworkStatusWidget({ chain, T }) {
   const blockSubsidy = 50 / Math.pow(2, halvings);
 
   const blockIntervalMin = d?.blockTimeMs ? (d.blockTimeMs / 60000).toFixed(1) : '—';
-  const _bMin = d ? d.blockTimeMs / 60000 : 10;
+  const bMinRaw = d ? d.blockTimeMs / 60000 : 10;
   const blockIntervalCol = !d ? T.ink
-    : _bMin < 9.9 ? T.green
-    : _bMin > 10.10 ? T.red
+    : bMinRaw < 9.9 ? T.green
+    : bMinRaw > 10.1 ? T.red
     : T.ink;
 
   const diffAdj = d?.diffAdj;
   const diffAdjStr = diffAdj != null ? `${diffAdj >= 0 ? '+' : ''}${diffAdj.toFixed(2)}% est.` : '—';
-  const diffAdjCol = diffAdj == null ? T.ink3 : diffAdj > 0 ? T.green : T.red;
+  const diffAdjCol = diffAdj == null ? T.ink3 : diffAdj > 0 ? T.green : diffAdj < 0 ? T.red : T.ink;
   const diffAdjPct = d?.progressPercent || 0;
   const remainingBlocks = d?.remainingBlocks ?? 0;
   const remainingDays = Math.round(remainingBlocks * 10 / 60 / 24);
@@ -84,7 +84,7 @@ export function NetworkStatusWidget({ chain, T }) {
     : null;
   const prevDiffAdj = d?.previousDiffAdj;
   const prevDiffAdjStr = prevDiffAdj != null ? `${prevDiffAdj >= 0 ? '+' : ''}${prevDiffAdj.toFixed(2)}%` : '—';
-  const prevDiffAdjCol = prevDiffAdj == null ? T.ink4 : prevDiffAdj > 0 ? T.green : T.red;
+  const prevDiffAdjCol = prevDiffAdj == null ? T.ink4 : prevDiffAdj > 0 ? T.green : prevDiffAdj < 0 ? T.red : T.ink4;
   const prevRetargetDateStr = d?.previousRetargetDate != null
     ? new Date(d.previousRetargetDate * 1000).toISOString().slice(0, 10)
     : null;
@@ -187,7 +187,7 @@ export function NetworkStatusWidget({ chain, T }) {
           <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
             {fmtNum(remainingBlocks)} blocks remaining
             {projectedRetargetDateStr && (
-              <span style={{ fontSize: u(9), color: T.ink4 }}> ~ {projectedRetargetDateStr}</span>
+              <span style={{ fontFamily: T.num, fontSize: u(9), color: T.ink4 }}> ~ {projectedRetargetDateStr}</span>
             )}
           </div>
           <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink4, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
