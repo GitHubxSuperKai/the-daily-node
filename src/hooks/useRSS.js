@@ -2,16 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import CONFIG from '../config.js';
 import { useResettableInterval } from './useResettableInterval.js';
 
-function classifyTopic(title) {
-  const t = (title || '').toLowerCase();
-  if (/breaking|urgent/.test(t)) return 'BREAKING';
-  if (/etf|fund|inflow|outflow|rally|dump|\bprice\b|market|trade|exchange|bull|bear|\bspot\b|futures|options|invest|portfolio|microstrategy|blackrock|institutional|hedge/.test(t)) return 'MARKETS';
-  if (/mining|miner|hashrate|hash rate|difficulty|\bpool\b|asic|block reward|halving|antpool|foundry|f2pool|marathon|riot/.test(t)) return 'MINING';
-  if (/\bsec\b|regulat|legal|government|congress|senate|polic|ban|\bcourt\b|compli|\bkyc\b|\baml\b|treasury|\birs\b|\btax\b|\blaw\b/.test(t)) return 'REGULATION';
-  if (/lightning|protocol|upgrade|developer|wallet|layer.?2|taproot|ordinals|runes|\bbip\b|fork|\bnode\b/.test(t)) return 'TECH';
-  if (/el salvador|central bank|\bcbdc\b|reserve|national|strategic|country|nation|adopt/.test(t)) return 'GLOBAL';
-  return 'BITCOIN';
-}
 
 export function useRSS() {
   const [items, setItems] = useState([]);
@@ -72,6 +62,7 @@ export function useRSS() {
   useEffect(() => {
     const id = setInterval(() => {
       setItems(prev => prev.map(it => ({ ...it, t: timeAgo(it.pubDate) })));
+      setLeadStory(prev => prev ? { ...prev, t: timeAgo(prev.pubDate) } : prev);
     }, 60000);
     return () => clearInterval(id);
   }, []);
