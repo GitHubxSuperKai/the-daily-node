@@ -13,3 +13,4 @@ src/config.local.js
 icons-preview.html
 .worktrees/
 .superpowers/
+.netlify/
