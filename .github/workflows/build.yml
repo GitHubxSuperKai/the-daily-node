@@ -1,0 +1,32 @@
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build bundle
+        run: npm run build
+
+      - name: Verify output
+        run: |
+          test -f "Command Center.html"
+          size=$(wc -c < "Command Center.html")
+          echo "Bundle size: $size bytes"
+          if [ "$size" -lt 50000 ]; then
+            echo "ERROR: Bundle suspiciously small (<50KB), build likely broken"
+            exit 1
+          fi
