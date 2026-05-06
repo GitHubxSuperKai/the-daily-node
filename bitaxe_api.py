@@ -2,17 +2,19 @@
 """BitAxe Fleet API — aggregates multiple miners into a single JSON endpoint.
 
 Usage:
-    python bitaxe_api.py
+    python bitaxe_api.py                                    # uses default IPs
+    BITAXE_IPS=10.0.0.5,10.0.0.6 python bitaxe_api.py     # override via env
 
 Then open Command Center.html. The dashboard will poll http://localhost:3001/api/miners.
 """
 import json
+import os
 import threading
 import urllib.request
 import urllib.error
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-BITAXE_IPS    = ['192.168.1.6', '192.168.1.7']
+BITAXE_IPS    = [ip.strip() for ip in os.environ.get('BITAXE_IPS', '192.168.1.6,192.168.1.7').split(',') if ip.strip()]
 PORT          = 3001
 FETCH_TIMEOUT = 5
 
