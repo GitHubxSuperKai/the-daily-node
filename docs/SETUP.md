@@ -17,7 +17,7 @@ Before getting started, ensure you have the following installed:
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/the-daily-node.git
+   git clone https://github.com/GitHubxSuperKai/the-daily-node.git
    cd the-daily-node
    ```
 
@@ -71,7 +71,7 @@ After building, test the minified version:
 npm run serve
 ```
 
-This runs `npm run build` followed by `npm run dev`. Visit `http://localhost:3000/Command Center.html` to verify the production bundle works correctly.
+This runs `npm run build` followed by `npm run dev`. Visit `http://localhost:3000/Command%20Center.html` to verify the production bundle works correctly.
 
 ## Running BitAxe API Locally (Optional)
 
@@ -105,7 +105,7 @@ This starts a mock BitAxe HTTP server on `http://localhost:3001/api/miners`. The
    ```
 
 3. **Access your dashboard:**
-   Your dashboard will be available at `https://yourusername.github.io/the-daily-node/Command Center.html`
+   Your dashboard will be available at `https://GitHubxSuperKai.github.io/the-daily-node/Command%20Center.html`
 
 ### Static Hosting (Vercel, Netlify, etc.)
 
@@ -132,7 +132,7 @@ npm run build
 python -m http.server 8080
 ```
 
-Visit `http://localhost:8080/Command Center.html`.
+Visit `http://localhost:8080/Command%20Center.html`.
 
 #### Option B: nginx
 
@@ -143,7 +143,7 @@ npm run build
 sudo cp Command Center.html /var/www/html/
 ```
 
-Access at `http://yourdomain.com/Command Center.html`.
+Access at `http://yourdomain.com/Command%20Center.html`.
 
 #### Option C: Apache
 
