@@ -117,7 +117,6 @@ function Miners({ bitaxe, chain }) {
     { label: 'Watts',  fade: true  },
   ];
 
-  const showStubs = bitaxe.miners.length === 0 && !bitaxe.loading;
   const noApi = bitaxe.error || (bitaxe.miners.length === 0 && !bitaxe.loading);
 
   if (noApi) {
@@ -244,18 +243,6 @@ function Miners({ bitaxe, chain }) {
           </div>
         ))}
         <div key="rule-hdr-bot" style={{ gridColumn: '1 / -1', borderTop: `1px solid ${T.rule2}`, padding: 0 }} />
-
-        {/* ── No miners stub ── */}
-        {showStubs && (
-          <div style={{
-            gridColumn: '1 / -1',
-            padding: `${u(8)} 0`,
-            borderBottom: `1px solid ${T.rule3}`,
-            fontFamily: T.mono, fontSize: u(11), color: T.ink4, textAlign: 'center',
-          }}>
-            No miners configured
-          </div>
-        )}
 
         {/* ── Data rows ── */}
         {bitaxe.miners.map((miner, ri) => {

@@ -91,21 +91,21 @@ This starts a mock BitAxe HTTP server on `http://localhost:3001/api/miners`. The
 
 ### GitHub Pages (Recommended)
 
-1. **Enable GitHub Pages in repository settings:**
+Deployment is automated via GitHub Actions. Every push to `main` triggers `.github/workflows/deploy.yml`, which builds the bundle and publishes it to GitHub Pages automatically.
+
+1. **Enable GitHub Pages in repository settings (one-time setup):**
    - Go to **Settings** → **Pages**
-   - Set **Source** to `main` branch, **/** (root)
+   - Set **Source** to **GitHub Actions**
    - Save
 
-2. **Build and commit:**
+2. **Push to main — deploy happens automatically:**
    ```bash
-   npm run build
-   git add Command Center.html
-   git commit -m "build: release version"
    git push origin main
    ```
 
 3. **Access your dashboard:**
-   Your dashboard will be available at `https://GitHubxSuperKai.github.io/the-daily-node/Command%20Center.html`
+   - Dashboard: `https://GitHubxSuperKai.github.io/the-daily-node/`
+   - Pitch deck: `https://GitHubxSuperKai.github.io/the-daily-node/pitch-deck.html`
 
 ### Static Hosting (Vercel, Netlify, etc.)
 
@@ -320,4 +320,4 @@ For issues, feature requests, or contributions, see the main repository README o
 
 ---
 
-**Last updated:** April 2026
+**Last updated:** May 2026

@@ -6,11 +6,7 @@
 [![GitHub release](https://img.shields.io/github/v/release/GitHubxSuperKai/the-daily-node)](https://github.com/GitHubxSuperKai/the-daily-node/releases)
 [![Last commit](https://img.shields.io/github/last-commit/GitHubxSuperKai/the-daily-node)](https://github.com/GitHubxSuperKai/the-daily-node/commits/main)
 
-![The Daily Node — light mode](docs/screenshots/dashboard-light.png)
-
 **[🔗 Live demo](https://GitHubxSuperKai.github.io/the-daily-node/)** · **[📊 Pitch deck](https://GitHubxSuperKai.github.io/the-daily-node/pitch-deck.html)**
-
-![The Daily Node — dark mode](docs/screenshots/dashboard-dark.png)
 
 ## What it is
 
