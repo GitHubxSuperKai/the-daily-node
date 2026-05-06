@@ -117,7 +117,55 @@ function Miners({ bitaxe, chain }) {
     { label: 'Watts',  fade: true  },
   ];
 
-  const showStubs = bitaxe.miners.length === 0 && !bitaxe.loading;
+  const noApi = bitaxe.error || (bitaxe.miners.length === 0 && !bitaxe.loading);
+
+  if (noApi) {
+    return (
+      <div style={{ marginBottom: u(4) }}>
+        <div style={{
+          borderTop: `${u(3)} solid ${T.ink}`,
+          borderBottom: `1px solid ${T.ink}`,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+          padding: `${u(5)} 0`, marginBottom: u(14),
+        }}>
+          <span style={{
+            fontFamily: T.sans, fontSize: u(10), fontWeight: 700,
+            letterSpacing: u(2), textTransform: 'uppercase', color: T.ink,
+          }}>
+            Field Report
+          </span>
+        </div>
+        <div style={{
+          borderLeft: `${u(3)} solid ${T.rule}`,
+          paddingLeft: u(12),
+          paddingTop: u(4),
+          paddingBottom: u(4),
+        }}>
+          <div style={{
+            fontFamily: T.sans, fontSize: u(11), fontWeight: 700,
+            color: T.ink2, marginBottom: u(6),
+          }}>
+            No miners connected
+          </div>
+          <div style={{
+            fontFamily: T.body, fontSize: u(11), fontStyle: 'italic',
+            color: T.ink3, lineHeight: 1.5,
+          }}>
+            Run a BitAxe on your local network to see live hashrate,
+            power, and temperature stats here. See the{' '}
+            <a
+              href="https://github.com/GitHubxSuperKai/the-daily-node#bitaxe-setup"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: T.orange, textDecoration: 'none' }}
+            >
+              setup guide →
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Shared style fragments
   const tnum = {
@@ -195,18 +243,6 @@ function Miners({ bitaxe, chain }) {
           </div>
         ))}
         <div key="rule-hdr-bot" style={{ gridColumn: '1 / -1', borderTop: `1px solid ${T.rule2}`, padding: 0 }} />
-
-        {/* ── No miners stub ── */}
-        {showStubs && (
-          <div style={{
-            gridColumn: '1 / -1',
-            padding: `${u(8)} 0`,
-            borderBottom: `1px solid ${T.rule3}`,
-            fontFamily: T.mono, fontSize: u(11), color: T.ink4, textAlign: 'center',
-          }}>
-            No miners configured
-          </div>
-        )}
 
         {/* ── Data rows ── */}
         {bitaxe.miners.map((miner, ri) => {

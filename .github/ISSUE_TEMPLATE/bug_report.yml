@@ -1,0 +1,64 @@
+name: Bug Report
+description: Something isn't working as expected
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill out as much as you can.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What's broken?
+      description: A clear, brief description of the bug.
+      placeholder: e.g. The price chart shows "Loading..." forever in Firefox.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Command Center.html
+        2. Wait 30 seconds
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser + version
+      placeholder: e.g. Chrome 130, Firefox 132, Safari 18
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: e.g. Windows 11, macOS 14, Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Dashboard version
+      description: Found in package.json or the GitHub Release tag you're using.
+      placeholder: e.g. v1.0.0
+    validations:
+      required: false
+  - type: textarea
+    id: console
+    attributes:
+      label: Browser console errors
+      description: Paste any errors from DevTools (F12 → Console). If none, write "none."
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot
+      description: Drag and drop an image here if helpful.
+    validations:
+      required: false
