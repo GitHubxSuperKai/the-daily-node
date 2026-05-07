@@ -1140,10 +1140,11 @@
 <script>
   // === SCALED CANVAS ===
   const deck = document.getElementById('deck');
+  const SLIDE_H = 932;
 
   function applyScale() {
-    const W = 430, H = 932;
-    const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+    const W = 430;
+    const s = Math.min(window.innerWidth / W, window.innerHeight / SLIDE_H);
     deck.style.transform = `scale(${s})`;
   }
   window.addEventListener('resize', applyScale);
@@ -1183,7 +1184,7 @@
   }
 
   function currentIndex() {
-    return Math.round(deck.scrollTop / 932);
+    return Math.round(deck.scrollTop / SLIDE_H);
   }
 
   function checkReveals() {
@@ -1205,14 +1206,12 @@
     (function poll() { checkReveals(); if (++frame < 30) requestAnimationFrame(poll); })();
   }, { passive: true });
 
-  // Scroll events for progress + reveals
-  deck.addEventListener('scroll', checkReveals, { passive: true });
   checkReveals();
 
   // === KEYBOARD & SCROLL NAVIGATION ===
   function goTo(i) {
     const clamped = Math.max(0, Math.min(total - 1, i));
-    deck.scrollTo({ top: clamped * 932, behavior: 'smooth' });
+    deck.scrollTo({ top: clamped * SLIDE_H, behavior: 'smooth' });
   }
 
   document.addEventListener('keydown', e => {
