@@ -817,12 +817,16 @@
 </head>
 <body>
 
-  <!-- Global chrome -->
+  <!-- Viewport overlays — stay outside #deck so they're unaffected by scale -->
   <div id="progress"></div>
   <div id="nav-hint" class="f-mono">↓  scroll · arrow keys · spacebar</div>
 
-  <!-- ===========================================================
-       SLIDE 1 — COVER
+  <!-- Scaled canvas wrapper -->
+  <div id="stage">
+    <div id="deck">
+
+    <!-- ===========================================================
+         SLIDE 1 — COVER
        =========================================================== -->
   <section class="slide slide-dark" id="s1">
     <span class="counter f-mono">01 / 09</span>
@@ -1291,6 +1295,9 @@
     // === INIT ===
     updateProgress();
   </script>
+
+      </div><!-- /#deck -->
+    </div><!-- /#stage -->
 
 </body>
 </html>
