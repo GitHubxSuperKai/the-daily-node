@@ -12,6 +12,9 @@ Life-goal framing for this project lives at `D:\Ikigai\00-PARA\1-Projects\the-da
 node build.js              # build Command Center.html from src/
 python -m http.server 3000 # dev server (or port 3002 per launch.json)
 npm run serve              # build + serve in one step
+npm test                   # run smoke + unit tests
+npm run test:smoke         # build smoke test only
+npm run test:unit          # vitest unit tests only
 ```
 
 Preview tool server ID: `the-daily-node`
