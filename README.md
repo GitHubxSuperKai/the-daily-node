@@ -8,6 +8,9 @@
 
 **[🔗 Live demo](https://GitHubxSuperKai.github.io/the-daily-node/)** · **[📊 Pitch deck](https://GitHubxSuperKai.github.io/the-daily-node/pitch-deck.html)**
 
+![Light mode](docs/screenshots/dashboard-light.png)
+![Dark mode](docs/screenshots/dashboard-dark.png)
+
 ## What it is
 
 A self-contained HTML dashboard that pulls live data from public APIs (Kraken, Mempool.space, CoinGecko, Open-Meteo, RSS feeds) and an optional local BitAxe miner API. Everything ships in a single `Command Center.html` file — no server, no database, no build step at runtime. Open it in a browser and it works.
