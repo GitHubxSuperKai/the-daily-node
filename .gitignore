@@ -17,3 +17,8 @@ icons-preview.html
 
 # Internal planning / brainstorming notes
 docs/superpowers/
+
+# Claude Code local config (launch.json is intentionally tracked)
+.claude/settings.json
+.claude/settings.local.json
+.claude/worktrees/
