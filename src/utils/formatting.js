@@ -215,5 +215,7 @@ if (typeof module !== 'undefined' && module.exports) {
     wmoDesc,
     wmoIcon,
     wmoSpeed,
+    fmtBestDiff,
+    classifyTopic,
   };
 }
