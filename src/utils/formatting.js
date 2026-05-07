@@ -41,7 +41,9 @@ function fmtDiff(d) {
 }
 
 function fmtMempoolMB(bytes) {
-  return `${(bytes / 1e6).toFixed(0)} MB`;
+  if (!bytes || bytes === 0) return '0 MB';
+  const mb = bytes / 1e6;
+  return mb > 100 ? `${Math.round(mb)} MB` : `${mb.toFixed(1)} MB`;
 }
 
 function timeAgo(dateStr) {

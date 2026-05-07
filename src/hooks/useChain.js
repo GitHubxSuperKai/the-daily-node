@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { useResettableInterval } from './useResettableInterval.js';
 import CONFIG from '../config.js';
 import { fetchChainStats, fetchMiningPools, fetchPoolBlocks, fetchRecentBlocks, fetchMempoolBlocks } from '../utils/api.js';
-import { fmtMempoolMB, nextHalving, circulatingBTC } from '../utils/format.js';
+import { fmtMempoolMB, nextHalving, circulatingBTC } from '../utils/formatting.js';
 
 /**
  * useChain Hook
