@@ -48,4 +48,10 @@ describe('_processSvg', () => {
     const out = _processSvg(sample, 1, 1, 48);
     expect(out).toMatch(/^<svg width="48" height="48" /);
   });
+
+  it('scales ms-unit SMIL durations by speedMult', () => {
+    const withMs = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><animateTransform dur="500ms"/></svg>`;
+    const out = _processSvg(withMs, 1, 2, 64);
+    expect(out).toContain('dur="1000ms"');  // 500ms * 2
+  });
 });

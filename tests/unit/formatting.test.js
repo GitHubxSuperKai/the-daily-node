@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   fmtNum, fmtPrice, fmtPct, fmtVolUsd, fmtBlockTime, fmtHashrate,
-  fmtDiff, fmtMempoolMB, fmtBlockSize, timeAgoUnix,
+  fmtDiff, fmtMempoolMB, fmtBlockSize, timeAgo, timeAgoUnix,
   fmtHour, fmtHHMM, nextHalving, circulatingBTC, calcSoloOdds,
-  wmoDesc, wmoIcon, wmoSpeed,
+  wmoDesc, wmoIcon, wmoSpeed, fmtBestDiff, classifyTopic,
 } from '../../src/utils/formatting.js';
 
 describe('fmtNum', () => {
@@ -47,6 +47,9 @@ describe('fmtVolUsd', () => {
   it('formats millions with M suffix', () => {
     expect(fmtVolUsd(150e6)).toBe('$150M');
   });
+  it('returns em-dash for null', () => {
+    expect(fmtVolUsd(null)).toBe('—');
+  });
 });
 
 describe('fmtBlockTime', () => {
@@ -80,8 +83,11 @@ describe('fmtMempoolMB', () => {
   it('formats < 100 MB with one decimal', () => {
     expect(fmtMempoolMB(45e6)).toBe('45.0 MB');
   });
-  it('rounds >= 100 MB to integer', () => {
+  it('rounds > 100 MB to integer', () => {
     expect(fmtMempoolMB(250e6)).toBe('250 MB');
+  });
+  it('formats exactly 100 MB with one decimal (boundary: condition is > 100, not >=)', () => {
+    expect(fmtMempoolMB(100e6)).toBe('100.0 MB');
   });
 });
 
@@ -94,6 +100,29 @@ describe('fmtBlockSize', () => {
   });
   it('shows kB for < 1 MB', () => {
     expect(fmtBlockSize(500_000)).toBe('500 kB');
+  });
+});
+
+describe('timeAgo', () => {
+  it('returns "just now" for future or zero diff', () => {
+    const future = new Date(Date.now() + 10000).toISOString();
+    expect(timeAgo(future)).toBe('just now');
+  });
+  it('returns seconds ago', () => {
+    const ts = new Date(Date.now() - 30000).toISOString();
+    expect(timeAgo(ts)).toBe('30s ago');
+  });
+  it('returns minutes ago', () => {
+    const ts = new Date(Date.now() - 600000).toISOString();
+    expect(timeAgo(ts)).toBe('10m ago');
+  });
+  it('returns hours ago', () => {
+    const ts = new Date(Date.now() - 7200000).toISOString();
+    expect(timeAgo(ts)).toBe('2h ago');
+  });
+  it('returns days ago', () => {
+    const ts = new Date(Date.now() - 172800000).toISOString();
+    expect(timeAgo(ts)).toBe('2d ago');
   });
 });
 
@@ -180,8 +209,11 @@ describe('wmoIcon', () => {
   it('returns clear-night for code 0 at night', () => {
     expect(wmoIcon(0, 22, 5, 6, 20)).toBe('clear-night');
   });
-  it('returns wind override at high wind speed', () => {
+  it('returns wind override for code 1 at high wind speed', () => {
     expect(wmoIcon(1, 12, 30, 6, 20)).toBe('wind');
+  });
+  it('returns wind override for code 2 (partly cloudy) at high wind speed', () => {
+    expect(wmoIcon(2, 12, 30, 6, 20)).toBe('wind');
   });
   it('returns thunderstorms for code >= 95', () => {
     expect(wmoIcon(95, 12, 5, 6, 20)).toBe('thunderstorms');
@@ -202,5 +234,56 @@ describe('wmoSpeed', () => {
   });
   it('returns fast value for thunderstorm', () => {
     expect(wmoSpeed(95, 0)).toBeLessThanOrEqual(0.8);
+  });
+});
+
+describe('fmtBestDiff', () => {
+  it('returns em-dash for falsy/zero', () => {
+    expect(fmtBestDiff(0)).toBe('—');
+    expect(fmtBestDiff(null)).toBe('—');
+  });
+  it('formats trillions with T suffix', () => {
+    expect(fmtBestDiff(2.5e12)).toBe('2.50T');
+  });
+  it('formats billions with G suffix', () => {
+    expect(fmtBestDiff(1.5e9)).toBe('1.50G');
+  });
+  it('formats millions with M suffix', () => {
+    expect(fmtBestDiff(3.75e6)).toBe('3.75M');
+  });
+  it('formats thousands with K suffix', () => {
+    expect(fmtBestDiff(2500)).toBe('2.5K');
+  });
+  it('returns raw number as string for < 1000', () => {
+    expect(fmtBestDiff(42)).toBe('42');
+  });
+});
+
+describe('classifyTopic', () => {
+  it('returns BREAKING for breaking/urgent headlines', () => {
+    expect(classifyTopic('Breaking: Bitcoin hits new ATH')).toBe('BREAKING');
+  });
+  it('returns MARKETS for price/market headlines', () => {
+    expect(classifyTopic('Bitcoin ETF inflows hit record')).toBe('MARKETS');
+    expect(classifyTopic('BTC price rally continues')).toBe('MARKETS');
+  });
+  it('returns MINING for mining headlines', () => {
+    expect(classifyTopic('Hashrate reaches all-time high')).toBe('MINING');
+    expect(classifyTopic('Antpool mines record block')).toBe('MINING');
+  });
+  it('returns REGULATION for regulatory headlines', () => {
+    expect(classifyTopic('IRS targets Bitcoin tax evaders')).toBe('REGULATION');
+    expect(classifyTopic('Congress debates crypto law')).toBe('REGULATION');
+  });
+  it('returns TECH for protocol/tech headlines', () => {
+    expect(classifyTopic('New Lightning Network upgrade shipped')).toBe('TECH');
+    expect(classifyTopic('Taproot adoption grows')).toBe('TECH');
+  });
+  it('returns GLOBAL for sovereign/nation headlines', () => {
+    expect(classifyTopic('El Salvador adds to strategic reserve')).toBe('GLOBAL');
+  });
+  it('returns BITCOIN as default for unmatched headlines', () => {
+    expect(classifyTopic('Something happened today')).toBe('BITCOIN');
+    expect(classifyTopic('')).toBe('BITCOIN');
   });
 });

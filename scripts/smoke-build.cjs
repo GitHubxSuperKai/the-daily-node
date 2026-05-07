@@ -17,7 +17,7 @@ try {
   console.error(err.stdout || '', err.stderr || '');
   process.exit(1);
 }
-assert.ok(buildOut.includes('Built Command Center.html'), 'build.js did not print success line');
+assert.ok(buildOut.includes('✓ Built Command Center.html'), 'build.js did not print success line');
 
 // 2. Output must exist and be non-trivial
 assert.ok(fs.existsSync(OUT), 'Command Center.html was not created');
@@ -41,12 +41,13 @@ for (const m of REQUIRED_MARKERS) {
 }
 
 // 5. No raw ES import/export statements should survive the regex strip
-//    (matches the bug class CLAUDE.md flags: combined default+named imports)
-const importLeak = html.match(/^\s*import\s+\w+\s*,\s*\{/m);
+//    build.js strips: combined default+named, default-only, named-only, bare imports, and exports.
+//    Any leak would cause a blank page in the browser.
+const importLeak = html.match(/^\s*import\s+/m);
 assert.ok(!importLeak,
-  `combined default+named import survived build (would blank-page the app): ${importLeak && importLeak[0]}`);
+  `import statement survived build (would blank-page the app): ${importLeak && importLeak[0].trim()}`);
 const exportLeak = html.match(/^\s*export\s+(default|\{|function|const|let|var|class|async)/m);
 assert.ok(!exportLeak,
-  `unstripped export statement survived build: ${exportLeak && exportLeak[0]}`);
+  `unstripped export statement survived build: ${exportLeak && exportLeak[0].trim()}`);
 
 console.log('✓ smoke-build OK');

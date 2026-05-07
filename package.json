@@ -7,7 +7,7 @@
     "dev": "python -m http.server 3000",
     "serve": "npm run build && npm run dev",
     "test": "npm run test:smoke && npm run test:unit",
-    "test:smoke": "node scripts/smoke-build.js",
+    "test:smoke": "node scripts/smoke-build.cjs",
     "test:unit": "vitest run"
   },
   "devDependencies": {
