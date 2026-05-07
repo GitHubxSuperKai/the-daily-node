@@ -698,10 +698,17 @@
     }
 
     .gh-url {
-      font-family: 'Courier Prime', monospace;
-      font-size: var(--size-small);
+      display: block;
       color: var(--orange);
+      text-decoration: none;
+      font-size: var(--size-small);
       letter-spacing: 0.05em;
+    }
+    .gh-url + .gh-url {
+      margin-top: 0.4rem;
+    }
+    .gh-url:hover {
+      text-decoration: underline;
     }
 
     .star-line {
@@ -1131,27 +1138,28 @@
     <span class="counter f-mono">09 / 09</span>
 
     <div class="main">
-      <p class="overline reveal">Coming Soon</p>
+      <p class="overline reveal">Live Now</p>
       <span class="rule reveal d1"></span>
 
       <h2 class="cta-head f-display reveal d2">
-        <span class="line1">Open</span><br>
-        <span class="line2">Source.</span>
+        <span class="line1">Read it.</span><br>
+        <span class="line2">Fork it.</span><br>
+        <span class="line3">Run it.</span>
       </h2>
 
       <p class="cta-sub f-body reveal d3">
-        Releasing to GitHub soon. One file. Free forever.
+        v1.0 is live. One file. Free forever. MIT licensed.
       </p>
 
       <div class="cta-row reveal d4">
-        <div class="qr-box" aria-label="QR code coming soon">
-          <div class="qr-inner" aria-hidden="true"></div>
-          <span class="qr-label f-mono">QR</span>
-        </div>
-
         <div class="cta-info">
-          <span class="gh-url f-mono">github.com/GitHubxSuperKai/the-daily-node</span>
-          <span class="star-line f-body">Star it when it drops. ★</span>
+          <a class="gh-url f-mono" href="https://github.com/GitHubxSuperKai/the-daily-node" target="_blank">
+            github.com/GitHubxSuperKai/the-daily-node
+          </a>
+          <a class="gh-url gh-url--pages f-mono" href="https://GitHubxSuperKai.github.io/the-daily-node/" target="_blank">
+            GitHubxSuperKai.github.io/the-daily-node
+          </a>
+          <span class="star-line f-body">Star it. ★</span>
         </div>
       </div>
     </div>
