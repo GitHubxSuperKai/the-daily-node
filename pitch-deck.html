@@ -20,15 +20,41 @@
        ============================================================ */
     html, body { height: 100%; overflow-x: hidden; }
 
-    html {
+    /* ============================================================
+       SCALED CANVAS
+       ============================================================ */
+
+    /* Full-viewport letterbox container */
+    #stage {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--dk-bg);
+      overflow: hidden;
+    }
+
+    /* Fixed-size portrait canvas — scaled to fit by JS */
+    #deck {
+      width: 430px;
+      height: 932px;
+      transform-origin: center center;
+      overflow-y: auto;
+      overflow-x: hidden;
       scroll-snap-type: y mandatory;
       scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      flex-shrink: 0;
+    }
+    #deck::-webkit-scrollbar {
+      display: none;
     }
 
     .slide {
-      width: 100vw;
-      height: 100vh;
-      height: 100dvh;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
       scroll-snap-align: start;
       display: flex;
@@ -81,25 +107,6 @@
       --pad:  clamp(2rem, 5vw, 5rem);
       --gap:  clamp(0.75rem, 1.8vw, 1.75rem);
       --egap: clamp(0.35rem, 0.9vw, 0.8rem);
-    }
-
-    @media (max-height: 700px) {
-      :root {
-        --size-display: clamp(2rem, 6vw, 4rem);
-        --size-h1:      clamp(1.5rem, 4.5vw, 3rem);
-        --size-h2:      clamp(1.2rem, 3vw, 2rem);
-        --pad:  clamp(1.25rem, 3vw, 2.5rem);
-        --gap:  clamp(0.5rem,  1.2vw, 1.1rem);
-      }
-    }
-
-    @media (max-height: 600px) {
-      :root {
-        --size-display: clamp(1.5rem, 5vw, 3rem);
-        --size-h1:      clamp(1.25rem, 3.5vw, 2.25rem);
-        --pad:  clamp(0.75rem, 2.5vw, 1.75rem);
-        --gap:  clamp(0.35rem, 1vw, 0.75rem);
-      }
     }
 
     /* ============================================================
@@ -420,10 +427,6 @@
       gap: clamp(0.75rem, 2vw, 2.5rem);
     }
 
-    @media (max-width: 900px) {
-      #s5 .feature-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-
     .fcol { display: flex; flex-direction: column; gap: var(--egap); }
 
     .fcol-label {
@@ -575,12 +578,6 @@
       gap: clamp(1.25rem, 3vw, 4rem);
     }
 
-    @media (max-width: 700px) {
-      #s8 .persona-row { grid-template-columns: 1fr; }
-      #s6 .two-col { flex-direction: column; gap: var(--gap); }
-      #s6 .right   { width: 100%; display: flex; justify-content: center; }
-    }
-
     .persona {
       display: flex;
       flex-direction: column;
@@ -705,53 +702,6 @@
       font-size: var(--size-body);
       color: var(--dk-muted);
     }
-
-    /* ============================================================
-       MOBILE — 480px and below
-       ============================================================ */
-    @media (max-width: 480px) {
-      /* Global token overrides */
-      :root {
-        --size-display: clamp(2.4rem, 11vw, 3.5rem);
-        --size-h1:      clamp(1.6rem, 8.5vw, 2.5rem);
-        --size-h2:      clamp(1.25rem, 7vw, 1.9rem);
-        --size-h3:      clamp(1rem, 5.5vw, 1.4rem);
-        --size-body:    clamp(0.78rem, 3.5vw, 0.95rem);
-        --size-small:   clamp(0.68rem, 3vw, 0.82rem);
-        --size-label:   clamp(0.55rem, 2.5vw, 0.68rem);
-        --pad:  1.1rem;
-        --gap:  0.65rem;
-        --egap: 0.35rem;
-      }
-
-      /* Slide 2 — move tabs-cloud to bottom as a horizontal pill row */
-      #s2 .tabs-cloud {
-        right: var(--pad);
-        left: var(--pad);
-        top: auto;
-        bottom: var(--pad);
-        transform: none;
-        flex-direction: row;
-        flex-wrap: wrap;
-        gap: 0.35rem;
-        align-items: flex-start;
-      }
-      #s2 .tab-pill { padding: 0.2rem 0.55rem; }
-      #s2 .main { padding-bottom: calc(var(--pad) + 4.5rem); }
-
-      /* Slide 4 — tighter grid gap */
-      #s5 .feature-grid { gap: 0.6rem; }
-      #s5 .fcol-label { font-size: 0.58rem; }
-
-      /* Slide 8 — compact personas so 3 cards fit without overflow */
-      #s8 .persona-row { gap: 0.5rem; }
-      #s8 .persona { padding-top: 0.5rem; gap: 0.2rem; }
-      #s8 .persona-blurb { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
-
-      /* Slide 8 — smaller CTA heading min */
-      #s9 .cta-head { font-size: 2.6rem; }
-    }
-
 
     /* ============================================================
        SLIDE PREVIEW — TEASER (DARK)
