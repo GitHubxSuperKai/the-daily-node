@@ -431,7 +431,7 @@
        ============================================================ */
     #s5 .feature-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(2, 1fr);
       gap: clamp(0.75rem, 2vw, 2.5rem);
     }
 
@@ -941,46 +941,62 @@
       <div class="feature-grid reveal d2">
 
         <div class="fcol">
-          <span class="fcol-label f-body">Markets</span>
+          <span class="fcol-label f-body">Price &amp; Chart</span>
           <ul>
-            <li>Live BTC / USD price</li>
-            <li>24h change &amp; ATH distance</li>
-            <li>24h chart with VWAP</li>
-            <li>Market cap &amp; volume</li>
-            <li>Satoshis per dollar</li>
+            <li>Live BTC / USD from Kraken</li>
+            <li>24h % change with arrow</li>
+            <li>24h OHLCV chart + VWAP line</li>
+            <li>Hi · Lo · Cap · Sat/$</li>
+          </ul>
+        </div>
+
+        <div class="fcol">
+          <span class="fcol-label f-body">News &amp; Lead Story</span>
+          <ul>
+            <li>Drop-cap lead with inline image</li>
+            <li>Bitcoin Magazine · CoinDesk · BTC.com</li>
+            <li>BREAKING · MARKETS · MINING</li>
+            <li>Scrollable headlines + excerpt</li>
           </ul>
         </div>
 
         <div class="fcol">
           <span class="fcol-label f-body">Chain Vitals</span>
           <ul>
-            <li>Block height</li>
-            <li>Difficulty + retarget ETA</li>
-            <li>Avg block time (color-coded)</li>
+            <li>Block height + avg block time</li>
+            <li>Hashrate · difficulty · retarget ETA</li>
             <li>Mempool size &amp; tx count</li>
             <li>Fee estimates: fast / eco</li>
           </ul>
         </div>
 
         <div class="fcol">
-          <span class="fcol-label f-body">Fleet</span>
+          <span class="fcol-label f-body">Weather &amp; Forecast</span>
           <ul>
-            <li>Solo odds: 1-in-X per day</li>
-            <li>Per-miner hashrate &amp; power</li>
-            <li>Efficiency (J/TH)</li>
-            <li>Uptime &amp; share stats</li>
-            <li>Fleet aggregates</li>
+            <li>Current conditions + 8-hour forecast</li>
+            <li>Animated Meteocons SVG icons</li>
+            <li>Auto dark mode at local sunset</li>
+            <li>°F / °C · location configurable</li>
           </ul>
         </div>
 
         <div class="fcol">
-          <span class="fcol-label f-body">News</span>
+          <span class="fcol-label f-body">Mining Fleet</span>
           <ul>
-            <li>BREAKING · MARKETS · MINING</li>
-            <li>REGULATION · TECH · GLOBAL</li>
-            <li>3 live Bitcoin RSS feeds</li>
-            <li>Auto-categorized stories</li>
-            <li>On This Day in Bitcoin</li>
+            <li>Solo odds: 1-in-X per day</li>
+            <li>Per-miner hashrate, power, temp</li>
+            <li>Efficiency (J/TH) · uptime</li>
+            <li>Fleet settings via localStorage</li>
+          </ul>
+        </div>
+
+        <div class="fcol">
+          <span class="fcol-label f-body">Editorial</span>
+          <ul>
+            <li>On This Day: Bitcoin milestones</li>
+            <li>Proof of Read: live price + chain TL;DR</li>
+            <li>Diamond (♦) bullet summary panel</li>
+            <li>Updates from live data each refresh</li>
           </ul>
         </div>
 
@@ -989,7 +1005,7 @@
       <span class="rule-full reveal d3"></span>
 
       <p class="footer-note f-body reveal d4">
-        Plus: weather widget · rotating Bitcoin quotes · dark mode at local sunset · scrolling chain vitals ticker
+        Plus: live feed-health status dots · scrolling chain vitals ticker · dark/light mode toggle
       </p>
     </div>
   </section>
