@@ -204,14 +204,14 @@
       pointer-events: none;
     }
 
-    /* Nav hint */
+    /* Nav hint — outside #deck, so use absolute units instead of container queries */
     #nav-hint {
       position: fixed;
-      bottom: calc(var(--ticker-h) + 0.6rem);
+      bottom: 3rem;
       left: 50%;
       transform: translateX(-50%);
       font-family: 'Courier Prime', monospace;
-      font-size: var(--size-label);
+      font-size: 0.72rem;
       color: #555;
       letter-spacing: 0.12em;
       z-index: 200;
