@@ -78,7 +78,7 @@ App (root — owns all hooks, theme, localStorage prefs)
 
 **Styling:** Inline `style` props only. No CSS files. All colors from `ThemeCtx` via `useT()`. Dark mode = swap theme object.
 
-**Canvas scaling:** Dashboard renders at 1920×1080, scaled to viewport via CSS `transform`. `applyScale()` in `src/utils/scale.js` calculates factor and applies to `#canvas`.
+**Canvas scaling:** Dashboard renders at 1920×1080, scaled to viewport via CSS `transform`. `src/utils/scale.js` exports `u(n)` — returns `calc(var(--u) * n)` for design-px values. Scaling logic lives inline in the component that mounts the canvas.
 
 **localStorage:** User prefs (weather location, time format, temp unit, BitAxe URL) persist on change. App reads localStorage on mount, falls back to `config.js` defaults.
 
@@ -90,8 +90,7 @@ App (root — owns all hooks, theme, localStorage prefs)
 |------|---------|
 | `src/config.js` | API endpoints, refresh intervals, defaults — change data sources here |
 | `src/theme.js` | LIGHT/DARK theme objects, `ThemeCtx`, `useT()` hook |
-| `src/utils/formatting.js` | Primary formatters: `fmtPrice`, `fmtPct`, `fmtHashrate`, `wmoIcon`, etc. |
-| `src/utils/format.js` | Secondary/newer formatters — check both before adding new ones |
+| `src/utils/formatting.js` | All formatters: `fmtPrice`, `fmtPct`, `fmtHashrate`, `wmoIcon`, `classifyTopic`, etc. |
 | `src/utils/api.js` | Fetch wrappers with 5s timeouts |
 | `src/utils/scale.js` | Viewport scaling logic |
 | `src/utils/svg.js` | SVG icon helpers |
