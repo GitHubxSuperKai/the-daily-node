@@ -40,8 +40,8 @@ function LineChart({ color, points, fill, vwap, historyPoints }) {
       }
     } else {
       const prices = allPoints.map(p => p[1]);
-      const minP = Math.min(...prices);
-      const maxP = Math.max(...prices);
+      const minP = prices.reduce((a, b) => b < a ? b : a, Infinity);
+      const maxP = prices.reduce((a, b) => b > a ? b : a, -Infinity);
       const range = maxP - minP || 1;
       pts = allPoints.map((p, i) => {
         const x = (i / (allPoints.length - 1)) * w;
@@ -54,8 +54,8 @@ function LineChart({ color, points, fill, vwap, historyPoints }) {
   let vwapY = null;
   if (w > 0 && h > 0 && !useFallback && vwap != null) {
     const prices = allPoints.map(p => p[1]);
-    const minP = Math.min(...prices);
-    const maxP = Math.max(...prices);
+    const minP = prices.reduce((a, b) => b < a ? b : a, Infinity);
+    const maxP = prices.reduce((a, b) => b > a ? b : a, -Infinity);
     const range = maxP - minP || 1;
     vwapY = Math.max(2, Math.min(h - 2, h - 4 - ((vwap - minP) / range) * (h - 8)));
   }
