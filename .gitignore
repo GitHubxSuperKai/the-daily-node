@@ -16,6 +16,9 @@ nul
 # Local config overrides
 src/config.local.js
 
+# User-specific BitAxe miner IPs (created by first-launch onboarding)
+bitaxe_config.json
+
 # Dev utilities
 icons-preview.html
 .worktrees/
