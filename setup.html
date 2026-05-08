@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BitAxe Fleet — Setup</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: #0b0f14; color: #e6edf3; margin: 0; padding: 2rem; }
+  .wrap { max-width: 560px; margin: 4rem auto; }
+  h1 { margin: 0 0 0.5rem; font-size: 1.6rem; }
+  p.lede { color: #9ba8b6; margin: 0 0 2rem; }
+  label { display: block; font-size: 0.9rem; color: #9ba8b6; margin-bottom: 0.4rem; }
+  textarea { width: 100%; min-height: 140px; box-sizing: border-box; padding: 0.75rem;
+             background: #161b22; color: #e6edf3; border: 1px solid #30363d;
+             border-radius: 6px; font-family: ui-monospace, monospace; font-size: 0.95rem; }
+  button { margin-top: 1rem; padding: 0.65rem 1.2rem; background: #2f81f7;
+           color: #fff; border: 0; border-radius: 6px; font-size: 0.95rem; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .msg { margin-top: 1rem; padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.9rem; }
+  .msg.err { background: #3a1717; color: #ffb4b4; border: 1px solid #6a2424; }
+  .msg.ok  { background: #14321b; color: #b4ffc7; border: 1px solid #245a32; }
+  code { background: #161b22; padding: 0.1rem 0.4rem; border-radius: 3px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Welcome to The Daily Node</h1>
+    <p class="lede">Enter your BitAxe miner IP addresses to get started — one per line, or comma-separated. Only LAN/private addresses are accepted (e.g. <code>192.168.1.10</code>).</p>
+    <label for="ips">BitAxe IP addresses</label>
+    <textarea id="ips" placeholder="192.168.1.10&#10;192.168.1.11" autofocus></textarea>
+    <button id="save">Save and continue</button>
+    <div id="msg"></div>
+  </div>
+<script>
+  const $ips = document.getElementById('ips');
+  const $btn = document.getElementById('save');
+  const $msg = document.getElementById('msg');
+
+  function showMsg(text, kind) {
+    $msg.className = 'msg ' + kind;
+    $msg.textContent = text;
+  }
+
+  $btn.addEventListener('click', async () => {
+    const raw = $ips.value.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+    if (raw.length === 0) { showMsg('Enter at least one IP.', 'err'); return; }
+    $btn.disabled = true;
+    showMsg('Saving…', 'ok');
+    try {
+      const res = await fetch('/api/setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bitaxe_ips: raw }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showMsg('Error: ' + (data.errors || [data.error || 'unknown']).join('; '), 'err');
+        $btn.disabled = false;
+        return;
+      }
+      showMsg('Saved ' + data.bitaxe_ips.length + ' miner(s). Loading dashboard…', 'ok');
+      setTimeout(() => { window.location.href = '/'; }, 800);
+    } catch (e) {
+      showMsg('Network error: ' + e.message, 'err');
+      $btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
