@@ -14,7 +14,7 @@ services:
     container_name: daily-node
     ports:
       - "3001:3001"
-    environment:
+    # environment:
       # Comma-separated list of BitAxe miner IPs on your LAN.
       # Uncomment and replace with your IPs, or remove to use the web setup page.
       # BITAXE_IPS: "<miner-ip-1>,<miner-ip-2>"
