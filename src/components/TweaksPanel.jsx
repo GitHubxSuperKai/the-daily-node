@@ -1,3 +1,51 @@
+function TweaksNumInput({ path, min, max, get, setPath, T }) {
+  return (
+    <input
+      type="number"
+      value={get(path) ?? ''}
+      min={min}
+      max={max}
+      onChange={e => setPath(path, Number(e.target.value))}
+      style={{
+        width: 64, background: T.paper, color: T.ink, fontSize: 13,
+        border: `1px solid ${T.ink3}`, borderRadius: 3, padding: '2px 5px',
+        textAlign: 'right',
+      }}
+    />
+  );
+}
+
+function TweaksCheckRow({ path, label, get, setPath }) {
+  return (
+    <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer' }}>
+      <input
+        type="checkbox"
+        checked={!!get(path)}
+        onChange={e => setPath(path, e.target.checked)}
+        style={{ width: 14, height: 14 }}
+      />
+      <span style={{ fontSize: 13 }}>{label}</span>
+    </label>
+  );
+}
+
+function TweaksRow({ label, children, T }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 0' }}>
+      <span style={{ fontSize: 12, color: T.ink2 }}>{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function TweaksSection({ children, T }) {
+  return (
+    <div style={{ borderTop: `1px solid ${T.ink3}`, paddingTop: 8, marginBottom: 12 }}>
+      {children}
+    </div>
+  );
+}
+
 function TweaksPanel({ prefs, onSave, onClose }) {
   const T = useT();
   const [local, setLocal] = React.useState(prefs);
@@ -19,46 +67,6 @@ function TweaksPanel({ prefs, onSave, onClose }) {
   const get = (path) => path.split('.').reduce((o, k) => o?.[k], local);
 
   const handleSave = () => { onSave(local); onClose(); };
-
-  const NumInput = ({ path, min, max }) => (
-    <input
-      type="number"
-      value={get(path) ?? ''}
-      min={min}
-      max={max}
-      onChange={e => setPath(path, Number(e.target.value))}
-      style={{
-        width: 64, background: T.paper, color: T.ink, fontSize: 13,
-        border: `1px solid ${T.ink3}`, borderRadius: 3, padding: '2px 5px',
-        textAlign: 'right',
-      }}
-    />
-  );
-
-  const CheckRow = ({ path, label }) => (
-    <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer' }}>
-      <input
-        type="checkbox"
-        checked={!!get(path)}
-        onChange={e => setPath(path, e.target.checked)}
-        style={{ width: 14, height: 14 }}
-      />
-      <span style={{ fontSize: 13 }}>{label}</span>
-    </label>
-  );
-
-  const Row = ({ label, children }) => (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 0' }}>
-      <span style={{ fontSize: 12, color: T.ink2 }}>{label}</span>
-      {children}
-    </div>
-  );
-
-  const Section = ({ children }) => (
-    <div style={{ borderTop: `1px solid ${T.ink3}`, paddingTop: 8, marginBottom: 12 }}>
-      {children}
-    </div>
-  );
 
   const sectionLabel = { fontFamily: T.display, fontSize: 11, letterSpacing: '0.08em', color: T.ink3, marginBottom: 4, display: 'block' };
 
@@ -86,42 +94,42 @@ function TweaksPanel({ prefs, onSave, onClose }) {
         >Grant</button>
       </div>
 
-      <Section>
-        <CheckRow path="alerts.fee.enabled" label="Fee spike" />
-        <Row label="Threshold (sat/vB)"><NumInput path="alerts.fee.threshold" min={1} max={500} /></Row>
-        <Row label="Cooldown (min)"><NumInput path="alerts.fee.cooldownMin" min={5} max={1440} /></Row>
-      </Section>
+      <TweaksSection T={T}>
+        <TweaksCheckRow path="alerts.fee.enabled" label="Fee spike" get={get} setPath={setPath} />
+        <TweaksRow label="Threshold (sat/vB)" T={T}><TweaksNumInput path="alerts.fee.threshold" min={1} max={500} get={get} setPath={setPath} T={T} /></TweaksRow>
+        <TweaksRow label="Cooldown (min)" T={T}><TweaksNumInput path="alerts.fee.cooldownMin" min={5} max={1440} get={get} setPath={setPath} T={T} /></TweaksRow>
+      </TweaksSection>
 
-      <Section>
-        <CheckRow path="alerts.blockTime.enabled" label="Block time drift (> 15 min without a block)" />
-        <Row label="Cooldown (min)"><NumInput path="alerts.blockTime.cooldownMin" min={5} max={1440} /></Row>
-      </Section>
+      <TweaksSection T={T}>
+        <TweaksCheckRow path="alerts.blockTime.enabled" label="Block time drift (> 15 min without a block)" get={get} setPath={setPath} />
+        <TweaksRow label="Cooldown (min)" T={T}><TweaksNumInput path="alerts.blockTime.cooldownMin" min={5} max={1440} get={get} setPath={setPath} T={T} /></TweaksRow>
+      </TweaksSection>
 
-      <Section>
-        <CheckRow path="alerts.minerOffline.enabled" label="Miner offline" />
-        <Row label="Cooldown (min)"><NumInput path="alerts.minerOffline.cooldownMin" min={1} max={1440} /></Row>
-      </Section>
+      <TweaksSection T={T}>
+        <TweaksCheckRow path="alerts.minerOffline.enabled" label="Miner offline" get={get} setPath={setPath} />
+        <TweaksRow label="Cooldown (min)" T={T}><TweaksNumInput path="alerts.minerOffline.cooldownMin" min={1} max={1440} get={get} setPath={setPath} T={T} /></TweaksRow>
+      </TweaksSection>
 
-      <Section>
-        <CheckRow path="alerts.price.enabled" label="Price move (requires history sidecar)" />
-        <Row label="% move"><NumInput path="alerts.price.pctThreshold" min={1} max={50} /></Row>
-        <Row label="Window (min)"><NumInput path="alerts.price.windowMin" min={5} max={240} /></Row>
-        <Row label="Cooldown (min)"><NumInput path="alerts.price.cooldownMin" min={5} max={1440} /></Row>
-      </Section>
+      <TweaksSection T={T}>
+        <TweaksCheckRow path="alerts.price.enabled" label="Price move (requires history sidecar)" get={get} setPath={setPath} />
+        <TweaksRow label="% move" T={T}><TweaksNumInput path="alerts.price.pctThreshold" min={1} max={50} get={get} setPath={setPath} T={T} /></TweaksRow>
+        <TweaksRow label="Window (min)" T={T}><TweaksNumInput path="alerts.price.windowMin" min={5} max={240} get={get} setPath={setPath} T={T} /></TweaksRow>
+        <TweaksRow label="Cooldown (min)" T={T}><TweaksNumInput path="alerts.price.cooldownMin" min={5} max={1440} get={get} setPath={setPath} T={T} /></TweaksRow>
+      </TweaksSection>
 
       {/* ── RSS Feeds ── */}
       <span style={{ ...sectionLabel, marginTop: 8 }}>RSS FEEDS</span>
-      <Section>
+      <TweaksSection T={T}>
         {[
           { key: 'feeds.bitcoinMagazine', label: 'Bitcoin Magazine' },
           { key: 'feeds.coindesk',        label: 'CoinDesk' },
           { key: 'feeds.newsBitcoin',     label: 'News.Bitcoin.com' },
-        ].map(({ key, label }) => <CheckRow key={key} path={key} label={label} />)}
-      </Section>
+        ].map(({ key, label }) => <TweaksCheckRow key={key} path={key} label={label} get={get} setPath={setPath} />)}
+      </TweaksSection>
 
       {/* ── Theme ── */}
       <span style={{ ...sectionLabel, marginTop: 8 }}>THEME</span>
-      <Section>
+      <TweaksSection T={T}>
         {[['light', 'Light'], ['dark', 'Dark'], ['auto', 'Auto (by sunset)']].map(([val, label]) => (
           <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer' }}>
             <input
@@ -135,12 +143,12 @@ function TweaksPanel({ prefs, onSave, onClose }) {
             <span style={{ fontSize: 13 }}>{label}</span>
           </label>
         ))}
-      </Section>
+      </TweaksSection>
 
       {/* ── Refresh Intervals ── */}
       <span style={{ ...sectionLabel, marginTop: 8 }}>REFRESH INTERVALS</span>
       <div style={{ fontSize: 11, color: T.ink3, marginBottom: 6 }}>Values in seconds. Reload page to apply.</div>
-      <Section>
+      <TweaksSection T={T}>
         {[
           { key: 'intervals.price',   label: 'BTC price',    min: 15,  max: 300  },
           { key: 'intervals.chain',   label: 'Chain vitals', min: 30,  max: 600  },
@@ -148,9 +156,9 @@ function TweaksPanel({ prefs, onSave, onClose }) {
           { key: 'intervals.rss',     label: 'News',         min: 60,  max: 1800 },
           { key: 'intervals.bitaxe',  label: 'Miners',       min: 10,  max: 300  },
         ].map(({ key, label, min, max }) => (
-          <Row key={key} label={label}><NumInput path={key} min={min} max={max} /></Row>
+          <TweaksRow key={key} label={label} T={T}><TweaksNumInput path={key} min={min} max={max} get={get} setPath={setPath} T={T} /></TweaksRow>
         ))}
-      </Section>
+      </TweaksSection>
 
       <button onClick={handleSave} style={{
         background: T.orange, color: '#fff', border: 'none', borderRadius: 3,
