@@ -13,7 +13,7 @@
 
 ## What it is
 
-A self-contained HTML dashboard that pulls live data from public APIs (Kraken, Mempool.space, CoinGecko, Open-Meteo, RSS feeds) and an optional local BitAxe miner API. Everything ships in a single `index.html` file — no server, no database, no build step at runtime. Open it in a browser and it works.
+A React dashboard that pulls live data from public APIs (Kraken, Mempool.space, CoinGecko, Open-Meteo, RSS feeds) and your local BitAxe miners. The frontend builds to a single `index.html` file with no runtime build step. A small Python proxy ([`bitaxe_api.py`](bitaxe_api.py)) serves both the dashboard and aggregates miner data into one JSON endpoint, so the browser never has to deal with cross-origin requests to your miners.
 
 Built as a personal "field report" for a wall-mounted monitor. The layout is locked to 1920×1080 and scales to fit the browser window.
 
@@ -28,38 +28,56 @@ Built as a personal "field report" for a wall-mounted monitor. The layout is loc
 - ⚙️ **In-app settings** — change location, time format, units, API URLs without touching code
 - 💾 **No backend** — preferences stored in browser localStorage
 
-## Quickstart
+## Run it
+
+Pick whichever path matches how you like to run software. All paths produce the same dashboard at `http://<host>:3001/`.
+
+### Option A — Docker (recommended)
+
+```bash
+docker run -d \
+  -p 3001:3001 \
+  -e BITAXE_IPS=<miner-ip-1>,<miner-ip-2> \
+  --name daily-node \
+  --restart unless-stopped \
+  ghcr.io/githubxsuperkai/the-daily-node:latest
+```
+
+Or with Compose — copy [`docker-compose.yml`](docker-compose.yml), edit the `BITAXE_IPS` line, then:
+
+```bash
+docker compose up -d
+```
+
+Multi-arch images are published for `linux/amd64` and `linux/arm64`. Same image runs in any LXC container that has Docker installed.
+
+### Option B — Run from source
 
 ```bash
 git clone https://github.com/GitHubxSuperKai/the-daily-node.git
 cd the-daily-node
-npm install
-npm run build
-npm run dev
+npm install && npm run build
+BITAXE_IPS=<miner-ip-1>,<miner-ip-2> python3 bitaxe_api.py --bind 0.0.0.0
 ```
 
-Then open <http://localhost:3000/Command%20Center.html>.
+Requires Node 20+ and Python 3.10+. The proxy uses Python's standard library only — no `pip install`.
 
-Don't have Python? Use the included Node static server instead:
+### Option C — Static dashboard, no miners
+
+If you don't have a BitAxe and just want the dashboard for price / news / chain stats:
 
 ```bash
-node server.js
+npm install && npm run build
+npm run dev   # serves index.html on http://localhost:3000/
 ```
+
+The Miners card will show a friendly placeholder.
 
 ## Configuration
 
-All knobs live in [`src/config.js`](src/config.js): API endpoints, polling intervals, feed list, default location.
-
-Per-user preferences (location, time format, temp unit, BitAxe API URL, dark mode) are configurable via the in-app settings panel (⚙ icon in the top-right) and persist to browser `localStorage`.
-
-## BitAxe setup
-
-The Miners card polls a local BitAxe HTTP API. Two options:
-
-1. **Use the included Python aggregator** — [`bitaxe_api.py`](bitaxe_api.py) polls multiple BitAxe IPs and serves a unified JSON endpoint. Run `BITAXE_IPS=<miner-ip-1>,<miner-ip-2> python bitaxe_api.py`.
-2. **Point the dashboard at your own miner** — open the settings panel and change the BitAxe API URL to your miner's address.
-
-If no BitAxe is reachable, the Miners card shows a friendly placeholder.
+- `BITAXE_IPS` (env var) — comma-separated list of miner IPs. Set this when launching `bitaxe_api.py` or the Docker container.
+- All other knobs live in [`src/config.js`](src/config.js): API endpoints, polling intervals, feed list, default location.
+- Per-user preferences (location, time format, temp unit, dark mode) are configurable via the in-app settings panel (⚙ icon in the top-right) and persist to browser `localStorage`.
 
 ## Architecture
 

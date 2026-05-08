@@ -1,0 +1,114 @@
+name: Docker
+
+on:
+  push:
+    tags: ['v*.*.*']
+  pull_request:
+    paths:
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'bitaxe_api.py'
+      - 'src/**'
+      - 'build.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/docker.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # PR smoke test: build image for amd64, start it, verify HTTP 200 on /.
+  # Does not push.
+  smoke:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image (amd64 only, load locally)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: daily-node:smoke
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start container
+        run: docker run -d --name dn-smoke -p 3001:3001 daily-node:smoke
+
+      - name: Wait for server
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3001/ -o /dev/null; then
+              echo "Server responded after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server did not respond within 30s"
+          docker logs dn-smoke
+          exit 1
+
+      - name: Verify dashboard HTML served
+        run: |
+          body=$(curl -fsS http://localhost:3001/)
+          echo "$body" | head -c 200
+          echo "$body" | grep -q "<!doctype html>" || (echo "Dashboard HTML not served" && exit 1)
+
+      - name: Verify API endpoint responds
+        run: |
+          # No miners configured, but endpoint should still return valid JSON
+          curl -fsS http://localhost:3001/api/miners | python3 -c "import sys, json; d = json.load(sys.stdin); assert 'miners' in d and 'count' in d"
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f dn-smoke || true
+
+  # Tag push: build multi-arch and publish to GHCR with :latest and :v<version>
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Build and push multi-arch
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
