@@ -1,4 +1,4 @@
-function MobileLayout({ btc, chain, miners, weather, news, onToggleDark, dark }) {
+function MobileLayout({ btc, chain, miners, news, onToggleDark, dark }) {
   const T = useT();
 
   const sectionStyle = {
@@ -34,7 +34,6 @@ function MobileLayout({ btc, chain, miners, weather, news, onToggleDark, dark })
       boxSizing: 'border-box',
       display: 'flex',
       flexDirection: 'column',
-      gap: 0,
       maxWidth: 480,
       margin: '0 auto',
     }}>
@@ -96,11 +95,14 @@ function MobileLayout({ btc, chain, miners, weather, news, onToggleDark, dark })
       <div style={sectionStyle}>
         <div style={labelStyle}>Headlines</div>
         {news.loading && <div style={{ color: T.ink2, fontSize: 13 }}>Loading…</div>}
+        {!news.loading && (!news.data || news.data.length === 0) && (
+          <div style={{ color: T.ink2, fontSize: 13 }}>No headlines available</div>
+        )}
         {!news.loading && news.data && news.data.slice(0, 6).map(function(item, i) {
           return (
             <a
               key={i}
-              href={item.link}
+              href={item.link || '#'}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -122,3 +124,4 @@ function MobileLayout({ btc, chain, miners, weather, news, onToggleDark, dark })
     </div>
   );
 }
+MobileLayout = React.memo(MobileLayout);

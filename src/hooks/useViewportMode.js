@@ -15,6 +15,4 @@ function useViewportMode(breakpoint) {
   return mode;
 }
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { useViewportMode };
-}
+export { useViewportMode };
