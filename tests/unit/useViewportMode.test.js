@@ -1,23 +1,53 @@
-import { describe, it, expect } from 'vitest';
+import React from 'react';
+globalThis.React = React;
 
-// Test the pure logic (getMode) extracted from the hook
-const BREAKPOINT = 600;
-const getMode = (width) => width <= BREAKPOINT ? 'mobile' : 'desktop';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
+import { useViewportMode } from '../../src/hooks/useViewportMode.js';
 
-describe('useViewportMode logic', () => {
+describe('useViewportMode', () => {
+  let original;
+  beforeEach(() => { original = window.innerWidth; });
+  afterEach(() => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: original });
+  });
+
+  function setWidth(w) {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: w });
+    window.dispatchEvent(new Event('resize'));
+  }
+
   it('returns desktop above breakpoint', () => {
-    expect(getMode(1920)).toBe('desktop');
-    expect(getMode(601)).toBe('desktop');
+    setWidth(1920);
+    const { result } = renderHook(() => useViewportMode());
+    expect(result.current).toBe('desktop');
   });
 
   it('returns mobile at breakpoint', () => {
-    expect(getMode(600)).toBe('mobile');
-    expect(getMode(390)).toBe('mobile');
-    expect(getMode(375)).toBe('mobile');
+    setWidth(600);
+    const { result } = renderHook(() => useViewportMode());
+    expect(result.current).toBe('mobile');
   });
 
-  it('desktop/mobile boundary is at 600px', () => {
-    expect(getMode(601)).toBe('desktop');
-    expect(getMode(600)).toBe('mobile');
+  it('returns mobile below breakpoint', () => {
+    setWidth(390);
+    const { result } = renderHook(() => useViewportMode());
+    expect(result.current).toBe('mobile');
+  });
+
+  it('updates from desktop to mobile on resize', async () => {
+    setWidth(1920);
+    const { result } = renderHook(() => useViewportMode());
+    expect(result.current).toBe('desktop');
+    await act(async () => { setWidth(390); });
+    expect(result.current).toBe('mobile');
+  });
+
+  it('updates from mobile to desktop on resize', async () => {
+    setWidth(390);
+    const { result } = renderHook(() => useViewportMode());
+    expect(result.current).toBe('mobile');
+    await act(async () => { setWidth(1920); });
+    expect(result.current).toBe('desktop');
   });
 });

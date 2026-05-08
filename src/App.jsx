@@ -123,7 +123,6 @@ function App() {
             btc={btc}
             chain={chain}
             miners={bitaxe}
-            weather={weather}
             news={rss}
             onToggleDark={handleToggleDark}
             dark={dark}
