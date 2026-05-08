@@ -448,7 +448,7 @@ const CONFIG = {
   // Set these to your local BitAxe API server and miner IPs
   // Leave empty to disable BitAxe monitoring
   // User customization via: Edit before build, or use in-app settings panel
-  BITAXE_API_URL: '',
+  BITAXE_API_URL: '/api/miners',
   BITAXE_IPS: [],
 
   // ─── RSS Feeds ────────────────────────────────────────
@@ -768,7 +768,7 @@ function classifyTopic(title) {
 // ─── CommonJS Exports ────────────────────────────────────────────
 
 // SVG processing utilities and weather icon library
-// Extracted from Command Center.html
+// Extracted from Command Center.html (now index.html)
 // MIT licensed · basmilius/meteocons · SVGs embedded inline; IDs namespaced per instance
 // Animation speed per icon — >1 = slower, <1 = faster, 1 = Meteocons default
 
@@ -827,7 +827,7 @@ function _processSvg(raw, uid, speedMult, sz) {
 
 
 // ─── API Fetch Helpers ────────────────────────────────────────
-// Extracted from Command Center.html
+// Extracted from Command Center.html (now index.html)
 // All functions use fetch() with 5s timeout and sensible error handling
 
 const FETCH_TIMEOUT = 5000;
@@ -1545,6 +1545,8 @@ function useResettableInterval(callback, delay) {
 
   return { reset };
 }
+
+
 
 
 /**
@@ -2637,7 +2639,7 @@ function Miners({ bitaxe, chain }) {
     { label: "VR\xB0", fade: true },
     { label: "Watts", fade: true }
   ];
-  const noApi = bitaxe.error || bitaxe.miners.length === 0 && !bitaxe.loading;
+  const noApi = bitaxe.err || bitaxe.miners.length === 0 && !bitaxe.loading;
   if (noApi) {
     return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: u(4) } }, /* @__PURE__ */ React.createElement("div", { style: {
       borderTop: `${u(3)} solid ${T.ink}`,

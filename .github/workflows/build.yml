@@ -23,8 +23,8 @@ jobs:
 
       - name: Verify output
         run: |
-          test -f "Command Center.html"
-          size=$(wc -c < "Command Center.html")
+          test -f "index.html"
+          size=$(wc -c < "index.html")
           echo "Bundle size: $size bytes"
           if [ "$size" -lt 50000 ]; then
             echo "ERROR: Bundle suspiciously small (<50KB), build likely broken"

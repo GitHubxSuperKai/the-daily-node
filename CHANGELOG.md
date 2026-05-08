@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initial public release.
-- Single-file React dashboard (`Command Center.html`) bundled from modular `src/`.
+- Single-file React dashboard (`index.html`) bundled from modular `src/`.
 - BTC price + 24h chart (Kraken + CoinGecko).
 - Bitcoin news feed aggregating Bitcoin Magazine, CoinDesk, news.bitcoin.com (via RSS2JSON).
 - Mempool.space integration: chain height, hashrate, fees, difficulty + adjustment countdown.

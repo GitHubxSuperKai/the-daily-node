@@ -119,5 +119,5 @@ const htmlWithCode = baseTemplate
   .replace('/* MODULES CONCATENATED BY build.js */', () => concatenated);
 
 // Write HTML directly (no esbuild wrapping)
-fs.writeFileSync('Command Center.html', htmlWithCode);
-console.log('✓ Built Command Center.html');
+fs.writeFileSync('index.html', htmlWithCode);
+console.log('✓ Built index.html');

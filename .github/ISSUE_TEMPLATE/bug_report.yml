@@ -20,7 +20,7 @@ body:
     attributes:
       label: Steps to reproduce
       placeholder: |
-        1. Open Command Center.html
+        1. Open index.html
         2. Wait 30 seconds
         3. ...
     validations:

@@ -1,5 +1,5 @@
 // SVG processing utilities and weather icon library
-// Extracted from Command Center.html
+// Extracted from Command Center.html (now index.html)
 // MIT licensed · basmilius/meteocons · SVGs embedded inline; IDs namespaced per instance
 // Animation speed per icon — >1 = slower, <1 = faster, 1 = Meteocons default
 
