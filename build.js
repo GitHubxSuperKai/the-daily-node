@@ -96,6 +96,16 @@ const vendorBlock = `<script>${reactSrc}</script>\n<script>${reactDomSrc}</scrip
 // Read base template
 const baseTemplate = fs.readFileSync(path.join(srcDir, 'index.html'), 'utf-8');
 
+// Guard: placeholders must be present in the template or the build is silently broken
+if (!baseTemplate.includes('<!-- VENDOR -->')) {
+  console.error('Error: src/index.html is missing <!-- VENDOR --> placeholder');
+  process.exit(1);
+}
+if (!baseTemplate.includes('/* MODULES CONCATENATED BY build.js */')) {
+  console.error('Error: src/index.html is missing /* MODULES CONCATENATED BY build.js */ placeholder');
+  process.exit(1);
+}
+
 // Replace placeholders
 const htmlWithCode = baseTemplate
   .replace('<!-- VENDOR -->', () => vendorBlock)

@@ -20,9 +20,11 @@ try {
 assert.ok(buildOut.includes('✓ Built Command Center.html'), 'build.js did not print success line');
 
 // 2. Output must exist and be non-trivial
+// Floor is ~250KB: react-dom alone is ~130KB + react ~11KB + app code.
+// A value below 250KB means vendor inlining or major app code is missing.
 assert.ok(fs.existsSync(OUT), 'Command Center.html was not created');
 const html = fs.readFileSync(OUT, 'utf8');
-assert.ok(html.length > 50_000, `output suspiciously small: ${html.length} bytes`);
+assert.ok(html.length > 250_000, `output suspiciously small (${html.length} bytes) — vendor inlining or app code may be missing`);
 
 // 3. Output must contain the concatenated marker that build.js replaces
 assert.ok(!html.includes('/* MODULES CONCATENATED BY build.js */'),
