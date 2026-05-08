@@ -40,7 +40,7 @@ Before getting started, ensure you have the following installed:
 
 - **Unbuilt source:** The dev server serves the original source files directly (no bundling step). This allows you to edit JSX and see changes immediately after a browser refresh.
 - **Debugging:** Use your browser's DevTools (F12) to inspect React components, network requests, and console logs. All API calls can be monitored in the Network tab.
-- **Manual rebuild:** After making changes, you can run `npm run build` at any time to test the minified production bundle locally (output: `Command Center.html`).
+- **Manual rebuild:** After making changes, you can run `npm run build` at any time to test the minified production bundle locally (output: `index.html`).
 
 ## Building for Release
 
@@ -59,9 +59,9 @@ This executes `build.js`, which:
 3. Concatenates all modules into a single JavaScript block
 4. Injects the concatenated code into `src/index.html` template
 5. Minifies the entire HTML file with esbuild
-6. Writes the output to `Command Center.html`
+6. Writes the output to `index.html`
 
-**Output:** A single self-contained `Command Center.html` file (~100KB) with all React, Babel, and application code bundled inline. No external dependencies except the React/Babel CDN.
+**Output:** A single self-contained `index.html` file (~100KB) with all React, Babel, and application code bundled inline. No external dependencies except the React/Babel CDN.
 
 ### Verifying the Build
 
@@ -121,7 +121,7 @@ Deployment is automated via GitHub Actions. Every push to `main` triggers `.gith
    - Set publish directory: `/` (root)
 
 3. **Access your dashboard:**
-   The `Command Center.html` file will be served at your deployment URL.
+   The `index.html` file will be served at your deployment URL.
 
 ### Self-Hosted (Python, nginx, Apache)
 
@@ -136,11 +136,11 @@ Visit `http://localhost:8080/Command%20Center.html`.
 
 #### Option B: nginx
 
-Copy `Command Center.html` to your web root:
+Copy `index.html` to your web root:
 
 ```bash
 npm run build
-sudo cp Command Center.html /var/www/html/
+sudo cp index.html /var/www/html/
 ```
 
 Access at `http://yourdomain.com/Command%20Center.html`.
@@ -151,7 +151,7 @@ Copy the file and enable mod_rewrite (if needed):
 
 ```bash
 npm run build
-sudo cp Command Center.html /var/www/html/
+sudo cp index.html /var/www/html/
 sudo systemctl restart apache2
 ```
 
@@ -201,7 +201,7 @@ the-daily-node/
 │       ├── api.js                # Fetch wrappers for all external APIs
 │       ├── formatting.js         # Display formatting (price, hashrate, etc.)
 │       └── svg.js                # SVG component factory (icons, charts)
-├── Command Center.html           # BUILT OUTPUT (single-file dashboard)
+├── index.html           # BUILT OUTPUT (single-file dashboard)
 ├── build.js                      # Build script (concatenates modules)
 ├── bitaxe_api.py                 # Optional mock BitAxe API server
 ├── package.json                  # npm configuration
@@ -214,7 +214,7 @@ the-daily-node/
 
 ### Key Files Explained
 
-- **`Command Center.html`** — The release artifact. Everything needed to run the dashboard is bundled here: React, Babel, all component code, styling, and data-fetching logic.
+- **`index.html`** — The release artifact. Everything needed to run the dashboard is bundled here: React, Babel, all component code, styling, and data-fetching logic.
 - **`build.js`** — The build script. Reads source modules, strips import/export, concatenates, and minifies.
 - **`src/config.js`** — Centralized configuration. Update API endpoints, polling intervals, and defaults here.
 - **`src/theme.js`** — Color theme definitions. Edit to customize the light/dark color schemes.

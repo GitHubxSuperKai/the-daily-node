@@ -19,7 +19,7 @@ That means:
 2. **Keep changes small and focused.** One PR = one logical change.
 3. **Match existing patterns.** Look at neighboring files in `src/` and follow their conventions.
 4. **Read [CLAUDE.md](./CLAUDE.md)** — it documents two non-obvious build constraints (default-only imports, hook-dep-array variable ordering) that will silently break the build if you violate them.
-5. **Run `npm run build` and confirm `Command Center.html` still loads** in a browser before pushing.
+5. **Run `npm run build` and confirm `index.html` still loads** in a browser before pushing.
 6. **No formal linter.** Match the surrounding code style (inline `style` props, `React.useX` hook prefix, theme via `useT()`).
 
 ## Architecture
