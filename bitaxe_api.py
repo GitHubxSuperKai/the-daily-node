@@ -206,6 +206,8 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
             return
+        # Trust model: no Origin header = direct tool access (curl) — allowed by design.
+        # This is a LAN-only server; the IP allow-list in validate_ips is the security gate.
         if not self._check_origin():
             return
         try:
@@ -225,8 +227,13 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             self._json(400, {'error': 'bitaxe_ips must be a list of strings'})
             return
         valid, errors = validate_ips(raw)
-        if errors or not valid:
-            self._json(400, {'error': 'validation failed', 'errors': errors or ['no valid IPs provided']})
+        # Strict mode: any invalid entry rejects the whole request so the user
+        # sees exactly which IPs failed rather than having them silently dropped.
+        if errors:
+            self._json(400, {'error': 'validation failed', 'errors': errors})
+            return
+        if not valid:
+            self._json(400, {'error': 'validation failed', 'errors': ['no valid IPs provided']})
             return
         save_config(BitaxeAPIHandler.CONFIG_PATH, valid)
         BITAXE_IPS[:] = valid
