@@ -63,4 +63,22 @@ for (const f of vendorFiles) {
   );
 }
 
+// 7. Babel CDN and runtime must be absent (replaced by esbuild JSX transform + inlined vendor)
+assert.ok(!html.includes('text/babel'),
+  'text/babel script type present — Babel runtime not fully removed');
+assert.ok(!html.includes('babel.min'),
+  'babel.min.js reference present — Babel CDN not fully removed');
+assert.ok(!html.includes('unpkg.com/react'),
+  'unpkg.com/react CDN reference present — should use inlined vendor');
+assert.ok(!html.includes('unpkg.com/react-dom'),
+  'unpkg.com/react-dom CDN reference present — should use inlined vendor');
+
+// 8. Vendored React is embedded (createRoot is exported by ReactDOM production build)
+assert.ok(html.includes('createRoot'),
+  'createRoot not found — vendored ReactDOM may not be inlined');
+
+// 9. JSX was transformed at build time (esbuild produces React.createElement calls)
+assert.ok(html.includes('React.createElement'),
+  'React.createElement not found — JSX transform may have failed');
+
 console.log('✓ smoke-build OK');

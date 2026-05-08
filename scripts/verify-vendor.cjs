@@ -10,10 +10,18 @@ const manifest = fs.readFileSync(manifestPath, 'utf8');
 const rows = manifest
   .split('\n')
   .filter(l => l.startsWith('|') && !l.includes('---') && !l.match(/\|\s*File\s*\|/i))
-  .map(l => l.split('|').map(c => c.trim()).filter(Boolean));
+  .map(l => {
+    const cols = l.split('|').map(c => c.trim()).filter(Boolean);
+    if (cols.length < 4) {
+      console.error(`Skipping malformed manifest row (expected 4+ cols): ${l}`);
+      return null;
+    }
+    return { file: cols[0], version: cols[1], hash: cols[3] };
+  })
+  .filter(Boolean);
 
 let failed = false;
-for (const [file, version, , expected] of rows) {
+for (const { file, version, hash: expected } of rows) {
   if (!file || !file.endsWith('.js')) continue;
   const fullPath = path.join(__dirname, '..', 'src', 'vendor', file);
   if (!fs.existsSync(fullPath)) {
