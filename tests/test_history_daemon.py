@@ -96,17 +96,9 @@ class TestPurge(unittest.TestCase):
 
 class TestPollPurge(unittest.TestCase):
     def test_poll_purge_removes_old_rows(self):
-        db_path = ':memory:'
-        conn = sqlite3.connect(db_path)
-        ensure_schema(conn)
+        import tempfile
         old = int(time.time()) - 91 * 86400
         now = int(time.time())
-        conn.execute('INSERT INTO price VALUES (?, ?, ?, ?)', (old, 'kraken', 1000.0, 1.0))
-        conn.execute('INSERT INTO price VALUES (?, ?, ?, ?)', (now, 'kraken', 50000.0, 100.0))
-        conn.commit()
-        conn.close()
-        # poll_purge opens its own connection; use a real file-backed db
-        import tempfile
         with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
             tmp_db = f.name
         try:
