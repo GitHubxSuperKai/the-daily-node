@@ -2,9 +2,9 @@
 """BitAxe Fleet API — aggregates multiple miners into a single JSON endpoint.
 
 Usage:
-    python bitaxe_api.py                                    # uses default IPs
-    BITAXE_IPS=10.0.0.5,10.0.0.6 python bitaxe_api.py     # override via env
-    python bitaxe_api.py --bind 0.0.0.0 --allow-origin http://192.168.1.100:3000
+    python bitaxe_api.py                                    # no miners by default — set BITAXE_IPS
+    BITAXE_IPS=192.168.x.x,192.168.x.y python bitaxe_api.py  # set your miner IPs via env
+    python bitaxe_api.py --bind 0.0.0.0 --allow-origin http://192.168.x.x:3000
 
 Then open Command Center.html. The dashboard will poll http://localhost:3001/api/miners.
 """
@@ -24,7 +24,7 @@ def is_origin_allowed(origin, allowlist):
         return False
     return origin in allowlist
 
-BITAXE_IPS    = [ip.strip() for ip in os.environ.get('BITAXE_IPS', '192.168.1.6,192.168.1.7').split(',') if ip.strip()]
+BITAXE_IPS    = [ip.strip() for ip in os.environ.get('BITAXE_IPS', '').split(',') if ip.strip()]
 PORT          = 3001
 FETCH_TIMEOUT = 5
 
