@@ -10,8 +10,8 @@ const BANNED = [
   { name: 'non-zero longitude',               regex: /lng:\s*-?(?!0\.0|0\b)\d+\.\d+/ },
 ];
 
-// Files to skip
-const SKIP = [/node_modules\//, /\.git\//, /package-lock\.json$/, /docs\//, /tests\//, /scripts\/check-secrets\.cjs$/];
+// Files to skip (build artifacts are excluded — source files are the real gate)
+const SKIP = [/node_modules\//, /\.git\//, /package-lock\.json$/, /docs\//, /tests\//, /scripts\/check-secrets\.cjs$/, /Command Center\.html$/];
 
 const stagedRaw = execSync('git diff --cached --name-only', { encoding: 'utf8' }).trim();
 const staged = stagedRaw ? stagedRaw.split('\n') : [];

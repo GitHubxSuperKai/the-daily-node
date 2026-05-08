@@ -1,6 +1,14 @@
 # Dev dependencies
 node_modules/
 
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# Windows NUL device artifacts
+nul
+
 # IDE
 .vscode/
 .idea/
