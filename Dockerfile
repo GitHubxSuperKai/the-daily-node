@@ -24,6 +24,9 @@ USER app
 # Config file location — override at runtime with -e CONFIG_PATH=...
 # The /data volume is the canonical place for docker deployments.
 ENV CONFIG_PATH=/data/bitaxe_config.json
+# IMPORTANT: do not COPY anything into /data after this line — Docker silently
+# discards writes to a VOLUME path at build time, and pre-populated files will
+# not appear in the running container.
 VOLUME /data
 
 # Copy only the artifacts needed at runtime — proxy uses Python stdlib only
