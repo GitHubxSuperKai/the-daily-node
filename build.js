@@ -31,6 +31,7 @@ const files = [
   'hooks/useFeedHealth.js',
   'hooks/usePageRefresh.js',
   'hooks/useLayoutSize.js',
+  'hooks/useViewportMode.js',
   'components/Masthead.jsx',
   'components/Price.jsx',
   'components/Ticker.jsx',
@@ -39,6 +40,7 @@ const files = [
   'components/Miners.jsx',
   'components/MastheadPanel.jsx',
   'components/NetworkStatusWidget.jsx',
+  'components/MobileLayout.jsx',
   'components/CommandCenter.jsx',
   'App.jsx',
 ];
