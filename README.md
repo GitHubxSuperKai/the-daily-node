@@ -70,10 +70,10 @@ On Windows, use `python` instead of `python3`. Open `http://localhost:3001/` —
 If you don't have a BitAxe and just want the dashboard for price / news / chain stats:
 
 ```bash
-python3 -m http.server 3000
+python -m http.server 3000
 ```
 
-Open `http://localhost:3000/` — the Miners card will show a friendly placeholder. No Python proxy or build step needed.
+Open `http://localhost:3000/` — the Miners card will show a friendly placeholder. No Python proxy or build step needed. (Use `python3` on Linux/macOS if `python` isn't aliased.)
 
 ## Configuration
 

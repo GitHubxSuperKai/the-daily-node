@@ -290,14 +290,16 @@ if __name__ == '__main__':
         for e in errs:
             print(f'[BitAxe API] --ips ignored entry: {e}')
         BITAXE_IPS[:] = valid
-        CONFIGURED = True
+        if valid:
+            CONFIGURED = True
     elif os.environ.get('BITAXE_IPS', '').strip():
         env_ips = [ip.strip() for ip in os.environ['BITAXE_IPS'].split(',') if ip.strip()]
         valid, errs = validate_ips(env_ips)
         for e in errs:
             print(f'[BitAxe API] BITAXE_IPS env ignored entry: {e}')
         BITAXE_IPS[:] = valid
-        CONFIGURED = True
+        if valid:
+            CONFIGURED = True
     else:
         cfg = load_config(args.config)
         BITAXE_IPS[:] = cfg
