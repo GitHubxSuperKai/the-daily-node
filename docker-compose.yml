@@ -16,8 +16,8 @@ services:
       - "3001:3001"
     environment:
       # Comma-separated list of BitAxe miner IPs on your LAN.
-      # Remove this line to configure miners via the web setup page instead.
-      BITAXE_IPS: "<miner-ip-1>,<miner-ip-2>"
+      # Uncomment and replace with your IPs, or remove to use the web setup page.
+      # BITAXE_IPS: "<miner-ip-1>,<miner-ip-2>"
     volumes:
       - daily-node-config:/data
     restart: unless-stopped
