@@ -159,7 +159,7 @@ export function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
             style={inp}
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="http://192.168.1.59:3001/api/miners"
+            placeholder="http://192.168.x.x:3001/api/miners"
             spellCheck={false}
           />
 
@@ -172,7 +172,7 @@ export function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
             style={inp}
             value={ipsText}
             onChange={(e) => setIpsText(e.target.value)}
-            placeholder="192.168.1.6, 192.168.1.7"
+            placeholder="192.168.x.x, 192.168.x.y"
             spellCheck={false}
           />
 

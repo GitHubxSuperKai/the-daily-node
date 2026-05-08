@@ -2,6 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<!-- CSP notes:
+     - 'unsafe-inline' for script-src: the bundled app block is an inline <script> (no nonce).
+       Removing this would require a nonce-based approach or external script file.
+     - 'unsafe-inline' for style-src: every component uses inline style= props by design.
+       Removing this would require a full styling refactor.
+     - Google Fonts: font-src and style-src allow fonts.gstatic.com and fonts.googleapis.com
+       because the dashboard loads Playfair Display, Newsreader, Inter Tight, Courier Prime.
+     - connect-src :3002 is reserved for the Phase 2 history sidecar (not yet built).
+     - frame-ancestors 'none': prevents clickjacking.
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.kraken.com https://api.coingecko.com https://mempool.space https://api.open-meteo.com https://api.rss2json.com http://localhost:3001 http://127.0.0.1:3001 http://localhost:3002 http://127.0.0.1:3002; frame-ancestors 'none';">
 <title>The Daily Node — Command Center</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -104,9 +115,7 @@
     --green:    #3a6b2e;
   }
 </style>
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<!-- VENDOR -->
 </head>
 <body>
 <div id="stage"><div id="canvas"></div></div>
@@ -127,7 +136,7 @@ updateScale();
 window.updateScale = updateScale;
 </script>
 
-<script type="text/babel">
+<script>
 const { useState, useEffect, useRef, useCallback, useMemo, useContext } = React;
 
 /* MODULES CONCATENATED BY build.js */

@@ -2,19 +2,29 @@
 """BitAxe Fleet API — aggregates multiple miners into a single JSON endpoint.
 
 Usage:
-    python bitaxe_api.py                                    # uses default IPs
-    BITAXE_IPS=10.0.0.5,10.0.0.6 python bitaxe_api.py     # override via env
+    python bitaxe_api.py                                    # no miners by default — set BITAXE_IPS
+    BITAXE_IPS=192.168.x.x,192.168.x.y python bitaxe_api.py  # set your miner IPs via env
+    python bitaxe_api.py --bind 0.0.0.0 --allow-origin http://192.168.x.x:3000
 
 Then open Command Center.html. The dashboard will poll http://localhost:3001/api/miners.
 """
+import argparse
 import json
 import os
 import threading
 import urllib.request
 import urllib.error
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse
 
-BITAXE_IPS    = [ip.strip() for ip in os.environ.get('BITAXE_IPS', '192.168.1.6,192.168.1.7').split(',') if ip.strip()]
+
+def is_origin_allowed(origin, allowlist):
+    """Return True if origin string exactly matches any entry in allowlist."""
+    if not origin or not allowlist:
+        return False
+    return origin in allowlist
+
+BITAXE_IPS    = [ip.strip() for ip in os.environ.get('BITAXE_IPS', '').split(',') if ip.strip()]
 PORT          = 3001
 FETCH_TIMEOUT = 5
 
@@ -46,12 +56,39 @@ def fetch_all_miners():
 
 
 class BitaxeAPIHandler(BaseHTTPRequestHandler):
+    ALLOWED_ORIGINS = []
+
+    def _check_origin(self):
+        origin = self.headers.get('Origin') or self.headers.get('Referer')
+        if origin:
+            parsed = urlparse(origin)
+            if not parsed.scheme or not parsed.netloc:
+                # malformed or "null" origin — reject
+                self.send_response(403)
+                self.send_header('Content-Type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(b'Forbidden: malformed origin')
+                return False
+            origin = f"{parsed.scheme}://{parsed.netloc}"
+        if not is_origin_allowed(origin, BitaxeAPIHandler.ALLOWED_ORIGINS):
+            self.send_response(403)
+            self.send_header('Content-Type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(b'Forbidden: origin not allowed')
+            return False
+        self._matched_origin = origin  # store for _cors() to use
+        return True
+
     def do_OPTIONS(self):
+        if not self._check_origin():
+            return
         self.send_response(200)
         self._cors()
         self.end_headers()
 
     def do_GET(self):
+        if not self._check_origin():
+            return
         if self.path == '/api/miners':
             miners = fetch_all_miners()
             body = json.dumps({'miners': miners, 'count': len(miners)}).encode()
@@ -66,7 +103,9 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def _cors(self):
-        self.send_header('Access-Control-Allow-Origin', '*')
+        origin = getattr(self, '_matched_origin', '')
+        if origin:
+            self.send_header('Access-Control-Allow-Origin', origin)
         self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
 
@@ -75,8 +114,22 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-    server = HTTPServer(('0.0.0.0', PORT), BitaxeAPIHandler)
-    print(f'BitAxe Fleet API  →  http://0.0.0.0:{PORT}/api/miners')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--bind', default='127.0.0.1',
+                        help='Interface to bind to (default 127.0.0.1; use 0.0.0.0 for LAN)')
+    parser.add_argument('--port', type=int, default=3001)
+    parser.add_argument('--allow-origin', dest='allow_origins', action='append', default=None,
+                        help='Allowed Origin/Referer (repeatable)')
+    args = parser.parse_args()
+    if args.allow_origins is None:
+        args.allow_origins = [
+            'http://localhost:3000', 'http://127.0.0.1:3000',
+            'http://localhost:3002', 'http://127.0.0.1:3002',
+        ]
+    BitaxeAPIHandler.ALLOWED_ORIGINS = args.allow_origins
+    server = HTTPServer((args.bind, args.port), BitaxeAPIHandler)
+    print(f'BitAxe Fleet API  →  http://{args.bind}:{args.port}/api/miners')
     print(f'Monitoring: {", ".join(BITAXE_IPS)}')
+    print(f'Allowed origins: {BitaxeAPIHandler.ALLOWED_ORIGINS}')
     print('Press Ctrl+C to stop.\n')
     server.serve_forever()

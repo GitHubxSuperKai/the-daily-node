@@ -314,6 +314,19 @@ the-daily-node/
    git checkout build.js
    ```
 
+## Threat model & network exposure
+
+`bitaxe_api.py` defaults to binding `127.0.0.1` (loopback only). Nothing on the LAN can reach it unless you explicitly opt in.
+
+To expose to LAN (e.g., to view the dashboard from your phone on the same wifi):
+
+    python bitaxe_api.py --bind 0.0.0.0 --allow-origin http://<lan-ip>:3000
+
+Notes:
+- The proxy validates `Origin`/`Referer` on every request and returns 403 for anything outside the allowlist.
+- The default allowlist covers `http://localhost:3000`, `http://127.0.0.1:3000`, `http://localhost:3002`, `http://127.0.0.1:3002`. Add your LAN URL only when you need it.
+- This is not authentication. Anyone on your LAN who can spoof the `Origin` header (trivial with `curl`) can reach the proxy. Treat your LAN as trusted, or run a reverse proxy with HTTP basic auth in front.
+
 ## Support & Contributing
 
 For issues, feature requests, or contributions, see the main repository README or contact the project maintainers.
