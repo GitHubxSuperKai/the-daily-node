@@ -28,6 +28,7 @@ function App() {
 
   // ─── Settings Panel ───────────────────────────────────────
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [tweaksPanelOpen, setTweaksPanelOpen] = React.useState(false);
 
   // ─── BitAxe Configuration (with localStorage persistence) ──
   const loadSavedBitAxe = () => {
@@ -65,6 +66,20 @@ function App() {
     };
   });
 
+  // ─── v2 Prefs (alerts, feeds, intervals, theme) ───────────────
+  const [v2prefs, setV2Prefs] = React.useState(() => {
+    const p = loadV2Prefs();
+    // Patch CONFIG.RSS_FEEDS so useRSS() reads the correct feed list on first mount
+    CONFIG.RSS_FEEDS = RSS_FEED_MAP.filter(f => p.feeds[f.key] !== false).map(f => f.url);
+    // Patch CONFIG.REFRESH_INTERVALS (seconds → ms) so hooks pick up user values on first mount
+    CONFIG.REFRESH_INTERVALS.price   = p.intervals.price   * 1000;
+    CONFIG.REFRESH_INTERVALS.chain   = p.intervals.chain   * 1000;
+    CONFIG.REFRESH_INTERVALS.weather = p.intervals.weather * 1000;
+    CONFIG.REFRESH_INTERVALS.news    = p.intervals.rss     * 1000;
+    CONFIG.REFRESH_INTERVALS.bitaxe  = p.intervals.bitaxe  * 1000;
+    return p;
+  });
+
   // ─── Call All Hooks ───────────────────────────────────────
   const clock = useClock(prefs.timeFormat);
   const btc = useBTC();
@@ -72,7 +87,7 @@ function App() {
   const bitaxe = useBitaxe(bitaxeApiUrl, bitaxeIps);
   const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
   const rss = useRSS();
-  const feedHealth = useFeedHealth([btc, chain, weather, rss]);
+  const feedHealth = useFeedHealth([btc, chain, weather, rss, bitaxe]);
 
   // ─── Auto-Refresh (tab refocus + network restore) ─────────
   usePageRefresh([btc.refresh, chain.refresh, rss.refresh, weather.refresh, bitaxe.refresh]);
@@ -106,6 +121,15 @@ function App() {
     });
   };
 
+  const handleSaveV2Prefs = React.useCallback((newPrefs) => {
+    saveV2Prefs(newPrefs);
+    setV2Prefs(newPrefs);
+    CONFIG.RSS_FEEDS = RSS_FEED_MAP.filter(f => newPrefs.feeds[f.key] !== false).map(f => f.url);
+    if (newPrefs.theme === 'dark')  setDark(true);
+    if (newPrefs.theme === 'light') setDark(false);
+    // Interval changes take effect on next page reload (noted in TweaksPanel UI)
+  }, []);
+
   const handleSaveSettings = (newApiUrl, newIps, newPrefs) => {
     setBitaxeApiUrl(newApiUrl);
     setBitaxeIps(newIps);
@@ -137,6 +161,11 @@ function App() {
             onOpenSettings={() => setSettingsOpen(true)}
             onSaveSettings={handleSaveSettings}
             onCloseSettings={() => setSettingsOpen(false)}
+            tweaksPanelOpen={tweaksPanelOpen}
+            onOpenTweaks={() => setTweaksPanelOpen(true)}
+            onCloseTweaks={() => setTweaksPanelOpen(false)}
+            onSaveTweaks={handleSaveV2Prefs}
+            v2prefs={v2prefs}
             clock={clock}
             btc={btc}
             chain={chain}

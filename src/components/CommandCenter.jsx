@@ -13,16 +13,6 @@ import { LineChart } from './LineChart';
 import { NetworkStatusWidget } from './NetworkStatusWidget';
 import Miners from './Miners';
 import {
-  useClock,
-  useBTC,
-  useChain,
-  useBitaxe,
-  useWeather,
-  useRSS,
-  useFeedHealth,
-} from '../hooks';
-import {
-  INTERVALS,
   fmtPrice,
   fmtPct,
   fmtNum,
@@ -91,15 +81,21 @@ export function CommandCenter({
   onOpenSettings,
   onSaveSettings,
   onCloseSettings,
+  tweaksPanelOpen,
+  onOpenTweaks,
+  onCloseTweaks,
+  onSaveTweaks,
+  v2prefs,
+  clock,
+  btc,
+  chain,
+  bitaxe,
+  weather,
+  rss,
+  feedHealth,
 }) {
   const T = useT();
   const { isMobile } = useLayoutSize();
-  const clock = useClock(prefs.timeFormat);
-  const btc = useBTC();
-  const chain = useChain();
-  const bitaxe = useBitaxe(bitaxeApiUrl, bitaxeIps);
-  const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
-  const rss = useRSS();
 
   const autoThemeDone = React.useRef(false);
   React.useEffect(() => {
@@ -112,13 +108,22 @@ export function CommandCenter({
     autoThemeDone.current = true;
   }, [weather.data?.wxSunriseHr]);
 
-  const feedHealth = useFeedHealth([
-    { lastOk: btc.lastOk, interval: INTERVALS.BTC },
-    { lastOk: chain.lastOk, interval: INTERVALS.CHAIN },
-    { lastOk: bitaxe.lastOk, interval: INTERVALS.BITAXE },
-    { lastOk: weather.lastOk, interval: INTERVALS.WEATHER },
-    { lastOk: rss.lastOk, interval: INTERVALS.RSS },
-  ]);
+  const lastBlockTs = chain.recentBlocks?.[0]?.timestamp ?? null;
+  const msSinceLastBlock = lastBlockTs ? (Date.now() / 1000 - lastBlockTs) * 1000 : null;
+
+  const priceHistory = useHistory('price', '24h');
+  const yesterdayPrice = priceHistory.data.length > 0 ? priceHistory.data[0].usd : null;
+
+  const { toasts } = useAlerts(
+    {
+      fastFee:         chain.data?.feeFast ?? null,
+      msSinceLastBlock,
+      miners:          bitaxe.miners,
+      btcPrice:        btc.data?.price ?? null,
+      priceHistory:    priceHistory.data,
+    },
+    v2prefs,
+  );
 
   // Derived values
   const btcPrice = btc.data ? `$${fmtPrice(btc.data.price)}` : '—';
@@ -265,6 +270,17 @@ export function CommandCenter({
               >
                 ⚙
               </button>
+              <button onClick={onOpenTweaks} style={{
+                background: 'transparent',
+                border: `1px solid ${T.ink3}`,
+                color: T.ink2,
+                borderRadius: 3,
+                padding: '2px 8px',
+                cursor: 'pointer',
+                fontSize: 11,
+                fontFamily: T.display,
+                letterSpacing: '0.06em',
+              }}>TWEAKS</button>
             </div>
           </div>
         </div>
@@ -285,6 +301,15 @@ export function CommandCenter({
             </div>
             <div style={{ fontFamily: T.num, fontSize: u(11), color: T.ink3, marginBottom: u(12), fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
               Hi ${btcHi} · Lo ${btcLo} · Cap {btcCap}
+              {yesterdayPrice != null && btc.data?.price != null && (
+                <>
+                  {' · '}
+                  <span style={{ color: btc.data.price >= yesterdayPrice ? T.green : T.red }}>
+                    vs yest {btc.data.price >= yesterdayPrice ? '+' : ''}
+                    {(((btc.data.price - yesterdayPrice) / yesterdayPrice) * 100).toFixed(1)}%
+                  </span>
+                </>
+              )}
             </div>
             {/* Chart */}
             <div style={{ height: 80, marginBottom: 4 }}>
@@ -423,6 +448,13 @@ export function CommandCenter({
             onClose={onCloseSettings}
           />
         )}
+        {tweaksPanelOpen && (
+          <TweaksPanel
+            prefs={v2prefs}
+            onSave={onSaveTweaks}
+            onClose={onCloseTweaks}
+          />
+        )}
       </div>
     );
   }
@@ -442,6 +474,24 @@ export function CommandCenter({
         padding: `${u(28)} ${u(56)} ${u(32)}`,
       }}
     >
+      {toasts.length > 0 && (
+        <div style={{
+          position: 'fixed', bottom: 20, right: 20, zIndex: 9999,
+          display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 320,
+          pointerEvents: 'none',
+        }}>
+          {toasts.map(t => (
+            <div key={t.id} style={{
+              background: T.ink, color: T.paper,
+              borderRadius: 4, padding: '8px 14px',
+              fontSize: 13, fontFamily: T.body,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            }}>
+              {t.message}
+            </div>
+          ))}
+        </div>
+      )}
       {/* TOP CHROME */}
       <Masthead
         clock={clock}
@@ -673,7 +723,7 @@ export function CommandCenter({
           </div>
           {/* LineChart: parent div provides CSS dimensions, chart fills it */}
           <div style={{ width: '100%', height: u(110), flexShrink: 0 }}>
-            <LineChart color={T.orange} points={btc.chartPts} vwap={btc.data?.vwap} fill />
+            <LineChart color={T.orange} points={btc.chartPts} vwap={btc.data?.vwap} fill historyPoints={priceHistory.data} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.num, fontSize: u(10), color: T.ink3 }}>
             <span>24h ago</span><span>−18h</span><span>−12h</span><span>−6h</span><span>now</span>
@@ -810,6 +860,13 @@ export function CommandCenter({
           prefs={prefs}
           onSave={onSaveSettings}
           onClose={onCloseSettings}
+        />
+      )}
+      {tweaksPanelOpen && (
+        <TweaksPanel
+          prefs={v2prefs}
+          onSave={onSaveTweaks}
+          onClose={onCloseTweaks}
         />
       )}
     </div>
