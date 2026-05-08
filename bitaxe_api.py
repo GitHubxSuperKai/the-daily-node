@@ -87,7 +87,9 @@ def is_origin_allowed(origin, allowlist):
         return True
     return origin in allowlist
 
-BITAXE_IPS    = [ip.strip() for ip in os.environ.get('BITAXE_IPS', '').split(',') if ip.strip()]
+# Mutable runtime list — finalized in __main__ after parsing args/env/config.
+# Setup endpoint mutates this in place when user submits IPs.
+BITAXE_IPS = []
 PORT          = 3001
 FETCH_TIMEOUT = 5
 
@@ -120,6 +122,7 @@ def fetch_all_miners():
 
 class BitaxeAPIHandler(BaseHTTPRequestHandler):
     ALLOWED_ORIGINS = []
+    CONFIG_PATH = CONFIG_PATH  # overridden in __main__ from args.config
 
     def _check_origin(self):
         origin = self.headers.get('Origin') or self.headers.get('Referer')
@@ -204,7 +207,30 @@ if __name__ == '__main__':
                         help='Allowed Origin/Referer (repeatable)')
     parser.add_argument('--dashboard', default=None,
                         help='Path to index.html (default: index.html next to this script)')
+    parser.add_argument('--ips', default=None,
+                        help='Comma-separated BitAxe IPs (overrides env and config file)')
+    parser.add_argument('--config', default=CONFIG_PATH,
+                        help=f'Path to config file (default: {CONFIG_PATH})')
     args = parser.parse_args()
+
+    # IP precedence: --ips > BITAXE_IPS env > config file > empty
+    if args.ips:
+        cli_ips = [ip.strip() for ip in args.ips.split(',') if ip.strip()]
+        valid, errs = validate_ips(cli_ips)
+        for e in errs:
+            print(f'[BitAxe API] --ips ignored entry: {e}')
+        BITAXE_IPS[:] = valid
+    elif os.environ.get('BITAXE_IPS', '').strip():
+        env_ips = [ip.strip() for ip in os.environ['BITAXE_IPS'].split(',') if ip.strip()]
+        valid, errs = validate_ips(env_ips)
+        for e in errs:
+            print(f'[BitAxe API] BITAXE_IPS env ignored entry: {e}')
+        BITAXE_IPS[:] = valid
+    else:
+        BITAXE_IPS[:] = load_config(args.config)
+
+    BitaxeAPIHandler.CONFIG_PATH = args.config
+
     if args.allow_origins is None:
         args.allow_origins = [
             'http://localhost:3000', 'http://127.0.0.1:3000',
@@ -225,6 +251,9 @@ if __name__ == '__main__':
 
     server = HTTPServer((args.bind, args.port), BitaxeAPIHandler)
     print(f'BitAxe Fleet API  →  http://{args.bind}:{args.port}/api/miners')
-    print(f'Monitoring: {", ".join(BITAXE_IPS)}')
+    if BITAXE_IPS:
+        print(f'Monitoring: {", ".join(BITAXE_IPS)}')
+    else:
+        print('Monitoring: (none configured — open the dashboard URL to run setup)')
     print('Press Ctrl+C to stop.\n')
     server.serve_forever()
