@@ -1,0 +1,16 @@
+# The Daily Node — Docker Compose
+#
+# 1. Replace the placeholder IPs below with your BitAxe miner IPs.
+# 2. `docker compose up -d`
+# 3. Open http://<host>:3001/ in any browser on your LAN.
+
+services:
+  daily-node:
+    image: ghcr.io/githubxsuperkai/the-daily-node:latest
+    container_name: daily-node
+    ports:
+      - "3001:3001"
+    environment:
+      # Comma-separated list of BitAxe miner IPs on your LAN
+      BITAXE_IPS: "<miner-ip-1>,<miner-ip-2>"
+    restart: unless-stopped

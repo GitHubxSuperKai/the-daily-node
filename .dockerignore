@@ -1,0 +1,19 @@
+# Files not needed inside the Docker build context
+.git/
+.github/
+.claude/
+docs/
+tests/
+node_modules/
+__pycache__/
+*.md
+*.log
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+server.js
+scripts/
+index.html
+.vscode/
+.idea/
