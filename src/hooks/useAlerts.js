@@ -18,7 +18,10 @@ function useAlerts(triggers, prefs) {
 
     const id = `${type}-${now}`;
     setToasts(prev => [...prev, { id, type, message, ts: now }]);
-    const tid = setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 8000);
+    const tid = setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+      pendingTimers.current = pendingTimers.current.filter(t => t !== tid);
+    }, 8000);
     pendingTimers.current.push(tid);
 
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
@@ -53,7 +56,7 @@ function useAlerts(triggers, prefs) {
   }, [miners, alertPrefs.minerOffline, fire]);
 
   React.useEffect(() => {
-    if (!alertPrefs.price?.enabled) return;
+    if (!alertPrefs.price?.enabled || !Array.isArray(priceHistory)) return;
     if (checkPriceThreshold(
       btcPrice,
       priceHistory,
