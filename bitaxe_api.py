@@ -51,6 +51,33 @@ def is_private_ip(host):
     except ValueError:
         return False
 
+def validate_ips(raw_ips):
+    """Return (valid_ips, errors). Each input is trimmed; blanks skipped.
+    Valid = parseable IPv4/IPv6 AND private/loopback. Dedupes preserving order."""
+    valid = []
+    errors = []
+    seen = set()
+    for raw in raw_ips:
+        if not isinstance(raw, str):
+            errors.append(f'not a string: {raw!r}')
+            continue
+        ip = raw.strip()
+        if not ip:
+            continue
+        try:
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
+            errors.append(f'invalid IP: {ip}')
+            continue
+        if not (addr.is_private or addr.is_loopback):
+            errors.append(f'not a private/LAN address: {ip}')
+            continue
+        if ip in seen:
+            continue
+        seen.add(ip)
+        valid.append(ip)
+    return valid, errors
+
 def is_origin_allowed(origin, allowlist):
     """Return True if origin is in the allowlist or is from a private/loopback IP."""
     if not origin:
