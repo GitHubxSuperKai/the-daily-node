@@ -283,7 +283,6 @@ if __name__ == '__main__':
                         help=f'Path to config file (default: {CONFIG_PATH})')
     args = parser.parse_args()
 
-    global CONFIGURED
     # IP precedence: --ips > BITAXE_IPS env > config file > empty
     if args.ips:
         cli_ips = [ip.strip() for ip in args.ips.split(',') if ip.strip()]
