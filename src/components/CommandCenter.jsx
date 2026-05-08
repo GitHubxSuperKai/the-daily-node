@@ -125,6 +125,20 @@ export function CommandCenter({
     { lastOk: rss.lastOk, interval: INTERVALS.RSS },
   ]);
 
+  const lastBlockTs = chain.recentBlocks?.[0]?.timestamp ?? null;
+  const msSinceLastBlock = lastBlockTs ? (Date.now() / 1000 - lastBlockTs) * 1000 : null;
+
+  const { toasts } = useAlerts(
+    {
+      fastFee:         chain.data?.feeFast ?? null,
+      msSinceLastBlock,
+      miners:          bitaxe.miners,
+      btcPrice:        btc.data?.price ?? null,
+      priceHistory:    [],   // replaced by useHistory in Track B
+    },
+    v2prefs,
+  );
+
   // Derived values
   const btcPrice = btc.data ? `$${fmtPrice(btc.data.price)}` : '—';
   const btcChgPct = btc.data ? fmtPct(btc.data.chgPct) : '—';
@@ -465,6 +479,24 @@ export function CommandCenter({
         padding: `${u(28)} ${u(56)} ${u(32)}`,
       }}
     >
+      {toasts.length > 0 && (
+        <div style={{
+          position: 'fixed', bottom: 20, right: 20, zIndex: 9999,
+          display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 320,
+          pointerEvents: 'none',
+        }}>
+          {toasts.map(t => (
+            <div key={t.id} style={{
+              background: T.ink, color: T.paper,
+              borderRadius: 4, padding: '8px 14px',
+              fontSize: 13, fontFamily: T.body,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            }}>
+              {t.message}
+            </div>
+          ))}
+        </div>
+      )}
       {/* TOP CHROME */}
       <Masthead
         clock={clock}

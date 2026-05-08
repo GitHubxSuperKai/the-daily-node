@@ -85,20 +85,6 @@ function App() {
   const btc = useBTC();
   const chain = useChain();
   const bitaxe = useBitaxe(bitaxeApiUrl, bitaxeIps);
-  const lastBlockTs = chain.recentBlocks?.[0]?.timestamp ?? null;
-  const msSinceLastBlock = lastBlockTs ? (Date.now() / 1000 - lastBlockTs) * 1000 : null;
-
-  const { toasts } = useAlerts(
-    {
-      fastFee:         chain.data?.feeFast ?? null,
-      msSinceLastBlock,
-      miners:          bitaxe.miners,
-      btcPrice:        btc.data?.price ?? null,
-      priceHistory:    [],   // replaced by useHistory in Track B
-    },
-    v2prefs,
-  );
-
   const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
   const rss = useRSS();
   const feedHealth = useFeedHealth([btc, chain, weather, rss]);
@@ -156,25 +142,6 @@ function App() {
   // ─── Render ────────────────────────────────────────────────
   return (
     <ThemeCtx.Provider value={theme}>
-      {toasts.length > 0 && (
-        <div style={{
-          position: 'fixed', bottom: 20, right: 20, zIndex: 9999,
-          display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 320,
-          pointerEvents: 'none',
-        }}>
-          {toasts.map(t => (
-            <div key={t.id} style={{
-              background: theme.ink, color: theme.paper,
-              borderRadius: 4, padding: '8px 14px',
-              fontSize: 13, fontFamily: theme.body,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-            }}>
-              {t.message}
-            </div>
-          ))}
-        </div>
-      )}
-
       {mode === 'mobile'
         ? <MobileLayout
             btc={btc}
