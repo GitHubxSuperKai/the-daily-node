@@ -302,10 +302,10 @@ if __name__ == '__main__':
     if os.path.exists(dashboard_path):
         with open(dashboard_path, 'rb') as f:
             BitaxeAPIHandler._dashboard = f.read()
-        print(f'Dashboard        →  http://{args.bind}:{args.port}/')
+        print(f'Dashboard        ->  http://{args.bind}:{args.port}/')
     else:
         BitaxeAPIHandler._dashboard = None
-        print(f'Dashboard        →  (index.html not found — run build.js first)')
+        print(f'Dashboard        ->  (index.html not found -- run build.js first)')
 
     setup_path = os.path.join(os.path.dirname(__file__), 'setup.html')
     if os.path.exists(setup_path):
@@ -316,7 +316,7 @@ if __name__ == '__main__':
         print('[BitAxe API] WARN: setup.html not found — first-launch onboarding disabled')
 
     server = HTTPServer((args.bind, args.port), BitaxeAPIHandler)
-    print(f'BitAxe Fleet API  →  http://{args.bind}:{args.port}/api/miners')
+    print(f'BitAxe Fleet API  ->  http://{args.bind}:{args.port}/api/miners')
     if BITAXE_IPS:
         print(f'Monitoring: {", ".join(BITAXE_IPS)}')
     else:
