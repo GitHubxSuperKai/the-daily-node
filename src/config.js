@@ -57,10 +57,17 @@ const INTERVALS = {
   RSS:     CONFIG.REFRESH_INTERVALS.news,
 };
 
+const RSS_FEED_MAP = [
+  { key: 'bitcoinMagazine', url: 'https://bitcoinmagazine.com/.rss/full/' },
+  { key: 'coindesk',        url: 'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml' },
+  { key: 'newsBitcoin',     url: 'https://news.bitcoin.com/feed/' },
+];
+
 // ES6 export
 export default CONFIG;
 
 // CommonJS export (for Node.js testability, removed during build)
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = CONFIG;
+  module.exports.RSS_FEED_MAP = RSS_FEED_MAP;
 }

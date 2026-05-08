@@ -91,6 +91,11 @@ export function CommandCenter({
   onOpenSettings,
   onSaveSettings,
   onCloseSettings,
+  tweaksPanelOpen,
+  onOpenTweaks,
+  onCloseTweaks,
+  onSaveTweaks,
+  v2prefs,
 }) {
   const T = useT();
   const { isMobile } = useLayoutSize();
@@ -265,6 +270,17 @@ export function CommandCenter({
               >
                 ⚙
               </button>
+              <button onClick={onOpenTweaks} style={{
+                background: 'transparent',
+                border: `1px solid ${T.ink3}`,
+                color: T.ink2,
+                borderRadius: 3,
+                padding: '2px 8px',
+                cursor: 'pointer',
+                fontSize: 11,
+                fontFamily: T.display,
+                letterSpacing: '0.06em',
+              }}>TWEAKS</button>
             </div>
           </div>
         </div>
@@ -421,6 +437,13 @@ export function CommandCenter({
             prefs={prefs}
             onSave={onSaveSettings}
             onClose={onCloseSettings}
+          />
+        )}
+        {tweaksPanelOpen && (
+          <TweaksPanel
+            prefs={v2prefs}
+            onSave={onSaveTweaks}
+            onClose={onCloseTweaks}
           />
         )}
       </div>
@@ -810,6 +833,13 @@ export function CommandCenter({
           prefs={prefs}
           onSave={onSaveSettings}
           onClose={onCloseSettings}
+        />
+      )}
+      {tweaksPanelOpen && (
+        <TweaksPanel
+          prefs={v2prefs}
+          onSave={onSaveTweaks}
+          onClose={onCloseTweaks}
         />
       )}
     </div>
