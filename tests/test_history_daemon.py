@@ -5,7 +5,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from history_daemon import ensure_schema, parse_price_response, parse_chain_response, purge_old
+from history_daemon import ensure_schema, parse_price_response, parse_chain_response, purge_old, poll_purge
 
 
 class TestSchema(unittest.TestCase):
@@ -92,6 +92,29 @@ class TestPurge(unittest.TestCase):
         purge_old(self.db, days=90)
         count = self.db.execute('SELECT COUNT(*) FROM price').fetchone()[0]
         self.assertEqual(count, 1)
+
+
+class TestPollPurge(unittest.TestCase):
+    def test_poll_purge_removes_old_rows(self):
+        import tempfile
+        old = int(time.time()) - 91 * 86400
+        now = int(time.time())
+        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+            tmp_db = f.name
+        try:
+            conn2 = sqlite3.connect(tmp_db)
+            ensure_schema(conn2)
+            conn2.execute('INSERT INTO price VALUES (?, ?, ?, ?)', (old, 'kraken', 1000.0, 1.0))
+            conn2.execute('INSERT INTO price VALUES (?, ?, ?, ?)', (now, 'kraken', 50000.0, 100.0))
+            conn2.commit()
+            conn2.close()
+            poll_purge(tmp_db)
+            conn3 = sqlite3.connect(tmp_db)
+            count = conn3.execute('SELECT COUNT(*) FROM price').fetchone()[0]
+            conn3.close()
+            self.assertEqual(count, 1)
+        finally:
+            os.unlink(tmp_db)
 
 
 if __name__ == '__main__':
