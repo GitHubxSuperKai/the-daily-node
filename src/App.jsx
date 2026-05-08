@@ -87,7 +87,7 @@ function App() {
   const bitaxe = useBitaxe(bitaxeApiUrl, bitaxeIps);
   const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
   const rss = useRSS();
-  const feedHealth = useFeedHealth([btc, chain, weather, rss]);
+  const feedHealth = useFeedHealth([btc, chain, weather, rss, bitaxe]);
 
   // ─── Auto-Refresh (tab refocus + network restore) ─────────
   usePageRefresh([btc.refresh, chain.refresh, rss.refresh, weather.refresh, bitaxe.refresh]);
