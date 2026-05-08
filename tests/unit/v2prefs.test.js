@@ -15,6 +15,10 @@ describe('deepMerge', () => {
   it('override wins for scalar values', () => {
     expect(deepMerge({ n: 10 }, { n: 99 }).n).toBe(99);
   });
+  it('when overrides key is null for an object default, returns default subtree', () => {
+    const result = deepMerge({ a: { b: 1 } }, { a: null });
+    expect(result.a).toEqual({ b: 1 });
+  });
 });
 
 describe('loadV2Prefs', () => {
