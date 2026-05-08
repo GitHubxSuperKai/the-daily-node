@@ -16,6 +16,9 @@
   button { margin-top: 1rem; padding: 0.65rem 1.2rem; background: #2f81f7;
            color: #fff; border: 0; border-radius: 6px; font-size: 0.95rem; cursor: pointer; }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .skip { display: block; margin-top: 1rem; font-size: 0.85rem; color: #9ba8b6; text-align: center; }
+  .skip a { color: #9ba8b6; text-decoration: underline; cursor: pointer; }
+  .skip a:hover { color: #e6edf3; }
   .msg { margin-top: 1rem; padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.9rem; }
   .msg.err { background: #3a1717; color: #ffb4b4; border: 1px solid #6a2424; }
   .msg.ok  { background: #14321b; color: #b4ffc7; border: 1px solid #245a32; }
@@ -29,6 +32,7 @@
     <label for="ips">BitAxe IP addresses</label>
     <textarea id="ips" placeholder="192.168.1.10&#10;192.168.1.11" autofocus></textarea>
     <button id="save">Save and continue</button>
+    <p class="skip"><a id="skip">No miners — skip to dashboard</a></p>
     <div id="msg"></div>
   </div>
 <script>
@@ -40,6 +44,17 @@
     $msg.className = 'msg ' + kind;
     $msg.textContent = text;
   }
+
+  document.getElementById('skip').addEventListener('click', async () => {
+    try {
+      await fetch('/api/setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bitaxe_ips: [] }),
+      });
+    } catch (e) { /* ignore — redirect anyway */ }
+    window.location.href = '/';
+  });
 
   $btn.addEventListener('click', async () => {
     const raw = $ips.value.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
