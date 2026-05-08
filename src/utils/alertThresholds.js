@@ -10,6 +10,8 @@ function checkMinerOfflineThreshold(offlineCount) {
   return typeof offlineCount === 'number' && offlineCount > 0;
 }
 
+// historyPoints must be sorted oldest-first (ascending ts), as returned by the history daemon.
+// Finds the oldest point within the window to use as baseline for % change computation.
 function checkPriceThreshold(currentUsd, historyPoints, pctThreshold, windowSeconds) {
   if (!Array.isArray(historyPoints) || historyPoints.length === 0) return false;
   if (typeof currentUsd !== 'number' || currentUsd <= 0) return false;

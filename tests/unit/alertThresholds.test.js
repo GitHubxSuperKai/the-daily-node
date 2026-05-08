@@ -76,4 +76,14 @@ describe('checkPriceThreshold', () => {
     const history = [{ ts: now - 30 * 60, usd: 50000 }];
     expect(checkPriceThreshold(null, history, 5, 60 * 60)).toBe(false);
   });
+  it('uses oldest point in window as baseline when multiple history points provided', () => {
+    // oldest in window: 50000; newest in window: 51000; current: 53500
+    // pct change vs oldest (50000): 7% → should fire at 5% threshold
+    // pct change vs newest (51000): 4.9% → would NOT fire at 5% threshold
+    const history = [
+      { ts: now - 50 * 60, usd: 50000 },  // oldest in window (50 min ago)
+      { ts: now - 15 * 60, usd: 51000 },  // newer in window (15 min ago)
+    ];
+    expect(checkPriceThreshold(53500, history, 5, 60 * 60)).toBe(true);
+  });
 });
