@@ -77,6 +77,9 @@ function App() {
   // ─── Auto-Refresh (tab refocus + network restore) ─────────
   usePageRefresh([btc.refresh, chain.refresh, rss.refresh, weather.refresh, bitaxe.refresh]);
 
+  // ─── Viewport Mode ────────────────────────────────────────
+  const mode = useViewportMode();
+
   // ─── Theme Selection ──────────────────────────────────────
   const theme = dark ? DARK : LIGHT;
 
@@ -115,24 +118,35 @@ function App() {
   // ─── Render ────────────────────────────────────────────────
   return (
     <ThemeCtx.Provider value={theme}>
-      <CommandCenter
-        dark={dark}
-        onToggleDark={handleToggleDark}
-        bitaxeApiUrl={bitaxeApiUrl}
-        bitaxeIps={bitaxeIps}
-        prefs={prefs}
-        settingsOpen={settingsOpen}
-        onOpenSettings={() => setSettingsOpen(true)}
-        onSaveSettings={handleSaveSettings}
-        onCloseSettings={() => setSettingsOpen(false)}
-        clock={clock}
-        btc={btc}
-        chain={chain}
-        bitaxe={bitaxe}
-        weather={weather}
-        rss={rss}
-        feedHealth={feedHealth}
-      />
+      {mode === 'mobile'
+        ? <MobileLayout
+            btc={btc}
+            chain={chain}
+            miners={bitaxe}
+            weather={weather}
+            news={rss}
+            onToggleDark={handleToggleDark}
+            dark={dark}
+          />
+        : <CommandCenter
+            dark={dark}
+            onToggleDark={handleToggleDark}
+            bitaxeApiUrl={bitaxeApiUrl}
+            bitaxeIps={bitaxeIps}
+            prefs={prefs}
+            settingsOpen={settingsOpen}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onSaveSettings={handleSaveSettings}
+            onCloseSettings={() => setSettingsOpen(false)}
+            clock={clock}
+            btc={btc}
+            chain={chain}
+            bitaxe={bitaxe}
+            weather={weather}
+            rss={rss}
+            feedHealth={feedHealth}
+          />
+      }
     </ThemeCtx.Provider>
   );
 }
