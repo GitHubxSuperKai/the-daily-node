@@ -4,21 +4,31 @@ function useAlerts(triggers, prefs) {
 
   const [toasts, setToasts] = React.useState([]);
   const cooldowns = React.useRef({});
+  const pendingTimers = React.useRef([]);
+
+  const alertPrefsRef = React.useRef(alertPrefs);
+  alertPrefsRef.current = alertPrefs;
 
   const fire = React.useCallback((type, message) => {
     const now = Date.now();
-    const cooldownMs = (alertPrefs[type]?.cooldownMin ?? 30) * 60 * 1000;
+    const ap = alertPrefsRef.current;
+    const cooldownMs = (ap[type]?.cooldownMin ?? 30) * 60 * 1000;
     if (now - (cooldowns.current[type] ?? 0) < cooldownMs) return;
     cooldowns.current[type] = now;
 
     const id = `${type}-${now}`;
     setToasts(prev => [...prev, { id, type, message, ts: now }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 8000);
+    const tid = setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 8000);
+    pendingTimers.current.push(tid);
 
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       new Notification('The Daily Node', { body: message, tag: type });
     }
-  }, [alertPrefs]);
+  }, []); // stable — reads alertPrefsRef.current at call time
+
+  React.useEffect(() => {
+    return () => pendingTimers.current.forEach(clearTimeout);
+  }, []);
 
   React.useEffect(() => {
     if (!alertPrefs.fee?.enabled) return;
