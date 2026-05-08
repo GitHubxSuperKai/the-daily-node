@@ -50,4 +50,17 @@ const exportLeak = html.match(/^\s*export\s+(default|\{|function|const|let|var|c
 assert.ok(!exportLeak,
   `unstripped export statement survived build: ${exportLeak && exportLeak[0].trim()}`);
 
+// 6. Vendor files must exist on disk
+const vendorFiles = [
+  'src/vendor/react.production.min.js',
+  'src/vendor/react-dom.production.min.js',
+  'src/vendor/MANIFEST.md',
+];
+for (const f of vendorFiles) {
+  assert.ok(
+    fs.existsSync(path.join(ROOT, f)),
+    `Missing vendor file: ${f}`
+  );
+}
+
 console.log('✓ smoke-build OK');
