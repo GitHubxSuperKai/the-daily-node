@@ -23,6 +23,8 @@ USER app
 # Copy only the artifacts needed at runtime — proxy uses Python stdlib only
 COPY --chown=app:app bitaxe_api.py ./
 COPY --from=build --chown=app:app /app/index.html ./
+# setup.html is served on first launch when BITAXE_IPS is not configured
+COPY --chown=app:app setup.html ./
 
 EXPOSE 3001
 
