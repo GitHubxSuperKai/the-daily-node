@@ -16,9 +16,18 @@ RUN node build.js
 FROM python:3.12-slim AS runtime
 WORKDIR /app
 
-# Drop to a non-root user
-RUN useradd --create-home --shell /usr/sbin/nologin app
+# Drop to a non-root user; create /data for persistent config
+RUN useradd --create-home --shell /usr/sbin/nologin app && \
+    mkdir -p /data && chown app:app /data
 USER app
+
+# Config file location — override at runtime with -e CONFIG_PATH=...
+# The /data volume is the canonical place for docker deployments.
+ENV CONFIG_PATH=/data/bitaxe_config.json
+# IMPORTANT: do not COPY anything into /data after this line — Docker silently
+# discards writes to a VOLUME path at build time, and pre-populated files will
+# not appear in the running container.
+VOLUME /data
 
 # Copy only the artifacts needed at runtime — proxy uses Python stdlib only
 COPY --chown=app:app bitaxe_api.py ./
