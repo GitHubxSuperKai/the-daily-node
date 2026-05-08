@@ -13,16 +13,6 @@ import { LineChart } from './LineChart';
 import { NetworkStatusWidget } from './NetworkStatusWidget';
 import Miners from './Miners';
 import {
-  useClock,
-  useBTC,
-  useChain,
-  useBitaxe,
-  useWeather,
-  useRSS,
-  useFeedHealth,
-} from '../hooks';
-import {
-  INTERVALS,
   fmtPrice,
   fmtPct,
   fmtNum,
@@ -96,15 +86,16 @@ export function CommandCenter({
   onCloseTweaks,
   onSaveTweaks,
   v2prefs,
+  clock,
+  btc,
+  chain,
+  bitaxe,
+  weather,
+  rss,
+  feedHealth,
 }) {
   const T = useT();
   const { isMobile } = useLayoutSize();
-  const clock = useClock(prefs.timeFormat);
-  const btc = useBTC();
-  const chain = useChain();
-  const bitaxe = useBitaxe(bitaxeApiUrl, bitaxeIps);
-  const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
-  const rss = useRSS();
 
   const autoThemeDone = React.useRef(false);
   React.useEffect(() => {
@@ -116,14 +107,6 @@ export function CommandCenter({
     if (shouldBeDark !== dark) onToggleDark();
     autoThemeDone.current = true;
   }, [weather.data?.wxSunriseHr]);
-
-  const feedHealth = useFeedHealth([
-    { lastOk: btc.lastOk, interval: INTERVALS.BTC },
-    { lastOk: chain.lastOk, interval: INTERVALS.CHAIN },
-    { lastOk: bitaxe.lastOk, interval: INTERVALS.BITAXE },
-    { lastOk: weather.lastOk, interval: INTERVALS.WEATHER },
-    { lastOk: rss.lastOk, interval: INTERVALS.RSS },
-  ]);
 
   const lastBlockTs = chain.recentBlocks?.[0]?.timestamp ?? null;
   const msSinceLastBlock = lastBlockTs ? (Date.now() / 1000 - lastBlockTs) * 1000 : null;
