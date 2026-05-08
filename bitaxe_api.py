@@ -123,6 +123,8 @@ def fetch_all_miners():
 class BitaxeAPIHandler(BaseHTTPRequestHandler):
     ALLOWED_ORIGINS = []
     CONFIG_PATH = CONFIG_PATH  # overridden in __main__ from args.config
+    _setup_page = None
+    _dashboard = None
 
     def _check_origin(self):
         origin = self.headers.get('Origin') or self.headers.get('Referer')
@@ -156,8 +158,23 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Dashboard HTML — no origin check; same-origin after load
-        if self.path in ('/', '/index.html'):
-            dashboard = getattr(BitaxeAPIHandler, '_dashboard', None)
+        if self.path in ('/', '/index.html', '/setup', '/setup.html'):
+            unconfigured = len(BITAXE_IPS) == 0
+            forced_setup = self.path in ('/setup', '/setup.html')
+            if unconfigured or forced_setup:
+                page = BitaxeAPIHandler._setup_page
+                if page is None:
+                    self.send_response(500)
+                    self.end_headers()
+                    self.wfile.write(b'setup.html missing')
+                    return
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.send_header('Content-Length', str(len(page)))
+                self.end_headers()
+                self.wfile.write(page)
+                return
+            dashboard = BitaxeAPIHandler._dashboard
             if dashboard is None:
                 self.send_response(404)
                 self.end_headers()
@@ -184,11 +201,52 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
+    def do_POST(self):
+        if self.path != '/api/setup':
+            self.send_response(404)
+            self.end_headers()
+            return
+        if not self._check_origin():
+            return
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+        except ValueError:
+            length = 0
+        if length <= 0 or length > 10_000:
+            self._json(400, {'error': 'missing or oversized body'})
+            return
+        try:
+            body = json.loads(self.rfile.read(length).decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            self._json(400, {'error': 'invalid JSON'})
+            return
+        raw = body.get('bitaxe_ips')
+        if not isinstance(raw, list):
+            self._json(400, {'error': 'bitaxe_ips must be a list of strings'})
+            return
+        valid, errors = validate_ips(raw)
+        if errors or not valid:
+            self._json(400, {'error': 'validation failed', 'errors': errors or ['no valid IPs provided']})
+            return
+        save_config(BitaxeAPIHandler.CONFIG_PATH, valid)
+        BITAXE_IPS[:] = valid
+        print(f'[BitAxe API] Configured miners: {", ".join(valid)}')
+        self._json(200, {'bitaxe_ips': valid})
+
+    def _json(self, status, payload):
+        body = json.dumps(payload).encode('utf-8')
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(body)))
+        self._cors()
+        self.end_headers()
+        self.wfile.write(body)
+
     def _cors(self):
         origin = getattr(self, '_matched_origin', '')
         if origin:
             self.send_header('Access-Control-Allow-Origin', origin)
-        self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         # PNA: allow page on loopback (http://localhost) to fetch this private-IP server.
         # Required by Chrome 130+ when source is loopback and target is a private network.
@@ -248,6 +306,14 @@ if __name__ == '__main__':
     else:
         BitaxeAPIHandler._dashboard = None
         print(f'Dashboard        →  (index.html not found — run build.js first)')
+
+    setup_path = os.path.join(os.path.dirname(__file__), 'setup.html')
+    if os.path.exists(setup_path):
+        with open(setup_path, 'rb') as f:
+            BitaxeAPIHandler._setup_page = f.read()
+    else:
+        BitaxeAPIHandler._setup_page = None
+        print('[BitAxe API] WARN: setup.html not found — first-launch onboarding disabled')
 
     server = HTTPServer((args.bind, args.port), BitaxeAPIHandler)
     print(f'BitAxe Fleet API  →  http://{args.bind}:{args.port}/api/miners')
