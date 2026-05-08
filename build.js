@@ -31,6 +31,7 @@ const files = [
   'hooks/useFeedHealth.js',
   'hooks/usePageRefresh.js',
   'hooks/useLayoutSize.js',
+  'hooks/useViewportMode.js',
   'components/Masthead.jsx',
   'components/Price.jsx',
   'components/Ticker.jsx',
@@ -39,53 +40,78 @@ const files = [
   'components/Miners.jsx',
   'components/MastheadPanel.jsx',
   'components/NetworkStatusWidget.jsx',
+  'components/MobileLayout.jsx',
   'components/CommandCenter.jsx',
   'App.jsx',
 ];
 
 // Read and concatenate
 let concatenated = '';
-files.forEach(file => {
+for (const file of files) {
   const fullPath = path.join(srcDir, file);
-  if (fs.existsSync(fullPath)) {
-    let content = fs.readFileSync(fullPath, 'utf-8');
-
-    // Remove CommonJS wrapper (only for Node testing)
-    content = content.replace(
-      /if \(typeof module !== 'undefined' && module\.exports\)[\s\S]*?\}\s*$/m,
-      ''
-    );
-
-    // Remove import/export statements since all code is concatenated
-    // Remove named imports: import { X, Y } from 'module'
-    content = content.replace(/import\s+\{[^}]*\}\s+from\s+['"][^'"]*['"]\s*;?\n?/g, '');
-    // Remove default imports: import X from 'module'
-    content = content.replace(/import\s+\w+\s+from\s+['"][^'"]*['"]\s*;?\n?/g, '');
-    // Remove standalone imports: import 'module'
-    content = content.replace(/import\s+['"][^'"]*['"]\s*;?\n?/g, '');
-    // Remove export default: export default X;
-    content = content.replace(/export\s+default\s+\w+\s*;?\n?/g, '');
-    // Remove export async function: export async function X(...) { ... }
-    content = content.replace(/export\s+async\s+/g, 'async ');
-    // Remove export function: export function X(...) { ... }
-    content = content.replace(/export\s+(function|const|let|var|class)\s+/g, '$1 ');
-    // Remove export { ... }
-    content = content.replace(/export\s+\{[^}]*\}\s*;?\n?/g, '');
-
-    concatenated += '\n' + content;
-  } else {
+  if (!fs.existsSync(fullPath)) {
     console.warn(`Warning: File not found: ${file}`);
+    continue;
   }
-});
+  let content = fs.readFileSync(fullPath, 'utf-8');
+
+  // Remove CommonJS wrapper (only for Node testing)
+  content = content.replace(
+    /if \(typeof module !== 'undefined' && module\.exports\)[\s\S]*?\}\s*$/m,
+    ''
+  );
+
+  // Strip ESM imports/exports (keep concatenation model)
+  content = content.replace(/import\s+\{[^}]*\}\s+from\s+['"][^'"]*['"]\s*;?\n?/g, '');
+  content = content.replace(/import\s+\w+\s+from\s+['"][^'"]*['"]\s*;?\n?/g, '');
+  content = content.replace(/import\s+['"][^'"]*['"]\s*;?\n?/g, '');
+  content = content.replace(/export\s+default\s+\w+\s*;?\n?/g, '');
+  content = content.replace(/export\s+async\s+/g, 'async ');
+  content = content.replace(/export\s+(function|const|let|var|class)\s+/g, '$1 ');
+  content = content.replace(/export\s+\{[^}]*\}\s*;?\n?/g, '');
+
+  // Build-time JSX transform for .jsx files
+  if (file.endsWith('.jsx')) {
+    try {
+      const result = esbuild.transformSync(content, {
+        loader: 'jsx',
+        jsx: 'transform',
+        jsxFactory: 'React.createElement',
+        jsxFragment: 'React.Fragment',
+        target: 'es2018',
+      });
+      content = result.code;
+    } catch (err) {
+      console.error(`Error transforming ${file}:`, err.message);
+      process.exit(1);
+    }
+  }
+
+  concatenated += '\n' + content;
+}
+
+// Inline vendored React + ReactDOM
+const reactSrc    = fs.readFileSync(path.join(srcDir, 'vendor', 'react.production.min.js'), 'utf8');
+const reactDomSrc = fs.readFileSync(path.join(srcDir, 'vendor', 'react-dom.production.min.js'), 'utf8');
+const vendorBlock = `<script>${reactSrc}</script>\n<script>${reactDomSrc}</script>`;
 
 // Read base template
 const baseTemplate = fs.readFileSync(path.join(srcDir, 'index.html'), 'utf-8');
 
-// Replace placeholder
-const htmlWithCode = baseTemplate.replace(
-  '/* MODULES CONCATENATED BY build.js */',
-  () => concatenated
-);
+// Guard: placeholders must be present in the template or the build is silently broken
+if (!baseTemplate.includes('<!-- VENDOR -->')) {
+  console.error('Error: src/index.html is missing <!-- VENDOR --> placeholder');
+  process.exit(1);
+}
+if (!baseTemplate.includes('/* MODULES CONCATENATED BY build.js */')) {
+  console.error('Error: src/index.html is missing /* MODULES CONCATENATED BY build.js */ placeholder');
+  process.exit(1);
+}
+
+// Replace placeholders
+const htmlWithCode = baseTemplate
+  .replace('<!-- VENDOR -->', () => vendorBlock)
+  .replace('/* MODULES CONCATENATED BY build.js */', () => concatenated);
 
 // Write HTML directly (no esbuild wrapping)
 fs.writeFileSync('Command Center.html', htmlWithCode);
