@@ -52,7 +52,11 @@ function loadV2Prefs() {
 }
 
 function saveV2Prefs(prefs) {
-  localStorage.setItem(PREFS_KEY, JSON.stringify({ ...prefs, version: PREFS_VERSION }));
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...prefs, version: PREFS_VERSION }));
+  } catch {
+    // localStorage unavailable (private browsing, storage quota)
+  }
 }
 
 if (typeof module !== 'undefined' && module.exports) {
