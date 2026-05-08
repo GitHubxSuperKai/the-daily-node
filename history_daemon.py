@@ -28,6 +28,7 @@ RETENTION_DAYS = 90
 
 def ensure_schema(conn):
     conn.executescript("""
+        PRAGMA journal_mode=WAL;
         CREATE TABLE IF NOT EXISTS price (
             ts      INTEGER PRIMARY KEY,
             source  TEXT    NOT NULL,
@@ -114,10 +115,12 @@ def poll_price(db_path):
             return
         ts   = int(time.time())
         conn = sqlite3.connect(db_path)
-        conn.execute('INSERT OR REPLACE INTO price VALUES (?, ?, ?, ?)',
-                     (ts, 'kraken', parsed['usd'], parsed['vol']))
-        conn.commit()
-        conn.close()
+        try:
+            conn.execute('INSERT OR REPLACE INTO price VALUES (?, ?, ?, ?)',
+                         (ts, 'kraken', parsed['usd'], parsed['vol']))
+            conn.commit()
+        finally:
+            conn.close()
     except Exception as e:
         print(f'[price] poll error: {e}', file=sys.stderr)
 
@@ -132,14 +135,16 @@ def poll_chain(db_path):
             return
         ts   = int(time.time())
         conn = sqlite3.connect(db_path)
-        conn.execute('INSERT OR REPLACE INTO fees    VALUES (?, ?, ?, ?)',
-                     (ts, parsed['fast'], parsed['half'], parsed['eco']))
-        conn.execute('INSERT OR REPLACE INTO mempool VALUES (?, ?, ?)',
-                     (ts, parsed['vsize'], parsed['count']))
-        conn.execute('INSERT OR REPLACE INTO hashrate VALUES (?, ?)',
-                     (ts, parsed['ehs']))
-        conn.commit()
-        conn.close()
+        try:
+            conn.execute('INSERT OR REPLACE INTO fees    VALUES (?, ?, ?, ?)',
+                         (ts, parsed['fast'], parsed['half'], parsed['eco']))
+            conn.execute('INSERT OR REPLACE INTO mempool VALUES (?, ?, ?)',
+                         (ts, parsed['vsize'], parsed['count']))
+            conn.execute('INSERT OR REPLACE INTO hashrate VALUES (?, ?)',
+                         (ts, parsed['ehs']))
+            conn.commit()
+        finally:
+            conn.close()
     except Exception as e:
         print(f'[chain] poll error: {e}', file=sys.stderr)
 
@@ -149,18 +154,20 @@ def poll_miners(db_path, ips):
         return
     ts   = int(time.time())
     conn = sqlite3.connect(db_path)
-    for ip in ips:
-        try:
-            raw      = fetch_json(f'http://{ip}/api/system/info', timeout=5)
-            hashrate = float(raw.get('hashRate', 0))
-            temp     = float(raw.get('temp', 0))
-            shares   = int(raw.get('sharesAccepted', 0))
-            conn.execute('INSERT OR REPLACE INTO miners VALUES (?, ?, ?, ?, ?)',
-                         (ts, ip, hashrate, temp, shares))
-        except Exception as e:
-            print(f'[miners] {ip} error: {e}', file=sys.stderr)
-    conn.commit()
-    conn.close()
+    try:
+        for ip in ips:
+            try:
+                raw      = fetch_json(f'http://{ip}/api/system/info', timeout=5)
+                hashrate = float(raw.get('hashRate', 0))
+                temp     = float(raw.get('temp', 0))
+                shares   = int(raw.get('sharesAccepted', 0))
+                conn.execute('INSERT OR REPLACE INTO miners VALUES (?, ?, ?, ?, ?)',
+                             (ts, ip, hashrate, temp, shares))
+            except Exception as e:
+                print(f'[miners] {ip} error: {e}', file=sys.stderr)
+        conn.commit()
+    finally:
+        conn.close()
 
 
 # ─── Background polling ────────────────────────────────────────
