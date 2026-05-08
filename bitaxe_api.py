@@ -90,6 +90,9 @@ def is_origin_allowed(origin, allowlist):
 # Mutable runtime list — finalized in __main__ after parsing args/env/config.
 # Setup endpoint mutates this in place when user submits IPs.
 BITAXE_IPS = []
+# Set to True once IPs are provided at startup or via the setup page (even if
+# user skips miners entirely). Controls whether GET / redirects to setup.html.
+CONFIGURED = False
 PORT          = 3001
 FETCH_TIMEOUT = 5
 
@@ -159,7 +162,7 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         # Dashboard HTML — no origin check; same-origin after load
         if self.path in ('/', '/index.html', '/setup', '/setup.html'):
-            unconfigured = len(BITAXE_IPS) == 0
+            unconfigured = not CONFIGURED
             forced_setup = self.path in ('/setup', '/setup.html')
             if unconfigured or forced_setup:
                 page = BitaxeAPIHandler._setup_page
@@ -232,12 +235,14 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
         if errors:
             self._json(400, {'error': 'validation failed', 'errors': errors})
             return
-        if not valid:
-            self._json(400, {'error': 'validation failed', 'errors': ['no valid IPs provided']})
-            return
+        global CONFIGURED
         save_config(BitaxeAPIHandler.CONFIG_PATH, valid)
         BITAXE_IPS[:] = valid
-        print(f'[BitAxe API] Configured miners: {", ".join(valid)}')
+        CONFIGURED = True
+        if valid:
+            print(f'[BitAxe API] Configured miners: {", ".join(valid)}')
+        else:
+            print('[BitAxe API] Setup complete — no miners configured (skipped)')
         self._json(200, {'bitaxe_ips': valid})
 
     def _json(self, status, payload):
@@ -285,14 +290,19 @@ if __name__ == '__main__':
         for e in errs:
             print(f'[BitAxe API] --ips ignored entry: {e}')
         BITAXE_IPS[:] = valid
+        CONFIGURED = True
     elif os.environ.get('BITAXE_IPS', '').strip():
         env_ips = [ip.strip() for ip in os.environ['BITAXE_IPS'].split(',') if ip.strip()]
         valid, errs = validate_ips(env_ips)
         for e in errs:
             print(f'[BitAxe API] BITAXE_IPS env ignored entry: {e}')
         BITAXE_IPS[:] = valid
+        CONFIGURED = True
     else:
-        BITAXE_IPS[:] = load_config(args.config)
+        cfg = load_config(args.config)
+        BITAXE_IPS[:] = cfg
+        if cfg:
+            CONFIGURED = True
 
     BitaxeAPIHandler.CONFIG_PATH = args.config
 

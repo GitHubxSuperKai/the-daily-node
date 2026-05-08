@@ -53,29 +53,31 @@ Multi-arch images are published for `linux/amd64` and `linux/arm64`. Same image 
 
 ### Option B — Run from source
 
+The repo includes a pre-built `index.html`, so no build step is required to get started. Python 3.10+ is all you need — the proxy uses the standard library only, no `pip install`.
+
 ```bash
 git clone https://github.com/GitHubxSuperKai/the-daily-node.git
 cd the-daily-node
-npm install && npm run build
-BITAXE_IPS=<miner-ip-1>,<miner-ip-2> python3 bitaxe_api.py --bind 0.0.0.0
+python3 bitaxe_api.py --bind 0.0.0.0
 ```
 
-Requires Node 20+ and Python 3.10+. The proxy uses Python's standard library only — no `pip install`.
+On Windows, use `python` instead of `python3`. Open `http://localhost:3001/` — a setup page will guide you through entering your miner IPs. The dashboard loads immediately after.
+
+> **Want to modify the source?** Run `npm install` then `npm run build` (Node 20+ required) to rebuild `index.html` from `src/`. On Windows, run those as separate commands — `&&` is not supported in PowerShell.
 
 ### Option C — Static dashboard, no miners
 
 If you don't have a BitAxe and just want the dashboard for price / news / chain stats:
 
 ```bash
-npm install && npm run build
-npm run dev   # serves index.html on http://localhost:3000/
+python3 -m http.server 3000
 ```
 
-The Miners card will show a friendly placeholder.
+Open `http://localhost:3000/` — the Miners card will show a friendly placeholder. No Python proxy or build step needed.
 
 ## Configuration
 
-- `BITAXE_IPS` (env var) — comma-separated list of miner IPs. Set this when launching `bitaxe_api.py` or the Docker container.
+- **Miner IPs** — enter them in the browser setup page on first launch, or set `BITAXE_IPS=<ip-1>,<ip-2>` as an environment variable when starting `bitaxe_api.py` or the Docker container.
 - All other knobs live in [`src/config.js`](src/config.js): API endpoints, polling intervals, feed list, default location.
 - Per-user preferences (location, time format, temp unit, dark mode) are configurable via the in-app settings panel (⚙ icon in the top-right) and persist to browser `localStorage`.
 
