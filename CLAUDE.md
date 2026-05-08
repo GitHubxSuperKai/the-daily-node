@@ -9,7 +9,7 @@ Life-goal framing for this project lives at `D:\Ikigai\00-PARA\1-Projects\the-da
 ## Commands
 
 ```bash
-node build.js              # build Command Center.html from src/
+node build.js              # build index.html from src/
 python -m http.server 3000 # dev server (or port 3002 per launch.json)
 npm run serve              # build + serve in one step
 npm test                   # run smoke + unit tests
@@ -21,7 +21,7 @@ Preview tool server ID: `the-daily-node`
 
 ## Build System
 
-`build.js` concatenates all `src/` files in dependency order into a single `<script type="text/babel">` block inside `src/index.html`, writing the result to `Command Center.html`. esbuild minifies the final HTML. Babel transpiles JSX in-browser at runtime — no compile step during dev.
+`build.js` concatenates all `src/` files in dependency order into a single `<script type="text/babel">` block inside `src/index.html`, writing the result to `index.html`. esbuild minifies the final HTML. Babel transpiles JSX in-browser at runtime — no compile step during dev.
 
 **Critical — read before touching any component:**
 

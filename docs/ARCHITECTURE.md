@@ -112,7 +112,7 @@ Simple time formatter that updates every 1 second. Accepts `timeFormat` string (
 
 ## Build Process
 
-**Development (`npm run dev`):** Runs Python HTTP server on `localhost:3000` serving the pre-built `Command Center.html` file. No rebuilding needed; edit source files and manually run `npm run build` when ready to test the minified output.
+**Development (`npm run dev`):** Runs Python HTTP server on `localhost:3000` serving the pre-built `index.html` file. No rebuilding needed; edit source files and manually run `npm run build` when ready to test the minified output.
 
 **Release (`npm run build`):** Executes `build.js` script which:
 1. Reads all source files in dependency order (config → theme → utils → components → hooks → App)
@@ -121,7 +121,7 @@ Simple time formatter that updates every 1 second. Accepts `timeFormat` string (
 4. Concatenates all modules into a single JavaScript block
 5. Injects concatenated code into `src/index.html` template (replaces `/* MODULES CONCATENATED BY build.js */` placeholder)
 6. Minifies entire HTML file with esbuild (whitespace, variable mangling, but preserves React/Babel CDN)
-7. Writes output to `Command Center.html` (single-file deliverable)
+7. Writes output to `index.html` (single-file deliverable)
 
 **Key insight:** The build process creates a **single-file HTML dashboard**. All React, Babel, and application code is bundled inline; esbuild minifies the entire document, reducing file size for easy deployment or distribution.
 
@@ -168,4 +168,4 @@ Simple time formatter that updates every 1 second. Accepts `timeFormat` string (
 
 **Error handling:** All API calls include try/catch and timeouts. Hooks return `{ data, loading, error, lastOk }` so components can display fallbacks or stale data gracefully. `useFeedHealth()` monitors all sources and colors status lights red when feeds are stale.
 
-**Single-file distribution:** The final `Command Center.html` is a complete, self-contained dashboard with no external dependencies except the React/Babel CDN. It can be opened directly in a browser or served from a simple HTTP server.
+**Single-file distribution:** The final `index.html` is a complete, self-contained dashboard with no external dependencies except the React/Babel CDN. It can be opened directly in a browser or served from a simple HTTP server.

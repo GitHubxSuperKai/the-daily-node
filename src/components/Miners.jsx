@@ -117,7 +117,7 @@ function Miners({ bitaxe, chain }) {
     { label: 'Watts',  fade: true  },
   ];
 
-  const noApi = bitaxe.error || (bitaxe.miners.length === 0 && !bitaxe.loading);
+  const noApi = bitaxe.err || (bitaxe.miners.length === 0 && !bitaxe.loading);
 
   if (noApi) {
     return (

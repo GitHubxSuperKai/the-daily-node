@@ -13,7 +13,7 @@ Fixes #___ (or: "no issue, this is a trivial fix because ___")
 ## Verification
 
 - [ ] Ran `npm run build` and the build succeeded
-- [ ] Opened `Command Center.html` in a browser and confirmed it still loads
+- [ ] Opened `index.html` in a browser and confirmed it still loads
 - [ ] If I changed JSX: followed the rules in [CLAUDE.md](../CLAUDE.md) (default-only imports, hook deps declared first)
 - [ ] If I changed UI: tested both light and dark mode
 - [ ] If I changed an API hook: verified the data still renders or shows the empty state correctly

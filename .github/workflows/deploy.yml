@@ -36,9 +36,8 @@ jobs:
       - name: Stage Pages artifact
         run: |
           mkdir -p _site/docs/screenshots
-          cp "Command Center.html" _site/
+          cp "index.html" _site/
           cp "pitch-deck.html" _site/
-          cp "docs/pages-index-redirect.html" _site/index.html
           cp docs/screenshots/*.png _site/docs/screenshots/
 
       - name: Upload artifact

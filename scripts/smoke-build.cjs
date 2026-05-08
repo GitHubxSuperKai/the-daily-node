@@ -1,4 +1,4 @@
-// Smoke test: runs build.js, asserts Command Center.html is generated and well-formed.
+// Smoke test: runs build.js, asserts index.html is generated and well-formed.
 // Catches the "blank page" failure mode (combined imports, missing files, broken regex).
 const { execSync } = require('child_process');
 const fs = require('fs');
@@ -6,7 +6,7 @@ const path = require('path');
 const assert = require('assert');
 
 const ROOT = path.resolve(__dirname, '..');
-const OUT = path.join(ROOT, 'Command Center.html');
+const OUT = path.join(ROOT, 'index.html');
 
 // 1. Run the build
 let buildOut;
@@ -17,12 +17,12 @@ try {
   console.error(err.stdout || '', err.stderr || '');
   process.exit(1);
 }
-assert.ok(buildOut.includes('✓ Built Command Center.html'), 'build.js did not print success line');
+assert.ok(buildOut.includes('✓ Built index.html'), 'build.js did not print success line');
 
 // 2. Output must exist and be non-trivial
 // Floor is ~250KB: react-dom alone is ~130KB + react ~11KB + app code.
 // A value below 250KB means vendor inlining or major app code is missing.
-assert.ok(fs.existsSync(OUT), 'Command Center.html was not created');
+assert.ok(fs.existsSync(OUT), 'index.html was not created');
 const html = fs.readFileSync(OUT, 'utf8');
 assert.ok(html.length > 250_000, `output suspiciously small (${html.length} bytes) — vendor inlining or app code may be missing`);
 
