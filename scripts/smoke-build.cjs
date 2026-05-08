@@ -101,4 +101,10 @@ for (const host of REQUIRED_CSP_HOSTS) {
 assert.ok(html.includes('frame-ancestors'),
   'CSP missing frame-ancestors directive');
 
+// Track A assertions
+if (!/TweaksPanel/.test(html))        { console.error('FAIL: TweaksPanel missing from build'); process.exit(1); }
+if (!/useAlerts/.test(html))          { console.error('FAIL: useAlerts missing from build'); process.exit(1); }
+if (!/checkFeeThreshold/.test(html))  { console.error('FAIL: alertThresholds missing from build'); process.exit(1); }
+if (!/dn\.prefs\.v2/.test(html))      { console.error('FAIL: v2prefs PREFS_KEY missing from build'); process.exit(1); }
+
 console.log('✓ smoke-build OK');
