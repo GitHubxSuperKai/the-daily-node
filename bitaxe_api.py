@@ -20,7 +20,10 @@ from urllib.parse import urlparse
 
 import ipaddress
 
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bitaxe_config.json')
+CONFIG_PATH = (
+    os.environ.get('CONFIG_PATH')
+    or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bitaxe_config.json')
+)
 
 
 def load_config(path=CONFIG_PATH):
