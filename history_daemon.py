@@ -21,6 +21,7 @@ DEFAULT_DB     = os.path.expanduser('~/.daily-node/history.db')
 POLL_PRICE_S   = 30
 POLL_CHAIN_S   = 60
 POLL_MINER_S   = 30
+PURGE_INTERVAL_S = 86400
 RETENTION_DAYS = 90
 
 
@@ -293,7 +294,6 @@ def main():
 
     conn = sqlite3.connect(args.db)
     ensure_schema(conn)
-    purge_old(conn)
     conn.close()
 
     print(f'[daemon] DB:         {args.db}')
@@ -304,7 +304,7 @@ def main():
         (lambda: poll_price(args.db),                    POLL_PRICE_S),
         (lambda: poll_chain(args.db),                    POLL_CHAIN_S),
         (lambda: poll_miners(args.db, args.bitaxe_ips),  POLL_MINER_S),
-        (lambda: poll_purge(args.db),                    86400),
+        (lambda: poll_purge(args.db),                    PURGE_INTERVAL_S),
     ]:
         threading.Thread(target=poll_forever, args=(fn, interval), daemon=True).start()
 
