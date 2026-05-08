@@ -1,6 +1,6 @@
 import { useT } from '../theme';
 
-function LineChart({ color, points, fill, vwap }) {
+function LineChart({ color, points, fill, vwap, historyPoints }) {
   const T = useT();
   color = color ?? T.orange;
 
@@ -18,7 +18,14 @@ function LineChart({ color, points, fill, vwap }) {
   }, []);
 
   const { w, h } = dims;
-  const useFallback = !points || points.length < 2;
+
+  const allPoints = React.useMemo(() => {
+    if (!Array.isArray(historyPoints) || historyPoints.length === 0) return points;
+    const converted = historyPoints.map(p => [p.ts * 1000, p.usd]);
+    return points ? [...converted, ...points] : converted;
+  }, [historyPoints, points]);
+
+  const useFallback = !allPoints || allPoints.length < 2;
   let pts = [];
 
   if (w > 0 && h > 0) {
@@ -32,12 +39,12 @@ function LineChart({ color, points, fill, vwap }) {
         pts.push([x.toFixed(1), Math.max(2, Math.min(h - 2, y)).toFixed(1)]);
       }
     } else {
-      const prices = points.map(p => p[1]);
+      const prices = allPoints.map(p => p[1]);
       const minP = Math.min(...prices);
       const maxP = Math.max(...prices);
       const range = maxP - minP || 1;
-      pts = points.map((p, i) => {
-        const x = (i / (points.length - 1)) * w;
+      pts = allPoints.map((p, i) => {
+        const x = (i / (allPoints.length - 1)) * w;
         const y = h - 4 - ((p[1] - minP) / range) * (h - 8);
         return [x.toFixed(1), Math.max(2, Math.min(h - 2, y)).toFixed(1)];
       });
@@ -46,7 +53,7 @@ function LineChart({ color, points, fill, vwap }) {
 
   let vwapY = null;
   if (w > 0 && h > 0 && !useFallback && vwap != null) {
-    const prices = points.map(p => p[1]);
+    const prices = allPoints.map(p => p[1]);
     const minP = Math.min(...prices);
     const maxP = Math.max(...prices);
     const range = maxP - minP || 1;

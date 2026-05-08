@@ -128,13 +128,16 @@ export function CommandCenter({
   const lastBlockTs = chain.recentBlocks?.[0]?.timestamp ?? null;
   const msSinceLastBlock = lastBlockTs ? (Date.now() / 1000 - lastBlockTs) * 1000 : null;
 
+  const priceHistory = useHistory('price', '24h');
+  const yesterdayPrice = priceHistory.data.length > 0 ? priceHistory.data[0].usd : null;
+
   const { toasts } = useAlerts(
     {
       fastFee:         chain.data?.feeFast ?? null,
       msSinceLastBlock,
       miners:          bitaxe.miners,
       btcPrice:        btc.data?.price ?? null,
-      priceHistory:    [],   // replaced by useHistory in Track B
+      priceHistory:    priceHistory.data,
     },
     v2prefs,
   );
@@ -315,6 +318,15 @@ export function CommandCenter({
             </div>
             <div style={{ fontFamily: T.num, fontSize: u(11), color: T.ink3, marginBottom: u(12), fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
               Hi ${btcHi} · Lo ${btcLo} · Cap {btcCap}
+              {yesterdayPrice != null && btc.data?.price != null && (
+                <>
+                  {' · '}
+                  <span style={{ color: btc.data.price >= yesterdayPrice ? T.green : T.red }}>
+                    vs yest {btc.data.price >= yesterdayPrice ? '+' : ''}
+                    {(((btc.data.price - yesterdayPrice) / yesterdayPrice) * 100).toFixed(1)}%
+                  </span>
+                </>
+              )}
             </div>
             {/* Chart */}
             <div style={{ height: 80, marginBottom: 4 }}>
@@ -728,7 +740,7 @@ export function CommandCenter({
           </div>
           {/* LineChart: parent div provides CSS dimensions, chart fills it */}
           <div style={{ width: '100%', height: u(110), flexShrink: 0 }}>
-            <LineChart color={T.orange} points={btc.chartPts} vwap={btc.data?.vwap} fill />
+            <LineChart color={T.orange} points={btc.chartPts} vwap={btc.data?.vwap} fill historyPoints={priceHistory.data} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.num, fontSize: u(10), color: T.ink3 }}>
             <span>24h ago</span><span>−18h</span><span>−12h</span><span>−6h</span><span>now</span>

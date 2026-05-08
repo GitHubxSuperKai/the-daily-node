@@ -32,6 +32,7 @@ const files = [
   'hooks/useRSS.js',
   'hooks/useFeedHealth.js',
   'hooks/useAlerts.js',
+  'hooks/useHistory.js',
   'hooks/usePageRefresh.js',
   'hooks/useLayoutSize.js',
   'hooks/useViewportMode.js',
