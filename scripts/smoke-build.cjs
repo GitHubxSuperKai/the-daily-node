@@ -88,6 +88,7 @@ assert.ok(html.includes('Content-Security-Policy'),
   'CSP meta tag missing from output');
 const REQUIRED_CSP_HOSTS = [
   'api.kraken.com',
+  'api.coingecko.com',
   'mempool.space',
   'api.open-meteo.com',
   'api.rss2json.com',
