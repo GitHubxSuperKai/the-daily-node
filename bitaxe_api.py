@@ -34,10 +34,13 @@ def load_config(path=CONFIG_PATH):
         return []
 
 
-def save_config(path, ips):
-    """Persist IPs to config file as JSON."""
-    with open(path, 'w') as f:
-        json.dump({'bitaxe_ips': list(ips)}, f, indent=2)
+def save_config(path=CONFIG_PATH, ips=()):
+    """Persist IPs to config file as JSON. Logs a warning on write failure."""
+    try:
+        with open(path, 'w') as f:
+            json.dump({'bitaxe_ips': list(ips)}, f, indent=2)
+    except OSError as e:
+        print(f'[BitAxe API] WARNING: could not save config to {path}: {e}')
 
 
 def is_private_ip(host):
