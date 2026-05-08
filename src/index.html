@@ -2,6 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<!-- CSP notes:
+     - 'unsafe-inline' for script-src: the bundled app block is an inline <script> (no nonce).
+       Removing this would require a nonce-based approach or external script file.
+     - 'unsafe-inline' for style-src: every component uses inline style= props by design.
+       Removing this would require a full styling refactor.
+     - Google Fonts: font-src and style-src allow fonts.gstatic.com and fonts.googleapis.com
+       because the dashboard loads Playfair Display, Newsreader, Inter Tight, Courier Prime.
+     - connect-src :3002 is reserved for the Phase 2 history sidecar (not yet built).
+     - frame-ancestors 'none': prevents clickjacking.
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.kraken.com https://api.coingecko.com https://mempool.space https://api.open-meteo.com https://api.rss2json.com http://localhost:3001 http://127.0.0.1:3001 http://localhost:3002 http://127.0.0.1:3002; frame-ancestors 'none';">
 <title>The Daily Node — Command Center</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />

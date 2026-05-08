@@ -83,4 +83,21 @@ assert.ok(html.includes('createRoot'),
 assert.ok(html.includes('React.createElement'),
   'React.createElement not found — JSX transform may have failed');
 
+// 10. CSP meta tag must be present with required directives
+assert.ok(html.includes('Content-Security-Policy'),
+  'CSP meta tag missing from output');
+const REQUIRED_CSP_HOSTS = [
+  'api.kraken.com',
+  'mempool.space',
+  'api.open-meteo.com',
+  'api.rss2json.com',
+  '127.0.0.1:3001',
+];
+for (const host of REQUIRED_CSP_HOSTS) {
+  assert.ok(html.includes(host),
+    `CSP missing required connect-src host: ${host}`);
+}
+assert.ok(html.includes('frame-ancestors'),
+  'CSP missing frame-ancestors directive');
+
 console.log('✓ smoke-build OK');
