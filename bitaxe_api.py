@@ -60,9 +60,15 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
 
     def _check_origin(self):
         origin = self.headers.get('Origin') or self.headers.get('Referer')
-        # Strip path from Referer if present
         if origin:
             parsed = urlparse(origin)
+            if not parsed.scheme or not parsed.netloc:
+                # malformed or "null" origin — reject
+                self.send_response(403)
+                self.send_header('Content-Type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(b'Forbidden: malformed origin')
+                return False
             origin = f"{parsed.scheme}://{parsed.netloc}"
         if not is_origin_allowed(origin, BitaxeAPIHandler.ALLOWED_ORIGINS):
             self.send_response(403)
@@ -70,6 +76,7 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b'Forbidden: origin not allowed')
             return False
+        self._matched_origin = origin  # store for _cors() to use
         return True
 
     def do_OPTIONS(self):
@@ -96,8 +103,8 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def _cors(self):
-        origin = self.headers.get('Origin', '')
-        if origin in BitaxeAPIHandler.ALLOWED_ORIGINS:
+        origin = getattr(self, '_matched_origin', '')
+        if origin:
             self.send_header('Access-Control-Allow-Origin', origin)
         self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
@@ -111,11 +118,14 @@ if __name__ == '__main__':
     parser.add_argument('--bind', default='127.0.0.1',
                         help='Interface to bind to (default 127.0.0.1; use 0.0.0.0 for LAN)')
     parser.add_argument('--port', type=int, default=3001)
-    parser.add_argument('--allow-origin', dest='allow_origins', action='append', default=[
-        'http://localhost:3000', 'http://127.0.0.1:3000',
-        'http://localhost:3002', 'http://127.0.0.1:3002',
-    ], help='Allowed Origin/Referer (repeatable)')
+    parser.add_argument('--allow-origin', dest='allow_origins', action='append', default=None,
+                        help='Allowed Origin/Referer (repeatable)')
     args = parser.parse_args()
+    if args.allow_origins is None:
+        args.allow_origins = [
+            'http://localhost:3000', 'http://127.0.0.1:3000',
+            'http://localhost:3002', 'http://127.0.0.1:3002',
+        ]
     BitaxeAPIHandler.ALLOWED_ORIGINS = args.allow_origins
     server = HTTPServer((args.bind, args.port), BitaxeAPIHandler)
     print(f'BitAxe Fleet API  →  http://{args.bind}:{args.port}/api/miners')
