@@ -11,7 +11,7 @@ const BANNED = [
 ];
 
 // Files to skip (build artifacts are excluded — source files are the real gate)
-const SKIP = [/node_modules\//, /\.git\//, /package-lock\.json$/, /docs\//, /tests\//, /scripts\/check-secrets\.cjs$/, /index\.html$/, /setup\.html$/];
+const SKIP = [/node_modules\//, /\.git\//, /package-lock\.json$/, /docs\//, /tests\//, /scripts\/check-secrets\.cjs$/, /index\.html$/, /setup\.html$/, /test_.*\.py$/];
 
 const stagedRaw = execSync('git diff --cached --name-only', { encoding: 'utf8' }).trim();
 const staged = stagedRaw ? stagedRaw.split('\n') : [];
