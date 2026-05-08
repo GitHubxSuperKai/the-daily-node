@@ -1,8 +1,12 @@
 # The Daily Node — Docker Compose
 #
 # 1. Replace the placeholder IPs below with your BitAxe miner IPs.
+#    (Or leave BITAXE_IPS unset to configure via the web setup page on first launch.)
 # 2. `docker compose up -d`
 # 3. Open http://<host>:3001/ in any browser on your LAN.
+#
+# Miner IPs entered via the setup page are saved to the `daily-node-config`
+# named volume and survive container restarts and image upgrades.
 
 services:
   daily-node:
@@ -11,6 +15,12 @@ services:
     ports:
       - "3001:3001"
     environment:
-      # Comma-separated list of BitAxe miner IPs on your LAN
-      BITAXE_IPS: "<miner-ip-1>,<miner-ip-2>"
+      # Comma-separated list of BitAxe miner IPs on your LAN.
+      # Uncomment and replace with your IPs, or remove to use the web setup page.
+      # BITAXE_IPS: "<miner-ip-1>,<miner-ip-2>"
+    volumes:
+      - daily-node-config:/data
     restart: unless-stopped
+
+volumes:
+  daily-node-config:

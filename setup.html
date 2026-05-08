@@ -23,6 +23,8 @@
   .msg.err { background: #3a1717; color: #ffb4b4; border: 1px solid #6a2424; }
   .msg.ok  { background: #14321b; color: #b4ffc7; border: 1px solid #245a32; }
   code { background: #161b22; padding: 0.1rem 0.4rem; border-radius: 3px; }
+  .docker-note { margin-top: 2rem; padding: 0.75rem 1rem; background: #161b22; border: 1px solid #30363d; border-radius: 6px; font-size: 0.82rem; color: #9ba8b6; line-height: 1.5; }
+  .docker-note strong { color: #e6edf3; }
 </style>
 </head>
 <body>
@@ -34,6 +36,12 @@
     <button id="save">Save and continue</button>
     <p class="skip"><a id="skip">No miners — skip to dashboard</a></p>
     <div id="msg"></div>
+    <div class="docker-note">
+      <strong>Running in Docker?</strong> IPs saved here persist across restarts when using
+      the official <code>docker-compose.yml</code> (named volume) or a <code>-v</code> mount.
+      Alternatively, skip setup and pass <code>-e BITAXE_IPS=&lt;ip1&gt;,&lt;ip2&gt;</code>
+      at container start.
+    </div>
   </div>
 <script>
   const $ips = document.getElementById('ips');
