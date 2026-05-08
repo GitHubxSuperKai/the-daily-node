@@ -20,6 +20,26 @@ from urllib.parse import urlparse
 
 import ipaddress
 
+CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bitaxe_config.json')
+
+
+def load_config(path=CONFIG_PATH):
+    """Return list of IPs from config file, or [] if missing/corrupt."""
+    try:
+        with open(path, 'r') as f:
+            data = json.load(f)
+        ips = data.get('bitaxe_ips', [])
+        return [str(ip) for ip in ips if isinstance(ip, str) and ip.strip()]
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return []
+
+
+def save_config(path, ips):
+    """Persist IPs to config file as JSON."""
+    with open(path, 'w') as f:
+        json.dump({'bitaxe_ips': list(ips)}, f, indent=2)
+
+
 def is_private_ip(host):
     """Return True if host is an RFC 1918 private address or loopback."""
     try:
