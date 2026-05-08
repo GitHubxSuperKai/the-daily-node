@@ -21,6 +21,7 @@ DEFAULT_DB     = os.path.expanduser('~/.daily-node/history.db')
 POLL_PRICE_S   = 30
 POLL_CHAIN_S   = 60
 POLL_MINER_S   = 30
+PURGE_INTERVAL_S = 86400
 RETENTION_DAYS = 90
 
 
@@ -95,6 +96,17 @@ def purge_old(conn, days=RETENTION_DAYS):
     for table in ('price', 'hashrate', 'fees', 'mempool', 'miners'):
         conn.execute(f'DELETE FROM {table} WHERE ts < ?', (cutoff,))
     conn.commit()
+
+
+def poll_purge(db_path):
+    try:
+        conn = sqlite3.connect(db_path)
+        try:
+            purge_old(conn)
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f'[purge] error: {e}', file=sys.stderr)
 
 
 # ─── HTTP fetch helper ─────────────────────────────────────────
@@ -180,16 +192,24 @@ def poll_forever(fn, interval_s):
 
 # ─── HTTP read API ─────────────────────────────────────────────
 
-METRIC_QUERIES = {
-    'price':    'SELECT (ts/{d})*{d} AS ts, AVG(usd) AS usd, AVG(vol) AS vol '
-                'FROM price WHERE ts>=? AND ts<=? GROUP BY (ts/{d}) ORDER BY ts',
-    'hashrate': 'SELECT (ts/{d})*{d} AS ts, AVG(ehs) AS ehs '
-                'FROM hashrate WHERE ts>=? AND ts<=? GROUP BY (ts/{d}) ORDER BY ts',
-    'fees':     'SELECT (ts/{d})*{d} AS ts, AVG(fast) AS fast, AVG(half) AS half, AVG(eco) AS eco '
-                'FROM fees WHERE ts>=? AND ts<=? GROUP BY (ts/{d}) ORDER BY ts',
-    'mempool':  'SELECT (ts/{d})*{d} AS ts, AVG(vsize) AS vsize, AVG(count) AS count '
-                'FROM mempool WHERE ts>=? AND ts<=? GROUP BY (ts/{d}) ORDER BY ts',
-}
+def _build_metric_queries():
+    _templates = {
+        'price':    'SELECT (ts/{d})*{d} AS ts, AVG(usd) AS usd, AVG(vol) AS vol '
+                    'FROM price WHERE ts>=? AND ts<=? GROUP BY (ts/{d}) ORDER BY ts',
+        'hashrate': 'SELECT (ts/{d})*{d} AS ts, AVG(ehs) AS ehs '
+                    'FROM hashrate WHERE ts>=? AND ts<=? GROUP BY (ts/{d}) ORDER BY ts',
+        'fees':     'SELECT (ts/{d})*{d} AS ts, AVG(fast) AS fast, AVG(half) AS half, AVG(eco) AS eco '
+                    'FROM fees WHERE ts>=? AND ts<=? GROUP BY (ts/{d}) ORDER BY ts',
+        'mempool':  'SELECT (ts/{d})*{d} AS ts, AVG(vsize) AS vsize, AVG(count) AS count '
+                    'FROM mempool WHERE ts>=? AND ts<=? GROUP BY (ts/{d}) ORDER BY ts',
+    }
+    _divisors = {'min': 60, 'hour': 3600, 'day': 86400}
+    return {
+        metric: {bucket: tmpl.replace('{d}', str(d)) for bucket, d in _divisors.items()}
+        for metric, tmpl in _templates.items()
+    }
+
+METRIC_QUERIES = _build_metric_queries()
 
 _ALLOWED_ORIGINS = {
     'http://localhost:3000',
@@ -231,10 +251,11 @@ class HistoryHandler(BaseHTTPRequestHandler):
         now     = int(time.time())
         ts_from = int(params.get('from', [now - 86400])[0])
         ts_to   = int(params.get('to',   [now])[0])
-        bucket  = params.get('bucket', ['min'])[0]
-        divisor = {'min': 60, 'hour': 3600, 'day': 86400}.get(bucket, 60)
+        bucket = params.get('bucket', ['min'])[0]
+        if bucket not in ('min', 'hour', 'day'):
+            bucket = 'min'
 
-        sql = METRIC_QUERIES[metric].replace('{d}', str(divisor))
+        sql = METRIC_QUERIES[metric][bucket]
         try:
             conn             = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
@@ -273,7 +294,6 @@ def main():
 
     conn = sqlite3.connect(args.db)
     ensure_schema(conn)
-    purge_old(conn)
     conn.close()
 
     print(f'[daemon] DB:         {args.db}')
@@ -284,6 +304,7 @@ def main():
         (lambda: poll_price(args.db),                    POLL_PRICE_S),
         (lambda: poll_chain(args.db),                    POLL_CHAIN_S),
         (lambda: poll_miners(args.db, args.bitaxe_ips),  POLL_MINER_S),
+        (lambda: poll_purge(args.db),                    PURGE_INTERVAL_S),
     ]:
         threading.Thread(target=poll_forever, args=(fn, interval), daemon=True).start()
 
