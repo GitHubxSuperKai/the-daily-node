@@ -49,7 +49,7 @@ v2 ships in two phases. Phase 1 is mandatory before Phase 2 starts; Phase 2 feat
 
 **1.2 Vendor React + ReactDOM**
 - Move React 18 UMD + ReactDOM 18 UMD into `src/vendor/` checked into the repo.
-- `build.js` inlines them into `Command Center.html` (or references them via relative path with SRI hashes).
+- `build.js` inlines them into `index.html` (or references them via relative path with SRI hashes).
 - Pin exact versions in a new `vendor/MANIFEST.md` listing source URL, version, SHA-384 hash, retrieval date.
 - Add a `scripts/verify-vendor.cjs` test: rehash vendor files, compare to manifest, fail if drift.
 
@@ -65,7 +65,7 @@ v2 ships in two phases. Phase 1 is mandatory before Phase 2 starts; Phase 2 feat
 - Document the threat model in `docs/SETUP.md`: loopback default, what LAN exposure means, how to put it behind a reverse proxy if desired.
 
 **1.5 CSP + security headers**
-- Add `<meta http-equiv="Content-Security-Policy">` to `Command Center.html`. Starting policy:
+- Add `<meta http-equiv="Content-Security-Policy">` to `index.html`. Starting policy:
   - `default-src 'self'`
   - `script-src 'self' 'unsafe-inline'` (inline still needed for the bundled app block; revisit after Phase 1.1)
   - `style-src 'self' 'unsafe-inline'` (every component uses inline styles by design)
@@ -129,7 +129,7 @@ Browser ──fetch──> 192.168.1.59:3001 (bitaxe_api.py on 0.0.0.0)
 
 ### After (Phase 1)
 ```
-build.js (esbuild JSX + bundle) ──> Command Center.html (vendored React/ReactDOM, no Babel)
+build.js (esbuild JSX + bundle) ──> index.html (vendored React/ReactDOM, no Babel)
 Browser ──fetch──> same upstream APIs (unchanged), now CSP-restricted
 Browser ──fetch──> 127.0.0.1:3001 (bitaxe_api.py, loopback default, Origin check)
 ```

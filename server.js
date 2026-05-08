@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
-const FILE = path.join(__dirname, 'Command Center.html');
+const FILE = path.join(__dirname, 'index.html');
 
 http.createServer((req, res) => {
   fs.readFile(FILE, (err, data) => {

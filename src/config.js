@@ -7,7 +7,7 @@ const CONFIG = {
   // Set these to your local BitAxe API server and miner IPs
   // Leave empty to disable BitAxe monitoring
   // User customization via: Edit before build, or use in-app settings panel
-  BITAXE_API_URL: '',
+  BITAXE_API_URL: '/api/miners',
   BITAXE_IPS: [],
 
   // ─── RSS Feeds ────────────────────────────────────────

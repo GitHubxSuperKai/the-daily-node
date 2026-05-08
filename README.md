@@ -13,7 +13,7 @@
 
 ## What it is
 
-A self-contained HTML dashboard that pulls live data from public APIs (Kraken, Mempool.space, CoinGecko, Open-Meteo, RSS feeds) and an optional local BitAxe miner API. Everything ships in a single `Command Center.html` file — no server, no database, no build step at runtime. Open it in a browser and it works.
+A self-contained HTML dashboard that pulls live data from public APIs (Kraken, Mempool.space, CoinGecko, Open-Meteo, RSS feeds) and an optional local BitAxe miner API. Everything ships in a single `index.html` file — no server, no database, no build step at runtime. Open it in a browser and it works.
 
 Built as a personal "field report" for a wall-mounted monitor. The layout is locked to 1920×1080 and scales to fit the browser window.
 
@@ -56,14 +56,14 @@ Per-user preferences (location, time format, temp unit, BitAxe API URL, dark mod
 
 The Miners card polls a local BitAxe HTTP API. Two options:
 
-1. **Use the included Python aggregator** — [`bitaxe_api.py`](bitaxe_api.py) polls multiple BitAxe IPs and serves a unified JSON endpoint. Run `BITAXE_IPS=10.0.0.5,10.0.0.6 python bitaxe_api.py`.
+1. **Use the included Python aggregator** — [`bitaxe_api.py`](bitaxe_api.py) polls multiple BitAxe IPs and serves a unified JSON endpoint. Run `BITAXE_IPS=<miner-ip-1>,<miner-ip-2> python bitaxe_api.py`.
 2. **Point the dashboard at your own miner** — open the settings panel and change the BitAxe API URL to your miner's address.
 
 If no BitAxe is reachable, the Miners card shows a friendly placeholder.
 
 ## Architecture
 
-Custom React hooks (`useBTC`, `useChain`, `useBitaxe`, `useWeather`, `useRSS`, `useFeedHealth`) fetch from external APIs and feed the presentational component tree. Build step (`build.js`) concatenates `src/` modules and inlines them in `src/index.html` to produce the single-file `Command Center.html`. Babel transpiles JSX in the browser at runtime.
+Custom React hooks (`useBTC`, `useChain`, `useBitaxe`, `useWeather`, `useRSS`, `useFeedHealth`) fetch from external APIs and feed the presentational component tree. Build step (`build.js`) concatenates `src/` modules and inlines them in `src/index.html` to produce the single-file `index.html`. Babel transpiles JSX in the browser at runtime.
 
 Full breakdown in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Setup and deployment details in [`docs/SETUP.md`](docs/SETUP.md).
 

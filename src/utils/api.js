@@ -1,5 +1,5 @@
 // ─── API Fetch Helpers ────────────────────────────────────────
-// Extracted from Command Center.html
+// Extracted from Command Center.html (now index.html)
 // All functions use fetch() with 5s timeout and sensible error handling
 
 const FETCH_TIMEOUT = 5000;

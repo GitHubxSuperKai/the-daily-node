@@ -559,9 +559,9 @@ Remove the three CDN `<script>` tags and the `type="text/babel"` attribute. Repl
 - [ ] **Step 5: Run the build**
 
 Run: `npm run build`
-Expected: `✓ Built Command Center.html`. No errors.
+Expected: `✓ Built index.html`. No errors.
 
-- [ ] **Step 6: Open `Command Center.html` in a browser, eyeball it**
+- [ ] **Step 6: Open `index.html` in a browser, eyeball it**
 
 Expected: dashboard renders. Open DevTools console — expected zero errors. Confirm no network request to `unpkg.com` in the Network tab.
 
@@ -652,7 +652,7 @@ if (!/127\.0\.0\.1:3001/.test(html)) fail('CSP missing BitAxe loopback');
 - [ ] **Step 3: Build and load in a browser**
 
 Run: `npm run build && python -m http.server 3000`
-Open `http://localhost:3000/Command Center.html`. Open DevTools console.
+Open `http://localhost:3000/index.html`. Open DevTools console.
 Expected: zero CSP violation messages. All panels populate.
 
 If a violation appears, the offending host needs to be added to `connect-src` (or a refactor is needed for an `eval`/inline-style edge case). Note the violation, fix the policy, rebuild.
@@ -887,9 +887,9 @@ Modify `build.js` — add to the `files` array at the appropriate position (hook
 - [ ] **Step 9: Build and verify**
 
 Run: `npm run build`
-Expected: `✓ Built Command Center.html`.
+Expected: `✓ Built index.html`.
 
-Open `Command Center.html` in a browser at 1920×1080 — desktop view as before.
+Open `index.html` in a browser at 1920×1080 — desktop view as before.
 Open DevTools, toggle device emulation to iPhone 14 (390×844). Reload. Expected: stacked single-column mobile view.
 
 - [ ] **Step 10: Run all tests**
