@@ -118,3 +118,22 @@ describe('SettingsPanel — Miners (row-based)', () => {
     await waitFor(() => expect(screen.getByText(/not a private\/LAN address/i)).toBeTruthy());
   });
 });
+
+describe('SettingsPanel — Preferences', () => {
+  beforeEach(() => { vi.restoreAllMocks(); });
+
+  it('renders Location, Time Format, and Temperature controls', () => {
+    renderPanel({ prefs: { ...basePrefs, cityName: 'Berlin' } });
+    expect(screen.getByDisplayValue('Berlin')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /12h AM\/PM/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /°F/i })).toBeTruthy();
+  });
+
+  it('calls onSave with current pending prefs on Save click', () => {
+    const { props } = renderPanel({ prefs: { ...basePrefs, cityName: 'Berlin' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({
+      cityName: 'Berlin', timeFormat: '12h', tempUnit: 'fahrenheit',
+    }));
+  });
+});
