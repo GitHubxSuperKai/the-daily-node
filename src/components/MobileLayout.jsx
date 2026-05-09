@@ -121,6 +121,15 @@ function MobileLayout({ btc, chain, miners, news, onToggleDark, dark }) {
         })}
       </div>
 
+      {/* Desktop-only notice */}
+      <div style={{
+        marginTop: 24, padding: '12px 14px',
+        borderTop: `1px solid ${T.ink3}`,
+        fontSize: 11, color: T.ink3, textAlign: 'center',
+      }}>
+        Open on desktop to configure miners and preferences.
+      </div>
+
     </div>
   );
 }
