@@ -14,6 +14,7 @@ const files = [
   'utils/v2prefs.js',
   'utils/alertThresholds.js',
   'utils/scale.js',
+  'utils/ipValidation.js',
   'components/Num.jsx',
   'components/StatusDot.jsx',
   'components/Kicker.jsx',
