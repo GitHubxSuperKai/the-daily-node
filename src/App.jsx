@@ -84,7 +84,7 @@ function App() {
   const clock = useClock(prefs.timeFormat);
   const btc = useBTC();
   const chain = useChain();
-  const bitaxe = useBitaxe(bitaxeApiUrl, bitaxeIps);
+  const bitaxe = useBitaxe();
   const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
   const rss = useRSS();
   const feedHealth = useFeedHealth([btc, chain, weather, rss, bitaxe]);

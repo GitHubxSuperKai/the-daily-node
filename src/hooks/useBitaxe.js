@@ -1,63 +1,46 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import CONFIG from '../config.js';
 import { useResettableInterval } from './useResettableInterval.js';
 
 /**
- * useBitaxe Hook
- * Fetches BitAxe miner data from API or direct IP polling
+ * useBitaxe — fetches the BitAxe fleet from the same-origin API server.
+ *
+ * The dashboard is always served by bitaxe_api.py (Docker or local), so /api/miners
+ * is reachable same-origin. Direct-poll-by-IP from the browser is no longer supported.
  *
  * Returns: {
- *   miners: array of miner objects with { ip, online, data? },
- *   err: boolean (true if all miners are offline),
- *   loading: boolean,
- *   lastOk: timestamp or null,
- *   interval: number (for feed health tracking)
+ *   miners:   array of { ip, online, data? } from the server
+ *   err:      true when the fetch fails or every miner is offline
+ *   loading:  true until the first response (success or fail)
+ *   lastOk:   timestamp of the last successful fetch (null until first success)
+ *   interval: refresh interval in ms (for feed-health tracking)
+ *   refresh:  manual refresh trigger
  * }
  */
-export function useBitaxe(apiUrl, ips) {
+export function useBitaxe() {
   const [miners, setMiners] = useState([]);
   const [err, setErr] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lastOk, setLastOk] = useState(null);
 
   const fetchBitaxe = useCallback(async () => {
-    let next;
-    if (apiUrl) {
-      try {
-        const r = await fetch(apiUrl, { signal: AbortSignal.timeout(5000) });
-        if (!r.ok) throw new Error('api');
-        const body = await r.json();
-        next = body.miners;
-      } catch {
-        next = ips.map(ip => ({ ip, online: false }));
-      }
-    } else {
-      const results = await Promise.allSettled(
-        ips.map(async ip => {
-          const r = await fetch(`http://${ip}/api/system/info`, { signal: AbortSignal.timeout(5000) });
-          if (!r.ok) throw new Error('bitaxe');
-          const data = await r.json();
-          return { ip, online: true, data };
-        })
-      );
-      next = results.map((r, i) =>
-        r.status === 'fulfilled' ? r.value : { ip: ips[i], online: false }
-      );
+    try {
+      const r = await fetch('/api/miners', { signal: AbortSignal.timeout(5000) });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const body = await r.json();
+      const list = Array.isArray(body.miners) ? body.miners : [];
+      setMiners(list);
+      setErr(list.length > 0 && list.every(m => !m.online));
+      setLastOk(Date.now());
+    } catch {
+      setMiners([]);
+      setErr(true);
+    } finally {
+      setLoading(false);
     }
-    setMiners(next);
-    setErr(next.every(m => !m.online));
-    setLoading(false);
-    setLastOk(Date.now());
-  }, [apiUrl, ips.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const { reset: resetBitaxe } = useResettableInterval(fetchBitaxe, CONFIG.REFRESH_INTERVALS.bitaxe);
-
-  // Re-fetch immediately when API URL or IPs change (preserves original behavior)
-  const hasMountedRef = useRef(false);
-  useEffect(() => {
-    if (!hasMountedRef.current) { hasMountedRef.current = true; return; }
-    resetBitaxe();
-  }, [apiUrl, ips.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     miners,
