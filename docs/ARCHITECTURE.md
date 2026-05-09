@@ -96,7 +96,7 @@ Fetches BTC price from Kraken API (primary) and 24h chart from CoinGecko. Return
 Aggregates block height, hashrate, network difficulty, mempool stats, and fee estimates from Mempool.space using 5 parallel endpoint requests. Returns computed values: difficulty adjustment countdown, solo mining odds, estimated retarget date. Polls every 60s.
 
 ### **src/hooks/useBitaxe.js**
-Polls the server's `/api/miners` endpoint for miner fleet stats. Returns hashrate, power consumption, temperatures, and uptime per miner. Polls every 10s. Falls back gracefully if API unavailable.
+Polls the server's `/api/miners` endpoint for miner fleet stats. Returns hashrate, power consumption, temperatures, and uptime per miner. Polls every 30s. Falls back gracefully if API unavailable.
 
 ### **src/hooks/useWeather.js**
 Fetches current weather from Open-Meteo API (no key required) using lat/lng coordinates. Returns temperature, weather code (WMO), wind speed, and sunrise/sunset times. Triggers auto dark mode at sunset. Polls every 15 minutes. Supports Celsius/Fahrenheit.
