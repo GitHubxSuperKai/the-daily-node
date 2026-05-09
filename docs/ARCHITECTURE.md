@@ -75,7 +75,7 @@ All hook data includes `{ data, loading, error, lastOk }` for status monitoring.
 ## Modules
 
 ### **src/config.js**
-Centralized configuration for API endpoints, refresh intervals, and user defaults. Contains BitAxe API URL, RSS feed list, weather location, and fetch timeout. Exported as ES6 default and CommonJS for Node.js testability. Edit this file to customize API sources or polling rates.
+Centralized configuration for API endpoints, refresh intervals, and user defaults. Contains RSS feed list, weather location, and fetch timeout. Exported as ES6 default and CommonJS for Node.js testability. Edit this file to customize API sources or polling rates.
 
 ### **src/theme.js**
 Defines two complete color themes (LIGHT and DARK) with font stacks, ink shades, paper backgrounds, and semantic colors (orange, red, green). Exports `ThemeCtx` context and `useT()` hook for components to access current theme. Themes include typography scales (serif, body, sans, mono) and rule/divider opacity levels.
@@ -96,7 +96,7 @@ Fetches BTC price from Kraken API (primary) and 24h chart from CoinGecko. Return
 Aggregates block height, hashrate, network difficulty, mempool stats, and fee estimates from Mempool.space using 5 parallel endpoint requests. Returns computed values: difficulty adjustment countdown, solo mining odds, estimated retarget date. Polls every 60s.
 
 ### **src/hooks/useBitaxe.js**
-Polls configurable BitAxe HTTP API (default `http://192.168.1.59:3001/api/miners`) for miner fleet stats. Accepts custom API URL and IP array from App state. Returns hashrate, power consumption, temperatures, uptime per miner. Polls every 10s. Falls back gracefully if API unavailable.
+Polls the server's `/api/miners` endpoint for miner fleet stats. Returns hashrate, power consumption, temperatures, and uptime per miner. Polls every 10s. Falls back gracefully if API unavailable.
 
 ### **src/hooks/useWeather.js**
 Fetches current weather from Open-Meteo API (no key required) using lat/lng coordinates. Returns temperature, weather code (WMO), wind speed, and sunrise/sunset times. Triggers auto dark mode at sunset. Polls every 15 minutes. Supports Celsius/Fahrenheit.
@@ -162,7 +162,7 @@ Simple time formatter that updates every 1 second. Accepts `timeFormat` string (
 
 **Promise.allSettled():** Used in `fetchChainStats()` to batch 5 Mempool endpoints in parallel. If one fails, others continue; the hook presents partial data instead of failing entirely.
 
-**localStorage persistence:** User preferences (weather location, time format, temp unit) and BitAxe API config are saved to localStorage on change. App initializes from localStorage on mount, falling back to `config.js` defaults.
+**localStorage persistence:** User preferences (weather location, time format, temp unit) are saved to localStorage on change. App initializes from localStorage on mount, falling back to `config.js` defaults. Miner IPs are managed server-side via `bitaxe_api.py` and persisted to `bitaxe_config.json` — not localStorage.
 
 **Canvas scaling:** The 1920×1080 canvas is rendered at native size in the DOM but scaled to fit the browser window via CSS `transform`. The `applyScale()` function calculates the required scale factor and applies it to `#canvas`.
 
