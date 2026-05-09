@@ -2,7 +2,7 @@
 #
 # 1. Replace the placeholder IPs below with your BitAxe miner IPs.
 #    (Or leave BITAXE_IPS unset to configure via the web setup page on first launch.)
-# 2. `docker compose up -d`
+# 2. `docker-compose up -d`  (or `docker compose up -d` if using the newer plugin)
 # 3. Open http://<host>:3001/ in any browser on your LAN.
 #
 # Miner IPs entered via the setup page are saved to the `daily-node-config`
