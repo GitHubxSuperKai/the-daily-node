@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React from 'react';
 import CONFIG from '../config.js';
 import { useResettableInterval } from './useResettableInterval.js';
 
@@ -18,12 +18,12 @@ import { useResettableInterval } from './useResettableInterval.js';
  * }
  */
 export function useBitaxe() {
-  const [miners, setMiners] = useState([]);
-  const [err, setErr] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [lastOk, setLastOk] = useState(null);
+  const [miners, setMiners] = React.useState([]);
+  const [err, setErr] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [lastOk, setLastOk] = React.useState(null);
 
-  const fetchBitaxe = useCallback(async () => {
+  const fetchBitaxe = React.useCallback(async () => {
     try {
       const r = await fetch('/api/miners', { signal: AbortSignal.timeout(5000) });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
