@@ -137,3 +137,17 @@ describe('SettingsPanel — Preferences', () => {
     }));
   });
 });
+
+describe('SettingsPanel — Alerts', () => {
+  beforeEach(() => { vi.restoreAllMocks(); });
+
+  it('renders all four alert sections and persists toggles via onSaveV2', () => {
+    const { props } = renderPanel();
+    expect(screen.getByText(/Fee spike/i)).toBeTruthy();
+    expect(screen.getByText(/Block time drift/i)).toBeTruthy();
+    expect(screen.getByText(/Miner offline/i)).toBeTruthy();
+    expect(screen.getByText(/Price move/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
+    expect(props.onSaveV2).toHaveBeenCalledWith(baseV2);
+  });
+});
