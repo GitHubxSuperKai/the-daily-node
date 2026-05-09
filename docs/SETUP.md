@@ -9,7 +9,7 @@ A comprehensive guide to setting up the project locally, building for release, a
 Before getting started, ensure you have the following installed:
 
 - **Node.js 16+** — JavaScript runtime for build tooling
-- **Python 3** — For running the local HTTP server and optional BitAxe API simulator
+- **Python 3** — For running the local HTTP server and the BitAxe proxy (`bitaxe_api.py`)
 - **Modern browser** — Chrome, Firefox, Safari, or Edge (latest versions)
 - **Git** — For cloning and version control
 
@@ -73,15 +73,17 @@ npm run serve
 
 This runs `npm run build` followed by `npm run dev`. Visit `http://localhost:3000/Command%20Center.html` to verify the production bundle works correctly.
 
-## Running BitAxe API Locally (Optional)
+## Running the BitAxe Proxy (Required for Miner Monitoring)
 
 If you have BitAxe miners on your local network, run the included Python proxy to aggregate them into a single CORS-friendly endpoint and serve the dashboard at the same origin:
 
 ```bash
-python bitaxe_api.py --bind 0.0.0.0
+python bitaxe_api.py
 ```
 
-This starts an HTTP server on port 3001 that serves the dashboard at `/` and the aggregated miner stats at `/api/miners`. On first launch with no miners configured, browsing to `/` shows a setup page where you enter miner IPs; you can also add/remove miners later from the in-app Settings Panel (⚙ icon). Both paths persist to `bitaxe_config.json`.
+This starts an HTTP server on port 3001 (bound to `127.0.0.1` by default) that serves the dashboard at `/` and aggregated miner stats at `/api/miners`. On first launch with no miners configured, browsing to `/` shows a setup page where you enter miner IPs; you can also add/remove miners later from the in-app Settings Panel (⚙ icon). Both paths persist to `bitaxe_config.json`.
+
+To expose the server to other devices on your LAN (e.g. a wall display), add `--bind 0.0.0.0`.
 
 **Requirements:**
 - Python 3.10+ (standard library only — no `pip install`)
