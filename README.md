@@ -25,8 +25,7 @@ Built as a personal "field report" for a wall-mounted monitor. The layout is loc
 - ⛏️ **BitAxe fleet monitoring** — live hashrate, power, temps from your local miners
 - 🌤️ **Weather widget** — Open-Meteo, with auto dark mode at sunset
 - 🌗 **Light + dark themes** — toggle manually or follow sunset
-- ⚙️ **In-app settings** — change location, time format, units, API URLs without touching code
-- 💾 **No backend** — preferences stored in browser localStorage
+- ⚙️ **In-app settings** — add/remove miners, change location, time format, units, and alert thresholds without touching code
 
 ## Run it
 
