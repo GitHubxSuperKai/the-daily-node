@@ -8,9 +8,12 @@ import { useWeather } from './hooks/useWeather.js';
 import { useRSS } from './hooks/useRSS.js';
 import { useFeedHealth } from './hooks/useFeedHealth.js';
 import { usePageRefresh } from './hooks/usePageRefresh.js';
+import { useViewportMode } from './hooks/useViewportMode.js';
 import { CommandCenter } from './components/CommandCenter.jsx';
 import CONFIG from './config.js';
 import { LIGHT, DARK, ThemeCtx } from './theme.js';
+import { loadV2Prefs, saveV2Prefs } from './utils/v2prefs.js';
+import { RSS_FEED_MAP } from './config.js';
 
 function App() {
   // ─── Dark Mode ────────────────────────────────────────────
