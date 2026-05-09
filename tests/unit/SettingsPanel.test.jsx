@@ -151,3 +151,15 @@ describe('SettingsPanel — Alerts', () => {
     expect(props.onSaveV2).toHaveBeenCalledWith(baseV2);
   });
 });
+
+describe('SettingsPanel — full render', () => {
+  it('shows all sections without crashing', () => {
+    renderPanel({ miners: [] });
+    expect(screen.getAllByText(/Miners/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Location/i)).toBeTruthy();
+    expect(screen.getByText(/ALERTS/i)).toBeTruthy();
+    expect(screen.getByText(/RSS FEEDS/i)).toBeTruthy();
+    expect(screen.getByText(/THEME/i)).toBeTruthy();
+    expect(screen.getByText(/REFRESH INTERVALS/i)).toBeTruthy();
+  });
+});

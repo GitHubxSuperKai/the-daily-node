@@ -427,7 +427,48 @@ export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSav
             <TweaksRow label="Cooldown (min)" T={T}><TweaksNumInput path="alerts.price.cooldownMin" min={5} max={1440} get={v2get} setPath={setV2Path} T={T} /></TweaksRow>
           </TweaksSection>
 
-          {/* placeholder for further sections — Task 3e */}
+          {/* ── RSS Feeds ── */}
+          <span style={{ fontFamily: T.display || T.sans, fontSize: 11, letterSpacing: '0.08em', color: T.ink3, marginBottom: 4, display: 'block', marginTop: 8 }}>RSS FEEDS</span>
+          <TweaksSection T={T}>
+            {[
+              { key: 'feeds.bitcoinMagazine', label: 'Bitcoin Magazine' },
+              { key: 'feeds.coindesk',        label: 'CoinDesk' },
+              { key: 'feeds.newsBitcoin',     label: 'News.Bitcoin.com' },
+            ].map(({ key, label }) => <TweaksCheckRow key={key} path={key} label={label} get={v2get} setPath={setV2Path} />)}
+          </TweaksSection>
+
+          {/* ── Theme ── */}
+          <span style={{ fontFamily: T.display || T.sans, fontSize: 11, letterSpacing: '0.08em', color: T.ink3, marginBottom: 4, display: 'block', marginTop: 8 }}>THEME</span>
+          <TweaksSection T={T}>
+            {[['light', 'Light'], ['dark', 'Dark'], ['auto', 'Auto (by sunset)']].map(([val, label]) => (
+              <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  name="tweak-theme"
+                  value={val}
+                  checked={v2local.theme === val}
+                  onChange={() => setV2Path('theme', val)}
+                  style={{ width: 14, height: 14 }}
+                />
+                <span style={{ fontSize: 13 }}>{label}</span>
+              </label>
+            ))}
+          </TweaksSection>
+
+          {/* ── Refresh Intervals ── */}
+          <span style={{ fontFamily: T.display || T.sans, fontSize: 11, letterSpacing: '0.08em', color: T.ink3, marginBottom: 4, display: 'block', marginTop: 8 }}>REFRESH INTERVALS</span>
+          <div style={{ fontSize: 11, color: T.ink3, marginBottom: 6 }}>Values in seconds. Reload page to apply.</div>
+          <TweaksSection T={T}>
+            {[
+              { key: 'intervals.price',   label: 'BTC price',    min: 15,  max: 300  },
+              { key: 'intervals.chain',   label: 'Chain vitals', min: 30,  max: 600  },
+              { key: 'intervals.weather', label: 'Weather',      min: 300, max: 3600 },
+              { key: 'intervals.rss',     label: 'News',         min: 60,  max: 1800 },
+              { key: 'intervals.bitaxe',  label: 'Miners',       min: 10,  max: 300  },
+            ].map(({ key, label, min, max }) => (
+              <TweaksRow key={key} label={label} T={T}><TweaksNumInput path={key} min={min} max={max} get={v2get} setPath={setV2Path} T={T} /></TweaksRow>
+            ))}
+          </TweaksSection>
 
           <div style={{ display: 'flex', gap: u(10), marginTop: u(24), borderTop: '1px solid ' + T.rule2, paddingTop: u(18) }}>
             <button style={btnPrimary} onClick={handleSave}>Save</button>
