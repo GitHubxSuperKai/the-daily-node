@@ -4,6 +4,55 @@ import Kicker from './Kicker';
 import { isValidLanIp } from '../utils/ipValidation';
 import { u } from '../utils/scale';
 
+// ── Helper components for v2 preferences ──
+function TweaksNumInput({ path, min, max, get, setPath, T }) {
+  return (
+    <input
+      type="number"
+      value={get(path) ?? ''}
+      min={min}
+      max={max}
+      onChange={e => setPath(path, Number(e.target.value))}
+      style={{
+        width: 64, background: T.paper, color: T.ink, fontSize: 13,
+        border: `1px solid ${T.ink3}`, borderRadius: 3, padding: '2px 5px',
+        textAlign: 'right',
+      }}
+    />
+  );
+}
+
+function TweaksCheckRow({ path, label, get, setPath }) {
+  return (
+    <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer' }}>
+      <input
+        type="checkbox"
+        checked={!!get(path)}
+        onChange={e => setPath(path, e.target.checked)}
+        style={{ width: 14, height: 14 }}
+      />
+      <span style={{ fontSize: 13 }}>{label}</span>
+    </label>
+  );
+}
+
+function TweaksRow({ label, children, T }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 0' }}>
+      <span style={{ fontSize: 12, color: T.ink2 }}>{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function TweaksSection({ children, T }) {
+  return (
+    <div style={{ borderTop: `1px solid ${T.ink3}`, paddingTop: 8, marginBottom: 12 }}>
+      {children}
+    </div>
+  );
+}
+
 export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSaveV2, onClose }) {
   const T = useT();
 
@@ -23,6 +72,23 @@ export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSav
   const [pendingCityName, setPendingCityName] = React.useState(prefs.cityName);
   const [timeFormat, setTimeFormat]           = React.useState(prefs.timeFormat);
   const [tempUnit, setTempUnit]               = React.useState(prefs.tempUnit);
+
+  // ── v2 preferences (Alerts, Feeds, Intervals, Theme) ──
+  const [v2local, setV2Local] = React.useState(v2prefs);
+  const setV2Path = React.useCallback((path, value) => {
+    setV2Local(prev => {
+      const parts = path.split('.');
+      const next = { ...prev };
+      let obj = next;
+      for (let i = 0; i < parts.length - 1; i++) {
+        obj[parts[i]] = { ...obj[parts[i]] };
+        obj = obj[parts[i]];
+      }
+      obj[parts[parts.length - 1]] = value;
+      return next;
+    });
+  }, []);
+  const v2get = (path) => path.split('.').reduce((o, k) => o?.[k], v2local);
 
   const currentIps = React.useMemo(() => miners.map(m => m.ip), [miners]);
   const onlineByIp = React.useMemo(() => {
@@ -113,6 +179,7 @@ export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSav
 
   const handleSave = () => {
     onSave({ lat: pendingLat, lng: pendingLng, cityName: pendingCityName, timeFormat, tempUnit });
+    onSaveV2(v2local);
     onClose();
   };
 
@@ -327,7 +394,40 @@ export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSav
             </div>
           </div>
 
-          {/* placeholder for further sections — Tasks 3d, 3e */}
+          <div style={{ borderTop: '1px solid ' + T.rule2, margin: u(20) + ' 0 ' + u(16) }} />
+          <Kicker>Alerts</Kicker>
+          <div style={{ fontSize: 11, color: T.ink3, marginBottom: 6 }}>
+            Browser permission required.{' '}
+            <button
+              onClick={() => typeof Notification !== 'undefined' && Notification.requestPermission()}
+              style={{ background: 'transparent', color: T.orange, border: 'none', cursor: 'pointer', fontSize: 11, padding: 0 }}
+            >Grant</button>
+          </div>
+
+          <TweaksSection T={T}>
+            <TweaksCheckRow path="alerts.fee.enabled" label="Fee spike" get={v2get} setPath={setV2Path} />
+            <TweaksRow label="Threshold (sat/vB)" T={T}><TweaksNumInput path="alerts.fee.threshold" min={1} max={500} get={v2get} setPath={setV2Path} T={T} /></TweaksRow>
+            <TweaksRow label="Cooldown (min)" T={T}><TweaksNumInput path="alerts.fee.cooldownMin" min={5} max={1440} get={v2get} setPath={setV2Path} T={T} /></TweaksRow>
+          </TweaksSection>
+
+          <TweaksSection T={T}>
+            <TweaksCheckRow path="alerts.blockTime.enabled" label="Block time drift (&gt; 15 min without a block)" get={v2get} setPath={setV2Path} />
+            <TweaksRow label="Cooldown (min)" T={T}><TweaksNumInput path="alerts.blockTime.cooldownMin" min={5} max={1440} get={v2get} setPath={setV2Path} T={T} /></TweaksRow>
+          </TweaksSection>
+
+          <TweaksSection T={T}>
+            <TweaksCheckRow path="alerts.minerOffline.enabled" label="Miner offline" get={v2get} setPath={setV2Path} />
+            <TweaksRow label="Cooldown (min)" T={T}><TweaksNumInput path="alerts.minerOffline.cooldownMin" min={1} max={1440} get={v2get} setPath={setV2Path} T={T} /></TweaksRow>
+          </TweaksSection>
+
+          <TweaksSection T={T}>
+            <TweaksCheckRow path="alerts.price.enabled" label="Price move (requires history sidecar)" get={v2get} setPath={setV2Path} />
+            <TweaksRow label="% move" T={T}><TweaksNumInput path="alerts.price.pctThreshold" min={1} max={50} get={v2get} setPath={setV2Path} T={T} /></TweaksRow>
+            <TweaksRow label="Window (min)" T={T}><TweaksNumInput path="alerts.price.windowMin" min={5} max={240} get={v2get} setPath={setV2Path} T={T} /></TweaksRow>
+            <TweaksRow label="Cooldown (min)" T={T}><TweaksNumInput path="alerts.price.cooldownMin" min={5} max={1440} get={v2get} setPath={setV2Path} T={T} /></TweaksRow>
+          </TweaksSection>
+
+          {/* placeholder for further sections — Task 3e */}
 
           <div style={{ display: 'flex', gap: u(10), marginTop: u(24), borderTop: '1px solid ' + T.rule2, paddingTop: u(18) }}>
             <button style={btnPrimary} onClick={handleSave}>Save</button>
