@@ -9,7 +9,7 @@ A comprehensive guide to setting up the project locally, building for release, a
 Before getting started, ensure you have the following installed:
 
 - **Node.js 16+** — JavaScript runtime for build tooling
-- **Python 3** — For running the local HTTP server and optional BitAxe API simulator
+- **Python 3** — For running the local HTTP server and the BitAxe proxy (`bitaxe_api.py`)
 - **Modern browser** — Chrome, Firefox, Safari, or Edge (latest versions)
 - **Git** — For cloning and version control
 
@@ -73,19 +73,21 @@ npm run serve
 
 This runs `npm run build` followed by `npm run dev`. Visit `http://localhost:3000/Command%20Center.html` to verify the production bundle works correctly.
 
-## Running BitAxe API Locally (Optional)
+## Running the BitAxe Proxy (Required for Miner Monitoring)
 
-If you have a BitAxe mining controller on your local network and want to test fleet monitoring, you can run the optional BitAxe API simulator:
+If you have BitAxe miners on your local network, run the included Python proxy to aggregate them into a single CORS-friendly endpoint and serve the dashboard at the same origin:
 
 ```bash
 python bitaxe_api.py
 ```
 
-This starts a mock BitAxe HTTP server on `http://localhost:3001/api/miners`. The dashboard will automatically attempt to fetch miner stats from this endpoint. Update the API URL in the settings panel if your BitAxe runs on a different IP or port.
+This starts an HTTP server on port 3001 (bound to `127.0.0.1` by default) that serves the dashboard at `/` and aggregated miner stats at `/api/miners`. On first launch with no miners configured, browsing to `/` shows a setup page where you enter miner IPs; you can also add/remove miners later from the in-app Settings Panel (⚙ icon). Both paths persist to `bitaxe_config.json`.
+
+To expose the server to other devices on your LAN (e.g. a wall display), add `--bind 0.0.0.0`.
 
 **Requirements:**
-- Python 3
-- BitAxe controller accessible on your network (or running the mock API)
+- Python 3.10+ (standard library only — no `pip install`)
+- BitAxe miners reachable on your LAN
 
 ## Deployment
 
@@ -159,13 +161,14 @@ sudo systemctl restart apache2
 
 Once deployed, users can customize the dashboard via the **Settings Panel** (click the ⚙ icon in the top-right):
 
+- **Miners:** Add, remove, or edit BitAxe miner IPs (persisted server-side to `bitaxe_config.json`)
 - **Weather Location:** Change the latitude/longitude for weather forecasts
 - **Time Format:** Switch between 12-hour and 24-hour time
 - **Temperature Unit:** Toggle Celsius/Fahrenheit
-- **BitAxe API URL:** Update the miner API endpoint
-- **Dark Mode:** Enable/disable dark theme (persisted to localStorage)
+- **Alerts:** Configure thresholds for temperature, hashrate, and feed-staleness warnings
+- **Dark Mode:** Enable/disable dark theme
 
-All settings are saved to browser localStorage and persist across sessions.
+User preferences are saved to browser localStorage; miner IPs are saved server-side and persist across browsers and devices.
 
 ## Project Structure After Build
 
@@ -203,7 +206,7 @@ the-daily-node/
 │       └── svg.js                # SVG component factory (icons, charts)
 ├── index.html           # BUILT OUTPUT (single-file dashboard)
 ├── build.js                      # Build script (concatenates modules)
-├── bitaxe_api.py                 # Optional mock BitAxe API server
+├── bitaxe_api.py                 # Python proxy: serves dashboard + aggregates BitAxe miners
 ├── package.json                  # npm configuration
 ├── package-lock.json             # Dependency lock file
 ├── .gitignore                    # Git ignore rules
@@ -218,7 +221,7 @@ the-daily-node/
 - **`build.js`** — The build script. Reads source modules, strips import/export, concatenates, and minifies.
 - **`src/config.js`** — Centralized configuration. Update API endpoints, polling intervals, and defaults here.
 - **`src/theme.js`** — Color theme definitions. Edit to customize the light/dark color schemes.
-- **`bitaxe_api.py`** — Optional Python server that simulates a BitAxe API. Used for testing miner stats without hardware.
+- **`bitaxe_api.py`** — Python proxy server. Serves the dashboard at `/`, aggregates one or more BitAxe miners into `/api/miners`, and persists miner config to `bitaxe_config.json`. Required for miner monitoring (BitAxe firmware lacks CORS headers, so direct browser polling is impossible).
 
 ## Troubleshooting
 
@@ -228,7 +231,7 @@ the-daily-node/
 
 **Solutions:**
 1. **Check the Network tab:** Open DevTools (F12) → Network tab. Look for failed requests (red, 4xx, 5xx status).
-2. **Verify API URLs:** In the Settings panel, confirm the BitAxe API URL and other endpoints are correct.
+2. **Verify miner IPs:** In the Settings panel, confirm BitAxe miner IPs are correct and reachable from the host running `bitaxe_api.py`.
 3. **Check CORS:** Some APIs may block requests from your domain. Check browser console for CORS errors. If present, consider using a CORS proxy or configuring your server to add CORS headers.
 4. **Increase timeouts:** If APIs respond slowly, edit `src/config.js` and increase the `TIMEOUT` value (default: 5000ms).
 5. **Check external service status:**
