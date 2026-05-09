@@ -1,7 +1,6 @@
 import React from 'react';
 import { useT } from '../theme';
 import { Masthead } from './Masthead';
-import { MastheadPanel } from './MastheadPanel';
 import { Rule } from './Rule';
 import { Kicker } from './Kicker';
 import { OnThisDay } from './OnThisDay';
@@ -74,18 +73,13 @@ const isFresh = t => t === 'just now' || /^\d+s ago$/.test(t) || /^[1-4]m ago$/.
 export function CommandCenter({
   dark,
   onToggleDark,
-  bitaxeApiUrl,
-  bitaxeIps,
   prefs,
+  v2prefs,
+  onSaveV2,
   settingsOpen,
   onOpenSettings,
   onSaveSettings,
   onCloseSettings,
-  tweaksPanelOpen,
-  onOpenTweaks,
-  onCloseTweaks,
-  onSaveTweaks,
-  v2prefs,
   clock,
   btc,
   chain,
@@ -270,17 +264,6 @@ export function CommandCenter({
               >
                 ⚙
               </button>
-              <button onClick={onOpenTweaks} style={{
-                background: 'transparent',
-                border: `1px solid ${T.ink3}`,
-                color: T.ink2,
-                borderRadius: 3,
-                padding: '2px 8px',
-                cursor: 'pointer',
-                fontSize: 11,
-                fontFamily: T.display,
-                letterSpacing: '0.06em',
-              }}>TWEAKS</button>
             </div>
           </div>
         </div>
@@ -440,19 +423,14 @@ export function CommandCenter({
         </div>
 
         {settingsOpen && (
-          <MastheadPanel
-            apiUrl={bitaxeApiUrl}
-            ips={bitaxeIps}
+          <SettingsPanel
             prefs={prefs}
+            v2prefs={v2prefs}
+            miners={bitaxe.miners}
+            onRefresh={bitaxe.refresh}
             onSave={onSaveSettings}
+            onSaveV2={onSaveV2}
             onClose={onCloseSettings}
-          />
-        )}
-        {tweaksPanelOpen && (
-          <TweaksPanel
-            prefs={v2prefs}
-            onSave={onSaveTweaks}
-            onClose={onCloseTweaks}
           />
         )}
       </div>
@@ -854,19 +832,14 @@ export function CommandCenter({
       </div>
 
       {settingsOpen && (
-        <MastheadPanel
-          apiUrl={bitaxeApiUrl}
-          ips={bitaxeIps}
+        <SettingsPanel
           prefs={prefs}
+          v2prefs={v2prefs}
+          miners={bitaxe.miners}
+          onRefresh={bitaxe.refresh}
           onSave={onSaveSettings}
+          onSaveV2={onSaveV2}
           onClose={onCloseSettings}
-        />
-      )}
-      {tweaksPanelOpen && (
-        <TweaksPanel
-          prefs={v2prefs}
-          onSave={onSaveTweaks}
-          onClose={onCloseTweaks}
         />
       )}
     </div>

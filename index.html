@@ -444,13 +444,6 @@ const { useState, useEffect, useRef, useCallback, useMemo, useContext } = React;
 // Edit these values to match your setup
 
 const CONFIG = {
-  // ─── BitAxe API ───────────────────────────────────────
-  // Set these to your local BitAxe API server and miner IPs
-  // Leave empty to disable BitAxe monitoring
-  // User customization via: Edit before build, or use in-app settings panel
-  BITAXE_API_URL: '/api/miners',
-  BITAXE_IPS: [],
-
   // ─── RSS Feeds ────────────────────────────────────────
   // Bitcoin news sources (all fetched and merged)
   RSS_FEEDS: [
@@ -506,7 +499,9 @@ const RSS_FEED_MAP = [
 
 // ES6 export
 
+
 // CommonJS export (for Node.js testability, removed during build)
+
 
 
 // ─── Font Stack ───────────────────────────────────────────
@@ -1283,6 +1278,21 @@ function checkPriceThreshold(currentUsd, historyPoints, pctThreshold, windowSeco
 // Usage: u(300) → 'calc(var(--u) * 300)'
 const u = (n) => `calc(var(--u) * ${n})`;
 
+function isValidLanIp(ip) {
+  if (typeof ip !== 'string') return false;
+  const m = ip.trim().match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return false;
+  const o = m.slice(1).map(Number);
+  if (o.some(n => n < 0 || n > 255)) return false;
+  // Private: 10/8, 172.16/12, 192.168/16. Loopback: 127/8.
+  if (o[0] === 10) return true;
+  if (o[0] === 172 && o[1] >= 16 && o[1] <= 31) return true;
+  if (o[0] === 192 && o[1] === 168) return true;
+  if (o[0] === 127) return true;
+  return false;
+}
+
+
 const NUM_PX = { hero: 64, lg: 28, md: 20, sm: 15, xs: 12 };
 function Num({ size = "md", value, unit, delta, deltaUp, style = {} }) {
   const T = useT();
@@ -1512,6 +1522,7 @@ function WxGlyph({ kind, size, speed: speedProp }) {
 }
 
 
+
 /**
  * useResettableInterval
  *
@@ -1542,6 +1553,8 @@ function useResettableInterval(callback, delay) {
 
   return { reset };
 }
+
+
 
 
 /**
@@ -1585,6 +1598,10 @@ function useClock(timeFormat = '24h') {
     error: false,
   };
 }
+
+
+
+
 
 
 /**
@@ -1681,6 +1698,11 @@ function useBTC() {
 }
 
 
+
+
+
+
+
 /**
  * useChain Hook
  * Fetches Bitcoin chain vitals from Mempool.space
@@ -1767,62 +1789,48 @@ function useChain() {
 }
 
 
+
+
+
 /**
- * useBitaxe Hook
- * Fetches BitAxe miner data from API or direct IP polling
+ * useBitaxe — fetches the BitAxe fleet from the same-origin API server.
+ *
+ * The dashboard is always served by bitaxe_api.py (Docker or local), so /api/miners
+ * is reachable same-origin. Direct-poll-by-IP from the browser is no longer supported.
  *
  * Returns: {
- *   miners: array of miner objects with { ip, online, data? },
- *   err: boolean (true if all miners are offline),
- *   loading: boolean,
- *   lastOk: timestamp or null,
- *   interval: number (for feed health tracking)
+ *   miners:   array of { ip, online, data? } from the server
+ *   err:      true when the fetch fails or every miner is offline
+ *   loading:  true until the first response (success or fail)
+ *   lastOk:   timestamp of the last successful fetch (null until first success)
+ *   interval: refresh interval in ms (for feed-health tracking)
+ *   refresh:  manual refresh trigger
  * }
  */
-function useBitaxe(apiUrl, ips) {
-  const [miners, setMiners] = useState([]);
-  const [err, setErr] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [lastOk, setLastOk] = useState(null);
+function useBitaxe() {
+  const [miners, setMiners] = React.useState([]);
+  const [err, setErr] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [lastOk, setLastOk] = React.useState(null);
 
-  const fetchBitaxe = useCallback(async () => {
-    let next;
-    if (apiUrl) {
-      try {
-        const r = await fetch(apiUrl, { signal: AbortSignal.timeout(5000) });
-        if (!r.ok) throw new Error('api');
-        const body = await r.json();
-        next = body.miners;
-      } catch {
-        next = ips.map(ip => ({ ip, online: false }));
-      }
-    } else {
-      const results = await Promise.allSettled(
-        ips.map(async ip => {
-          const r = await fetch(`http://${ip}/api/system/info`, { signal: AbortSignal.timeout(5000) });
-          if (!r.ok) throw new Error('bitaxe');
-          const data = await r.json();
-          return { ip, online: true, data };
-        })
-      );
-      next = results.map((r, i) =>
-        r.status === 'fulfilled' ? r.value : { ip: ips[i], online: false }
-      );
+  const fetchBitaxe = React.useCallback(async () => {
+    try {
+      const r = await fetch('/api/miners', { signal: AbortSignal.timeout(5000) });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const body = await r.json();
+      const list = Array.isArray(body.miners) ? body.miners : [];
+      setMiners(list);
+      setErr(list.length > 0 && list.every(m => !m.online));
+      setLastOk(Date.now());
+    } catch {
+      setMiners([]);
+      setErr(true);
+    } finally {
+      setLoading(false);
     }
-    setMiners(next);
-    setErr(next.every(m => !m.online));
-    setLoading(false);
-    setLastOk(Date.now());
-  }, [apiUrl, ips.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const { reset: resetBitaxe } = useResettableInterval(fetchBitaxe, CONFIG.REFRESH_INTERVALS.bitaxe);
-
-  // Re-fetch immediately when API URL or IPs change (preserves original behavior)
-  const hasMountedRef = useRef(false);
-  useEffect(() => {
-    if (!hasMountedRef.current) { hasMountedRef.current = true; return; }
-    resetBitaxe();
-  }, [apiUrl, ips.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     miners,
@@ -1833,6 +1841,9 @@ function useBitaxe(apiUrl, ips) {
     refresh: resetBitaxe,
   };
 }
+
+
+
 
 
 /**
@@ -1935,6 +1946,9 @@ function useWeather(lat, lng, tempUnit) {
 
 
 
+
+
+
 function useRSS() {
   const [items, setItems] = useState([]);
   const [err, setErr] = useState(false);
@@ -2008,6 +2022,7 @@ function useRSS() {
     refresh: resetRSS,
   };
 }
+
 
 
 /**
@@ -2153,6 +2168,8 @@ function useHistory(metric, range) {
 
 
 
+
+
 /**
  * usePageRefresh
  *
@@ -2197,6 +2214,7 @@ function usePageRefresh(refreshFns) {
 }
 
 
+
 // SYNC: must match isMobile check in index.html updateScale() and @media (max-width:900px)
 const MOBILE_BREAKPOINT = 900;
 
@@ -2228,6 +2246,7 @@ function useViewportMode(breakpoint) {
   }, [breakpoint]);
   return mode;
 }
+
 
 
 const MASTHEAD_QUOTES = [
@@ -2774,207 +2793,6 @@ function Miners({ bitaxe, chain }) {
   })()));
 }
 
-function MastheadPanel({ apiUrl, ips, prefs, onSave, onClose }) {
-  const T = useT();
-  const [url, setUrl] = React.useState(apiUrl);
-  const [ipsText, setIpsText] = React.useState(ips.join(", "));
-  const [cityQuery, setCityQuery] = React.useState(prefs.cityName);
-  const [geoResults, setGeoResults] = React.useState(null);
-  const [geoLoading, setGeoLoading] = React.useState(false);
-  const [pendingLat, setPendingLat] = React.useState(prefs.lat);
-  const [pendingLng, setPendingLng] = React.useState(prefs.lng);
-  const [pendingCityName, setPendingCityName] = React.useState(prefs.cityName);
-  const [timeFormat, setTimeFormat] = React.useState(prefs.timeFormat);
-  const [tempUnit, setTempUnit] = React.useState(prefs.tempUnit);
-  const handleSearch = async () => {
-    if (!cityQuery.trim())
-      return;
-    setGeoLoading(true);
-    setGeoResults(null);
-    try {
-      const r = await fetch(
-        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityQuery.trim())}&count=5&language=en&format=json`
-      );
-      if (!r.ok)
-        throw new Error("geo");
-      const j = await r.json();
-      setGeoResults(Array.isArray(j.results) && j.results.length > 0 ? j.results : []);
-    } catch (e) {
-      setGeoResults("error");
-    } finally {
-      setGeoLoading(false);
-    }
-  };
-  const handleSelectCity = (result) => {
-    const label = [result.name, result.admin1, result.country_code].filter(Boolean).join(", ");
-    setCityQuery(label);
-    setPendingLat(result.latitude);
-    setPendingLng(result.longitude);
-    setPendingCityName(label);
-    setGeoResults(null);
-  };
-  const handleSave = () => {
-    const newIps = ipsText.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
-    onSave(url.trim(), newIps, {
-      lat: pendingLat,
-      lng: pendingLng,
-      cityName: pendingCityName,
-      timeFormat,
-      tempUnit
-    });
-  };
-  const inp = {
-    fontFamily: T.mono,
-    fontSize: u(13),
-    color: T.ink,
-    background: T.paper2,
-    border: `1px solid ${T.rule2}`,
-    padding: `${u(8)} ${u(10)}`,
-    outline: "none",
-    boxSizing: "border-box",
-    display: "block",
-    width: "100%"
-  };
-  const btnPrimary = {
-    fontFamily: T.sans,
-    fontSize: u(10),
-    fontWeight: 700,
-    letterSpacing: u(1.8),
-    textTransform: "uppercase",
-    padding: `${u(9)} ${u(22)}`,
-    cursor: "pointer",
-    border: "none",
-    background: T.ink,
-    color: T.paper
-  };
-  const btnSecondary = {
-    fontFamily: T.sans,
-    fontSize: u(10),
-    fontWeight: 700,
-    letterSpacing: u(1.8),
-    textTransform: "uppercase",
-    padding: `${u(9)} ${u(22)}`,
-    cursor: "pointer",
-    border: "none",
-    background: "transparent",
-    color: T.ink3
-  };
-  const toggleBtn = (active) => ({
-    fontFamily: T.mono,
-    fontSize: u(12),
-    letterSpacing: u(1),
-    padding: `${u(7)} ${u(14)}`,
-    cursor: "pointer",
-    border: "none",
-    background: active ? T.ink : T.paper2,
-    color: active ? T.paper : T.ink3
-  });
-  return /* @__PURE__ */ React.createElement(
-    "div",
-    {
-      style: { position: "absolute", inset: 0, zIndex: 10 },
-      onClick: (e) => {
-        if (e.target === e.currentTarget)
-          onClose();
-      }
-    },
-    /* @__PURE__ */ React.createElement("div", { style: {
-      position: "absolute",
-      top: 0,
-      right: 0,
-      bottom: 0,
-      width: `min(${u(480)}, 100%)`,
-      background: T.paper,
-      borderLeft: `1px solid ${T.rule}`,
-      display: "flex",
-      flexDirection: "column",
-      overflowY: "auto",
-      boxShadow: `${u(-8)} 0 ${u(32)} rgba(0,0,0,0.14)`
-    } }, /* @__PURE__ */ React.createElement("div", { style: { padding: `${u(22)} ${u(28)} 0`, flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { borderTop: `${u(3)} solid ${T.rule}`, borderBottom: `1px solid ${T.rule}`, height: u(6), marginBottom: u(14) } }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: u(9), fontWeight: 600, letterSpacing: u(3), textTransform: "uppercase", color: T.ink3, marginBottom: u(4) } }, "Configuration"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: u(26), fontWeight: 800, letterSpacing: u(-0.8), color: T.ink, lineHeight: 1 } }, "The Masthead")), /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        onClick: onClose,
-        style: { background: "none", border: "none", cursor: "pointer", fontFamily: T.mono, fontSize: u(16), color: T.ink3, padding: u(4) }
-      },
-      "\u2715"
-    ))), /* @__PURE__ */ React.createElement("div", { style: { padding: `${u(18)} ${u(28)} ${u(28)}`, display: "flex", flexDirection: "column", gap: 0 } }, /* @__PURE__ */ React.createElement(Kicker, null, "Home Fleet"), /* @__PURE__ */ React.createElement("div", { style: { height: u(10) } }), /* @__PURE__ */ React.createElement(Kicker, null, "BitAxe API URL"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.body, fontStyle: "italic", fontSize: u(11), color: T.ink3, marginTop: u(3), marginBottom: u(6) } }, "Run bitaxe_api.py on a local server. Leave blank to poll miners directly."), /* @__PURE__ */ React.createElement(
-      "input",
-      {
-        style: inp,
-        value: url,
-        onChange: (e) => setUrl(e.target.value),
-        placeholder: "http://192.168.x.x:3001/api/miners",
-        spellCheck: false
-      }
-    ), /* @__PURE__ */ React.createElement("div", { style: { height: u(14) } }), /* @__PURE__ */ React.createElement(Kicker, null, "Miner IPs"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.body, fontStyle: "italic", fontSize: u(11), color: T.ink3, marginTop: u(3), marginBottom: u(6) } }, "Used when API URL is blank. Comma-separated."), /* @__PURE__ */ React.createElement(
-      "input",
-      {
-        style: inp,
-        value: ipsText,
-        onChange: (e) => setIpsText(e.target.value),
-        placeholder: "192.168.x.x, 192.168.x.y",
-        spellCheck: false
-      }
-    ), /* @__PURE__ */ React.createElement("div", { style: { borderTop: `1px solid ${T.rule2}`, margin: `${u(20)} 0 ${u(16)}` } }), /* @__PURE__ */ React.createElement(Kicker, null, "Preferences"), /* @__PURE__ */ React.createElement("div", { style: { height: u(10) } }), /* @__PURE__ */ React.createElement(Kicker, null, "Location"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.body, fontStyle: "italic", fontSize: u(11), color: T.ink3, marginTop: u(3), marginBottom: u(6) } }, "Type a city name and select from results."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex" } }, /* @__PURE__ */ React.createElement(
-      "input",
-      {
-        style: { ...inp, flex: 1, width: "auto" },
-        value: cityQuery,
-        onChange: (e) => {
-          setCityQuery(e.target.value);
-          setGeoResults(null);
-        },
-        onKeyDown: (e) => e.key === "Enter" && handleSearch(),
-        placeholder: "e.g. San Francisco",
-        spellCheck: false
-      }
-    ), /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        onClick: handleSearch,
-        disabled: geoLoading,
-        style: {
-          fontFamily: T.mono,
-          fontSize: u(11),
-          letterSpacing: u(1),
-          padding: `0 ${u(14)}`,
-          background: T.ink,
-          color: T.paper,
-          border: "none",
-          cursor: "pointer",
-          whiteSpace: "nowrap"
-        }
-      },
-      geoLoading ? "\u2026" : "Search"
-    )), geoResults === "error" && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.mono, fontSize: u(11), color: T.red, marginTop: u(4) } }, "Search unavailable"), Array.isArray(geoResults) && geoResults.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.mono, fontSize: u(11), color: T.ink3, marginTop: u(4) } }, "No results found"), Array.isArray(geoResults) && geoResults.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { border: `1px solid ${T.rule2}`, borderTop: "none" } }, geoResults.map((r, i) => {
-      const label = [r.name, r.admin1, r.country_code].filter(Boolean).join(", ");
-      return /* @__PURE__ */ React.createElement(
-        "div",
-        {
-          key: i,
-          onClick: () => handleSelectCity(r),
-          style: {
-            padding: `${u(7)} ${u(10)}`,
-            borderTop: i > 0 ? `1px solid ${T.rule3}` : "none",
-            cursor: "pointer",
-            fontFamily: T.mono,
-            fontSize: u(12),
-            color: T.ink,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            background: T.paper
-          },
-          onMouseEnter: (e) => e.currentTarget.style.background = T.paper2,
-          onMouseLeave: (e) => e.currentTarget.style.background = T.paper
-        },
-        /* @__PURE__ */ React.createElement("span", null, label),
-        /* @__PURE__ */ React.createElement("span", { style: { color: T.ink3, fontSize: u(10) } }, r.latitude.toFixed(2), ", ", r.longitude.toFixed(2))
-      );
-    })), pendingCityName && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.mono, fontSize: u(10), color: T.ink3, marginTop: u(5) } }, "Active: ", pendingCityName, " (", pendingLat.toFixed(4), ", ", pendingLng.toFixed(4), ")"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: u(16), marginTop: u(16) } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Kicker, null, "Time Format"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", border: `1px solid ${T.rule2}`, marginTop: u(8), width: "fit-content" } }, /* @__PURE__ */ React.createElement("button", { style: toggleBtn(timeFormat === "12h"), onClick: () => setTimeFormat("12h") }, "12h AM/PM"), /* @__PURE__ */ React.createElement("button", { style: toggleBtn(timeFormat === "24h"), onClick: () => setTimeFormat("24h") }, "24h"))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Kicker, null, "Temperature"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", border: `1px solid ${T.rule2}`, marginTop: u(8), width: "fit-content" } }, /* @__PURE__ */ React.createElement("button", { style: toggleBtn(tempUnit === "fahrenheit"), onClick: () => setTempUnit("fahrenheit") }, "\xB0F"), /* @__PURE__ */ React.createElement("button", { style: toggleBtn(tempUnit === "celsius"), onClick: () => setTempUnit("celsius") }, "\xB0C")))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: u(10), marginTop: u(24), borderTop: `1px solid ${T.rule2}`, paddingTop: u(18) } }, /* @__PURE__ */ React.createElement("button", { style: btnPrimary, onClick: handleSave }, "Save"), /* @__PURE__ */ React.createElement("button", { style: btnSecondary, onClick: onClose }, "Cancel"))))
-  );
-}
-
 function TweaksNumInput({ path, min, max, get, setPath, T }) {
   var _a;
   return /* @__PURE__ */ React.createElement(
@@ -3015,11 +2833,24 @@ function TweaksRow({ label, children, T }) {
 function TweaksSection({ children, T }) {
   return /* @__PURE__ */ React.createElement("div", { style: { borderTop: `1px solid ${T.ink3}`, paddingTop: 8, marginBottom: 12 } }, children);
 }
-function TweaksPanel({ prefs, onSave, onClose }) {
+function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSaveV2, onClose }) {
   const T = useT();
-  const [local, setLocal] = React.useState(prefs);
-  const setPath = React.useCallback((path, value) => {
-    setLocal((prev) => {
+  const [draftNewIp, setDraftNewIp] = React.useState("");
+  const [addError, setAddError] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [statusText, setStatusText] = React.useState("");
+  const [statusKind, setStatusKind] = React.useState("idle");
+  const [cityQuery, setCityQuery] = React.useState(prefs.cityName);
+  const [geoResults, setGeoResults] = React.useState(null);
+  const [geoLoading, setGeoLoading] = React.useState(false);
+  const [pendingLat, setPendingLat] = React.useState(prefs.lat);
+  const [pendingLng, setPendingLng] = React.useState(prefs.lng);
+  const [pendingCityName, setPendingCityName] = React.useState(prefs.cityName);
+  const [timeFormat, setTimeFormat] = React.useState(prefs.timeFormat);
+  const [tempUnit, setTempUnit] = React.useState(prefs.tempUnit);
+  const [v2local, setV2Local] = React.useState(v2prefs);
+  const setV2Path = React.useCallback((path, value) => {
+    setV2Local((prev) => {
       const parts = path.split(".");
       const next = { ...prev };
       let obj = next;
@@ -3031,70 +2862,316 @@ function TweaksPanel({ prefs, onSave, onClose }) {
       return next;
     });
   }, []);
-  const get = (path) => path.split(".").reduce((o, k) => o == null ? void 0 : o[k], local);
+  const v2get = (path) => path.split(".").reduce((o, k) => o == null ? void 0 : o[k], v2local);
+  const currentIps = React.useMemo(() => miners.map((m) => m.ip), [miners]);
+  const onlineByIp = React.useMemo(() => {
+    const map = /* @__PURE__ */ new Map();
+    for (const x of miners)
+      map.set(x.ip, !!x.online);
+    return map;
+  }, [miners]);
+  const postIps = async (nextList) => {
+    setBusy(true);
+    setStatusKind("busy");
+    setStatusText("Saving\u2026");
+    try {
+      const r = await fetch("/api/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bitaxe_ips: nextList })
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        const msg = (data.errors || [data.error || "unknown"]).join("; ");
+        setStatusKind("err");
+        setStatusText(msg);
+        return;
+      }
+      setStatusKind("ok");
+      setStatusText("Saved (" + data.bitaxe_ips.length + " miner" + (data.bitaxe_ips.length === 1 ? "" : "s") + ")");
+      setDraftNewIp("");
+      onRefresh == null ? void 0 : onRefresh();
+    } catch (e) {
+      setStatusKind("err");
+      setStatusText("Network error: " + e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const handleAdd = () => {
+    const ip = draftNewIp.trim();
+    setAddError("");
+    if (!ip)
+      return;
+    if (!isValidLanIp(ip)) {
+      setAddError("Not a private/LAN address (RFC1918 or 127.x.x.x)");
+      return;
+    }
+    if (currentIps.includes(ip)) {
+      setAddError("Already in the list");
+      return;
+    }
+    postIps([...currentIps, ip]);
+  };
+  const handleRemove = (ip) => {
+    if (currentIps.length === 1 && !window.confirm(
+      "Remove last miner? Dashboard will keep running with 0 miners until you add one."
+    )) {
+      return;
+    }
+    postIps(currentIps.filter((x) => x !== ip));
+  };
+  const handleSearch = async () => {
+    if (!cityQuery.trim())
+      return;
+    setGeoLoading(true);
+    setGeoResults(null);
+    try {
+      const r = await fetch(
+        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityQuery.trim())}&count=5&language=en&format=json`
+      );
+      if (!r.ok)
+        throw new Error("geo");
+      const j = await r.json();
+      setGeoResults(Array.isArray(j.results) && j.results.length > 0 ? j.results : []);
+    } catch (e) {
+      setGeoResults("error");
+    } finally {
+      setGeoLoading(false);
+    }
+  };
+  const handleSelectCity = (result) => {
+    const label = [result.name, result.admin1, result.country_code].filter(Boolean).join(", ");
+    setCityQuery(label);
+    setPendingLat(result.latitude);
+    setPendingLng(result.longitude);
+    setPendingCityName(label);
+    setGeoResults(null);
+  };
   const handleSave = () => {
-    onSave(local);
+    onSave({ lat: pendingLat, lng: pendingLng, cityName: pendingCityName, timeFormat, tempUnit });
+    onSaveV2(v2local);
     onClose();
   };
-  const sectionLabel = { fontFamily: T.display, fontSize: 11, letterSpacing: "0.08em", color: T.ink3, marginBottom: 4, display: "block" };
-  return /* @__PURE__ */ React.createElement("div", { style: {
-    position: "absolute",
-    inset: 0,
-    zIndex: 10,
-    overflowY: "auto",
-    background: T.paper,
+  const inp = {
+    fontFamily: T.mono,
+    fontSize: u(13),
     color: T.ink,
-    fontFamily: T.body,
-    padding: 16,
-    boxSizing: "border-box"
-  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.display, fontSize: 16, fontWeight: 700, letterSpacing: "0.05em" } }, "TWEAKS"), /* @__PURE__ */ React.createElement("button", { onClick: onClose, style: {
-    background: "transparent",
-    color: T.ink2,
-    border: `1px solid ${T.ink3}`,
-    borderRadius: 3,
-    padding: "3px 9px",
+    background: T.paper2,
+    border: "1px solid " + T.rule2,
+    padding: u(8) + " " + u(10),
+    outline: "none",
+    boxSizing: "border-box",
+    display: "block",
+    width: "100%"
+  };
+  const btnPrimary = {
+    fontFamily: T.sans,
+    fontSize: u(10),
+    fontWeight: 700,
+    letterSpacing: u(1.8),
+    textTransform: "uppercase",
+    padding: u(9) + " " + u(22),
     cursor: "pointer",
-    fontSize: 12
-  } }, "\u2715 Close")), /* @__PURE__ */ React.createElement("span", { style: sectionLabel }, "ALERTS"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: T.ink3, marginBottom: 6 } }, "Browser permission required.", " ", /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      onClick: () => typeof Notification !== "undefined" && Notification.requestPermission(),
-      style: { background: "transparent", color: T.orange, border: "none", cursor: "pointer", fontSize: 11, padding: 0 }
-    },
-    "Grant"
-  )), /* @__PURE__ */ React.createElement(TweaksSection, { T }, /* @__PURE__ */ React.createElement(TweaksCheckRow, { path: "alerts.fee.enabled", label: "Fee spike", get, setPath }), /* @__PURE__ */ React.createElement(TweaksRow, { label: "Threshold (sat/vB)", T }, /* @__PURE__ */ React.createElement(TweaksNumInput, { path: "alerts.fee.threshold", min: 1, max: 500, get, setPath, T })), /* @__PURE__ */ React.createElement(TweaksRow, { label: "Cooldown (min)", T }, /* @__PURE__ */ React.createElement(TweaksNumInput, { path: "alerts.fee.cooldownMin", min: 5, max: 1440, get, setPath, T }))), /* @__PURE__ */ React.createElement(TweaksSection, { T }, /* @__PURE__ */ React.createElement(TweaksCheckRow, { path: "alerts.blockTime.enabled", label: "Block time drift (> 15 min without a block)", get, setPath }), /* @__PURE__ */ React.createElement(TweaksRow, { label: "Cooldown (min)", T }, /* @__PURE__ */ React.createElement(TweaksNumInput, { path: "alerts.blockTime.cooldownMin", min: 5, max: 1440, get, setPath, T }))), /* @__PURE__ */ React.createElement(TweaksSection, { T }, /* @__PURE__ */ React.createElement(TweaksCheckRow, { path: "alerts.minerOffline.enabled", label: "Miner offline", get, setPath }), /* @__PURE__ */ React.createElement(TweaksRow, { label: "Cooldown (min)", T }, /* @__PURE__ */ React.createElement(TweaksNumInput, { path: "alerts.minerOffline.cooldownMin", min: 1, max: 1440, get, setPath, T }))), /* @__PURE__ */ React.createElement(TweaksSection, { T }, /* @__PURE__ */ React.createElement(TweaksCheckRow, { path: "alerts.price.enabled", label: "Price move (requires history sidecar)", get, setPath }), /* @__PURE__ */ React.createElement(TweaksRow, { label: "% move", T }, /* @__PURE__ */ React.createElement(TweaksNumInput, { path: "alerts.price.pctThreshold", min: 1, max: 50, get, setPath, T })), /* @__PURE__ */ React.createElement(TweaksRow, { label: "Window (min)", T }, /* @__PURE__ */ React.createElement(TweaksNumInput, { path: "alerts.price.windowMin", min: 5, max: 240, get, setPath, T })), /* @__PURE__ */ React.createElement(TweaksRow, { label: "Cooldown (min)", T }, /* @__PURE__ */ React.createElement(TweaksNumInput, { path: "alerts.price.cooldownMin", min: 5, max: 1440, get, setPath, T }))), /* @__PURE__ */ React.createElement("span", { style: { ...sectionLabel, marginTop: 8 } }, "RSS FEEDS"), /* @__PURE__ */ React.createElement(TweaksSection, { T }, [
-    { key: "feeds.bitcoinMagazine", label: "Bitcoin Magazine" },
-    { key: "feeds.coindesk", label: "CoinDesk" },
-    { key: "feeds.newsBitcoin", label: "News.Bitcoin.com" }
-  ].map(({ key, label }) => /* @__PURE__ */ React.createElement(TweaksCheckRow, { key, path: key, label, get, setPath }))), /* @__PURE__ */ React.createElement("span", { style: { ...sectionLabel, marginTop: 8 } }, "THEME"), /* @__PURE__ */ React.createElement(TweaksSection, { T }, [["light", "Light"], ["dark", "Dark"], ["auto", "Auto (by sunset)"]].map(([val, label]) => /* @__PURE__ */ React.createElement("label", { key: val, style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 0", cursor: "pointer" } }, /* @__PURE__ */ React.createElement(
-    "input",
-    {
-      type: "radio",
-      name: "tweak-theme",
-      value: val,
-      checked: local.theme === val,
-      onChange: () => setPath("theme", val),
-      style: { width: 14, height: 14 }
-    }
-  ), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13 } }, label)))), /* @__PURE__ */ React.createElement("span", { style: { ...sectionLabel, marginTop: 8 } }, "REFRESH INTERVALS"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: T.ink3, marginBottom: 6 } }, "Values in seconds. Reload page to apply."), /* @__PURE__ */ React.createElement(TweaksSection, { T }, [
-    { key: "intervals.price", label: "BTC price", min: 15, max: 300 },
-    { key: "intervals.chain", label: "Chain vitals", min: 30, max: 600 },
-    { key: "intervals.weather", label: "Weather", min: 300, max: 3600 },
-    { key: "intervals.rss", label: "News", min: 60, max: 1800 },
-    { key: "intervals.bitaxe", label: "Miners", min: 10, max: 300 }
-  ].map(({ key, label, min, max }) => /* @__PURE__ */ React.createElement(TweaksRow, { key, label, T }, /* @__PURE__ */ React.createElement(TweaksNumInput, { path: key, min, max, get, setPath, T })))), /* @__PURE__ */ React.createElement("button", { onClick: handleSave, style: {
-    background: T.orange,
-    color: "#fff",
     border: "none",
-    borderRadius: 3,
-    padding: "8px 0",
+    background: T.ink,
+    color: T.paper
+  };
+  const toggleBtn = (active) => ({
+    fontFamily: T.mono,
+    fontSize: u(12),
+    letterSpacing: u(1),
+    padding: u(7) + " " + u(14),
     cursor: "pointer",
-    fontSize: 13,
-    fontFamily: T.display,
-    letterSpacing: "0.06em",
-    width: "100%",
-    marginTop: 4
-  } }, "SAVE"));
+    border: "none",
+    background: active ? T.ink : T.paper2,
+    color: active ? T.paper : T.ink3
+  });
+  return /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      style: { position: "absolute", inset: 0, zIndex: 10 },
+      onClick: (e) => {
+        if (e.target === e.currentTarget)
+          onClose();
+      }
+    },
+    /* @__PURE__ */ React.createElement("div", { style: {
+      position: "absolute",
+      top: 0,
+      right: 0,
+      bottom: 0,
+      width: "min(" + u(480) + ", 100%)",
+      background: T.paper,
+      borderLeft: "1px solid " + T.rule,
+      display: "flex",
+      flexDirection: "column",
+      overflowY: "auto",
+      boxShadow: u(-8) + " 0 " + u(32) + " rgba(0,0,0,0.14)"
+    } }, /* @__PURE__ */ React.createElement("div", { style: { padding: u(22) + " " + u(28) + " 0", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { borderTop: u(3) + " solid " + T.rule, borderBottom: "1px solid " + T.rule, height: u(6), marginBottom: u(14) } }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: u(9), fontWeight: 600, letterSpacing: u(3), textTransform: "uppercase", color: T.ink3, marginBottom: u(4) } }, "Configuration"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: u(26), fontWeight: 800, letterSpacing: u(-0.8), color: T.ink, lineHeight: 1 } }, "Settings")), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        onClick: onClose,
+        style: { background: "none", border: "none", cursor: "pointer", fontFamily: T.mono, fontSize: u(16), color: T.ink3, padding: u(4) }
+      },
+      "\u2715"
+    ))), /* @__PURE__ */ React.createElement("div", { style: { padding: u(18) + " " + u(28) + " " + u(28), display: "flex", flexDirection: "column" } }, /* @__PURE__ */ React.createElement(Kicker, null, "Miners"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.body, fontStyle: "italic", fontSize: u(11), color: T.ink3, marginTop: u(3), marginBottom: u(8) } }, "Each row updates the server's polled list immediately."), currentIps.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontSize: u(11), color: T.ink3, marginBottom: u(6) } }, "No miners configured."), currentIps.map((ip) => {
+      const online = onlineByIp.get(ip);
+      const dotColor = online === true ? T.green : online === false ? T.red : T.ink3;
+      const stateLabel = online === true ? "online" : online === false ? "offline" : "unknown";
+      return /* @__PURE__ */ React.createElement("div", { key: ip, style: {
+        display: "flex",
+        alignItems: "center",
+        gap: u(8),
+        padding: u(6) + " 0",
+        borderBottom: "1px solid " + T.rule3
+      } }, /* @__PURE__ */ React.createElement(
+        "span",
+        {
+          "aria-label": ip + " " + stateLabel,
+          title: stateLabel,
+          style: { width: u(8), height: u(8), borderRadius: "50%", background: dotColor, flexShrink: 0 }
+        }
+      ), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.mono, fontSize: u(13), color: T.ink, flex: 1 } }, ip), /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          onClick: () => handleRemove(ip),
+          "aria-label": "Remove " + ip,
+          disabled: busy,
+          style: {
+            background: "transparent",
+            border: "none",
+            color: T.ink3,
+            fontSize: u(14),
+            cursor: busy ? "wait" : "pointer",
+            padding: "0 " + u(6)
+          }
+        },
+        "\xD7"
+      ));
+    }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: u(8), marginTop: u(10), alignItems: "center" } }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        "aria-label": "Add miner IP",
+        style: { ...inp, flex: 1, width: "auto" },
+        value: draftNewIp,
+        onChange: (e) => {
+          setDraftNewIp(e.target.value);
+          setAddError("");
+        },
+        onKeyDown: (e) => e.key === "Enter" && handleAdd(),
+        placeholder: "e.g. 192.168.x.y",
+        spellCheck: false,
+        disabled: busy
+      }
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        onClick: handleAdd,
+        disabled: busy || !draftNewIp.trim(),
+        style: {
+          fontFamily: T.sans,
+          fontSize: u(10),
+          fontWeight: 700,
+          letterSpacing: u(1.5),
+          textTransform: "uppercase",
+          padding: u(7) + " " + u(14),
+          cursor: busy ? "wait" : "pointer",
+          border: "none",
+          background: T.ink,
+          color: T.paper
+        }
+      },
+      "Add"
+    )), addError && /* @__PURE__ */ React.createElement("div", { style: { fontSize: u(11), color: T.red, marginTop: u(4) } }, addError), statusText && /* @__PURE__ */ React.createElement("div", { style: {
+      fontSize: u(11),
+      marginTop: u(4),
+      color: statusKind === "err" ? T.red : statusKind === "ok" ? T.green : T.ink3
+    } }, statusText), /* @__PURE__ */ React.createElement("div", { style: { marginTop: u(8) } }, /* @__PURE__ */ React.createElement("a", { href: "/setup.html", style: { fontSize: u(11), color: T.ink3, textDecoration: "underline" } }, "Re-run onboarding")), /* @__PURE__ */ React.createElement("div", { style: { borderTop: "1px solid " + T.rule2, margin: u(20) + " 0 " + u(16) } }), /* @__PURE__ */ React.createElement(Kicker, null, "Preferences"), /* @__PURE__ */ React.createElement("div", { style: { height: u(10) } }), /* @__PURE__ */ React.createElement(Kicker, null, "Location"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.body, fontStyle: "italic", fontSize: u(11), color: T.ink3, marginTop: u(3), marginBottom: u(6) } }, "Type a city name and select from results."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex" } }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        style: { ...inp, flex: 1, width: "auto" },
+        value: cityQuery,
+        onChange: (e) => {
+          setCityQuery(e.target.value);
+          setGeoResults(null);
+        },
+        onKeyDown: (e) => e.key === "Enter" && handleSearch(),
+        placeholder: "e.g. San Francisco",
+        spellCheck: false
+      }
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        onClick: handleSearch,
+        disabled: geoLoading,
+        style: {
+          fontFamily: T.mono,
+          fontSize: u(11),
+          letterSpacing: u(1),
+          padding: "0 " + u(14),
+          background: T.ink,
+          color: T.paper,
+          border: "none",
+          cursor: "pointer",
+          whiteSpace: "nowrap"
+        }
+      },
+      geoLoading ? "\u2026" : "Search"
+    )), geoResults === "error" && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.mono, fontSize: u(11), color: T.red, marginTop: u(4) } }, "Search unavailable"), Array.isArray(geoResults) && geoResults.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.mono, fontSize: u(11), color: T.ink3, marginTop: u(4) } }, "No results found"), Array.isArray(geoResults) && geoResults.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { border: "1px solid " + T.rule2, borderTop: "none" } }, geoResults.map((r, i) => {
+      const label = [r.name, r.admin1, r.country_code].filter(Boolean).join(", ");
+      return /* @__PURE__ */ React.createElement(
+        "div",
+        {
+          key: i,
+          onClick: () => handleSelectCity(r),
+          style: {
+            padding: u(7) + " " + u(10),
+            borderTop: i > 0 ? "1px solid " + T.rule3 : "none",
+            cursor: "pointer",
+            fontFamily: T.mono,
+            fontSize: u(12),
+            color: T.ink,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            background: T.paper
+          },
+          onMouseEnter: (e) => e.currentTarget.style.background = T.paper2,
+          onMouseLeave: (e) => e.currentTarget.style.background = T.paper
+        },
+        /* @__PURE__ */ React.createElement("span", null, label),
+        /* @__PURE__ */ React.createElement("span", { style: { color: T.ink3, fontSize: u(10) } }, r.latitude.toFixed(2), ", ", r.longitude.toFixed(2))
+      );
+    })), pendingCityName && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.mono, fontSize: u(10), color: T.ink3, marginTop: u(5) } }, "Active: ", pendingCityName, " (", pendingLat.toFixed(4), ", ", pendingLng.toFixed(4), ")"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: u(16), marginTop: u(16) } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Kicker, null, "Time Format"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", border: "1px solid " + T.rule2, marginTop: u(8), width: "fit-content" } }, /* @__PURE__ */ React.createElement("button", { style: toggleBtn(timeFormat === "12h"), onClick: () => setTimeFormat("12h") }, "12h AM/PM"), /* @__PURE__ */ React.createElement("button", { style: toggleBtn(timeFormat === "24h"), onClick: () => setTimeFormat("24h") }, "24h"))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Kicker, null, "Temperature"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", border: "1px solid " + T.rule2, marginTop: u(8), width: "fit-content" } }, /* @__PURE__ */ React.createElement("button", { style: toggleBtn(tempUnit === "fahrenheit"), onClick: () => setTempUnit("fahrenheit") }, "\xB0F"), /* @__PURE__ */ React.createElement("button", { style: toggleBtn(tempUnit === "celsius"), onClick: () => setTempUnit("celsius") }, "\xB0C")))), /* @__PURE__ */ React.createElement("div", { style: { borderTop: "1px solid " + T.rule2, margin: u(20) + " 0 " + u(16) } }), /* @__PURE__ */ React.createElement(Kicker, null, "Alerts"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: T.ink3, marginBottom: 6 } }, "Browser permission required.", " ", /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        onClick: () => typeof Notification !== "undefined" && Notification.requestPermission(),
+        style: { background: "transparent", color: T.orange, border: "none", cursor: "pointer", fontSize: 11, padding: 0 }
+      },
+      "Grant"
+    )), /* @__PURE__ */ React.createElement(TweaksSection, { T }, /* @__PURE__ */ React.createElement(TweaksCheckRow, { path: "alerts.fee.enabled", label: "Fee spike", get: v2get, setPath: setV2Path }), /* @__PURE__ */ React.createElement(TweaksRow, { label: "Threshold (sat/vB)", T }, /* @__PURE__ */ React.createElement(TweaksNumInput, { path: "alerts.fee.threshold", min: 1, max: 500, get: v2get, setPath: setV2Path, T })), /* @__PURE__ */ React.createElement(TweaksRow, { label: "Cooldown (min)", T }, /* @__PURE__ */ React.createElement(TweaksNumInput, { path: "alerts.fee.cooldownMin", min: 5, max: 1440, get: v2get, setPath: setV2Path, T }))), /* @__PURE__ */ React.createElement(TweaksSection, { T }, /* @__PURE__ */ React.createElement(TweaksCheckRow, { path: "alerts.blockTime.enabled", label: "Block time drift (> 15 min without a block)", get: v2get, setPath: setV2Path }), /* @__PURE__ */ React.createElement(TweaksRow, { label: "Cooldown (min)", T }, /* @__PURE__ */ React.createElement(TweaksNumInput, { path: "alerts.blockTime.cooldownMin", min: 5, max: 1440, get: v2get, setPath: setV2Path, T }))), /* @__PURE__ */ React.createElement(TweaksSection, { T }, /* @__PURE__ */ React.createElement(TweaksCheckRow, { path: "alerts.minerOffline.enabled", label: "Miner offline", get: v2get, setPath: setV2Path }), /* @__PURE__ */ React.createElement(TweaksRow, { label: "Cooldown (min)", T }, /* @__PURE__ */ React.createElement(TweaksNumInput, { path: "alerts.minerOffline.cooldownMin", min: 1, max: 1440, get: v2get, setPath: setV2Path, T }))), /* @__PURE__ */ React.createElement(TweaksSection, { T }, /* @__PURE__ */ React.createElement(TweaksCheckRow, { path: "alerts.price.enabled", label: "Price move (requires history sidecar)", get: v2get, setPath: setV2Path }), /* @__PURE__ */ React.createElement(TweaksRow, { label: "% move", T }, /* @__PURE__ */ React.createElement(TweaksNumInput, { path: "alerts.price.pctThreshold", min: 1, max: 50, get: v2get, setPath: setV2Path, T })), /* @__PURE__ */ React.createElement(TweaksRow, { label: "Window (min)", T }, /* @__PURE__ */ React.createElement(TweaksNumInput, { path: "alerts.price.windowMin", min: 5, max: 240, get: v2get, setPath: setV2Path, T })), /* @__PURE__ */ React.createElement(TweaksRow, { label: "Cooldown (min)", T }, /* @__PURE__ */ React.createElement(TweaksNumInput, { path: "alerts.price.cooldownMin", min: 5, max: 1440, get: v2get, setPath: setV2Path, T }))), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.display || T.sans, fontSize: 11, letterSpacing: "0.08em", color: T.ink3, marginBottom: 4, display: "block", marginTop: 8 } }, "RSS FEEDS"), /* @__PURE__ */ React.createElement(TweaksSection, { T }, [
+      { key: "feeds.bitcoinMagazine", label: "Bitcoin Magazine" },
+      { key: "feeds.coindesk", label: "CoinDesk" },
+      { key: "feeds.newsBitcoin", label: "News.Bitcoin.com" }
+    ].map(({ key, label }) => /* @__PURE__ */ React.createElement(TweaksCheckRow, { key, path: key, label, get: v2get, setPath: setV2Path }))), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.display || T.sans, fontSize: 11, letterSpacing: "0.08em", color: T.ink3, marginBottom: 4, display: "block", marginTop: 8 } }, "THEME"), /* @__PURE__ */ React.createElement(TweaksSection, { T }, [["light", "Light"], ["dark", "Dark"], ["auto", "Auto (by sunset)"]].map(([val, label]) => /* @__PURE__ */ React.createElement("label", { key: val, style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 0", cursor: "pointer" } }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        type: "radio",
+        name: "tweak-theme",
+        value: val,
+        checked: v2local.theme === val,
+        onChange: () => setV2Path("theme", val),
+        style: { width: 14, height: 14 }
+      }
+    ), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13 } }, label)))), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.display || T.sans, fontSize: 11, letterSpacing: "0.08em", color: T.ink3, marginBottom: 4, display: "block", marginTop: 8 } }, "REFRESH INTERVALS"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: T.ink3, marginBottom: 6 } }, "Values in seconds. Reload page to apply."), /* @__PURE__ */ React.createElement(TweaksSection, { T }, [
+      { key: "intervals.price", label: "BTC price", min: 15, max: 300 },
+      { key: "intervals.chain", label: "Chain vitals", min: 30, max: 600 },
+      { key: "intervals.weather", label: "Weather", min: 300, max: 3600 },
+      { key: "intervals.rss", label: "News", min: 60, max: 1800 },
+      { key: "intervals.bitaxe", label: "Miners", min: 10, max: 300 }
+    ].map(({ key, label, min, max }) => /* @__PURE__ */ React.createElement(TweaksRow, { key, label, T }, /* @__PURE__ */ React.createElement(TweaksNumInput, { path: key, min, max, get: v2get, setPath: setV2Path, T })))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: u(10), marginTop: u(24), borderTop: "1px solid " + T.rule2, paddingTop: u(18) } }, /* @__PURE__ */ React.createElement("button", { style: btnPrimary, onClick: handleSave }, "Save"), /* @__PURE__ */ React.createElement("button", { style: { ...btnPrimary, background: "transparent", color: T.ink3 }, onClick: onClose }, "Cancel"))))
+  );
 }
 
 function SubLabel({ children, right, alert, rightColor, noBorder, T }) {
@@ -3383,7 +3460,14 @@ function MobileLayout({ btc, chain, miners, news, onToggleDark, dark }) {
       },
       item.title
     );
-  })));
+  })), /* @__PURE__ */ React.createElement("div", { style: {
+    marginTop: 24,
+    padding: "12px 14px",
+    borderTop: `1px solid ${T.ink3}`,
+    fontSize: 11,
+    color: T.ink3,
+    textAlign: "center"
+  } }, "Open on desktop to configure miners and preferences."));
 }
 MobileLayout = React.memo(MobileLayout);
 
@@ -3415,18 +3499,13 @@ const isFresh = (t) => t === "just now" || /^\d+s ago$/.test(t) || /^[1-4]m ago$
 function CommandCenter({
   dark,
   onToggleDark,
-  bitaxeApiUrl,
-  bitaxeIps,
   prefs,
+  v2prefs,
+  onSaveV2,
   settingsOpen,
   onOpenSettings,
   onSaveSettings,
   onCloseSettings,
-  tweaksPanelOpen,
-  onOpenTweaks,
-  onCloseTweaks,
-  onSaveTweaks,
-  v2prefs,
   clock,
   btc,
   chain,
@@ -3576,17 +3655,7 @@ function CommandCenter({
         style: { fontFamily: T.sans, fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", padding: "4px 10px", cursor: "pointer", background: "none", color: T.ink2, border: `1px solid ${T.ink3}` }
       },
       "\u2699"
-    ), /* @__PURE__ */ React.createElement("button", { onClick: onOpenTweaks, style: {
-      background: "transparent",
-      border: `1px solid ${T.ink3}`,
-      color: T.ink2,
-      borderRadius: 3,
-      padding: "2px 8px",
-      cursor: "pointer",
-      fontSize: 11,
-      fontFamily: T.display,
-      letterSpacing: "0.06em"
-    } }, "TWEAKS")))), /* @__PURE__ */ React.createElement("div", { style: { padding: "0 16px 48px" } }, /* @__PURE__ */ React.createElement("div", { style: { paddingTop: 16, paddingBottom: 16, borderBottom: `1px solid ${T.rule2}` } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", color: T.ink3, marginBottom: 8 } }, "Markets \xB7 BTC / USD"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-end", gap: 12, marginBottom: 4 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.numDisplay, fontSize: u(42), fontWeight: 700, letterSpacing: -2, lineHeight: 1, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1' } }, btcPrice), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(18), fontWeight: 400, color: btcUp ? T.green : T.red, paddingBottom: 4, fontFeatureSettings: '"tnum" 1, "lnum" 1' } }, btcUp ? "\u25B2" : "\u25BC", " ", btcChgPct, "%")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(11), color: T.ink3, marginBottom: u(12), fontFeatureSettings: '"tnum" 1, "lnum" 1' } }, "Hi $", btcHi, " \xB7 Lo $", btcLo, " \xB7 Cap ", btcCap, yesterdayPrice != null && ((_t = btc.data) == null ? void 0 : _t.price) != null && /* @__PURE__ */ React.createElement(React.Fragment, null, " \xB7 ", /* @__PURE__ */ React.createElement("span", { style: { color: btc.data.price >= yesterdayPrice ? T.green : T.red } }, "vs yest ", btc.data.price >= yesterdayPrice ? "+" : "", ((btc.data.price - yesterdayPrice) / yesterdayPrice * 100).toFixed(1), "%"))), /* @__PURE__ */ React.createElement("div", { style: { height: 80, marginBottom: 4 } }, /* @__PURE__ */ React.createElement(LineChart, { color: T.orange, points: btc.chartPts, vwap: (_u = btc.data) == null ? void 0 : _u.vwap, fill: true })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: T.num, fontSize: u(9), color: T.ink4 } }, /* @__PURE__ */ React.createElement("span", null, "24h ago"), /* @__PURE__ */ React.createElement("span", null, "\u221212h"), /* @__PURE__ */ React.createElement("span", null, "now"))), wx && /* @__PURE__ */ React.createElement("div", { style: { paddingTop: 14, paddingBottom: 14, borderBottom: `1px solid ${T.rule2}` } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", color: T.ink3, marginBottom: 8 } }, "Weather"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14 } }, /* @__PURE__ */ React.createElement(WxGlyph, { kind: wmoIcon(wx.wxCode, (/* @__PURE__ */ new Date()).getHours(), wx.wxWindSpeed, wx.wxSunriseHr, wx.wxSunsetHr), size: 48, speed: wmoSpeed(wx.wxCode, wx.wxWindSpeed) }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(32), fontWeight: 400, letterSpacing: -1, color: T.ink, lineHeight: 1 } }, wx.temp, "\xB0 ", /* @__PURE__ */ React.createElement("span", { style: { fontSize: u(16), color: T.ink3 } }, prefs.tempUnit === "celsius" ? "C" : "F")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.body, fontStyle: "italic", fontSize: u(13), color: T.ink2, marginTop: u(3) } }, wx.wxCond, " \xB7 H", wx.wxHi, " L", wx.wxLo), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(11), color: T.ink3, marginTop: u(2) } }, wx.wxWind, " \xB7 ", wx.wxHum, " humidity")))), /* @__PURE__ */ React.createElement("div", { style: { paddingTop: 14, paddingBottom: 14, borderBottom: `1px solid ${T.rule2}` } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", color: T.ink3, marginBottom: 8 } }, "Network"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 16px" } }, [
+    )))), /* @__PURE__ */ React.createElement("div", { style: { padding: "0 16px 48px" } }, /* @__PURE__ */ React.createElement("div", { style: { paddingTop: 16, paddingBottom: 16, borderBottom: `1px solid ${T.rule2}` } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", color: T.ink3, marginBottom: 8 } }, "Markets \xB7 BTC / USD"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-end", gap: 12, marginBottom: 4 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.numDisplay, fontSize: u(42), fontWeight: 700, letterSpacing: -2, lineHeight: 1, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1' } }, btcPrice), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(18), fontWeight: 400, color: btcUp ? T.green : T.red, paddingBottom: 4, fontFeatureSettings: '"tnum" 1, "lnum" 1' } }, btcUp ? "\u25B2" : "\u25BC", " ", btcChgPct, "%")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(11), color: T.ink3, marginBottom: u(12), fontFeatureSettings: '"tnum" 1, "lnum" 1' } }, "Hi $", btcHi, " \xB7 Lo $", btcLo, " \xB7 Cap ", btcCap, yesterdayPrice != null && ((_t = btc.data) == null ? void 0 : _t.price) != null && /* @__PURE__ */ React.createElement(React.Fragment, null, " \xB7 ", /* @__PURE__ */ React.createElement("span", { style: { color: btc.data.price >= yesterdayPrice ? T.green : T.red } }, "vs yest ", btc.data.price >= yesterdayPrice ? "+" : "", ((btc.data.price - yesterdayPrice) / yesterdayPrice * 100).toFixed(1), "%"))), /* @__PURE__ */ React.createElement("div", { style: { height: 80, marginBottom: 4 } }, /* @__PURE__ */ React.createElement(LineChart, { color: T.orange, points: btc.chartPts, vwap: (_u = btc.data) == null ? void 0 : _u.vwap, fill: true })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: T.num, fontSize: u(9), color: T.ink4 } }, /* @__PURE__ */ React.createElement("span", null, "24h ago"), /* @__PURE__ */ React.createElement("span", null, "\u221212h"), /* @__PURE__ */ React.createElement("span", null, "now"))), wx && /* @__PURE__ */ React.createElement("div", { style: { paddingTop: 14, paddingBottom: 14, borderBottom: `1px solid ${T.rule2}` } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", color: T.ink3, marginBottom: 8 } }, "Weather"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14 } }, /* @__PURE__ */ React.createElement(WxGlyph, { kind: wmoIcon(wx.wxCode, (/* @__PURE__ */ new Date()).getHours(), wx.wxWindSpeed, wx.wxSunriseHr, wx.wxSunsetHr), size: 48, speed: wmoSpeed(wx.wxCode, wx.wxWindSpeed) }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(32), fontWeight: 400, letterSpacing: -1, color: T.ink, lineHeight: 1 } }, wx.temp, "\xB0 ", /* @__PURE__ */ React.createElement("span", { style: { fontSize: u(16), color: T.ink3 } }, prefs.tempUnit === "celsius" ? "C" : "F")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.body, fontStyle: "italic", fontSize: u(13), color: T.ink2, marginTop: u(3) } }, wx.wxCond, " \xB7 H", wx.wxHi, " L", wx.wxLo), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(11), color: T.ink3, marginTop: u(2) } }, wx.wxWind, " \xB7 ", wx.wxHum, " humidity")))), /* @__PURE__ */ React.createElement("div", { style: { paddingTop: 14, paddingBottom: 14, borderBottom: `1px solid ${T.rule2}` } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", color: T.ink3, marginBottom: 8 } }, "Network"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 16px" } }, [
       { val: hashrate, label: "Hashrate" },
       { val: difficulty, label: "Difficulty" },
       { val: chain.data ? `${(chain.data.blockTimeMs / 6e4).toFixed(1)}m` : "\u2014", label: "Block Time", color: blockTimeCol },
@@ -3614,20 +3683,15 @@ function CommandCenter({
       /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.body, fontSize: 15, lineHeight: 1.3, color: T.ink, letterSpacing: -0.1 } }, it.hed),
       /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.body, fontStyle: "italic", fontSize: 11, color: T.ink3, marginTop: 3 } }, it.src, " \xB7 ", /* @__PURE__ */ React.createElement("span", { style: { color: isFresh(it.t) ? T.orange : T.ink3 } }, it.t))
     )))), settingsOpen && /* @__PURE__ */ React.createElement(
-      MastheadPanel,
+      SettingsPanel,
       {
-        apiUrl: bitaxeApiUrl,
-        ips: bitaxeIps,
         prefs,
+        v2prefs,
+        miners: bitaxe.miners,
+        onRefresh: bitaxe.refresh,
         onSave: onSaveSettings,
+        onSaveV2,
         onClose: onCloseSettings
-      }
-    ), tweaksPanelOpen && /* @__PURE__ */ React.createElement(
-      TweaksPanel,
-      {
-        prefs: v2prefs,
-        onSave: onSaveTweaks,
-        onClose: onCloseTweaks
       }
     ));
   }
@@ -3908,21 +3972,15 @@ function CommandCenter({
       )))
     ),
     settingsOpen && /* @__PURE__ */ React.createElement(
-      MastheadPanel,
+      SettingsPanel,
       {
-        apiUrl: bitaxeApiUrl,
-        ips: bitaxeIps,
         prefs,
+        v2prefs,
+        miners: bitaxe.miners,
+        onRefresh: bitaxe.refresh,
         onSave: onSaveSettings,
+        onSaveV2,
         onClose: onCloseSettings
-      }
-    ),
-    tweaksPanelOpen && /* @__PURE__ */ React.createElement(
-      TweaksPanel,
-      {
-        prefs: v2prefs,
-        onSave: onSaveTweaks,
-        onClose: onCloseTweaks
       }
     )
   );
@@ -3931,22 +3989,12 @@ function CommandCenter({
 function App() {
   const [dark, setDark] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
-  const [tweaksPanelOpen, setTweaksPanelOpen] = React.useState(false);
-  const loadSavedBitAxe = () => {
+  React.useEffect(() => {
     try {
-      return JSON.parse(localStorage.getItem("dailynode-bitaxe") || "{}");
+      localStorage.removeItem("dailynode-bitaxe");
     } catch (e) {
-      return {};
     }
-  };
-  const [bitaxeApiUrl, setBitaxeApiUrl] = React.useState(() => {
-    const s = loadSavedBitAxe();
-    return s.apiUrl !== void 0 ? s.apiUrl : CONFIG.BITAXE_API_URL;
-  });
-  const [bitaxeIps, setBitaxeIps] = React.useState(() => {
-    const s = loadSavedBitAxe();
-    return s.ips !== void 0 ? s.ips : CONFIG.BITAXE_IPS;
-  });
+  }, []);
   const loadSavedPrefs = () => {
     try {
       return JSON.parse(localStorage.getItem("dailynode-prefs") || "{}");
@@ -3978,7 +4026,7 @@ function App() {
   const clock = useClock(prefs.timeFormat);
   const btc = useBTC();
   const chain = useChain();
-  const bitaxe = useBitaxe(bitaxeApiUrl, bitaxeIps);
+  const bitaxe = useBitaxe();
   const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
   const rss = useRSS();
   const feedHealth = useFeedHealth([btc, chain, weather, rss, bitaxe]);
@@ -3986,9 +4034,8 @@ function App() {
   const mode = useViewportMode();
   const theme = dark ? DARK : LIGHT;
   React.useEffect(() => {
-    if (window.applyScale) {
+    if (window.applyScale)
       window.applyScale();
-    }
   }, []);
   React.useEffect(() => {
     document.documentElement.style.setProperty("--paper", dark ? DARK.paper : LIGHT.paper);
@@ -4010,13 +4057,9 @@ function App() {
     if (newPrefs.theme === "light")
       setDark(false);
   }, []);
-  const handleSaveSettings = (newApiUrl, newIps, newPrefs) => {
-    setBitaxeApiUrl(newApiUrl);
-    setBitaxeIps(newIps);
-    localStorage.setItem("dailynode-bitaxe", JSON.stringify({ apiUrl: newApiUrl, ips: newIps }));
+  const handleSaveSettings = (newPrefs) => {
     setPrefs(newPrefs);
     localStorage.setItem("dailynode-prefs", JSON.stringify(newPrefs));
-    setSettingsOpen(false);
   };
   return /* @__PURE__ */ React.createElement(ThemeCtx.Provider, { value: theme }, mode === "mobile" ? /* @__PURE__ */ React.createElement(
     MobileLayout,
@@ -4033,18 +4076,13 @@ function App() {
     {
       dark,
       onToggleDark: handleToggleDark,
-      bitaxeApiUrl,
-      bitaxeIps,
       prefs,
+      v2prefs,
       settingsOpen,
       onOpenSettings: () => setSettingsOpen(true),
       onSaveSettings: handleSaveSettings,
+      onSaveV2: handleSaveV2Prefs,
       onCloseSettings: () => setSettingsOpen(false),
-      tweaksPanelOpen,
-      onOpenTweaks: () => setTweaksPanelOpen(true),
-      onCloseTweaks: () => setTweaksPanelOpen(false),
-      onSaveTweaks: handleSaveV2Prefs,
-      v2prefs,
       clock,
       btc,
       chain,

@@ -8,44 +8,24 @@ import { useWeather } from './hooks/useWeather.js';
 import { useRSS } from './hooks/useRSS.js';
 import { useFeedHealth } from './hooks/useFeedHealth.js';
 import { usePageRefresh } from './hooks/usePageRefresh.js';
+import { useViewportMode } from './hooks/useViewportMode.js';
 import { CommandCenter } from './components/CommandCenter.jsx';
 import CONFIG from './config.js';
 import { LIGHT, DARK, ThemeCtx } from './theme.js';
+import { loadV2Prefs, saveV2Prefs } from './utils/v2prefs.js';
+import { RSS_FEED_MAP } from './config.js';
 
-/**
- * App - Root React Component
- *
- * Orchestrates all hooks and manages global app state:
- * - Dark mode toggle
- * - Settings panel visibility
- * - User preferences (location, time format, temp unit)
- *
- * Renders CommandCenter with all data passed as props.
- */
 function App() {
   // ─── Dark Mode ────────────────────────────────────────────
   const [dark, setDark] = React.useState(false);
 
   // ─── Settings Panel ───────────────────────────────────────
   const [settingsOpen, setSettingsOpen] = React.useState(false);
-  const [tweaksPanelOpen, setTweaksPanelOpen] = React.useState(false);
 
-  // ─── BitAxe Configuration (with localStorage persistence) ──
-  const loadSavedBitAxe = () => {
-    try {
-      return JSON.parse(localStorage.getItem('dailynode-bitaxe') || '{}');
-    } catch {
-      return {};
-    }
-  };
-  const [bitaxeApiUrl, setBitaxeApiUrl] = React.useState(() => {
-    const s = loadSavedBitAxe();
-    return s.apiUrl !== undefined ? s.apiUrl : CONFIG.BITAXE_API_URL;
-  });
-  const [bitaxeIps, setBitaxeIps] = React.useState(() => {
-    const s = loadSavedBitAxe();
-    return s.ips !== undefined ? s.ips : CONFIG.BITAXE_IPS;
-  });
+  // ─── One-time migration: remove deprecated BitAxe localStorage key ──
+  React.useEffect(() => {
+    try { localStorage.removeItem('dailynode-bitaxe'); } catch {}
+  }, []);
 
   // ─── User Preferences (with localStorage persistence) ──────
   const loadSavedPrefs = () => {
@@ -69,9 +49,7 @@ function App() {
   // ─── v2 Prefs (alerts, feeds, intervals, theme) ───────────────
   const [v2prefs, setV2Prefs] = React.useState(() => {
     const p = loadV2Prefs();
-    // Patch CONFIG.RSS_FEEDS so useRSS() reads the correct feed list on first mount
     CONFIG.RSS_FEEDS = RSS_FEED_MAP.filter(f => p.feeds[f.key] !== false).map(f => f.url);
-    // Patch CONFIG.REFRESH_INTERVALS (seconds → ms) so hooks pick up user values on first mount
     CONFIG.REFRESH_INTERVALS.price   = p.intervals.price   * 1000;
     CONFIG.REFRESH_INTERVALS.chain   = p.intervals.chain   * 1000;
     CONFIG.REFRESH_INTERVALS.weather = p.intervals.weather * 1000;
@@ -84,7 +62,7 @@ function App() {
   const clock = useClock(prefs.timeFormat);
   const btc = useBTC();
   const chain = useChain();
-  const bitaxe = useBitaxe(bitaxeApiUrl, bitaxeIps);
+  const bitaxe = useBitaxe();
   const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
   const rss = useRSS();
   const feedHealth = useFeedHealth([btc, chain, weather, rss, bitaxe]);
@@ -99,14 +77,10 @@ function App() {
   const theme = dark ? DARK : LIGHT;
 
   // ─── Effects ──────────────────────────────────────────────
-  // Apply canvas scaling if available
   React.useEffect(() => {
-    if (window.applyScale) {
-      window.applyScale();
-    }
+    if (window.applyScale) window.applyScale();
   }, []);
 
-  // Apply theme to document
   React.useEffect(() => {
     document.documentElement.style.setProperty('--paper', dark ? DARK.paper : LIGHT.paper);
   }, [dark]);
@@ -127,16 +101,11 @@ function App() {
     CONFIG.RSS_FEEDS = RSS_FEED_MAP.filter(f => newPrefs.feeds[f.key] !== false).map(f => f.url);
     if (newPrefs.theme === 'dark')  setDark(true);
     if (newPrefs.theme === 'light') setDark(false);
-    // Interval changes take effect on next page reload (noted in TweaksPanel UI)
   }, []);
 
-  const handleSaveSettings = (newApiUrl, newIps, newPrefs) => {
-    setBitaxeApiUrl(newApiUrl);
-    setBitaxeIps(newIps);
-    localStorage.setItem('dailynode-bitaxe', JSON.stringify({ apiUrl: newApiUrl, ips: newIps }));
+  const handleSaveSettings = (newPrefs) => {
     setPrefs(newPrefs);
     localStorage.setItem('dailynode-prefs', JSON.stringify(newPrefs));
-    setSettingsOpen(false);
   };
 
   // ─── Render ────────────────────────────────────────────────
@@ -154,18 +123,13 @@ function App() {
         : <CommandCenter
             dark={dark}
             onToggleDark={handleToggleDark}
-            bitaxeApiUrl={bitaxeApiUrl}
-            bitaxeIps={bitaxeIps}
             prefs={prefs}
+            v2prefs={v2prefs}
             settingsOpen={settingsOpen}
             onOpenSettings={() => setSettingsOpen(true)}
             onSaveSettings={handleSaveSettings}
+            onSaveV2={handleSaveV2Prefs}
             onCloseSettings={() => setSettingsOpen(false)}
-            tweaksPanelOpen={tweaksPanelOpen}
-            onOpenTweaks={() => setTweaksPanelOpen(true)}
-            onCloseTweaks={() => setTweaksPanelOpen(false)}
-            onSaveTweaks={handleSaveV2Prefs}
-            v2prefs={v2prefs}
             clock={clock}
             btc={btc}
             chain={chain}
@@ -179,6 +143,5 @@ function App() {
   );
 }
 
-// ─── Mount to DOM ──────────────────────────────────────────
 const root = ReactDOM.createRoot(document.getElementById('canvas'));
 root.render(<App />);
