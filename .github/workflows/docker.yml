@@ -2,7 +2,17 @@ name: Docker
 
 on:
   push:
+    branches: [main]
     tags: ['v*.*.*']
+    paths:
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'bitaxe_api.py'
+      - 'src/**'
+      - 'build.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/docker.yml'
   pull_request:
     paths:
       - 'Dockerfile'
@@ -71,9 +81,9 @@ jobs:
         if: always()
         run: docker rm -f dn-smoke || true
 
-  # Tag push: build multi-arch and publish to GHCR with :latest and :v<version>
+  # main push → :latest; tag push → :v<version>, :major.minor, :latest
   publish:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
