@@ -65,7 +65,7 @@ App (root — owns all hooks, theme, localStorage prefs)
         └── Col 3: Miners, Chain stats, Kicker
 ```
 
-**Data flow:** External APIs → custom hooks → App → CommandCenter as props. All hooks return `{ data, loading, error, lastOk }`.
+**Data flow:** External APIs → custom hooks → App → CommandCenter as props. Each hook exposes its own data field plus health metadata; shapes vary (e.g. `useBitaxe` → `{ miners, err, loading, lastOk, interval, refresh }`). Check the hook's return for exact fields.
 
 **API sources** (intervals in `src/config.js`):
 - Kraken + CoinGecko → `useBTC` (price, chart) — 30s
@@ -80,7 +80,7 @@ App (root — owns all hooks, theme, localStorage prefs)
 
 **Canvas scaling:** Dashboard renders at 1920×1080, scaled to viewport via CSS `transform`. `src/utils/scale.js` exports `u(n)` — returns `calc(var(--u) * n)` for design-px values. Scaling logic lives inline in the component that mounts the canvas.
 
-**localStorage:** User prefs (weather location, time format, temp unit, BitAxe URL) persist on change. App reads localStorage on mount, falls back to `config.js` defaults.
+**localStorage:** User prefs (weather location, time format, temp unit) persist under `dailynode-prefs`; v2 prefs (alerts, feeds, intervals, theme) under their own key via `utils/v2prefs.js`. App reads localStorage on mount, falls back to `config.js` defaults. The legacy `dailynode-bitaxe` key is removed unconditionally on mount as a one-time migration.
 
 **Performance:** All components wrapped in `React.memo()`; hook callbacks in `useCallback()` with stable deps.
 
@@ -98,5 +98,3 @@ App (root — owns all hooks, theme, localStorage prefs)
 | `src/hooks/useLayoutSize.js` | Responsive layout dimensions |
 | `src/hooks/usePageRefresh.js` | Scheduled page reload |
 | `src/hooks/useResettableInterval.js` | Interval that resets on demand |
-
-> `formatting.js` and `format.js` both exist — consolidation pending. Prefer `formatting.js` for existing formatters.
