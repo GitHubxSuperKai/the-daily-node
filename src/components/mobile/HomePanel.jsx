@@ -13,7 +13,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, feedHealth, prefs,
   const miners = bitaxe.miners || [];
   const onlineCount = miners.filter(m => m.online).length;
   const minerCount  = miners.length;
-  const totalHashTHs = miners.reduce((s, m) => s + (m.online ? (m.data && m.data.hashRate_1m || 0) : 0), 0) / 1e12;
+  const totalHashTHs = miners.reduce((s, m) => s + (m.online ? (m.data ? m.data.hashRate || 0 : 0) : 0), 0) / 1000;
   const hottest = miners.reduce((max, m) => {
     const t = m.online && m.data ? m.data.temp : null;
     return t != null && t > max ? t : max;
@@ -79,7 +79,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, feedHealth, prefs,
               >
                 <span style={{ color: T.ink }}>{(m.data && m.data.hostname) || m.ip}</span>
                 <span style={{ color: m.online ? T.green : T.red }}>
-                  {m.online ? fmtHashrate(m.data && m.data.hashRate_1m) : 'offline'}
+                  {m.online ? `${((m.data.hashRate || 0) / 1000).toFixed(1)} GH/s` : 'offline'}
                 </span>
               </div>
             ))}
@@ -138,7 +138,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, feedHealth, prefs,
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {wx && (
             <WxGlyph
-              kind={wmoIcon(wx.wxCode, new Date().getHours(), wx.wxWindSpeed, wx.wxSunriseHr, wx.wxSunsetHr)}
+              kind={wmoIcon(wx.wxCode, (() => { const h = parseInt(clock.timeHM.split(':')[0], 10); return clock.amPm === 'PM' && h !== 12 ? h + 12 : clock.amPm === 'AM' && h === 12 ? 0 : h; })(), wx.wxWindSpeed, wx.wxSunriseHr, wx.wxSunsetHr)}
               size={28}
               speed={1}
             />
