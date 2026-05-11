@@ -39,7 +39,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, feedHealth, prefs,
         label="BTC / USD"
         fullWidth
         onClick={() => onNavigate('bitcoin')}
-        ariaLabel="Open Bitcoin tab"
+        ariaLabel="BTC price — open detail"
       >
         <div data-testid="btc-tile" style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
           <span style={{ fontFamily: T.numDisplay, fontSize: 32, fontWeight: 700, color: T.ink, letterSpacing: -1 }}>
@@ -109,7 +109,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, feedHealth, prefs,
       <StatusTile
         label="Mempool"
         onClick={() => onNavigate('bitcoin')}
-        ariaLabel="Open Bitcoin tab — mempool"
+        ariaLabel="Mempool — open detail"
       >
         <div style={{ fontFamily: T.num, fontSize: 18, color: T.ink }}>
           {chain.data ? fmtMempoolMB(chain.data.mempoolBytes) : '—'}
@@ -123,7 +123,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, feedHealth, prefs,
       <StatusTile
         label="Block"
         onClick={() => onNavigate('bitcoin')}
-        ariaLabel="Open Bitcoin tab — block"
+        ariaLabel="Block time — open detail"
       >
         <div style={{ fontFamily: T.num, fontSize: 18, color: T.ink }}>
           {chain.data ? fmtBlockTime(chain.data.blockTimeMs) : '—'}

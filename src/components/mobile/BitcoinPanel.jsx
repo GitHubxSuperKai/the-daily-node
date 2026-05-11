@@ -1,6 +1,9 @@
 import React from 'react';
 import { useT } from '../../theme.js';
 import { fmtPrice, fmtPct, fmtHashrate, fmtDiff, fmtMempoolMB, fmtBlockTime } from '../../utils/formatting.js';
+import Kicker from '../Kicker.jsx';
+import LineChart from '../LineChart.jsx';
+import { OnThisDay } from '../OnThisDay.jsx';
 
 function sectionLabel(T) {
   return {

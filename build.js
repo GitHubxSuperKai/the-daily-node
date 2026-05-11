@@ -52,6 +52,7 @@ const files = [
   'components/mobile/HomePanel.jsx',
   'components/mobile/BitcoinPanel.jsx',
   'components/mobile/NewsPanel.jsx',
+  'components/mobile/MobileApp.jsx',
   'components/CommandCenter.jsx',
   'App.jsx',
 ];
