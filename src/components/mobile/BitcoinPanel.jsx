@@ -136,4 +136,6 @@ function BitcoinPanel({ btc, chain }) {
   );
 }
 
+BitcoinPanel = React.memo(BitcoinPanel);
+
 export { BitcoinPanel };
