@@ -37,7 +37,7 @@
     flex-shrink: 0;
     overflow: hidden;
   }
-  /* SYNC: must match MOBILE_BREAKPOINT in useLayoutSize.js and isMobile check in updateScale() */
+  /* SYNC: must match isMobile check in updateScale() and useViewportMode(900) in App.jsx */
   @media (max-width: 900px) {
     #canvas { width: 100vw; height: auto; min-height: 100vh; }
     #stage { align-items: flex-start; overflow-y: auto; }
@@ -124,7 +124,7 @@
 const CANVAS_W = 1920, CANVAS_H = 1080;
 function updateScale() {
   const vw = window.innerWidth, vh = window.innerHeight;
-  const isMobile = vw < 900; // SYNC: must match MOBILE_BREAKPOINT in useLayoutSize.js and @media (max-width:900px)
+  const isMobile = vw < 900; // SYNC: must match useViewportMode(900) in App.jsx and @media (max-width:900px)
   const s = isMobile ? 1 : Math.min(vw / CANVAS_W, vh / CANVAS_H);
   const r = document.documentElement;
   r.style.setProperty('--u', s + 'px');
