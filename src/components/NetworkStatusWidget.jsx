@@ -1,4 +1,6 @@
 import React from 'react';
+import { fmtHashrate, fmtDiff, fmtNum, fmtBlockSize } from '../utils/formatting.js';
+import { u } from '../utils/scale.js';
 
 function SubLabel({ children, right, alert, rightColor, noBorder, T }) {
   return (

@@ -1,8 +1,8 @@
 import React from 'react';
 import { useT } from '../../theme.js';
 import { fmtPrice, fmtPct, fmtHashrate, fmtDiff, fmtMempoolMB, fmtBlockTime } from '../../utils/formatting.js';
-import Kicker from '../Kicker.jsx';
 import LineChart from '../LineChart.jsx';
+import { NetworkStatusWidget } from '../NetworkStatusWidget.jsx';
 import { OnThisDay } from '../OnThisDay.jsx';
 
 function sectionLabel(T) {
@@ -46,10 +46,10 @@ function BitcoinPanel({ btc, chain }) {
     }}>
 
       {/* ── Field Report ── */}
-      <div>
+      <section style={{ paddingBottom: 16, borderBottom: `1px solid ${T.rule2}` }}>
         <div style={sectionLabel(T)}>Field Report</div>
-        <Kicker style={{ fontSize: 11, letterSpacing: 1.5 }}>Bitcoin</Kicker>
-      </div>
+        <NetworkStatusWidget chain={chain} T={T} />
+      </section>
 
       {/* ── Price ── */}
       <div>
