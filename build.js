@@ -48,6 +48,7 @@ const files = [
   'components/MobileLayout.jsx',
   'components/mobile/MobileTabBar.jsx',
   'components/mobile/StatusTile.jsx',
+  'components/mobile/MobileHeader.jsx',
   'components/CommandCenter.jsx',
   'App.jsx',
 ];
