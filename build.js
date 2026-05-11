@@ -35,7 +35,6 @@ const files = [
   'hooks/useAlerts.js',
   'hooks/useHistory.js',
   'hooks/usePageRefresh.js',
-  'hooks/useLayoutSize.js',
   'hooks/useViewportMode.js',
   'components/Masthead.jsx',
   'components/Price.jsx',
