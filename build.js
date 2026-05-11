@@ -45,7 +45,6 @@ const files = [
   'components/Miners.jsx',
   'components/SettingsPanel.jsx',
   'components/NetworkStatusWidget.jsx',
-  'components/MobileLayout.jsx',
   'components/mobile/MobileTabBar.jsx',
   'components/mobile/StatusTile.jsx',
   'components/mobile/MobileHeader.jsx',
