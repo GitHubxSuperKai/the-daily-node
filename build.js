@@ -47,6 +47,7 @@ const files = [
   'components/NetworkStatusWidget.jsx',
   'components/MobileLayout.jsx',
   'components/mobile/MobileTabBar.jsx',
+  'components/mobile/StatusTile.jsx',
   'components/CommandCenter.jsx',
   'App.jsx',
 ];
