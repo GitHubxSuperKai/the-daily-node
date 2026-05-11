@@ -37,7 +37,7 @@
     flex-shrink: 0;
     overflow: hidden;
   }
-  /* SYNC: must match MOBILE_BREAKPOINT in useLayoutSize.js and isMobile check in updateScale() */
+  /* SYNC: must match isMobile check in updateScale() and useViewportMode(900) in App.jsx */
   @media (max-width: 900px) {
     #canvas { width: 100vw; height: auto; min-height: 100vh; }
     #stage { align-items: flex-start; overflow-y: auto; }
@@ -423,7 +423,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 const CANVAS_W = 1920, CANVAS_H = 1080;
 function updateScale() {
   const vw = window.innerWidth, vh = window.innerHeight;
-  const isMobile = vw < 900; // SYNC: must match MOBILE_BREAKPOINT in useLayoutSize.js and @media (max-width:900px)
+  const isMobile = vw < 900; // SYNC: must match useViewportMode(900) in App.jsx and @media (max-width:900px)
   const s = isMobile ? 1 : Math.min(vw / CANVAS_W, vh / CANVAS_H);
   const r = document.documentElement;
   r.style.setProperty('--u', s + 'px');
@@ -2211,23 +2211,6 @@ function usePageRefresh(refreshFns) {
   }, []);
 }
 
-
-
-// SYNC: must match isMobile check in index.html updateScale() and @media (max-width:900px)
-const MOBILE_BREAKPOINT = 900;
-
-function useLayoutSize() {
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < MOBILE_BREAKPOINT);
-
-  useEffect(() => {
-    const handle = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    window.addEventListener('resize', handle);
-    return () => window.removeEventListener('resize', handle);
-  }, []);
-
-  return { isMobile };
-}
-
 // useViewportMode — returns 'mobile' | 'desktop' based on viewport width
 // Breakpoint: ≤600px is mobile. Updates on window resize.
 function useViewportMode(breakpoint) {
@@ -3393,81 +3376,469 @@ function NetworkStatusWidget({ chain, T }) {
   }))));
 }
 
-function MobileLayout({ btc, chain, miners, news, onToggleDark, dark }) {
+const TABS = [
+  { id: "home", label: "Home", glyph: "\u25C9" },
+  { id: "bitcoin", label: "Bitcoin", glyph: "\u20BF" },
+  { id: "news", label: "News", glyph: "\u25A4" }
+];
+function MobileTabBar({ activeTab, onChange }) {
   const T = useT();
-  const sectionStyle = {
-    borderTop: `1px solid ${T.ink3}`,
-    paddingTop: 12,
-    paddingBottom: 12
-  };
-  const labelStyle = {
-    fontSize: 10,
-    fontFamily: T.sans,
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
-    color: T.ink2,
-    marginBottom: 6
-  };
-  const rowStyle = {
+  return /* @__PURE__ */ React.createElement(
+    "nav",
+    {
+      role: "tablist",
+      style: {
+        position: "fixed",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        display: "flex",
+        background: T.paper,
+        borderTop: `1px solid ${T.rule2}`,
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        zIndex: 50
+      }
+    },
+    TABS.map((tab) => {
+      const active = tab.id === activeTab;
+      return /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          key: tab.id,
+          type: "button",
+          onClick: () => onChange(tab.id),
+          "aria-label": tab.label,
+          "aria-current": active ? "page" : void 0,
+          style: {
+            flex: 1,
+            height: 56,
+            background: "none",
+            border: "none",
+            borderTop: `2px solid ${active ? T.orange : "transparent"}`,
+            color: active ? T.ink : T.ink3,
+            fontFamily: T.sans,
+            fontSize: 10,
+            fontWeight: 600,
+            letterSpacing: 1.4,
+            textTransform: "uppercase",
+            cursor: "pointer",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 3
+          }
+        },
+        /* @__PURE__ */ React.createElement("span", { style: { fontSize: 18, lineHeight: 1 } }, tab.glyph),
+        /* @__PURE__ */ React.createElement("span", null, tab.label)
+      );
+    })
+  );
+}
+MobileTabBar = React.memo(MobileTabBar);
+
+function StatusTile({ label, onClick, ariaLabel, fullWidth, children }) {
+  const T = useT();
+  const Tag = onClick ? "button" : "div";
+  return /* @__PURE__ */ React.createElement(
+    Tag,
+    {
+      type: onClick ? "button" : void 0,
+      onClick,
+      "aria-label": ariaLabel,
+      style: {
+        gridColumn: fullWidth ? "1 / -1" : "auto",
+        background: T.paper,
+        border: `1px solid ${T.rule2}`,
+        padding: "12px 14px",
+        textAlign: "left",
+        font: "inherit",
+        color: "inherit",
+        cursor: onClick ? "pointer" : "default",
+        minHeight: 64,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        gap: 6
+      }
+    },
+    label && /* @__PURE__ */ React.createElement("div", { style: {
+      fontFamily: T.sans,
+      fontSize: 9,
+      fontWeight: 600,
+      letterSpacing: 1.6,
+      textTransform: "uppercase",
+      color: T.ink3
+    } }, label),
+    /* @__PURE__ */ React.createElement("div", null, children)
+  );
+}
+StatusTile = React.memo(StatusTile);
+
+function MobileHeader({ clock, dark, onToggleDark, onOpenSettings }) {
+  const T = useT();
+  return /* @__PURE__ */ React.createElement("div", { style: {
+    padding: "14px 16px 10px",
+    borderBottom: `1px solid ${T.rule2}`,
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "baseline",
-    marginBottom: 4
-  };
+    alignItems: "flex-end"
+  } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: {
+    fontFamily: T.body,
+    fontSize: 9,
+    fontWeight: 500,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    color: T.ink3,
+    marginBottom: 3
+  } }, "Bitcoin Command Center"), /* @__PURE__ */ React.createElement("div", { style: {
+    fontFamily: T.serif,
+    fontSize: 30,
+    fontWeight: 800,
+    letterSpacing: -1,
+    lineHeight: 1
+  } }, "The Daily Node")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: 11, color: T.ink3 } }, clock.timeHM, clock.amPm ? " " + clock.amPm : ""), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: onToggleDark,
+      "aria-label": "Toggle dark mode",
+      style: {
+        fontFamily: T.sans,
+        fontSize: 9,
+        fontWeight: 700,
+        letterSpacing: 1.5,
+        textTransform: "uppercase",
+        padding: "4px 10px",
+        cursor: "pointer",
+        background: dark ? T.ink : "none",
+        color: dark ? T.paper : T.ink2,
+        border: `1px solid ${dark ? T.ink : T.ink3}`
+      }
+    },
+    dark ? "\u25D1" : "\u25D0"
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      type: "button",
+      onClick: onOpenSettings,
+      "aria-label": "Open settings",
+      style: {
+        fontFamily: T.sans,
+        fontSize: 9,
+        fontWeight: 700,
+        letterSpacing: 1.5,
+        textTransform: "uppercase",
+        padding: "4px 10px",
+        cursor: "pointer",
+        background: "none",
+        color: T.ink2,
+        border: `1px solid ${T.ink3}`
+      }
+    },
+    "\u2699"
+  ))));
+}
+MobileHeader = React.memo(MobileHeader);
+
+function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate }) {
+  const T = useT();
+  const [fleetExpanded, setFleetExpanded] = React.useState(false);
+  const miners = bitaxe.miners || [];
+  const onlineCount = miners.filter((m) => m.online).length;
+  const minerCount = miners.length;
+  const totalHashTHs = miners.reduce((s, m) => s + (m.online ? m.data ? m.data.hashRate || 0 : 0 : 0), 0) / 1e3;
+  const hottest = miners.reduce((max, m) => {
+    const t = m.online && m.data ? m.data.temp : null;
+    return t != null && t > max ? t : max;
+  }, 0);
+  const wx = weather && weather.data;
+  const tempUnit = prefs.tempUnit === "celsius" ? "\xB0C" : "\xB0F";
+  const lead = rss && rss.items && rss.items[0];
+  const btcChange = btc.data ? btc.data.chgPct : null;
+  const btcUp = btcChange != null && btcChange >= 0;
+  const onlineCountForFeed = bitaxe.miners ? bitaxe.miners.filter((m) => m.online).length : 0;
+  const minerCountForFeed = bitaxe.miners ? bitaxe.miners.length : 0;
+  const feedSources = [
+    { id: "btc", label: "BTC", ok: !btc.err && !!btc.data },
+    { id: "chain", label: "Chain", ok: !chain.err && !!chain.data },
+    { id: "miners", label: "Miners", ok: !bitaxe.err && onlineCountForFeed > 0 },
+    { id: "weather", label: "Weather", ok: !weather.err && !!weather.data },
+    { id: "rss", label: "RSS", ok: !rss.err && rss.items && rss.items.length > 0 }
+  ];
   return /* @__PURE__ */ React.createElement("div", { style: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 10,
+    padding: "14px 14px 80px",
+    background: T.paper
+  } }, /* @__PURE__ */ React.createElement(
+    StatusTile,
+    {
+      label: "BTC / USD",
+      fullWidth: true,
+      onClick: () => onNavigate("bitcoin"),
+      ariaLabel: "BTC price \u2014 open detail"
+    },
+    /* @__PURE__ */ React.createElement("div", { "data-testid": "btc-tile", style: { display: "flex", alignItems: "baseline", gap: 12 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.numDisplay, fontSize: 32, fontWeight: 700, color: T.ink, letterSpacing: -1 } }, btc.data ? fmtPrice(btc.data.price) : "\u2014"), btcChange != null && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.num, fontSize: 14, color: btcUp ? T.green : T.red } }, btcUp ? "\u25B2" : "\u25BC", " ", fmtPct(btcChange)))
+  ), /* @__PURE__ */ React.createElement(
+    StatusTile,
+    {
+      label: "Fleet",
+      fullWidth: true,
+      onClick: () => setFleetExpanded((v) => !v),
+      ariaLabel: "Toggle fleet detail"
+    },
+    /* @__PURE__ */ React.createElement("div", { "data-testid": "fleet-tile", style: { fontFamily: T.num, fontSize: 16, color: T.ink } }, minerCount === 0 ? /* @__PURE__ */ React.createElement("span", { style: { color: T.ink3 } }, "No miners configured") : /* @__PURE__ */ React.createElement(React.Fragment, null, onlineCount, "/", minerCount, " online \xB7 ", totalHashTHs.toFixed(2), " TH/s", hottest > 0 && /* @__PURE__ */ React.createElement("span", { style: { color: T.ink3 } }, " \xB7 hottest ", Math.round(hottest), "\xB0C"))),
+    fleetExpanded && miners.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, borderTop: `1px solid ${T.rule3}`, paddingTop: 8 } }, miners.map((m) => /* @__PURE__ */ React.createElement(
+      "div",
+      {
+        key: m.ip,
+        "data-testid": `fleet-row-${m.ip}`,
+        style: { display: "flex", justifyContent: "space-between", padding: "4px 0", fontFamily: T.sans, fontSize: 12 }
+      },
+      /* @__PURE__ */ React.createElement("span", { style: { color: T.ink } }, m.data && m.data.hostname || m.ip),
+      /* @__PURE__ */ React.createElement("span", { style: { color: m.online ? T.green : T.red } }, m.online ? `${((m.data.hashRate || 0) / 1e3).toFixed(1)} GH/s` : "offline")
+    )))
+  ), /* @__PURE__ */ React.createElement(StatusTile, { label: "Feeds", fullWidth: true }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" } }, feedSources.map((s) => /* @__PURE__ */ React.createElement("div", { key: s.id, style: { display: "flex", alignItems: "center", gap: 5 } }, /* @__PURE__ */ React.createElement("span", { style: {
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    background: s.ok ? T.green : T.red,
+    display: "inline-block"
+  } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, color: T.ink2, textTransform: "uppercase", letterSpacing: 1 } }, s.label))))), /* @__PURE__ */ React.createElement(
+    StatusTile,
+    {
+      label: "Mempool",
+      onClick: () => onNavigate("bitcoin"),
+      ariaLabel: "Mempool \u2014 open detail"
+    },
+    /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: 18, color: T.ink } }, chain.data ? fmtMempoolMB(chain.data.mempoolBytes) : "\u2014"),
+    /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.ink3, marginTop: 2 } }, chain.data ? `${chain.data.feeFast} sat/vB` : "\u2014")
+  ), /* @__PURE__ */ React.createElement(
+    StatusTile,
+    {
+      label: "Block",
+      onClick: () => onNavigate("bitcoin"),
+      ariaLabel: "Block time \u2014 open detail"
+    },
+    /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: 18, color: T.ink } }, chain.data ? fmtBlockTime(chain.data.blockTimeMs) : "\u2014"),
+    /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.ink3, marginTop: 2 } }, chain.data && chain.data.height ? `#${chain.data.height.toLocaleString()}` : "\u2014")
+  ), /* @__PURE__ */ React.createElement(StatusTile, { label: "Weather" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, wx && /* @__PURE__ */ React.createElement(
+    WxGlyph,
+    {
+      kind: wmoIcon(wx.wxCode, (() => {
+        const h = parseInt(clock.timeHM.split(":")[0], 10);
+        return clock.amPm === "PM" && h !== 12 ? h + 12 : clock.amPm === "AM" && h === 12 ? 0 : h;
+      })(), wx.wxWindSpeed, wx.wxSunriseHr, wx.wxSunsetHr),
+      size: 28,
+      speed: 1
+    }
+  ), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: 18, color: T.ink } }, wx ? `${wx.temp}${tempUnit}` : `\u2014${tempUnit}`), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.ink3 } }, wx ? wx.wxCond : "\u2014")))), /* @__PURE__ */ React.createElement(StatusTile, { label: "Local" }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: 18, color: T.ink } }, clock.timeHM, clock.amPm ? ` ${clock.amPm}` : ""), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 10, color: T.ink3, marginTop: 2 } }, clock.dayStr || "")), lead && /* @__PURE__ */ React.createElement(
+    StatusTile,
+    {
+      label: "Top Story",
+      fullWidth: true,
+      onClick: () => onNavigate("news"),
+      ariaLabel: "Open News tab"
+    },
+    /* @__PURE__ */ React.createElement("div", { "data-testid": "lead-tile", style: {
+      fontFamily: T.serif,
+      fontSize: 16,
+      fontWeight: 700,
+      lineHeight: 1.2,
+      color: T.ink,
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      display: "-webkit-box",
+      WebkitLineClamp: 2,
+      WebkitBoxOrient: "vertical"
+    } }, lead.hed)
+  ));
+}
+HomePanel = React.memo(HomePanel);
+
+function sectionLabel(T) {
+  return {
+    fontFamily: T.sans,
+    fontSize: 9,
+    fontWeight: 600,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    color: T.ink3,
+    marginBottom: 8
+  };
+}
+function BitcoinPanel({ btc, chain }) {
+  const T = useT();
+  const d = btc.data;
+  const c = chain.data;
+  const chgPct = d ? d.chgPct : null;
+  const chgUp = chgPct != null && chgPct >= 0;
+  const chgColor = chgUp ? T.green : T.red;
+  const vitals = [
+    { label: "Hashrate", value: c ? fmtHashrate(c.hashrate) : "\u2014" },
+    { label: "Difficulty", value: c ? fmtDiff(c.difficulty) : "\u2014" },
+    { label: "Block Time", value: c ? fmtBlockTime(c.blockTimeMs) : "\u2014" },
+    { label: "Mempool", value: c ? fmtMempoolMB(c.mempoolBytes) : "\u2014" },
+    { label: "Fast Fee", value: c ? `${c.feeFast} sat/vB` : "\u2014" },
+    { label: "Height", value: c ? `#${Number(c.height).toLocaleString("en-US")}` : "\u2014" }
+  ];
+  return /* @__PURE__ */ React.createElement("div", { style: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 20,
+    padding: "16px 16px 32px",
+    fontFamily: T.sans
+  } }, /* @__PURE__ */ React.createElement("section", { style: { paddingBottom: 16, borderBottom: `1px solid ${T.rule2}` } }, /* @__PURE__ */ React.createElement("div", { style: sectionLabel(T) }, "Field Report"), /* @__PURE__ */ React.createElement(NetworkStatusWidget, { chain, T })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: sectionLabel(T) }, "Price"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { style: {
+    fontFamily: T.mono,
+    fontSize: 36,
+    fontWeight: 700,
+    color: T.ink,
+    letterSpacing: -1
+  } }, d ? `$${fmtPrice(d.price)}` : "\u2014"), chgPct != null && /* @__PURE__ */ React.createElement("span", { style: {
+    fontFamily: T.mono,
+    fontSize: 16,
+    fontWeight: 600,
+    color: chgColor
+  } }, fmtPct(chgPct), "%")), /* @__PURE__ */ React.createElement("div", { style: {
+    fontFamily: T.mono,
+    fontSize: 11,
+    color: T.ink3,
+    marginTop: 4
+  } }, d ? `H $${fmtPrice(d.hi)}  \xB7  L $${fmtPrice(d.lo)}  \xB7  Cap $${d.cap ? (d.cap / 1e9).toFixed(0) + "B" : "\u2014"}` : "\u2014")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(
+    LineChart,
+    {
+      color: T.orange,
+      points: btc.chartPts,
+      fill: true
+    }
+  )), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: sectionLabel(T) }, "Chain Vitals"), /* @__PURE__ */ React.createElement("div", { style: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "12px 16px"
+  } }, vitals.map(function(v) {
+    return /* @__PURE__ */ React.createElement("div", { key: v.label }, /* @__PURE__ */ React.createElement("div", { style: {
+      fontFamily: T.sans,
+      fontSize: 9,
+      fontWeight: 600,
+      letterSpacing: 1.5,
+      textTransform: "uppercase",
+      color: T.ink3,
+      marginBottom: 2
+    } }, v.label), /* @__PURE__ */ React.createElement("div", { style: {
+      fontFamily: T.mono,
+      fontSize: 14,
+      fontWeight: 600,
+      color: T.ink
+    } }, v.value));
+  }))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: sectionLabel(T) }, "On This Day"), /* @__PURE__ */ React.createElement(OnThisDay, null)));
+}
+BitcoinPanel = React.memo(BitcoinPanel);
+
+const isFresh = (t) => t === "just now" || /^\d+s ago$/.test(t) || /^[1-4]m ago$/.test(t);
+function NewsPanel({ rss }) {
+  const T = useT();
+  const items = rss && rss.items || [];
+  const lead = items[0];
+  const rest = items.slice(1, 25);
+  return /* @__PURE__ */ React.createElement("div", { style: { padding: "14px 16px 80px", background: T.paper, color: T.ink } }, lead && /* @__PURE__ */ React.createElement("section", { style: {
+    paddingBottom: 16,
+    borderBottom: `1px solid ${T.rule2}`,
+    borderLeft: lead.topic === "BREAKING" ? `3px solid ${T.red}` : "none",
+    paddingLeft: lead.topic === "BREAKING" ? 10 : 0
+  } }, /* @__PURE__ */ React.createElement("div", { style: {
+    fontFamily: T.sans,
+    fontSize: 9,
+    fontWeight: 600,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    color: lead.topic === "BREAKING" ? T.red : T.orange,
+    marginBottom: 8
+  } }, lead.topic === "BREAKING" ? "BREAKING" : `\u25CF ${lead.cat || "TOP"}`, " \xB7 ", lead.src), /* @__PURE__ */ React.createElement("a", { href: lead.link, target: "_blank", rel: "noopener noreferrer" }, /* @__PURE__ */ React.createElement("h2", { style: {
+    fontFamily: T.serif,
+    fontSize: 26,
+    fontWeight: 700,
+    lineHeight: 1.1,
+    letterSpacing: -0.5,
+    color: T.ink,
+    margin: 0
+  } }, lead.hed))), /* @__PURE__ */ React.createElement("section", { style: { paddingTop: 14 } }, /* @__PURE__ */ React.createElement("div", { style: {
+    fontFamily: T.sans,
+    fontSize: 9,
+    fontWeight: 600,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    color: T.ink3,
+    marginBottom: 8
+  } }, "Bitcoin News"), items.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: 12, color: T.ink3 } }, rss && rss.err ? "Feed unavailable" : "Loading\u2026") : rest.map((it, i) => /* @__PURE__ */ React.createElement(
+    "a",
+    {
+      key: it.link || i,
+      href: it.link,
+      target: "_blank",
+      rel: "noopener noreferrer",
+      style: {
+        display: "block",
+        padding: "10px 0",
+        borderBottom: `1px solid ${T.rule3}`,
+        borderLeft: it.topic === "BREAKING" ? `3px solid ${T.red}` : "none",
+        paddingLeft: it.topic === "BREAKING" ? 10 : 0
+      }
+    },
+    /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.body, fontSize: 15, lineHeight: 1.3, color: T.ink, letterSpacing: -0.1 } }, it.hed),
+    /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.body, fontStyle: "italic", fontSize: 11, color: T.ink3, marginTop: 3 } }, it.src, " \xB7 ", /* @__PURE__ */ React.createElement("span", { style: { color: isFresh(it.t) ? T.orange : T.ink3 } }, it.t))
+  ))));
+}
+NewsPanel = React.memo(NewsPanel);
+
+function MobileApp(props) {
+  const T = useT();
+  const [activeTab, setActiveTab] = React.useState("home");
+  const {
+    clock,
+    btc,
+    chain,
+    bitaxe,
+    weather,
+    rss,
+    feedHealth,
+    prefs,
+    dark,
+    onToggleDark,
+    onOpenSettings
+  } = props;
+  return /* @__PURE__ */ React.createElement("div", { style: {
+    position: "relative",
     width: "100%",
     minHeight: "100vh",
     background: T.paper,
     color: T.ink,
-    fontFamily: T.body,
-    padding: "12px 16px",
-    boxSizing: "border-box",
-    display: "flex",
-    flexDirection: "column",
-    maxWidth: 480,
-    margin: "0 auto"
-  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 12, borderBottom: `2px solid ${T.ink}` } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.display, fontSize: 22, fontWeight: 700 } }, "The Daily Node"), /* @__PURE__ */ React.createElement(
-    "button",
+    fontFamily: T.body
+  } }, /* @__PURE__ */ React.createElement(
+    MobileHeader,
     {
-      onClick: onToggleDark,
-      style: { minWidth: 44, minHeight: 44, background: "transparent", color: T.ink, border: `1px solid ${T.ink3}`, borderRadius: 4, cursor: "pointer", fontSize: 16 },
-      "aria-label": "Toggle dark mode"
-    },
-    dark ? "\u2600" : "\u263E"
-  )), /* @__PURE__ */ React.createElement("div", { style: sectionStyle }, /* @__PURE__ */ React.createElement("div", { style: labelStyle }, "Bitcoin"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 36, fontWeight: 700, fontFamily: T.display, lineHeight: 1 } }, fmtPrice(btc.data && btc.data.price)), btc.data && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, color: btc.data.changePct >= 0 ? T.green : T.red, marginTop: 4 } }, fmtPct(btc.data.changePct), " today")), /* @__PURE__ */ React.createElement("div", { style: sectionStyle }, /* @__PURE__ */ React.createElement("div", { style: labelStyle }, "Chain"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px", fontSize: 13, fontFamily: T.sans } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { color: T.ink2 } }, "Block "), chain.data && chain.data.height ? chain.data.height.toLocaleString() : "\u2014"), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { color: T.ink2 } }, "Hashrate "), chain.data ? fmtHashrate(chain.data.hashrate) : "\u2014"), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { color: T.ink2 } }, "Fast fee "), chain.data ? chain.data.fastFee + " sat/vB" : "\u2014"), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { style: { color: T.ink2 } }, "Mempool "), chain.data && chain.data.mempoolBytes ? (chain.data.mempoolBytes / 1e6).toFixed(1) + " MB" : "\u2014"))), /* @__PURE__ */ React.createElement("div", { style: sectionStyle }, /* @__PURE__ */ React.createElement("div", { style: labelStyle }, "Miners"), miners.loading && /* @__PURE__ */ React.createElement("div", { style: { color: T.ink2, fontSize: 13 } }, "Loading\u2026"), !miners.loading && miners.data && miners.data.length > 0 ? miners.data.map(function(m) {
-    return /* @__PURE__ */ React.createElement("div", { key: m.ip, style: { ...rowStyle, fontSize: 13, fontFamily: T.sans } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.ink } }, m.data && m.data.hostname ? m.data.hostname : m.ip), /* @__PURE__ */ React.createElement("span", { style: { color: m.online ? T.green : T.red } }, m.online ? fmtHashrate(m.data && m.data.hashRate_1m) : "offline"));
-  }) : !miners.loading && /* @__PURE__ */ React.createElement("div", { style: { color: T.ink2, fontSize: 13 } }, "No miners configured")), /* @__PURE__ */ React.createElement("div", { style: sectionStyle }, /* @__PURE__ */ React.createElement("div", { style: labelStyle }, "Headlines"), news.loading && /* @__PURE__ */ React.createElement("div", { style: { color: T.ink2, fontSize: 13 } }, "Loading\u2026"), !news.loading && (!news.data || news.data.length === 0) && /* @__PURE__ */ React.createElement("div", { style: { color: T.ink2, fontSize: 13 } }, "No headlines available"), !news.loading && news.data && news.data.slice(0, 6).map(function(item, i) {
-    return /* @__PURE__ */ React.createElement(
-      "a",
-      {
-        key: i,
-        href: item.link || "#",
-        target: "_blank",
-        rel: "noopener noreferrer",
-        style: {
-          display: "flex",
-          alignItems: "center",
-          padding: "8px 0",
-          color: T.ink,
-          textDecoration: "none",
-          borderBottom: `1px solid ${T.ink3}`,
-          fontSize: 14,
-          lineHeight: 1.4,
-          minHeight: 44
-        }
-      },
-      item.title
-    );
-  })), /* @__PURE__ */ React.createElement("div", { style: {
-    marginTop: 24,
-    padding: "12px 14px",
-    borderTop: `1px solid ${T.ink3}`,
-    fontSize: 11,
-    color: T.ink3,
-    textAlign: "center"
-  } }, "Open on desktop to configure miners and preferences."));
+      clock,
+      dark,
+      onToggleDark,
+      onOpenSettings
+    }
+  ), activeTab === "home" && /* @__PURE__ */ React.createElement(
+    HomePanel,
+    {
+      clock,
+      btc,
+      chain,
+      bitaxe,
+      weather,
+      rss,
+      feedHealth,
+      prefs,
+      onNavigate: setActiveTab
+    }
+  ), activeTab === "bitcoin" && /* @__PURE__ */ React.createElement(BitcoinPanel, { btc, chain }), activeTab === "news" && /* @__PURE__ */ React.createElement(NewsPanel, { rss }), /* @__PURE__ */ React.createElement(MobileTabBar, { activeTab, onChange: setActiveTab }));
 }
-MobileLayout = React.memo(MobileLayout);
+MobileApp = React.memo(MobileApp);
 
 function LeadImage({ src, domain }) {
   const T = useT();
@@ -3512,9 +3883,8 @@ function CommandCenter({
   rss,
   feedHealth
 }) {
-  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w;
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u;
   const T = useT();
-  const { isMobile } = useLayoutSize();
   const autoThemeDone = React.useRef(false);
   React.useEffect(() => {
     if (autoThemeDone.current)
@@ -3626,73 +3996,6 @@ function CommandCenter({
   const newsItems = rss.items;
   const tempUnitLabel = prefs.tempUnit === "celsius" ? "\xB0C" : "\xB0F";
   const wxSummary = wx ? `${wx.temp}${tempUnitLabel} ${wx.wxCond.toLowerCase()}` : `\u2014${tempUnitLabel}`;
-  if (isMobile) {
-    return /* @__PURE__ */ React.createElement("div", { style: {
-      position: "relative",
-      width: "100%",
-      background: T.paper,
-      color: T.ink,
-      fontFamily: T.body
-    } }, /* @__PURE__ */ React.createElement("div", { style: {
-      padding: "14px 16px 10px",
-      borderBottom: `1px solid ${T.rule2}`,
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "flex-end"
-    } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.body, fontSize: 9, fontWeight: 500, letterSpacing: 2, textTransform: "uppercase", color: T.ink3, marginBottom: 3 } }, "Bitcoin Command Center"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.serif, fontSize: 30, fontWeight: 800, letterSpacing: -1, lineHeight: 1 } }, "The Daily Node")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(11), color: T.ink3 } }, clock.timeHM, clock.amPm ? ` ${clock.amPm}` : ""), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        onClick: onToggleDark,
-        style: { fontFamily: T.sans, fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", padding: "4px 10px", cursor: "pointer", background: dark ? T.ink : "none", color: dark ? T.paper : T.ink2, border: `1px solid ${dark ? T.ink : T.ink3}` }
-      },
-      dark ? "\u25D1" : "\u25D0"
-    ), /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        onClick: onOpenSettings,
-        style: { fontFamily: T.sans, fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", padding: "4px 10px", cursor: "pointer", background: "none", color: T.ink2, border: `1px solid ${T.ink3}` }
-      },
-      "\u2699"
-    )))), /* @__PURE__ */ React.createElement("div", { style: { padding: "0 16px 48px" } }, /* @__PURE__ */ React.createElement("div", { style: { paddingTop: 16, paddingBottom: 16, borderBottom: `1px solid ${T.rule2}` } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", color: T.ink3, marginBottom: 8 } }, "Markets \xB7 BTC / USD"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-end", gap: 12, marginBottom: 4 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.numDisplay, fontSize: u(42), fontWeight: 700, letterSpacing: -2, lineHeight: 1, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1' } }, btcPrice), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(18), fontWeight: 400, color: btcUp ? T.green : T.red, paddingBottom: 4, fontFeatureSettings: '"tnum" 1, "lnum" 1' } }, btcUp ? "\u25B2" : "\u25BC", " ", btcChgPct, "%")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(11), color: T.ink3, marginBottom: u(12), fontFeatureSettings: '"tnum" 1, "lnum" 1' } }, "Hi $", btcHi, " \xB7 Lo $", btcLo, " \xB7 Cap ", btcCap, yesterdayPrice != null && ((_t = btc.data) == null ? void 0 : _t.price) != null && /* @__PURE__ */ React.createElement(React.Fragment, null, " \xB7 ", /* @__PURE__ */ React.createElement("span", { style: { color: btc.data.price >= yesterdayPrice ? T.green : T.red } }, "vs yest ", btc.data.price >= yesterdayPrice ? "+" : "", ((btc.data.price - yesterdayPrice) / yesterdayPrice * 100).toFixed(1), "%"))), /* @__PURE__ */ React.createElement("div", { style: { height: 80, marginBottom: 4 } }, /* @__PURE__ */ React.createElement(LineChart, { color: T.orange, points: btc.chartPts, vwap: (_u = btc.data) == null ? void 0 : _u.vwap, fill: true })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: T.num, fontSize: u(9), color: T.ink4 } }, /* @__PURE__ */ React.createElement("span", null, "24h ago"), /* @__PURE__ */ React.createElement("span", null, "\u221212h"), /* @__PURE__ */ React.createElement("span", null, "now"))), wx && /* @__PURE__ */ React.createElement("div", { style: { paddingTop: 14, paddingBottom: 14, borderBottom: `1px solid ${T.rule2}` } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", color: T.ink3, marginBottom: 8 } }, "Weather"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14 } }, /* @__PURE__ */ React.createElement(WxGlyph, { kind: wmoIcon(wx.wxCode, (/* @__PURE__ */ new Date()).getHours(), wx.wxWindSpeed, wx.wxSunriseHr, wx.wxSunsetHr), size: 48, speed: wmoSpeed(wx.wxCode, wx.wxWindSpeed) }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(32), fontWeight: 400, letterSpacing: -1, color: T.ink, lineHeight: 1 } }, wx.temp, "\xB0 ", /* @__PURE__ */ React.createElement("span", { style: { fontSize: u(16), color: T.ink3 } }, prefs.tempUnit === "celsius" ? "C" : "F")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.body, fontStyle: "italic", fontSize: u(13), color: T.ink2, marginTop: u(3) } }, wx.wxCond, " \xB7 H", wx.wxHi, " L", wx.wxLo), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(11), color: T.ink3, marginTop: u(2) } }, wx.wxWind, " \xB7 ", wx.wxHum, " humidity")))), /* @__PURE__ */ React.createElement("div", { style: { paddingTop: 14, paddingBottom: 14, borderBottom: `1px solid ${T.rule2}` } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", color: T.ink3, marginBottom: 8 } }, "Network"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 16px" } }, [
-      { val: hashrate, label: "Hashrate" },
-      { val: difficulty, label: "Difficulty" },
-      { val: chain.data ? `${(chain.data.blockTimeMs / 6e4).toFixed(1)}m` : "\u2014", label: "Block Time", color: blockTimeCol },
-      { val: mempoolMB, label: "Mempool", color: mempoolCol }
-    ].map(({ val, label, color }, i) => /* @__PURE__ */ React.createElement("div", { key: i }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(18), fontWeight: 400, color: color || T.ink, lineHeight: 1, fontFeatureSettings: '"tnum" 1, "lnum" 1' } }, val), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 1.2, textTransform: "uppercase", color: T.ink3, marginTop: 3 } }, label))))), /* @__PURE__ */ React.createElement("div", { style: { paddingTop: 14, paddingBottom: 14, borderBottom: `1px solid ${T.rule2}` } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", color: T.ink3, marginBottom: 8 } }, "Fleet"), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 16px" } }, [
-      { val: `${onlineCount}/${minerCount}`, label: "Online" },
-      { val: totalHashrateTHS > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s` : "\u2014", label: "Hashrate" },
-      { val: totalPower > 0 ? `${(totalPower / 1e3).toFixed(1)} kW` : "\u2014", label: "Power" },
-      { val: soloOdds ? `1:${fmtNum(soloOdds.oddsPerDay)}/d` : "\u2014", label: "Solo Odds" }
-    ].map(({ val, label }, i) => /* @__PURE__ */ React.createElement("div", { key: i }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(18), fontWeight: 400, color: T.ink, lineHeight: 1, fontFeatureSettings: '"tnum" 1, "lnum" 1' } }, val), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 1.2, textTransform: "uppercase", color: T.ink3, marginTop: 3 } }, label))))), lead && /* @__PURE__ */ React.createElement("div", { style: { paddingTop: 14, paddingBottom: 14, borderBottom: `1px solid ${T.rule2}`, borderLeft: lead.topic === "BREAKING" ? `3px solid ${T.red}` : "none", paddingLeft: lead.topic === "BREAKING" ? 10 : 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", color: lead.topic === "BREAKING" ? T.red : T.orange, marginBottom: 8 } }, lead.topic === "BREAKING" ? "BREAKING" : `\u25CF ${lead.cat}`, " \xB7 ", lead.src), /* @__PURE__ */ React.createElement("a", { href: lead.link, target: "_blank", rel: "noopener noreferrer" }, /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: T.serif, fontSize: 24, fontWeight: 700, lineHeight: 1.1, letterSpacing: -0.5, color: T.ink, margin: 0 } }, lead.hed))), /* @__PURE__ */ React.createElement("div", { style: { paddingTop: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", color: T.ink3, marginBottom: 8 } }, "Bitcoin News"), newsItems.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(12), color: T.ink3 } }, rss.err ? "Feed unavailable" : "Loading\u2026") : newsItems.slice(0, 20).map((it, i) => /* @__PURE__ */ React.createElement(
-      "a",
-      {
-        key: it.link || i,
-        href: it.link,
-        target: "_blank",
-        rel: "noopener noreferrer",
-        style: {
-          display: "block",
-          padding: "10px 0",
-          borderBottom: `1px solid ${T.rule3}`,
-          borderLeft: it.topic === "BREAKING" ? `3px solid ${T.red}` : "none",
-          paddingLeft: it.topic === "BREAKING" ? 10 : 0
-        }
-      },
-      /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.body, fontSize: 15, lineHeight: 1.3, color: T.ink, letterSpacing: -0.1 } }, it.hed),
-      /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.body, fontStyle: "italic", fontSize: 11, color: T.ink3, marginTop: 3 } }, it.src, " \xB7 ", /* @__PURE__ */ React.createElement("span", { style: { color: isFresh(it.t) ? T.orange : T.ink3 } }, it.t))
-    )))), settingsOpen && /* @__PURE__ */ React.createElement(
-      SettingsPanel,
-      {
-        prefs,
-        v2prefs,
-        miners: bitaxe.miners,
-        onRefresh: bitaxe.refresh,
-        onSave: onSaveSettings,
-        onSaveV2,
-        onClose: onCloseSettings
-      }
-    ));
-  }
   return /* @__PURE__ */ React.createElement(
     "div",
     {
@@ -3906,9 +4209,9 @@ function CommandCenter({
         ),
         /* @__PURE__ */ React.createElement(Kicker, null, "Markets \xB7 BTC / USD"),
         /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-end" } }, /* @__PURE__ */ React.createElement(Num, { size: "hero", value: btcPrice }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(22), fontWeight: 400, color: btcUp ? T.green : T.red, paddingBottom: u(10), fontFeatureSettings: '"tnum" 1, "lnum" 1' } }, btcUp ? "\u25B2" : "\u25BC", " ", btcChgPct, "%")),
-        ((_v = btc.data) == null ? void 0 : _v.ath) && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(10), color: T.ink4, marginTop: u(-8), marginBottom: u(2) } }, "ATH $" + Math.round(btc.data.ath).toLocaleString() + (btc.data.athDate ? " \xB7 " + new Date(btc.data.athDate).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "") + " \xB7 ", /* @__PURE__ */ React.createElement("span", { style: { color: athAtNew ? T.green : T.red } }, athAtNew ? "\u25B2 new ATH" : "\u25BC " + Math.abs(athPct).toFixed(1) + "%")),
+        ((_t = btc.data) == null ? void 0 : _t.ath) && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.num, fontSize: u(10), color: T.ink4, marginTop: u(-8), marginBottom: u(2) } }, "ATH $" + Math.round(btc.data.ath).toLocaleString() + (btc.data.athDate ? " \xB7 " + new Date(btc.data.athDate).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "") + " \xB7 ", /* @__PURE__ */ React.createElement("span", { style: { color: athAtNew ? T.green : T.red } }, athAtNew ? "\u25B2 new ATH" : "\u25BC " + Math.abs(athPct).toFixed(1) + "%")),
         /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: T.num, fontSize: u(11), borderTop: `1px solid ${T.rule2}`, borderBottom: `1px solid ${T.rule2}`, padding: `${u(5)} 0`, marginBottom: u(6), fontFeatureSettings: '"tnum" 1, "lnum" 1' } }, /* @__PURE__ */ React.createElement("span", { style: { color: T.green } }, "hi $", btcHi), /* @__PURE__ */ React.createElement("span", { style: { color: T.ink3 } }, "\xB7"), /* @__PURE__ */ React.createElement("span", { style: { color: T.red } }, "lo $", btcLo), /* @__PURE__ */ React.createElement("span", { style: { color: T.ink3 } }, "\xB7"), /* @__PURE__ */ React.createElement("span", { style: { color: btcUp ? T.green : T.red } }, "cap ", btcCap), /* @__PURE__ */ React.createElement("span", { style: { color: T.ink3 } }, "\xB7"), /* @__PURE__ */ React.createElement("span", { style: { color: T.ink3 } }, "vol ", btcVol), /* @__PURE__ */ React.createElement("span", { style: { color: T.ink3 } }, "\xB7"), /* @__PURE__ */ React.createElement("span", { style: { color: T.orange } }, btc.data ? fmtNum(Math.round(1e8 / btc.data.price)) : "\u2014", " sat/$")),
-        /* @__PURE__ */ React.createElement("div", { style: { width: "100%", height: u(110), flexShrink: 0 } }, /* @__PURE__ */ React.createElement(LineChart, { color: T.orange, points: btc.chartPts, vwap: (_w = btc.data) == null ? void 0 : _w.vwap, fill: true, historyPoints: priceHistory.data })),
+        /* @__PURE__ */ React.createElement("div", { style: { width: "100%", height: u(110), flexShrink: 0 } }, /* @__PURE__ */ React.createElement(LineChart, { color: T.orange, points: btc.chartPts, vwap: (_u = btc.data) == null ? void 0 : _u.vwap, fill: true, historyPoints: priceHistory.data })),
         /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: T.num, fontSize: u(10), color: T.ink3 } }, /* @__PURE__ */ React.createElement("span", null, "24h ago"), /* @__PURE__ */ React.createElement("span", null, "\u221218h"), /* @__PURE__ */ React.createElement("span", null, "\u221212h"), /* @__PURE__ */ React.createElement("span", null, "\u22126h"), /* @__PURE__ */ React.createElement("span", null, "now")),
         /* @__PURE__ */ React.createElement(Rule, { dash: true }),
         lead ? /* @__PURE__ */ React.createElement("div", { style: { flex: 1, display: "flex", flexDirection: "column", gap: u(8), overflow: "hidden", minHeight: 0, borderLeft: lead.topic === "BREAKING" ? `${u(3)} solid ${T.red}` : "none", paddingLeft: lead.topic === "BREAKING" ? u(10) : 0 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } }, /* @__PURE__ */ React.createElement(Kicker, { color: lead.topic === "BREAKING" ? T.red : T.orange }, lead.topic === "BREAKING" ? "BREAKING" : `\u25CF ${lead.cat}`, " \xB7 ", lead.src), /* @__PURE__ */ React.createElement(Kicker, { color: isFresh(lead.t) ? T.orange : void 0 }, lead.t)), /* @__PURE__ */ React.createElement("a", { href: lead.link, target: "_blank", rel: "noopener noreferrer" }, /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontSize: u(32), fontWeight: 700, lineHeight: 1.04, letterSpacing: u(-1), color: T.ink, textWrap: "balance", margin: 0 } }, lead.hed)), lead.img ? /* @__PURE__ */ React.createElement(LeadImage, { src: lead.img, domain: lead.src }) : null, lead.snippet ? /* @__PURE__ */ React.createElement("div", { className: "no-scrollbar", style: { flex: 1, overflowY: "auto", minHeight: 0, fontFamily: T.body, fontSize: u(13.5), lineHeight: 1.5, color: T.ink2 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.serif, fontSize: u(44), fontWeight: 700, color: T.ink, float: "left", lineHeight: 0.88, marginRight: u(8), marginTop: u(3) } }, lead.snippet.charAt(0)), lead.snippet.slice(1)) : null) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Kicker, { color: T.orange }, "\u25CF ", rss.err ? "RSS unavailable" : "Loading feed\u2026"), /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: T.serif, fontSize: u(32), fontWeight: 700, lineHeight: 1.04, letterSpacing: u(-1), color: T.ink4, margin: 0 } }, rss.err ? "All feeds unavailable" : "Fetching headlines\u2026"))
@@ -4029,7 +4332,7 @@ function App() {
   const rss = useRSS();
   const feedHealth = useFeedHealth([btc, chain, weather, rss, bitaxe]);
   usePageRefresh([btc.refresh, chain.refresh, rss.refresh, weather.refresh, bitaxe.refresh]);
-  const mode = useViewportMode();
+  const mode = useViewportMode(900);
   const theme = dark ? DARK : LIGHT;
   React.useEffect(() => {
     if (window.applyScale)
@@ -4060,14 +4363,20 @@ function App() {
     localStorage.setItem("dailynode-prefs", JSON.stringify(newPrefs));
   };
   return /* @__PURE__ */ React.createElement(ThemeCtx.Provider, { value: theme }, mode === "mobile" ? /* @__PURE__ */ React.createElement(
-    MobileLayout,
+    MobileApp,
     {
+      prefs,
+      v2prefs,
+      clock,
       btc,
       chain,
-      miners: bitaxe,
-      news: rss,
+      bitaxe,
+      weather,
+      rss,
+      feedHealth,
+      dark,
       onToggleDark: handleToggleDark,
-      dark
+      onOpenSettings: () => setSettingsOpen(true)
     }
   ) : /* @__PURE__ */ React.createElement(
     CommandCenter,
@@ -4088,6 +4397,17 @@ function App() {
       weather,
       rss,
       feedHealth
+    }
+  ), mode === "mobile" && settingsOpen && /* @__PURE__ */ React.createElement(
+    SettingsPanel,
+    {
+      prefs,
+      v2prefs,
+      miners: bitaxe.miners,
+      onRefresh: bitaxe.refresh,
+      onSave: handleSaveSettings,
+      onSaveV2: handleSaveV2Prefs,
+      onClose: () => setSettingsOpen(false)
     }
   ));
 }
