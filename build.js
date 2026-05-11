@@ -50,6 +50,7 @@ const files = [
   'components/mobile/StatusTile.jsx',
   'components/mobile/MobileHeader.jsx',
   'components/mobile/HomePanel.jsx',
+  'components/mobile/BitcoinPanel.jsx',
   'components/CommandCenter.jsx',
   'App.jsx',
 ];
