@@ -10,6 +10,8 @@ import { useFeedHealth } from './hooks/useFeedHealth.js';
 import { usePageRefresh } from './hooks/usePageRefresh.js';
 import { useViewportMode } from './hooks/useViewportMode.js';
 import { CommandCenter } from './components/CommandCenter.jsx';
+import { MobileApp } from './components/mobile/MobileApp.jsx';
+import { SettingsPanel } from './components/SettingsPanel.jsx';
 import CONFIG from './config.js';
 import { LIGHT, DARK, ThemeCtx } from './theme.js';
 import { loadV2Prefs, saveV2Prefs } from './utils/v2prefs.js';
@@ -71,7 +73,7 @@ function App() {
   usePageRefresh([btc.refresh, chain.refresh, rss.refresh, weather.refresh, bitaxe.refresh]);
 
   // ─── Viewport Mode ────────────────────────────────────────
-  const mode = useViewportMode();
+  const mode = useViewportMode(900);
 
   // ─── Theme Selection ──────────────────────────────────────
   const theme = dark ? DARK : LIGHT;
@@ -112,13 +114,19 @@ function App() {
   return (
     <ThemeCtx.Provider value={theme}>
       {mode === 'mobile'
-        ? <MobileLayout
+        ? <MobileApp
+            prefs={prefs}
+            v2prefs={v2prefs}
+            clock={clock}
             btc={btc}
             chain={chain}
-            miners={bitaxe}
-            news={rss}
-            onToggleDark={handleToggleDark}
+            bitaxe={bitaxe}
+            weather={weather}
+            rss={rss}
+            feedHealth={feedHealth}
             dark={dark}
+            onToggleDark={handleToggleDark}
+            onOpenSettings={() => setSettingsOpen(true)}
           />
         : <CommandCenter
             dark={dark}
@@ -139,6 +147,17 @@ function App() {
             feedHealth={feedHealth}
           />
       }
+      {mode === 'mobile' && settingsOpen && (
+        <SettingsPanel
+          prefs={prefs}
+          v2prefs={v2prefs}
+          miners={bitaxe.miners}
+          onRefresh={bitaxe.refresh}
+          onSave={handleSaveSettings}
+          onSaveV2={handleSaveV2Prefs}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
     </ThemeCtx.Provider>
   );
 }
