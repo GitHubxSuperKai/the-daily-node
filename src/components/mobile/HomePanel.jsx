@@ -3,7 +3,7 @@ import { useT } from '../../theme.js';
 import { StatusTile } from './StatusTile.jsx';
 import { WxGlyph } from '../WxGlyph.jsx';
 import {
-  fmtPrice, fmtPct, fmtHashrate, fmtMempoolMB, fmtBlockTime, wmoIcon,
+  fmtPrice, fmtPct, fmtMempoolMB, fmtBlockTime, wmoIcon,
 } from '../../utils/formatting.js';
 
 function HomePanel({ clock, btc, chain, bitaxe, weather, rss, feedHealth, prefs, onNavigate }) {
