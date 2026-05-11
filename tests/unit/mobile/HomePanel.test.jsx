@@ -8,18 +8,19 @@ import { HomePanel } from '../../../src/components/mobile/HomePanel.jsx';
 
 const baseProps = {
   prefs: { tempUnit: 'fahrenheit' },
-  clock: { timeHM: '10:00', amPm: 'AM', dateLong: 'Mon, May 11' },
-  btc:   { data: { price: 100000, changePct: 1.5 } },
-  chain: { data: { mempoolBytes: 50_000_000, fastFee: 30, blockTimeMs: 600000, height: 900000 } },
+  clock: { timeHM: '10:00', amPm: 'AM', dayStr: 'Monday, May 11' },
+  btc:   { data: { price: 100000, chgPct: 1.5 }, err: null },
+  chain: { data: { mempoolBytes: 50_000_000, feeFast: 30, blockTimeMs: 600000, height: 900000 }, err: null },
   bitaxe: {
+    err: null,
     miners: [
-      { ip: '1.1.1.1', online: true,  data: { hostname: 'a', hashRate_1m: 500e9, temp: 60 } },
+      { ip: '1.1.1.1', online: true,  data: { hostname: 'a', hashRate: 500, temp: 60 } },
       { ip: '2.2.2.2', online: false, data: null },
     ],
   },
-  weather: { data: { temp: 72, wxCond: 'Clear', wxCode: 0, wxWindSpeed: 5, wxSunriseHr: 6, wxSunsetHr: 19 } },
-  rss: { items: [{ hed: 'Top story', link: 'https://x', topic: '', src: 'src', t: 'just now' }] },
-  feedHealth: { sources: [] },
+  weather: { data: { temp: 72, wxCond: 'Clear', wxCode: 0, wxWindSpeed: 5, wxSunriseHr: 6, wxSunsetHr: 19 }, err: null },
+  rss: { items: [{ hed: 'Top story', link: 'https://x', topic: '', src: 'src', t: 'just now' }], err: null },
+  feedHealth: 'live',
 };
 
 function wrap(ui) {
@@ -29,7 +30,7 @@ function wrap(ui) {
 describe('HomePanel', () => {
   it('renders BTC, Fleet summary, and Lead headline tiles', () => {
     wrap(<HomePanel {...baseProps} onNavigate={() => {}} />);
-    expect(screen.getByText(/BTC/i)).toBeDefined();
+    expect(screen.getByText(/BTC \/ USD/i)).toBeDefined();
     expect(screen.getByText(/Fleet/i)).toBeDefined();
     expect(screen.getByText('Top story')).toBeDefined();
   });

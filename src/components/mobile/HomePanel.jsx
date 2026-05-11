@@ -6,7 +6,7 @@ import {
   fmtPrice, fmtPct, fmtMempoolMB, fmtBlockTime, wmoIcon,
 } from '../../utils/formatting.js';
 
-function HomePanel({ clock, btc, chain, bitaxe, weather, rss, feedHealth, prefs, onNavigate }) {
+function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate }) {
   const T = useT();
   const [fleetExpanded, setFleetExpanded] = React.useState(false);
 
@@ -23,8 +23,19 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, feedHealth, prefs,
   const tempUnit = prefs.tempUnit === 'celsius' ? '°C' : '°F';
   const lead = rss && rss.items && rss.items[0];
 
-  const btcChange = btc.data ? btc.data.changePct : null;
+  const btcChange = btc.data ? btc.data.chgPct : null;
   const btcUp = btcChange != null && btcChange >= 0;
+
+  const onlineCountForFeed = bitaxe.miners ? bitaxe.miners.filter(m => m.online).length : 0;
+  const minerCountForFeed  = bitaxe.miners ? bitaxe.miners.length : 0;
+
+  const feedSources = [
+    { id: 'btc',     label: 'BTC',     ok: !btc.err && !!btc.data },
+    { id: 'chain',   label: 'Chain',   ok: !chain.err && !!chain.data },
+    { id: 'miners',  label: 'Miners',  ok: !bitaxe.err && onlineCountForFeed > 0 },
+    { id: 'weather', label: 'Weather', ok: !weather.err && !!weather.data },
+    { id: 'rss',     label: 'RSS',     ok: !rss.err && rss.items && rss.items.length > 0 },
+  ];
 
   return (
     <div style={{
@@ -90,7 +101,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, feedHealth, prefs,
       {/* Status dots — full width */}
       <StatusTile label="Feeds" fullWidth>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-          {(feedHealth.sources || []).map(s => (
+          {feedSources.map(s => (
             <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <span style={{
                 width: 8, height: 8, borderRadius: '50%',
@@ -98,7 +109,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, feedHealth, prefs,
                 display: 'inline-block',
               }} />
               <span style={{ fontFamily: T.sans, fontSize: 10, color: T.ink2, textTransform: 'uppercase', letterSpacing: 1 }}>
-                {s.label || s.id}
+                {s.label}
               </span>
             </div>
           ))}
@@ -115,7 +126,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, feedHealth, prefs,
           {chain.data ? fmtMempoolMB(chain.data.mempoolBytes) : '—'}
         </div>
         <div style={{ fontFamily: T.sans, fontSize: 10, color: T.ink3, marginTop: 2 }}>
-          {chain.data ? `${chain.data.fastFee} sat/vB` : '—'}
+          {chain.data ? `${chain.data.feeFast} sat/vB` : '—'}
         </div>
       </StatusTile>
 
@@ -160,7 +171,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, feedHealth, prefs,
           {clock.timeHM}{clock.amPm ? ` ${clock.amPm}` : ''}
         </div>
         <div style={{ fontFamily: T.sans, fontSize: 10, color: T.ink3, marginTop: 2 }}>
-          {clock.dateLong || ''}
+          {clock.dayStr || ''}
         </div>
       </StatusTile>
 
