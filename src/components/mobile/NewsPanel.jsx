@@ -1,7 +1,7 @@
 import React from 'react';
 import { useT } from '../../theme.js';
 
-const isFresh = t => t === 'just now' || /^\d+s ago$/.test(t) || /^[1-4]m ago$/.test(t);
+const isFreshTs = t => t === 'just now' || /^\d+s ago$/.test(t) || /^[1-4]m ago$/.test(t);
 
 function NewsPanel({ rss }) {
   const T = useT();
@@ -70,7 +70,7 @@ function NewsPanel({ rss }) {
               {it.hed}
             </div>
             <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3, marginTop: 3 }}>
-              {it.src} · <span style={{ color: isFresh(it.t) ? T.orange : T.ink3 }}>{it.t}</span>
+              {it.src} · <span style={{ color: isFreshTs(it.t) ? T.orange : T.ink3 }}>{it.t}</span>
             </div>
           </a>
         ))}
