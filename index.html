@@ -3736,7 +3736,7 @@ function BitcoinPanel({ btc, chain }) {
 }
 BitcoinPanel = React.memo(BitcoinPanel);
 
-const isFresh = (t) => t === "just now" || /^\d+s ago$/.test(t) || /^[1-4]m ago$/.test(t);
+const isFreshTs = (t) => t === "just now" || /^\d+s ago$/.test(t) || /^[1-4]m ago$/.test(t);
 function NewsPanel({ rss }) {
   const T = useT();
   const items = rss && rss.items || [];
@@ -3787,7 +3787,7 @@ function NewsPanel({ rss }) {
       }
     },
     /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.body, fontSize: 15, lineHeight: 1.3, color: T.ink, letterSpacing: -0.1 } }, it.hed),
-    /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.body, fontStyle: "italic", fontSize: 11, color: T.ink3, marginTop: 3 } }, it.src, " \xB7 ", /* @__PURE__ */ React.createElement("span", { style: { color: isFresh(it.t) ? T.orange : T.ink3 } }, it.t))
+    /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.body, fontStyle: "italic", fontSize: 11, color: T.ink3, marginTop: 3 } }, it.src, " \xB7 ", /* @__PURE__ */ React.createElement("span", { style: { color: isFreshTs(it.t) ? T.orange : T.ink3 } }, it.t))
   ))));
 }
 NewsPanel = React.memo(NewsPanel);
