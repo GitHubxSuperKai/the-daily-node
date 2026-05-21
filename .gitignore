@@ -28,6 +28,9 @@ icons-preview.html
 # Internal planning / brainstorming notes
 docs/superpowers/
 
+# Local pointer to canonical PARA project note (personal absolute path)
+.project-note
+
 # Claude Code local config (launch.json is intentionally tracked)
 .claude/settings.json
 .claude/settings.local.json
