@@ -475,6 +475,14 @@ const CONFIG = {
     pools:   5 * 60 * 1000,   // Mining pools + bitcoin meta every 5m
   },
 
+  // ─── Content staleness thresholds (ms) ────────────────
+  // A source can be reachable yet serving stale content. Flag chain data
+  // when the latest block's timestamp is older than this (blocks avg ~10m;
+  // 60m is conservative to avoid false "stale" flags).
+  CONTENT_STALE: {
+    chain: 60 * 60 * 1000,
+  },
+
   // ─── Auto-Refresh ────────────────────────────────────
   // Minimum time a tab must be hidden before refocus triggers a full refresh
   HIDDEN_STALE_THRESHOLD: 30 * 1000,
@@ -1302,6 +1310,41 @@ function isValidLanIp(ip) {
 }
 
 
+// Pure per-source freshness verdict: 'fresh' | 'stale' | 'down'
+//
+// down  — no trustworthy data to show (never loaded, or errored with no cache)
+// stale — data is showing but old/suspect: last fetch errored, fetch age past
+//         2x interval, or the content clock (e.g. chain block timestamp) is old
+// fresh — data is showing and current
+function sourceFreshness({ hasData, err, lastOk, interval, contentAgeMs, contentMaxMs }, now = Date.now()) {
+  if (!hasData) return 'down';
+
+  const fetchAge = lastOk ? now - lastOk : Infinity;
+  const fetchStale = fetchAge > (interval || 60000) * 2;
+  const contentStale =
+    contentAgeMs != null && contentMaxMs != null && contentAgeMs > contentMaxMs;
+
+  if (err || fetchStale || contentStale) return 'stale';
+  return 'fresh';
+}
+
+
+// Pure edge-trigger decision for scheduled (sunrise/sunset) theme switching.
+//
+// prevShouldBeDark — last observed "should be dark" value (null on first eval)
+// shouldBeDark     — current computed value from clock vs sunrise/sunset hours
+// dark             — the app's current dark-mode state
+//
+// Returns { update, flip }:
+//   update — whether to store shouldBeDark as the new prev (a real crossing)
+//   flip   — whether to toggle the theme now (only at a crossing, and only if
+//            the current theme disagrees with shouldBeDark)
+function themeFlipDecision(prevShouldBeDark, shouldBeDark, dark) {
+  if (shouldBeDark === prevShouldBeDark) return { update: false, flip: false };
+  return { update: true, flip: shouldBeDark !== dark };
+}
+
+
 var __defProp = Object.defineProperty;
 var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __publicField = (obj, key, value) => {
@@ -1365,9 +1408,10 @@ function Num({ size = "md", value, unit, delta, deltaUp, style = {} }) {
   } }, value), unit && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.num, fontSize: u(unitPx), color: T.ink3, letterSpacing: 0, fontOpticalSizing: "auto" } }, unit), delta && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.num, fontSize: u(deltaPx), color: deltaUp ? T.orange : T.ink3, marginLeft: u(3) } }, deltaUp ? "\u25B2 " : "\u25BC ", delta));
 }
 
-function StatusDot({ ok }) {
+function StatusDot({ state }) {
   const T = useT();
-  return /* @__PURE__ */ React.createElement("span", { style: { color: ok ? T.green : T.red, marginRight: 5 } }, "\u25CF");
+  const color = state === "fresh" ? T.green : state === "stale" ? T.orange : T.red;
+  return /* @__PURE__ */ React.createElement("span", { style: { color, marginRight: 5 } }, "\u25CF");
 }
 
 function Kicker({ children, color, style = {} }) {
@@ -1605,6 +1649,8 @@ function useResettableInterval(callback, delay) {
 
   return { reset };
 }
+
+
 
 
 /**
@@ -3594,6 +3640,7 @@ function MobileHeader({ clock, dark, onToggleDark, onOpenSettings }) {
 MobileHeader = React.memo(MobileHeader);
 
 function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate }) {
+  var _a, _b, _c;
   const T = useT();
   const [fleetExpanded, setFleetExpanded] = React.useState(false);
   const miners = bitaxe.miners || [];
@@ -3611,13 +3658,16 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
   const btcUp = btcChange != null && btcChange >= 0;
   const onlineCountForFeed = bitaxe.miners ? bitaxe.miners.filter((m) => m.online).length : 0;
   const minerCountForFeed = bitaxe.miners ? bitaxe.miners.length : 0;
+  const freshNow = Date.now();
+  const lastBlockTs = (_c = (_b = (_a = chain.recentBlocks) == null ? void 0 : _a[0]) == null ? void 0 : _b.timestamp) != null ? _c : null;
   const feedSources = [
-    { id: "btc", label: "BTC", ok: !btc.err && !!btc.data },
-    { id: "chain", label: "Chain", ok: !chain.err && !!chain.data },
-    { id: "miners", label: "Miners", ok: !bitaxe.err && onlineCountForFeed > 0 },
-    { id: "weather", label: "Weather", ok: !weather.err && !!weather.data },
-    { id: "rss", label: "RSS", ok: !rss.err && rss.items && rss.items.length > 0 }
+    { id: "btc", label: "BTC", state: sourceFreshness({ hasData: !!btc.data, err: btc.error, lastOk: btc.lastOk, interval: CONFIG.REFRESH_INTERVALS.price }, freshNow) },
+    { id: "chain", label: "Chain", state: sourceFreshness({ hasData: !!chain.data, err: chain.error, lastOk: chain.lastOk, interval: CONFIG.REFRESH_INTERVALS.chain, contentAgeMs: lastBlockTs ? freshNow - lastBlockTs * 1e3 : null, contentMaxMs: CONFIG.CONTENT_STALE.chain }, freshNow) },
+    { id: "miners", label: "Miners", state: sourceFreshness({ hasData: onlineCountForFeed > 0, err: bitaxe.err, lastOk: bitaxe.lastOk, interval: bitaxe.interval }, freshNow) },
+    { id: "weather", label: "Weather", state: sourceFreshness({ hasData: !!weather.data, err: weather.err, lastOk: weather.lastOk, interval: weather.interval }, freshNow) },
+    { id: "rss", label: "RSS", state: sourceFreshness({ hasData: rss.items && rss.items.length > 0, err: rss.err, lastOk: rss.lastOk, interval: rss.interval }, freshNow) }
   ];
+  const dotColor = (state) => state === "fresh" ? T.green : state === "stale" ? T.orange : T.red;
   return /* @__PURE__ */ React.createElement("div", { style: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
@@ -3656,7 +3706,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
     width: 8,
     height: 8,
     borderRadius: "50%",
-    background: s.ok ? T.green : T.red,
+    background: dotColor(s.state),
     display: "inline-block"
   } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.sans, fontSize: 10, color: T.ink2, textTransform: "uppercase", letterSpacing: 1 } }, s.label))))), /* @__PURE__ */ React.createElement(
     StatusTile,
@@ -3937,19 +3987,19 @@ function CommandCenter({
 }) {
   var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v;
   const T = useT();
-  const autoThemeDone = React.useRef(false);
+  const lastShouldBeDark = React.useRef(null);
   React.useEffect(() => {
-    if (autoThemeDone.current)
-      return;
     const wx2 = weather.data;
-    if (!(wx2 == null ? void 0 : wx2.wxSunriseHr) && (wx2 == null ? void 0 : wx2.wxSunriseHr) !== 0)
+    if ((wx2 == null ? void 0 : wx2.wxSunriseHr) == null)
       return;
     const hr = (/* @__PURE__ */ new Date()).getHours();
     const shouldBeDark = hr < wx2.wxSunriseHr || hr >= wx2.wxSunsetHr;
-    if (shouldBeDark !== dark)
+    const { update, flip } = themeFlipDecision(lastShouldBeDark.current, shouldBeDark, dark);
+    if (update)
+      lastShouldBeDark.current = shouldBeDark;
+    if (flip)
       onToggleDark();
-    autoThemeDone.current = true;
-  }, [(_a = weather.data) == null ? void 0 : _a.wxSunriseHr]);
+  }, [clock.timeHM, (_a = weather.data) == null ? void 0 : _a.wxSunriseHr, dark]);
   const lastBlockTs = (_d = (_c = (_b = chain.recentBlocks) == null ? void 0 : _b[0]) == null ? void 0 : _c.timestamp) != null ? _d : null;
   const msSinceLastBlock = lastBlockTs ? (Date.now() / 1e3 - lastBlockTs) * 1e3 : null;
   const priceHistory = useHistory("price", "24h");
@@ -4036,12 +4086,46 @@ function CommandCenter({
       v: b.feeRange ? `${b.feeRange[0]}\u2013${b.feeRange[1]} s/vB` : `${b.medianFee} s/vB`
     }))
   ];
+  const freshNow = Date.now();
+  const ageOf = (lastOk) => lastOk ? timeAgo(lastOk) : "\u2014";
   const sys = [
-    { k: "miners", v: bitaxe.err ? "err" : onlineCount > 0 ? "ok" : bitaxe.loading ? "\u2026" : "err", d: bitaxe.loading ? "connecting" : `${onlineCount}/${minerCount} online` },
-    { k: "mempool", v: chain.err ? "err" : chain.data ? "ok" : "\u2026", d: chain.data ? `${mempoolMB}` : "\u2014" },
-    { k: "kraken", v: btc.err ? "err" : btc.data ? "ok" : "\u2026", d: btc.data ? `${btcChgPct}% 24h` : "\u2014" },
-    { k: "weather", v: weather.err ? "err" : weather.data ? "ok" : "\u2026", d: weather.data ? weather.data.wxCond.toLowerCase() : "\u2014" },
-    { k: "rss", v: rss.err ? "err" : rss.items.length > 0 ? "ok" : "\u2026", d: rss.items.length > 0 ? `${rss.items.length} stories` : "\u2014" }
+    {
+      k: "miners",
+      state: sourceFreshness({ hasData: onlineCount > 0, err: bitaxe.err, lastOk: bitaxe.lastOk, interval: bitaxe.interval }, freshNow),
+      age: ageOf(bitaxe.lastOk),
+      d: bitaxe.loading ? "connecting" : `${onlineCount}/${minerCount} online`
+    },
+    {
+      k: "mempool",
+      state: sourceFreshness({
+        hasData: !!chain.data,
+        err: chain.error,
+        lastOk: chain.lastOk,
+        interval: CONFIG.REFRESH_INTERVALS.chain,
+        contentAgeMs: lastBlockTs ? freshNow - lastBlockTs * 1e3 : null,
+        contentMaxMs: CONFIG.CONTENT_STALE.chain
+      }, freshNow),
+      age: ageOf(chain.lastOk),
+      d: chain.data ? `${mempoolMB}` : "\u2014"
+    },
+    {
+      k: "kraken",
+      state: sourceFreshness({ hasData: !!btc.data, err: btc.error, lastOk: btc.lastOk, interval: CONFIG.REFRESH_INTERVALS.price }, freshNow),
+      age: ageOf(btc.lastOk),
+      d: btc.data ? `${btcChgPct}% 24h` : "\u2014"
+    },
+    {
+      k: "weather",
+      state: sourceFreshness({ hasData: !!weather.data, err: weather.err, lastOk: weather.lastOk, interval: weather.interval }, freshNow),
+      age: ageOf(weather.lastOk),
+      d: weather.data ? weather.data.wxCond.toLowerCase() : "\u2014"
+    },
+    {
+      k: "rss",
+      state: sourceFreshness({ hasData: rss.items.length > 0, err: rss.err, lastOk: rss.lastOk, interval: rss.interval }, freshNow),
+      age: ageOf(rss.lastOk),
+      d: rss.items.length > 0 ? `${rss.items.length} stories` : "\u2014"
+    }
   ];
   const wx = weather.data;
   const lead = rss.leadStory;
@@ -4214,7 +4298,7 @@ function CommandCenter({
               marginTop: u(8)
             }
           },
-          sys.map((s, i) => /* @__PURE__ */ React.createElement(React.Fragment, { key: i }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.num, fontSize: u(12), color: T.ink2 } }, /* @__PURE__ */ React.createElement(StatusDot, { ok: s.v === "ok" }), s.k), /* @__PURE__ */ React.createElement(Num, { size: "xs", value: s.v, style: { justifyContent: "flex-end" } }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.num, fontSize: u(10), color: T.ink3, textAlign: "right" } }, s.d)))
+          sys.map((s, i) => /* @__PURE__ */ React.createElement(React.Fragment, { key: i }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.num, fontSize: u(12), color: T.ink2 } }, /* @__PURE__ */ React.createElement(StatusDot, { state: s.state }), s.k), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.num, fontSize: u(10), color: s.state === "stale" ? T.orange : s.state === "down" ? T.red : T.ink3, textAlign: "right" } }, s.age), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.num, fontSize: u(10), color: T.ink3, textAlign: "right" } }, s.d)))
         )),
         /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }),
         /* @__PURE__ */ React.createElement(
