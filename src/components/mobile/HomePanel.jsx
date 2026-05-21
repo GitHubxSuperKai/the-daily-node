@@ -5,6 +5,8 @@ import { WxGlyph } from '../WxGlyph.jsx';
 import {
   fmtPrice, fmtPct, fmtMempoolMB, fmtBlockTime, wmoIcon,
 } from '../../utils/formatting.js';
+import CONFIG from '../../config.js';
+import { sourceFreshness } from '../../utils/freshness.js';
 
 function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate }) {
   const T = useT();
@@ -29,13 +31,16 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
   const onlineCountForFeed = bitaxe.miners ? bitaxe.miners.filter(m => m.online).length : 0;
   const minerCountForFeed  = bitaxe.miners ? bitaxe.miners.length : 0;
 
+  const freshNow = Date.now();
+  const lastBlockTs = chain.recentBlocks?.[0]?.timestamp ?? null;
   const feedSources = [
-    { id: 'btc',     label: 'BTC',     ok: !btc.err && !!btc.data },
-    { id: 'chain',   label: 'Chain',   ok: !chain.err && !!chain.data },
-    { id: 'miners',  label: 'Miners',  ok: !bitaxe.err && onlineCountForFeed > 0 },
-    { id: 'weather', label: 'Weather', ok: !weather.err && !!weather.data },
-    { id: 'rss',     label: 'RSS',     ok: !rss.err && rss.items && rss.items.length > 0 },
+    { id: 'btc',     label: 'BTC',     state: sourceFreshness({ hasData: !!btc.data, err: btc.error, lastOk: btc.lastOk, interval: CONFIG.REFRESH_INTERVALS.price }, freshNow) },
+    { id: 'chain',   label: 'Chain',   state: sourceFreshness({ hasData: !!chain.data, err: chain.error, lastOk: chain.lastOk, interval: CONFIG.REFRESH_INTERVALS.chain, contentAgeMs: lastBlockTs ? freshNow - lastBlockTs * 1000 : null, contentMaxMs: CONFIG.CONTENT_STALE.chain }, freshNow) },
+    { id: 'miners',  label: 'Miners',  state: sourceFreshness({ hasData: onlineCountForFeed > 0, err: bitaxe.err, lastOk: bitaxe.lastOk, interval: bitaxe.interval }, freshNow) },
+    { id: 'weather', label: 'Weather', state: sourceFreshness({ hasData: !!weather.data, err: weather.err, lastOk: weather.lastOk, interval: weather.interval }, freshNow) },
+    { id: 'rss',     label: 'RSS',     state: sourceFreshness({ hasData: rss.items && rss.items.length > 0, err: rss.err, lastOk: rss.lastOk, interval: rss.interval }, freshNow) },
   ];
+  const dotColor = (state) => (state === 'fresh' ? T.green : state === 'stale' ? T.orange : T.red);
 
   return (
     <div style={{
@@ -105,7 +110,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
             <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <span style={{
                 width: 8, height: 8, borderRadius: '50%',
-                background: s.ok ? T.green : T.red,
+                background: dotColor(s.state),
                 display: 'inline-block',
               }} />
               <span style={{ fontFamily: T.sans, fontSize: 10, color: T.ink2, textTransform: 'uppercase', letterSpacing: 1 }}>
