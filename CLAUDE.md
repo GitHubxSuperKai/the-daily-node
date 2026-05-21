@@ -21,7 +21,7 @@ Preview tool server ID: `the-daily-node`
 
 ## Build System
 
-`build.js` concatenates all `src/` files in dependency order into a single `<script type="text/babel">` block inside `src/index.html`, writing the result to `index.html`. esbuild minifies the final HTML. Babel transpiles JSX in-browser at runtime — no compile step during dev.
+`build.js` transforms each `src/*.jsx` file's JSX with esbuild (`loader: 'jsx'`, `target: 'es2018'`) at build time, strips ESM `import`/`export` statements, and concatenates all `src/` files in dependency order into a single plain `<script>` block (the `/* MODULES CONCATENATED BY build.js */` placeholder in `src/index.html`), writing the result to `index.html`. React and ReactDOM are the production UMD builds vendored under `src/vendor/`, inlined as `<script>` tags (the `<!-- VENDOR -->` placeholder) — there is no CDN dependency and no in-browser Babel. The output HTML is written as-is (no minification step).
 
 **Critical — read before touching any component:**
 
@@ -38,7 +38,7 @@ const [x, setX] = React.useState(null);
 ```
 
 ### 2. Hook dependency arrays: declare variables first
-Babel compiles `const`/`let` to `var`. A `useEffect` dep array referencing a variable declared *later* in the same function body always sees `undefined` — the effect only runs on mount.
+A `useEffect` dependency array that references a variable declared *later* in the same function body breaks — the binding isn't initialized when the dependency array is evaluated during render. Always declare computed values before the hook that uses them.
 ```js
 // BROKEN:
 React.useEffect(() => { ... }, [oddsOneIn]);
@@ -51,7 +51,7 @@ React.useEffect(() => { ... }, [oddsOneIn]);
 
 ## Architecture
 
-Single-file React dashboard for Bitcoin & mining monitoring. React/Babel loaded from unpkg CDN — no runtime bundler.
+Single-file React dashboard for Bitcoin & mining monitoring. React + ReactDOM are vendored locally (inlined from `src/vendor/` at build time) — no CDN, no runtime bundler, no Babel.
 
 **Component tree:**
 ```
