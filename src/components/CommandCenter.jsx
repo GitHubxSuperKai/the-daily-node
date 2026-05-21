@@ -1,6 +1,7 @@
 import React from 'react';
 import CONFIG from '../config.js';
 import { sourceFreshness } from '../utils/freshness.js';
+import { themeFlipDecision } from '../utils/autoTheme.js';
 import { useT } from '../theme';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Masthead } from './Masthead';
@@ -93,16 +94,16 @@ export function CommandCenter({
 }) {
   const T = useT();
 
-  const autoThemeDone = React.useRef(false);
+  const lastShouldBeDark = React.useRef(null);
   React.useEffect(() => {
-    if (autoThemeDone.current) return;
     const wx = weather.data;
-    if (!wx?.wxSunriseHr && wx?.wxSunriseHr !== 0) return;
+    if (wx?.wxSunriseHr == null) return;
     const hr = new Date().getHours();
     const shouldBeDark = hr < wx.wxSunriseHr || hr >= wx.wxSunsetHr;
-    if (shouldBeDark !== dark) onToggleDark();
-    autoThemeDone.current = true;
-  }, [weather.data?.wxSunriseHr]);
+    const { update, flip } = themeFlipDecision(lastShouldBeDark.current, shouldBeDark, dark);
+    if (update) lastShouldBeDark.current = shouldBeDark;
+    if (flip) onToggleDark();
+  }, [clock.timeHM, weather.data?.wxSunriseHr, dark]);
 
   const lastBlockTs = chain.recentBlocks?.[0]?.timestamp ?? null;
   const msSinceLastBlock = lastBlockTs ? (Date.now() / 1000 - lastBlockTs) * 1000 : null;
