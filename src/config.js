@@ -34,6 +34,14 @@ const CONFIG = {
     pools:   5 * 60 * 1000,   // Mining pools + bitcoin meta every 5m
   },
 
+  // ─── Content staleness thresholds (ms) ────────────────
+  // A source can be reachable yet serving stale content. Flag chain data
+  // when the latest block's timestamp is older than this (blocks avg ~10m;
+  // 60m is conservative to avoid false "stale" flags).
+  CONTENT_STALE: {
+    chain: 60 * 60 * 1000,
+  },
+
   // ─── Auto-Refresh ────────────────────────────────────
   // Minimum time a tab must be hidden before refocus triggers a full refresh
   HIDDEN_STALE_THRESHOLD: 30 * 1000,

@@ -2,9 +2,10 @@ import React from 'react';
 
 // Import useT hook from theme context (available in build context)
 
-function StatusDot({ ok }) {
+function StatusDot({ state }) {
   const T = useT();
-  return <span style={{ color: ok ? T.green : T.red, marginRight: 5 }}>●</span>;
+  const color = state === 'fresh' ? T.green : state === 'stale' ? T.orange : T.red;
+  return <span style={{ color, marginRight: 5 }}>●</span>;
 }
 
 export default StatusDot;
