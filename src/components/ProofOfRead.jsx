@@ -35,10 +35,11 @@ export function ProofOfRead({ btc, chain, hashrate, mempoolTx, mempoolMB, feeFas
     const halvingBlocksLeft = typeof height === 'number'
       ? Math.ceil((height + 1) / 210000) * 210000 - height
       : Infinity;
+    const retargetISO = safeISODate(estimatedRetargetDate);
     const dateLabel = halvingBlocksLeft < remainingBlocks
       ? `Next halving ${nextHalvingDate}.`
-      : safeISODate(estimatedRetargetDate)
-        ? `Next difficulty retarget ~${safeISODate(estimatedRetargetDate)}.`
+      : retargetISO
+        ? `Next difficulty retarget ~${retargetISO}.`
         : 'Next difficulty retarget: date unavailable.';
     const diffNote = diffAdj != null && Math.abs(diffAdj) >= 3
       ? ` Retarget tracking ${diffAdj >= 0 ? '+' : ''}${diffAdj.toFixed(1)}%.`
