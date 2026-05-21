@@ -10,7 +10,7 @@ import { Kicker } from './Kicker';
 import { OnThisDay } from './OnThisDay';
 import { ProofOfRead } from './ProofOfRead';
 import { Num } from './Num';
-import { StatusDot } from './StatusDot';
+import StatusDot from './StatusDot';
 import { WxGlyph } from './WxGlyph';
 import { LineChart } from './LineChart';
 import { NetworkStatusWidget } from './NetworkStatusWidget';
