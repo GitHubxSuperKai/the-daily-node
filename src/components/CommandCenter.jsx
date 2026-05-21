@@ -1,4 +1,7 @@
 import React from 'react';
+import CONFIG from '../config.js';
+import { sourceFreshness } from '../utils/freshness.js';
+import { themeFlipDecision } from '../utils/autoTheme.js';
 import { useT } from '../theme';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Masthead } from './Masthead';
@@ -7,7 +10,7 @@ import { Kicker } from './Kicker';
 import { OnThisDay } from './OnThisDay';
 import { ProofOfRead } from './ProofOfRead';
 import { Num } from './Num';
-import { StatusDot } from './StatusDot';
+import StatusDot from './StatusDot';
 import { WxGlyph } from './WxGlyph';
 import { LineChart } from './LineChart';
 import { NetworkStatusWidget } from './NetworkStatusWidget';
@@ -91,16 +94,16 @@ export function CommandCenter({
 }) {
   const T = useT();
 
-  const autoThemeDone = React.useRef(false);
+  const lastShouldBeDark = React.useRef(null);
   React.useEffect(() => {
-    if (autoThemeDone.current) return;
     const wx = weather.data;
-    if (!wx?.wxSunriseHr && wx?.wxSunriseHr !== 0) return;
+    if (wx?.wxSunriseHr == null) return;
     const hr = new Date().getHours();
     const shouldBeDark = hr < wx.wxSunriseHr || hr >= wx.wxSunsetHr;
-    if (shouldBeDark !== dark) onToggleDark();
-    autoThemeDone.current = true;
-  }, [weather.data?.wxSunriseHr]);
+    const { update, flip } = themeFlipDecision(lastShouldBeDark.current, shouldBeDark, dark);
+    if (update) lastShouldBeDark.current = shouldBeDark;
+    if (flip) onToggleDark();
+  }, [clock.timeHM, weather.data?.wxSunriseHr, dark]);
 
   const lastBlockTs = chain.recentBlocks?.[0]?.timestamp ?? null;
   const msSinceLastBlock = lastBlockTs ? (Date.now() / 1000 - lastBlockTs) * 1000 : null;
@@ -205,12 +208,44 @@ export function CommandCenter({
     })),
   ];
 
+  const freshNow = Date.now();
+  const ageOf = (lastOk) => (lastOk ? timeAgo(lastOk) : '—');
   const sys = [
-    { k: 'miners', v: bitaxe.err ? 'err' : onlineCount > 0 ? 'ok' : bitaxe.loading ? '…' : 'err', d: bitaxe.loading ? 'connecting' : `${onlineCount}/${minerCount} online` },
-    { k: 'mempool', v: chain.err ? 'err' : chain.data ? 'ok' : '…', d: chain.data ? `${mempoolMB}` : '—' },
-    { k: 'kraken', v: btc.err ? 'err' : btc.data ? 'ok' : '…', d: btc.data ? `${btcChgPct}% 24h` : '—' },
-    { k: 'weather', v: weather.err ? 'err' : weather.data ? 'ok' : '…', d: weather.data ? weather.data.wxCond.toLowerCase() : '—' },
-    { k: 'rss', v: rss.err ? 'err' : rss.items.length > 0 ? 'ok' : '…', d: rss.items.length > 0 ? `${rss.items.length} stories` : '—' },
+    {
+      k: 'miners',
+      state: sourceFreshness({ hasData: onlineCount > 0, err: bitaxe.err, lastOk: bitaxe.lastOk, interval: bitaxe.interval }, freshNow),
+      age: ageOf(bitaxe.lastOk),
+      d: bitaxe.loading ? 'connecting' : `${onlineCount}/${minerCount} online`,
+    },
+    {
+      k: 'mempool',
+      state: sourceFreshness({
+        hasData: !!chain.data, err: chain.error, lastOk: chain.lastOk,
+        interval: CONFIG.REFRESH_INTERVALS.chain,
+        contentAgeMs: lastBlockTs ? freshNow - lastBlockTs * 1000 : null,
+        contentMaxMs: CONFIG.CONTENT_STALE.chain,
+      }, freshNow),
+      age: ageOf(chain.lastOk),
+      d: chain.data ? `${mempoolMB}` : '—',
+    },
+    {
+      k: 'kraken',
+      state: sourceFreshness({ hasData: !!btc.data, err: btc.error, lastOk: btc.lastOk, interval: CONFIG.REFRESH_INTERVALS.price }, freshNow),
+      age: ageOf(btc.lastOk),
+      d: btc.data ? `${btcChgPct}% 24h` : '—',
+    },
+    {
+      k: 'weather',
+      state: sourceFreshness({ hasData: !!weather.data, err: weather.err, lastOk: weather.lastOk, interval: weather.interval }, freshNow),
+      age: ageOf(weather.lastOk),
+      d: weather.data ? weather.data.wxCond.toLowerCase() : '—',
+    },
+    {
+      k: 'rss',
+      state: sourceFreshness({ hasData: rss.items.length > 0, err: rss.err, lastOk: rss.lastOk, interval: rss.interval }, freshNow),
+      age: ageOf(rss.lastOk),
+      d: rss.items.length > 0 ? `${rss.items.length} stories` : '—',
+    },
   ];
 
   const wx = weather.data;
@@ -409,10 +444,12 @@ export function CommandCenter({
               {sys.map((s, i) => (
                 <React.Fragment key={i}>
                   <span style={{ fontFamily: T.num, fontSize: u(12), color: T.ink2 }}>
-                    <StatusDot ok={s.v === 'ok'} />
+                    <StatusDot state={s.state} />
                     {s.k}
                   </span>
-                  <Num size="xs" value={s.v} style={{ justifyContent: 'flex-end' }} />
+                  <span style={{ fontFamily: T.num, fontSize: u(10), color: s.state === 'stale' ? T.orange : s.state === 'down' ? T.red : T.ink3, textAlign: 'right' }}>
+                    {s.age}
+                  </span>
                   <span style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, textAlign: 'right' }}>
                     {s.d}
                   </span>
