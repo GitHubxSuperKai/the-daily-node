@@ -209,12 +209,20 @@ export function CommandCenter({
   ];
 
   const freshNow = Date.now();
-  const ageOf = (lastOk) => (lastOk ? timeAgo(lastOk) : '—');
+  // Freeze age labels at the moment lastOk changes — prevents per-second countdown noise.
+  // Dot state (sourceFreshness) still recomputes each render so staleness is detected on schedule.
+  const sysAges = React.useMemo(() => ({
+    miners:  bitaxe.lastOk  ? timeAgo(bitaxe.lastOk)  : '—',
+    mempool: chain.lastOk   ? timeAgo(chain.lastOk)   : '—',
+    kraken:  btc.lastOk     ? timeAgo(btc.lastOk)     : '—',
+    weather: weather.lastOk ? timeAgo(weather.lastOk) : '—',
+    rss:     rss.lastOk     ? timeAgo(rss.lastOk)     : '—',
+  }), [bitaxe.lastOk, chain.lastOk, btc.lastOk, weather.lastOk, rss.lastOk]);
   const sys = [
     {
       k: 'miners',
       state: sourceFreshness({ hasData: onlineCount > 0, err: bitaxe.err, lastOk: bitaxe.lastOk, interval: bitaxe.interval }, freshNow),
-      age: ageOf(bitaxe.lastOk),
+      age: sysAges.miners,
       d: bitaxe.loading ? 'connecting' : `${onlineCount}/${minerCount} online`,
     },
     {
@@ -225,25 +233,25 @@ export function CommandCenter({
         contentAgeMs: lastBlockTs ? freshNow - lastBlockTs * 1000 : null,
         contentMaxMs: CONFIG.CONTENT_STALE.chain,
       }, freshNow),
-      age: ageOf(chain.lastOk),
+      age: sysAges.mempool,
       d: chain.data ? `${mempoolMB}` : '—',
     },
     {
       k: 'kraken',
       state: sourceFreshness({ hasData: !!btc.data, err: btc.error, lastOk: btc.lastOk, interval: CONFIG.REFRESH_INTERVALS.price }, freshNow),
-      age: ageOf(btc.lastOk),
+      age: sysAges.kraken,
       d: btc.data ? `${btcChgPct}% 24h` : '—',
     },
     {
       k: 'weather',
       state: sourceFreshness({ hasData: !!weather.data, err: weather.err, lastOk: weather.lastOk, interval: weather.interval }, freshNow),
-      age: ageOf(weather.lastOk),
+      age: sysAges.weather,
       d: weather.data ? weather.data.wxCond.toLowerCase() : '—',
     },
     {
       k: 'rss',
       state: sourceFreshness({ hasData: rss.items.length > 0, err: rss.err, lastOk: rss.lastOk, interval: rss.interval }, freshNow),
-      age: ageOf(rss.lastOk),
+      age: sysAges.rss,
       d: rss.items.length > 0 ? `${rss.items.length} stories` : '—',
     },
   ];

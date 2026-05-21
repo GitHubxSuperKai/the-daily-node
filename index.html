@@ -1651,8 +1651,6 @@ function useResettableInterval(callback, delay) {
 }
 
 
-
-
 /**
  * useClock Hook
  * Returns formatted time string that updates every second
@@ -4087,12 +4085,18 @@ function CommandCenter({
     }))
   ];
   const freshNow = Date.now();
-  const ageOf = (lastOk) => lastOk ? timeAgo(lastOk) : "\u2014";
+  const sysAges = React.useMemo(() => ({
+    miners: bitaxe.lastOk ? timeAgo(bitaxe.lastOk) : "\u2014",
+    mempool: chain.lastOk ? timeAgo(chain.lastOk) : "\u2014",
+    kraken: btc.lastOk ? timeAgo(btc.lastOk) : "\u2014",
+    weather: weather.lastOk ? timeAgo(weather.lastOk) : "\u2014",
+    rss: rss.lastOk ? timeAgo(rss.lastOk) : "\u2014"
+  }), [bitaxe.lastOk, chain.lastOk, btc.lastOk, weather.lastOk, rss.lastOk]);
   const sys = [
     {
       k: "miners",
       state: sourceFreshness({ hasData: onlineCount > 0, err: bitaxe.err, lastOk: bitaxe.lastOk, interval: bitaxe.interval }, freshNow),
-      age: ageOf(bitaxe.lastOk),
+      age: sysAges.miners,
       d: bitaxe.loading ? "connecting" : `${onlineCount}/${minerCount} online`
     },
     {
@@ -4105,25 +4109,25 @@ function CommandCenter({
         contentAgeMs: lastBlockTs ? freshNow - lastBlockTs * 1e3 : null,
         contentMaxMs: CONFIG.CONTENT_STALE.chain
       }, freshNow),
-      age: ageOf(chain.lastOk),
+      age: sysAges.mempool,
       d: chain.data ? `${mempoolMB}` : "\u2014"
     },
     {
       k: "kraken",
       state: sourceFreshness({ hasData: !!btc.data, err: btc.error, lastOk: btc.lastOk, interval: CONFIG.REFRESH_INTERVALS.price }, freshNow),
-      age: ageOf(btc.lastOk),
+      age: sysAges.kraken,
       d: btc.data ? `${btcChgPct}% 24h` : "\u2014"
     },
     {
       k: "weather",
       state: sourceFreshness({ hasData: !!weather.data, err: weather.err, lastOk: weather.lastOk, interval: weather.interval }, freshNow),
-      age: ageOf(weather.lastOk),
+      age: sysAges.weather,
       d: weather.data ? weather.data.wxCond.toLowerCase() : "\u2014"
     },
     {
       k: "rss",
       state: sourceFreshness({ hasData: rss.items.length > 0, err: rss.err, lastOk: rss.lastOk, interval: rss.interval }, freshNow),
-      age: ageOf(rss.lastOk),
+      age: sysAges.rss,
       d: rss.items.length > 0 ? `${rss.items.length} stories` : "\u2014"
     }
   ];
