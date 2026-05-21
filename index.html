@@ -1543,7 +1543,8 @@ function ProofOfRead({ btc, chain, hashrate, mempoolTx, mempoolMB, feeFast, feeE
     const { feeFast: rawFee, diffAdj, remainingBlocks, estimatedRetargetDate, height, nextHalvingDate } = chain.data;
     const feeLabel = rawFee < 5 ? "Fee market is quiet" : rawFee < 20 ? "Fees are moderate" : rawFee < 50 ? "Fees are elevated" : "Network is congested \u2014 fees are high";
     const halvingBlocksLeft = typeof height === "number" ? Math.ceil((height + 1) / 21e4) * 21e4 - height : Infinity;
-    const dateLabel = halvingBlocksLeft < remainingBlocks ? `Next halving ${nextHalvingDate}.` : safeISODate(estimatedRetargetDate) ? `Next difficulty retarget ~${safeISODate(estimatedRetargetDate)}.` : "Next difficulty retarget: date unavailable.";
+    const retargetISO = safeISODate(estimatedRetargetDate);
+    const dateLabel = halvingBlocksLeft < remainingBlocks ? `Next halving ${nextHalvingDate}.` : retargetISO ? `Next difficulty retarget ~${retargetISO}.` : "Next difficulty retarget: date unavailable.";
     const diffNote = diffAdj != null && Math.abs(diffAdj) >= 3 ? ` Retarget tracking ${diffAdj >= 0 ? "+" : ""}${diffAdj.toFixed(1)}%.` : "";
     chainBullet = `Network hashrate at ${hashrate}. ${feeLabel} (${feeFast} fast / ${feeEco} eco); mempool holds ${mempoolTx} txs (${mempoolMB}). ${dateLabel}${diffNote}`;
   } else {
