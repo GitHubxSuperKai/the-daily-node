@@ -28,4 +28,9 @@ describe('themeFlipDecision', () => {
     // sunset crossing but user had manually gone dark already
     expect(themeFlipDecision(false, true, true)).toEqual({ update: true, flip: false });
   });
+
+  it('no-op (no crossing) even when dark state disagrees with shouldBeDark', () => {
+    // same shouldBeDark as prev -> no crossing -> no flip even if dark is wrong
+    expect(themeFlipDecision(true, true, false)).toEqual({ update: false, flip: false });
+  });
 });
