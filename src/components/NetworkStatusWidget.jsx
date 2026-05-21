@@ -1,5 +1,5 @@
 import React from 'react';
-import { fmtHashrate, fmtDiff, fmtNum, fmtBlockSize } from '../utils/formatting.js';
+import { fmtHashrate, fmtDiff, fmtNum, fmtBlockSize, safeISODate } from '../utils/formatting.js';
 import { u } from '../utils/scale.js';
 
 function SubLabel({ children, right, alert, rightColor, noBorder, T }) {
@@ -82,13 +82,13 @@ export function NetworkStatusWidget({ chain, T }) {
   const remainingBlocks = d?.remainingBlocks ?? 0;
   const remainingDays = Math.round(remainingBlocks * 10 / 60 / 24);
   const projectedRetargetDateStr = remainingBlocks > 0
-    ? new Date(Date.now() + remainingBlocks * 10 * 60 * 1000).toISOString().slice(0, 10)
+    ? safeISODate(Date.now() + remainingBlocks * 10 * 60 * 1000)
     : null;
   const prevDiffAdj = d?.previousDiffAdj;
   const prevDiffAdjStr = prevDiffAdj != null ? `${prevDiffAdj >= 0 ? '+' : ''}${prevDiffAdj.toFixed(2)}%` : '—';
   const prevDiffAdjCol = prevDiffAdj == null ? T.ink4 : prevDiffAdj > 0 ? T.green : prevDiffAdj < 0 ? T.red : T.ink4;
   const prevRetargetDateStr = d?.previousRetargetDate != null
-    ? new Date(d.previousRetargetDate * 1000).toISOString().slice(0, 10)
+    ? safeISODate(d.previousRetargetDate * 1000)
     : null;
 
   const halvingYrs = (halvingBlocks * 10 / 60 / 24 / 365).toFixed(1);

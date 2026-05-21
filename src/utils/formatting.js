@@ -73,13 +73,22 @@ function fmtHHMM(hhmm, timeFormat) {
   return `${h12}:${String(m).padStart(2, '0')}${suffix}`;
 }
 
+// Format a date input as YYYY-MM-DD, or return null if it can't be parsed.
+// Date.prototype.toISOString() throws RangeError on an invalid or out-of-range
+// date; a degraded external source (e.g. a garbage retarget timestamp) can
+// produce exactly that. getTime() returns NaN instead of throwing, so we gate
+// on it and let callers fall back to '—'.
+function safeISODate(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
+
 function nextHalving(height) {
   const halvingInterval = 210000;
   const nextHalvingBlock = Math.ceil((height + 1) / halvingInterval) * halvingInterval;
   const blocksRemaining = nextHalvingBlock - height;
   const daysRemaining = blocksRemaining / 144;
-  const date = new Date(Date.now() + daysRemaining * 86400000);
-  return date.toISOString().slice(0, 10);
+  return safeISODate(Date.now() + daysRemaining * 86400000) ?? '—';
 }
 
 function circulatingBTC(height) {
@@ -209,6 +218,7 @@ if (typeof module !== 'undefined' && module.exports) {
     timeAgo,
     fmtHour,
     fmtHHMM,
+    safeISODate,
     nextHalving,
     circulatingBTC,
     calcSoloOdds,

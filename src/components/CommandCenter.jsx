@@ -1,5 +1,6 @@
 import React from 'react';
 import { useT } from '../theme';
+import { ErrorBoundary } from './ErrorBoundary';
 import { Masthead } from './Masthead';
 import { Rule } from './Rule';
 import { Kicker } from './Kicker';
@@ -23,6 +24,7 @@ import {
   fmtBlockSize,
   fmtBestDiff,
   timeAgoUnix,
+  safeISODate,
   calcSoloOdds,
   fmtHour,
   wmoIcon,
@@ -160,9 +162,7 @@ export function CommandCenter({
   const epochPct = chain.data?.progressPercent;
   const epochBlocks = chain.data ? Math.round((epochPct / 100) * 2016) : null;
   const epochStr = epochPct != null ? `${epochPct.toFixed(0)}% · ${epochBlocks}/2016` : '—';
-  const retargetDate = chain.data?.estimatedRetargetDate
-    ? new Date(chain.data.estimatedRetargetDate).toISOString().slice(0, 10)
-    : '—';
+  const retargetDate = safeISODate(chain.data?.estimatedRetargetDate) ?? '—';
   const blockTimeSec = chain.data?.blockTimeMs ? chain.data.blockTimeMs / 1000 : null;
   const blockTimeCol =
     blockTimeSec == null ? T.ink : blockTimeSec < 570 ? T.orange : blockTimeSec <= 630 ? T.green : T.red;
@@ -264,6 +264,7 @@ export function CommandCenter({
       />
 
       {/* TICKER */}
+      <ErrorBoundary label="Ticker">
       <div
         style={{
           display: 'flex',
@@ -344,6 +345,7 @@ export function CommandCenter({
           </div>
         </div>
       </div>
+      </ErrorBoundary>
 
       {/* BODY — 4-column grid */}
       <div
@@ -357,6 +359,7 @@ export function CommandCenter({
         }}
       >
         {/* COL 0 — WORDMARK RAIL */}
+        <ErrorBoundary label="Sidebar">
         <div
           style={{
             borderRight: `1px solid ${T.rule2}`,
@@ -431,8 +434,10 @@ export function CommandCenter({
             Published from a home on the internet. Set in Playfair Display &amp; Newsreader.
           </div>
         </div>
+        </ErrorBoundary>
 
         {/* COL 1 — MARKETS + LEAD STORY */}
+        <ErrorBoundary label="Markets">
         <div
           style={{
             borderRight: `1px solid ${T.rule2}`,
@@ -522,8 +527,10 @@ export function CommandCenter({
             </>
           )}
         </div>
+        </ErrorBoundary>
 
         {/* COL 2 — HEADLINES FEED */}
+        <ErrorBoundary label="News">
         {(() => {
           const NEWS_SECTIONS = ['BREAKING', 'MARKETS', 'MINING', 'REGULATION', 'TECH', 'GLOBAL', 'BITCOIN'];
           const grouped = NEWS_SECTIONS.reduce((acc, topic) => {
@@ -594,8 +601,10 @@ export function CommandCenter({
             </div>
           );
         })()}
+        </ErrorBoundary>
 
         {/* COL 3 — FIELD REPORT + CHAIN VITALS */}
+        <ErrorBoundary label="Network">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0, overflow: 'hidden' }}>
           <Miners bitaxe={bitaxe} chain={chain} />
           <div className="news-col-wrap" style={{ marginTop: u(32), flexShrink: 1, minHeight: 0 }}>
@@ -611,6 +620,7 @@ export function CommandCenter({
             </div>
           </div>
         </div>
+        </ErrorBoundary>
       </div>
 
       {settingsOpen && (

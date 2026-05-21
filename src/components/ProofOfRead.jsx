@@ -1,5 +1,6 @@
 import React from 'react';
 import { useT } from '../theme';
+import { safeISODate } from '../utils/formatting.js';
 import Kicker from './Kicker';
 
 export function ProofOfRead({ btc, chain, hashrate, mempoolTx, mempoolMB, feeFast, feeEco, btcPrice, btcLo, btcHi }) {
@@ -36,8 +37,8 @@ export function ProofOfRead({ btc, chain, hashrate, mempoolTx, mempoolMB, feeFas
       : Infinity;
     const dateLabel = halvingBlocksLeft < remainingBlocks
       ? `Next halving ${nextHalvingDate}.`
-      : estimatedRetargetDate
-        ? `Next difficulty retarget ~${new Date(estimatedRetargetDate).toISOString().slice(0, 10)}.`
+      : safeISODate(estimatedRetargetDate)
+        ? `Next difficulty retarget ~${safeISODate(estimatedRetargetDate)}.`
         : 'Next difficulty retarget: date unavailable.';
     const diffNote = diffAdj != null && Math.abs(diffAdj) >= 3
       ? ` Retarget tracking ${diffAdj >= 0 ? '+' : ''}${diffAdj.toFixed(1)}%.`
