@@ -9,6 +9,7 @@ import { useRSS } from './hooks/useRSS.js';
 import { useFeedHealth } from './hooks/useFeedHealth.js';
 import { usePageRefresh } from './hooks/usePageRefresh.js';
 import { useViewportMode } from './hooks/useViewportMode.js';
+import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { CommandCenter } from './components/CommandCenter.jsx';
 import { MobileApp } from './components/mobile/MobileApp.jsx';
 import { SettingsPanel } from './components/SettingsPanel.jsx';
@@ -113,6 +114,7 @@ function App() {
   // ─── Render ────────────────────────────────────────────────
   return (
     <ThemeCtx.Provider value={theme}>
+      <ErrorBoundary label="Dashboard">
       {mode === 'mobile'
         ? <MobileApp
             prefs={prefs}
@@ -147,6 +149,7 @@ function App() {
             feedHealth={feedHealth}
           />
       }
+      </ErrorBoundary>
       {mode === 'mobile' && settingsOpen && (
         <SettingsPanel
           prefs={prefs}

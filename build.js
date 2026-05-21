@@ -15,6 +15,7 @@ const files = [
   'utils/alertThresholds.js',
   'utils/scale.js',
   'utils/ipValidation.js',
+  'components/ErrorBoundary.jsx',
   'components/Num.jsx',
   'components/StatusDot.jsx',
   'components/Kicker.jsx',

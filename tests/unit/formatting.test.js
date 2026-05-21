@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   fmtNum, fmtPrice, fmtPct, fmtVolUsd, fmtBlockTime, fmtHashrate,
   fmtDiff, fmtMempoolMB, fmtBlockSize, timeAgo, timeAgoUnix,
-  fmtHour, fmtHHMM, nextHalving, circulatingBTC, calcSoloOdds,
+  fmtHour, fmtHHMM, safeISODate, nextHalving, circulatingBTC, calcSoloOdds,
   wmoDesc, wmoIcon, wmoSpeed, fmtBestDiff, classifyTopic,
 } from '../../src/utils/formatting.js';
 
@@ -165,10 +165,34 @@ describe('fmtHHMM', () => {
   });
 });
 
+describe('safeISODate', () => {
+  it('formats a valid date string as YYYY-MM-DD', () => {
+    expect(safeISODate('2026-05-21T12:00:00Z')).toBe('2026-05-21');
+  });
+  it('formats a valid epoch-ms number', () => {
+    expect(safeISODate(Date.UTC(2026, 4, 21))).toBe('2026-05-21');
+  });
+  it('accepts a Date instance', () => {
+    expect(safeISODate(new Date('2026-05-21T00:00:00Z'))).toBe('2026-05-21');
+  });
+  it('returns null for an unparseable string instead of throwing', () => {
+    expect(safeISODate('not-a-date')).toBeNull();
+  });
+  it('returns null for NaN instead of throwing', () => {
+    expect(safeISODate(NaN)).toBeNull();
+  });
+  it('returns null for an out-of-range value instead of throwing RangeError', () => {
+    expect(safeISODate(1e16)).toBeNull();
+  });
+});
+
 describe('nextHalving', () => {
   it('returns ISO date string', () => {
     const d = nextHalving(800_000);
     expect(d).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+  it('returns the em-dash fallback for garbage height instead of throwing', () => {
+    expect(nextHalving(NaN)).toBe('—');
   });
 });
 
