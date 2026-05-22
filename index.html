@@ -621,7 +621,7 @@ function fmtMempoolMB(bytes) {
 
 function timeAgo(dateStr) {
   const diff = (Date.now() - new Date(dateStr)) / 1000;
-  if (diff <= 0)   return 'just now';
+  if (diff < 1)    return 'just now';
   if (diff < 60)   return `${Math.round(diff)}s ago`;
   if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
@@ -4012,6 +4012,11 @@ function CommandCenter({
     },
     v2prefs
   );
+  const [ageTick, setAgeTick] = React.useState(Date.now());
+  React.useEffect(() => {
+    const id = setInterval(() => setAgeTick(Date.now()), 6e4);
+    return () => clearInterval(id);
+  }, []);
   const btcPrice = btc.data ? `$${fmtPrice(btc.data.price)}` : "\u2014";
   const btcChgPct = btc.data ? fmtPct(btc.data.chgPct) : "\u2014";
   const btcUp = btc.data ? btc.data.chgPct >= 0 : true;
@@ -4085,19 +4090,18 @@ function CommandCenter({
     }))
   ];
   const freshNow = Date.now();
-  const sysAges = React.useMemo(() => ({
-    miners: bitaxe.lastOk ? timeAgo(bitaxe.lastOk) : "\u2014",
-    mempool: chain.lastOk ? timeAgo(chain.lastOk) : "\u2014",
-    kraken: btc.lastOk ? timeAgo(btc.lastOk) : "\u2014",
-    weather: weather.lastOk ? timeAgo(weather.lastOk) : "\u2014",
-    rss: rss.lastOk ? timeAgo(rss.lastOk) : "\u2014"
-  }), [bitaxe.lastOk, chain.lastOk, btc.lastOk, weather.lastOk, rss.lastOk]);
+  const sysAgeOf = (lastOk) => {
+    if (!lastOk)
+      return "";
+    const mins = Math.floor((ageTick - lastOk) / 6e4);
+    return mins < 1 ? "" : `\u21BB ${mins}m`;
+  };
+  const withAge = (age, desc) => age ? `${age} \xB7 ${desc}` : desc;
   const sys = [
     {
       k: "miners",
       state: sourceFreshness({ hasData: onlineCount > 0, err: bitaxe.err, lastOk: bitaxe.lastOk, interval: bitaxe.interval }, freshNow),
-      age: sysAges.miners,
-      d: bitaxe.loading ? "connecting" : `${onlineCount}/${minerCount} online`
+      d: withAge(sysAgeOf(bitaxe.lastOk), bitaxe.loading ? "connecting" : `${onlineCount}/${minerCount} online`)
     },
     {
       k: "mempool",
@@ -4109,26 +4113,22 @@ function CommandCenter({
         contentAgeMs: lastBlockTs ? freshNow - lastBlockTs * 1e3 : null,
         contentMaxMs: CONFIG.CONTENT_STALE.chain
       }, freshNow),
-      age: sysAges.mempool,
-      d: chain.data ? `${mempoolMB}` : "\u2014"
+      d: withAge(sysAgeOf(chain.lastOk), chain.data ? `${mempoolMB}` : "\u2014")
     },
     {
       k: "kraken",
       state: sourceFreshness({ hasData: !!btc.data, err: btc.error, lastOk: btc.lastOk, interval: CONFIG.REFRESH_INTERVALS.price }, freshNow),
-      age: sysAges.kraken,
-      d: btc.data ? `${btcChgPct}% 24h` : "\u2014"
+      d: withAge(sysAgeOf(btc.lastOk), btc.data ? `${btcChgPct}% 24h` : "\u2014")
     },
     {
       k: "weather",
       state: sourceFreshness({ hasData: !!weather.data, err: weather.err, lastOk: weather.lastOk, interval: weather.interval }, freshNow),
-      age: sysAges.weather,
-      d: weather.data ? weather.data.wxCond.toLowerCase() : "\u2014"
+      d: withAge(sysAgeOf(weather.lastOk), weather.data ? weather.data.wxCond.toLowerCase() : "\u2014")
     },
     {
       k: "rss",
       state: sourceFreshness({ hasData: rss.items.length > 0, err: rss.err, lastOk: rss.lastOk, interval: rss.interval }, freshNow),
-      age: sysAges.rss,
-      d: rss.items.length > 0 ? `${rss.items.length} stories` : "\u2014"
+      d: withAge(sysAgeOf(rss.lastOk), rss.items.length > 0 ? `${rss.items.length} stories` : "\u2014")
     }
   ];
   const wx = weather.data;
@@ -4296,13 +4296,13 @@ function CommandCenter({
           {
             style: {
               display: "grid",
-              gridTemplateColumns: "1fr auto auto",
+              gridTemplateColumns: "1fr auto",
               rowGap: u(5),
               columnGap: u(12),
               marginTop: u(8)
             }
           },
-          sys.map((s, i) => /* @__PURE__ */ React.createElement(React.Fragment, { key: i }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.num, fontSize: u(12), color: T.ink2 } }, /* @__PURE__ */ React.createElement(StatusDot, { state: s.state }), s.k), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.num, fontSize: u(10), color: s.state === "stale" ? T.orange : s.state === "down" ? T.red : T.ink3, textAlign: "right" } }, s.age), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.num, fontSize: u(10), color: T.ink3, textAlign: "right" } }, s.d)))
+          sys.map((s, i) => /* @__PURE__ */ React.createElement(React.Fragment, { key: i }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.num, fontSize: u(12), color: T.ink2 } }, /* @__PURE__ */ React.createElement(StatusDot, { state: s.state }), s.k), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.num, fontSize: u(10), color: s.state === "stale" ? T.orange : s.state === "down" ? T.red : T.ink3, textAlign: "right" } }, s.d)))
         )),
         /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }),
         /* @__PURE__ */ React.createElement(

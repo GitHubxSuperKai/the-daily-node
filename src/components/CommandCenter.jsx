@@ -33,7 +33,6 @@ import {
   wmoIcon,
   wmoDesc,
   wmoSpeed,
-  timeAgo,
 } from '../utils';
 
 
@@ -122,6 +121,13 @@ export function CommandCenter({
     v2prefs,
   );
 
+  // Coarse 60s tick for system panel age labels — blank under 1 min, "Xm ago" after
+  const [ageTick, setAgeTick] = React.useState(Date.now());
+  React.useEffect(() => {
+    const id = setInterval(() => setAgeTick(Date.now()), 60000);
+    return () => clearInterval(id);
+  }, []);
+
   // Derived values
   const btcPrice = btc.data ? `$${fmtPrice(btc.data.price)}` : '—';
   const btcChgPct = btc.data ? fmtPct(btc.data.chgPct) : '—';
@@ -209,21 +215,17 @@ export function CommandCenter({
   ];
 
   const freshNow = Date.now();
-  // Freeze age labels at the moment lastOk changes — prevents per-second countdown noise.
-  // Dot state (sourceFreshness) still recomputes each render so staleness is detected on schedule.
-  const sysAges = React.useMemo(() => ({
-    miners:  bitaxe.lastOk  ? timeAgo(bitaxe.lastOk)  : '—',
-    mempool: chain.lastOk   ? timeAgo(chain.lastOk)   : '—',
-    kraken:  btc.lastOk     ? timeAgo(btc.lastOk)     : '—',
-    weather: weather.lastOk ? timeAgo(weather.lastOk) : '—',
-    rss:     rss.lastOk     ? timeAgo(rss.lastOk)     : '—',
-  }), [bitaxe.lastOk, chain.lastOk, btc.lastOk, weather.lastOk, rss.lastOk]);
+  const sysAgeOf = (lastOk) => {
+    if (!lastOk) return '';
+    const mins = Math.floor((ageTick - lastOk) / 60000);
+    return mins < 1 ? '' : `↻ ${mins}m`;
+  };
+  const withAge = (age, desc) => age ? `${age} · ${desc}` : desc;
   const sys = [
     {
       k: 'miners',
       state: sourceFreshness({ hasData: onlineCount > 0, err: bitaxe.err, lastOk: bitaxe.lastOk, interval: bitaxe.interval }, freshNow),
-      age: sysAges.miners,
-      d: bitaxe.loading ? 'connecting' : `${onlineCount}/${minerCount} online`,
+      d: withAge(sysAgeOf(bitaxe.lastOk), bitaxe.loading ? 'connecting' : `${onlineCount}/${minerCount} online`),
     },
     {
       k: 'mempool',
@@ -233,26 +235,22 @@ export function CommandCenter({
         contentAgeMs: lastBlockTs ? freshNow - lastBlockTs * 1000 : null,
         contentMaxMs: CONFIG.CONTENT_STALE.chain,
       }, freshNow),
-      age: sysAges.mempool,
-      d: chain.data ? `${mempoolMB}` : '—',
+      d: withAge(sysAgeOf(chain.lastOk), chain.data ? `${mempoolMB}` : '—'),
     },
     {
       k: 'kraken',
       state: sourceFreshness({ hasData: !!btc.data, err: btc.error, lastOk: btc.lastOk, interval: CONFIG.REFRESH_INTERVALS.price }, freshNow),
-      age: sysAges.kraken,
-      d: btc.data ? `${btcChgPct}% 24h` : '—',
+      d: withAge(sysAgeOf(btc.lastOk), btc.data ? `${btcChgPct}% 24h` : '—'),
     },
     {
       k: 'weather',
       state: sourceFreshness({ hasData: !!weather.data, err: weather.err, lastOk: weather.lastOk, interval: weather.interval }, freshNow),
-      age: sysAges.weather,
-      d: weather.data ? weather.data.wxCond.toLowerCase() : '—',
+      d: withAge(sysAgeOf(weather.lastOk), weather.data ? weather.data.wxCond.toLowerCase() : '—'),
     },
     {
       k: 'rss',
       state: sourceFreshness({ hasData: rss.items.length > 0, err: rss.err, lastOk: rss.lastOk, interval: rss.interval }, freshNow),
-      age: sysAges.rss,
-      d: rss.items.length > 0 ? `${rss.items.length} stories` : '—',
+      d: withAge(sysAgeOf(rss.lastOk), rss.items.length > 0 ? `${rss.items.length} stories` : '—'),
     },
   ];
 
@@ -443,7 +441,7 @@ export function CommandCenter({
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr auto auto',
+                gridTemplateColumns: '1fr auto',
                 rowGap: u(5),
                 columnGap: u(12),
                 marginTop: u(8),
@@ -456,9 +454,6 @@ export function CommandCenter({
                     {s.k}
                   </span>
                   <span style={{ fontFamily: T.num, fontSize: u(10), color: s.state === 'stale' ? T.orange : s.state === 'down' ? T.red : T.ink3, textAlign: 'right' }}>
-                    {s.age}
-                  </span>
-                  <span style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, textAlign: 'right' }}>
                     {s.d}
                   </span>
                 </React.Fragment>
