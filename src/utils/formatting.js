@@ -48,7 +48,7 @@ function fmtMempoolMB(bytes) {
 
 function timeAgo(dateStr) {
   const diff = (Date.now() - new Date(dateStr)) / 1000;
-  if (diff <= 0)   return 'just now';
+  if (diff < 1)    return 'just now';
   if (diff < 60)   return `${Math.round(diff)}s ago`;
   if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
