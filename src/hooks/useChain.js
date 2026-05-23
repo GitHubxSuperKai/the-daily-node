@@ -86,6 +86,17 @@ export function useChain(mempoolPrefs = {}) {
   const { reset: resetChain    } = useResettableInterval(fetchChain,    CONFIG.REFRESH_INTERVALS.chain);
   const { reset: resetExtended } = useResettableInterval(fetchExtended, CONFIG.REFRESH_INTERVALS.pools);
 
+  // Re-fetch immediately when mempoolPrefs change (new baseUrl saved in settings).
+  // fetchChain/fetchExtended get new references only when baseUrl or fallbackToPublic
+  // changes, so this effect fires exactly then — skipping the initial mount since
+  // useResettableInterval already handles that.
+  const isFirstRender = React.useRef(true);
+  React.useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    fetchChain();
+    fetchExtended();
+  }, [fetchChain, fetchExtended]);
+
   const refresh = React.useCallback(() => {
     resetChain();
     resetExtended();
