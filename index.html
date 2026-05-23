@@ -872,56 +872,85 @@ async function fetchBTCPrice() {
   }
 }
 
+// Used by all mempool fetch functions. Override via opts.baseUrl.
+const MEMPOOL_PUBLIC = 'https://mempool.space';
+
 /**
  * Fetch chain stats from Mempool.space
  * Returns: { height, hashrate, difficulty, mempoolBytes, mempoolTx, feeFast, feeMid, feeEco,
  *            diffAdj, previousDiffAdj, previousRetargetDate, blockTimeMs, remainingBlocks,
  *            progressPercent, estimatedRetargetDate }
+ * opts: { baseUrl?: string, fallbackToPublic?: boolean }
  */
-async function fetchChainStats() {
+async function fetchChainStats(opts = {}) {
+  const base = (opts.baseUrl && opts.baseUrl.trim())
+    ? opts.baseUrl.replace(/\/$/, '')
+    : MEMPOOL_PUBLIC;
+
   try {
-    const [blockRes, hashrateRes, feesRes, mempoolRes, diffRes] = await Promise.all([
-      fetch('https://mempool.space/api/blocks/tip/height', { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
-      fetch('https://mempool.space/api/v1/mining/hashrate/3d', { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
-      fetch('https://mempool.space/api/v1/fees/recommended', { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
-      fetch('https://mempool.space/api/mempool', { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
-      fetch('https://mempool.space/api/v1/difficulty-adjustment', { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
+    const results = await Promise.allSettled([
+      fetch(`${base}/api/blocks/tip/height`, { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
+      fetch(`${base}/api/v1/mining/hashrate/3d`, { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
+      fetch(`${base}/api/v1/fees/recommended`, { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
+      fetch(`${base}/api/mempool`, { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
+      fetch(`${base}/api/v1/difficulty-adjustment`, { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
     ]);
 
-    if (!blockRes.ok || !hashrateRes.ok || !feesRes.ok || !mempoolRes.ok || !diffRes.ok) {
-      throw new Error('mempool api response not ok');
+    const [blockResult, hashrateResult, feesResult, mempoolResult, diffResult] = results;
+
+    // Critical endpoints: height, fees, mempool — must succeed
+    const criticalFailed = [blockResult, feesResult, mempoolResult].some(
+      r => r.status !== 'fulfilled' || !r.value.ok
+    );
+
+    if (criticalFailed) {
+      // Retry with public fallback if requested and we were using a custom base
+      if (opts.fallbackToPublic && base !== MEMPOOL_PUBLIC) {
+        console.warn('fetchChainStats: critical endpoint failed on', base, '— falling back to public');
+        return fetchChainStats({ baseUrl: MEMPOOL_PUBLIC, fallbackToPublic: false });
+      }
+      throw new Error('mempool critical endpoint failed');
     }
 
-    const height = await blockRes.json();
-    const hashrateData = await hashrateRes.json();
-    const fees = await feesRes.json();
-    const mempool = await mempoolRes.json();
-    const diff = await diffRes.json();
+    const height = await blockResult.value.json();
+    const fees = await feesResult.value.json();
+    const mempool = await mempoolResult.value.json();
 
-    const currentHashrate = hashrateData.currentHashrate || 0;
-    const currentDiff = diff.difficultyChange !== undefined
-      ? diff.difficulty || hashrateData.currentDifficulty
-      : hashrateData.currentDifficulty;
+    // Non-critical: hashrate, difficulty-adjustment — use null on failure
+    let hashrateData = null;
+    if (hashrateResult.status === 'fulfilled' && hashrateResult.value.ok) {
+      hashrateData = await hashrateResult.value.json();
+    }
+
+    let diff = null;
+    if (diffResult.status === 'fulfilled' && diffResult.value.ok) {
+      diff = await diffResult.value.json();
+    }
+
+    const currentHashrate = hashrateData ? (hashrateData.currentHashrate || 0) : null;
+    const currentDiff = diff && diff.difficultyChange !== undefined
+      ? diff.difficulty || (hashrateData && hashrateData.currentDifficulty)
+      : (hashrateData && hashrateData.currentDifficulty);
 
     return {
       height,
       hashrate: currentHashrate,
-      difficulty: currentDiff || hashrateData.currentDifficulty,
+      difficulty: currentDiff || null,
       mempoolBytes: mempool.vsize,
       mempoolTx: mempool.count,
       feeFast: fees.fastestFee,
       feeMid:  fees.halfHourFee,
       feeEco:  fees.economyFee,
-      diffAdj: diff.difficultyChange,
-      previousDiffAdj: diff.previousRetarget,
+      diffAdj: diff ? diff.difficultyChange : null,
+      previousDiffAdj: diff ? diff.previousRetarget : null,
       // Approximation: elapsed blocks × current-epoch timeAvg. Accurate to within a few hours.
-      previousRetargetDate: (diff.remainingBlocks != null && diff.timeAvg)
+      previousRetargetDate: (diff && diff.remainingBlocks != null && diff.timeAvg)
         ? Math.round((Date.now() - (2016 - diff.remainingBlocks) * diff.timeAvg) / 1000)
         : null,
-      blockTimeMs: diff.timeAvg,
-      remainingBlocks: diff.remainingBlocks,
-      progressPercent: diff.progressPercent,
-      estimatedRetargetDate: diff.estimatedRetargetDate,
+      blockTimeMs: diff ? diff.timeAvg : null,
+      remainingBlocks: diff ? diff.remainingBlocks : null,
+      progressPercent: diff ? diff.progressPercent : null,
+      estimatedRetargetDate: diff ? diff.estimatedRetargetDate : null,
     };
   } catch (err) {
     console.error('fetchChainStats error:', err);
@@ -1046,10 +1075,12 @@ async function fetchRSSFeeds(feeds = [], apiKey = '') {
 /**
  * Fetch top mining pools from Mempool.space (7-day window)
  * Returns: [{ name, slug, blockCount, sharePct }] (top 6)
+ * opts: { baseUrl?: string }
  */
-async function fetchMiningPools() {
+async function fetchMiningPools(opts = {}) {
+  const base = (opts.baseUrl && opts.baseUrl.trim()) ? opts.baseUrl.replace(/\/$/, '') : MEMPOOL_PUBLIC;
   try {
-    const r = await fetch('https://mempool.space/api/v1/mining/pools/1w', {
+    const r = await fetch(`${base}/api/v1/mining/pools/1w`, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT),
     });
     if (!r.ok) throw new Error('mining pools api not ok');
@@ -1070,10 +1101,12 @@ async function fetchMiningPools() {
 /**
  * Fetch recent blocks mined by a specific pool
  * Returns: [{ height, timestamp, txCount }] (first 5)
+ * opts: { baseUrl?: string }
  */
-async function fetchPoolBlocks(slug) {
+async function fetchPoolBlocks(slug, opts = {}) {
+  const base = (opts.baseUrl && opts.baseUrl.trim()) ? opts.baseUrl.replace(/\/$/, '') : MEMPOOL_PUBLIC;
   try {
-    const r = await fetch(`https://mempool.space/api/v1/mining/pool/${slug}/blocks`, {
+    const r = await fetch(`${base}/api/v1/mining/pool/${slug}/blocks`, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT),
     });
     if (!r.ok) throw new Error('pool blocks api not ok');
@@ -1091,43 +1124,54 @@ async function fetchPoolBlocks(slug) {
 
 /**
  * Fetch recent confirmed blocks
- * Returns: [{ height, timestamp, txCount, size, weight, medianFee, totalFees, feeRange, poolName }] (first 6)
+ * Returns: { blocks: [{ height, timestamp, txCount, size, weight, medianFee, totalFees, feeRange, poolName }], stale: boolean }
+ *          stale is true if the most recent block timestamp is >60 min old
+ * opts: { baseUrl?: string }
  */
-async function fetchRecentBlocks() {
+async function fetchRecentBlocks(opts = {}) {
+  const base = (opts.baseUrl && opts.baseUrl.trim()) ? opts.baseUrl.replace(/\/$/, '') : MEMPOOL_PUBLIC;
   try {
-    const r = await fetch('https://mempool.space/api/v1/blocks', {
+    const r = await fetch(`${base}/api/v1/blocks`, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT),
     });
     if (!r.ok) throw new Error('blocks api not ok');
     const blocks = await r.json();
-    const fallbackExt = (blocks || []).find(b => b.extras?.medianFee != null)?.extras ?? {};
-    return (blocks || []).slice(0, 6).map(b => {
-      const ext = b.extras ?? fallbackExt;
+    const fallbackExt = (blocks || []).find(b => b.extras && b.extras.medianFee != null)
+      ? (blocks || []).find(b => b.extras && b.extras.medianFee != null).extras
+      : {};
+    const mapped = (blocks || []).slice(0, 6).map(b => {
+      const ext = b.extras || fallbackExt;
       return {
         height:    b.height,
         timestamp: b.timestamp,
         txCount:   b.tx_count,
         size:      b.size,
-        weight:    b.weight ?? null,
+        weight:    b.weight != null ? b.weight : null,
         medianFee: ext.medianFee != null ? Math.round(ext.medianFee * 10) / 10 : null,
-        totalFees: b.extras?.totalFees ?? null,
-        feeRange:  b.extras?.feeRange ?? null,
-        poolName:  ext.pool?.name ?? '—',
+        totalFees: b.extras && b.extras.totalFees != null ? b.extras.totalFees : null,
+        feeRange:  b.extras && b.extras.feeRange != null ? b.extras.feeRange : null,
+        poolName:  ext.pool && ext.pool.name ? ext.pool.name : '—',
       };
     });
+    // Staleness: most recent block older than 60 min indicates stale/cached data
+    const stale = blocks && blocks.length > 0 &&
+      (blocks[0].timestamp * 1000 < Date.now() - 60 * 60 * 1000);
+    return { blocks: mapped, stale: Boolean(stale) };
   } catch (err) {
     console.error('fetchRecentBlocks error:', err);
-    return [];
+    return { blocks: [], stale: false };
   }
 }
 
 /**
  * Fetch projected fee rates for next mempool blocks
  * Returns: [{ nTx, medianFee, feeRange: [min, max] }] (first 3)
+ * opts: { baseUrl?: string }
  */
-async function fetchMempoolBlocks() {
+async function fetchMempoolBlocks(opts = {}) {
+  const base = (opts.baseUrl && opts.baseUrl.trim()) ? opts.baseUrl.replace(/\/$/, '') : MEMPOOL_PUBLIC;
   try {
-    const r = await fetch('https://mempool.space/api/v1/fees/mempool-blocks', {
+    const r = await fetch(`${base}/api/v1/fees/mempool-blocks`, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT),
     });
     if (!r.ok) throw new Error('mempool-blocks api not ok');
@@ -1229,6 +1273,10 @@ const PREFS_DEFAULTS = {
     bitaxe:  30,
   },
   theme: 'auto',
+  mempool: {
+    baseUrl: '',            // empty string = use public mempool.space
+    fallbackToPublic: true, // if self-hosted fails, fall back to mempool.space
+  },
 };
 
 function deepMerge(defaults, overrides) {
@@ -1651,6 +1699,8 @@ function useResettableInterval(callback, delay) {
 }
 
 
+
+
 /**
  * useClock Hook
  * Returns formatted time string that updates every second
@@ -1792,14 +1842,11 @@ function useBTC() {
 }
 
 
-
-
-
-
-
 /**
  * useChain Hook
  * Fetches Bitcoin chain vitals from Mempool.space
+ *
+ * @param {object} mempoolPrefs - { baseUrl: string, fallbackToPublic: boolean }
  *
  * Returns: {
  *   data: object with chain stats or null,
@@ -1807,21 +1854,26 @@ function useBTC() {
  *   topPoolBlocks: [{ height, timestamp, txCount }],
  *   recentBlocks: [{ height, timestamp, txCount, size, medianFee, poolName }],
  *   mempoolBlocks: [{ nTx, medianFee, feeRange }],
+ *   stale: boolean,
  *   loading: boolean,
  *   error: boolean,
  *   lastOk: number (timestamp) or null
  * }
  */
-function useChain() {
-  const [data, setData] = useState(null);
-  const [extData, setExtData] = useState({ pools: [], topPoolBlocks: [], recentBlocks: [], mempoolBlocks: [] });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [lastOk, setLastOk] = useState(null);
+function useChain(mempoolPrefs = {}) {
+  const [data, setData] = React.useState(null);
+  const [extData, setExtData] = React.useState({ pools: [], topPoolBlocks: [], recentBlocks: [], mempoolBlocks: [] });
+  const [stale, setStale] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(false);
+  const [lastOk, setLastOk] = React.useState(null);
 
-  const fetchChain = useCallback(async () => {
+  const fetchChain = React.useCallback(async () => {
     try {
-      const chainData = await fetchChainStats();
+      const chainData = await fetchChainStats({
+        baseUrl: mempoolPrefs.baseUrl,
+        fallbackToPublic: mempoolPrefs.fallbackToPublic,
+      });
 
       if (Object.keys(chainData).length === 0) {
         throw new Error('fetchChainStats returned empty');
@@ -1843,31 +1895,35 @@ function useChain() {
       setError(true);
       setLoading(false);
     }
-  }, []);
+  }, [mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic]);
 
-  const fetchExtended = useCallback(async () => {
+  const fetchExtended = React.useCallback(async () => {
     try {
-      const [pools, recentBlocks, mempoolBlocks] = await Promise.all([
-        fetchMiningPools(),
-        fetchRecentBlocks(),
-        fetchMempoolBlocks(),
+      const [poolsResult, recentResult, mempoolBlocks] = await Promise.all([
+        fetchMiningPools({ baseUrl: mempoolPrefs.baseUrl }),
+        fetchRecentBlocks({ baseUrl: mempoolPrefs.baseUrl }),
+        fetchMempoolBlocks({ baseUrl: mempoolPrefs.baseUrl }),
       ]);
+
+      const pools = poolsResult;
+      const recentBlocks = recentResult.blocks;
+      setStale(recentResult.stale);
 
       let topPoolBlocks = [];
       if (pools.length > 0) {
-        topPoolBlocks = await fetchPoolBlocks(pools[0].slug);
+        topPoolBlocks = await fetchPoolBlocks(pools[0].slug, { baseUrl: mempoolPrefs.baseUrl });
       }
 
       setExtData({ pools, topPoolBlocks, recentBlocks, mempoolBlocks });
     } catch (err) {
       console.error('fetchExtended error:', err);
     }
-  }, []);
+  }, [mempoolPrefs.baseUrl]);
 
   const { reset: resetChain    } = useResettableInterval(fetchChain,    CONFIG.REFRESH_INTERVALS.chain);
   const { reset: resetExtended } = useResettableInterval(fetchExtended, CONFIG.REFRESH_INTERVALS.pools);
 
-  const refresh = useCallback(() => {
+  const refresh = React.useCallback(() => {
     resetChain();
     resetExtended();
   }, [resetChain, resetExtended]);
@@ -1875,6 +1931,7 @@ function useChain() {
   return {
     data,
     ...extData,
+    stale,
     loading,
     error,
     lastOk,
@@ -2911,6 +2968,7 @@ function TweaksSection({ children, T }) {
   return /* @__PURE__ */ React.createElement("div", { style: { borderTop: `1px solid ${T.ink3}`, paddingTop: 8, marginBottom: 12 } }, children);
 }
 function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSaveV2, onClose }) {
+  var _a, _b, _c;
   const T = useT();
   const [draftNewIp, setDraftNewIp] = React.useState("");
   const [addError, setAddError] = React.useState("");
@@ -3247,7 +3305,33 @@ function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSaveV2, on
       { key: "intervals.weather", label: "Weather", min: 300, max: 3600 },
       { key: "intervals.rss", label: "News", min: 60, max: 1800 },
       { key: "intervals.bitaxe", label: "Miners", min: 10, max: 300 }
-    ].map(({ key, label, min, max }) => /* @__PURE__ */ React.createElement(TweaksRow, { key, label, T }, /* @__PURE__ */ React.createElement(TweaksNumInput, { path: key, min, max, get: v2get, setPath: setV2Path, T })))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: u(10), marginTop: u(24), borderTop: "1px solid " + T.rule2, paddingTop: u(18) } }, /* @__PURE__ */ React.createElement("button", { style: btnPrimary, onClick: handleSave }, "Save"), /* @__PURE__ */ React.createElement("button", { style: { ...btnPrimary, background: "transparent", color: T.ink3 }, onClick: onClose }, "Cancel"))))
+    ].map(({ key, label, min, max }) => /* @__PURE__ */ React.createElement(TweaksRow, { key, label, T }, /* @__PURE__ */ React.createElement(TweaksNumInput, { path: key, min, max, get: v2get, setPath: setV2Path, T })))), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: T.display || T.sans, fontSize: 11, letterSpacing: "0.08em", color: T.ink3, marginBottom: 4, display: "block", marginTop: 8 } }, "DATA SOURCES"), /* @__PURE__ */ React.createElement(TweaksSection, { T }, /* @__PURE__ */ React.createElement(TweaksRow, { label: "Mempool endpoint", T }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        type: "text",
+        value: (_b = (_a = v2local.mempool) == null ? void 0 : _a.baseUrl) != null ? _b : "",
+        onChange: (e) => setV2Path("mempool.baseUrl", e.target.value.trim()),
+        placeholder: "https://mempool.space (default)",
+        spellCheck: false,
+        style: {
+          width: 220,
+          background: T.paper,
+          color: T.ink,
+          fontSize: 13,
+          border: "1px solid " + T.ink3,
+          borderRadius: 3,
+          padding: "2px 5px"
+        }
+      }
+    )), !!((_c = v2local.mempool) == null ? void 0 : _c.baseUrl) && /* @__PURE__ */ React.createElement(
+      TweaksCheckRow,
+      {
+        path: "mempool.fallbackToPublic",
+        label: "Fall back to public mempool.space if self-hosted fails",
+        get: v2get,
+        setPath: setV2Path
+      }
+    )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: u(10), marginTop: u(24), borderTop: "1px solid " + T.rule2, paddingTop: u(18) } }, /* @__PURE__ */ React.createElement("button", { style: btnPrimary, onClick: handleSave }, "Save"), /* @__PURE__ */ React.createElement("button", { style: { ...btnPrimary, background: "transparent", color: T.ink3 }, onClick: onClose }, "Cancel"))))
   );
 }
 
@@ -4466,7 +4550,7 @@ function App() {
   });
   const clock = useClock(prefs.timeFormat);
   const btc = useBTC();
-  const chain = useChain();
+  const chain = useChain(v2prefs.mempool);
   const bitaxe = useBitaxe();
   const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
   const rss = useRSS();
