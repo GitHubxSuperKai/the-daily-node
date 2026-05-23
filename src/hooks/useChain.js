@@ -79,6 +79,7 @@ export function useChain(mempoolPrefs = {}) {
       setExtData({ pools, topPoolBlocks, recentBlocks, mempoolBlocks });
     } catch (err) {
       console.error('fetchExtended error:', err);
+      setStale(false);
     }
   }, [mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic]);
 
