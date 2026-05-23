@@ -62,7 +62,7 @@ async function fetchChainStats(opts = {}) {
 
     // Critical endpoints: height, fees, mempool — must succeed
     const criticalFailed = [blockResult, feesResult, mempoolResult].some(
-      r => r.status === 'rejected' || !r.value.ok
+      r => r.status !== 'fulfilled' || !r.value.ok
     );
 
     if (criticalFailed) {
@@ -97,7 +97,7 @@ async function fetchChainStats(opts = {}) {
     return {
       height,
       hashrate: currentHashrate,
-      difficulty: currentDiff || (hashrateData && hashrateData.currentDifficulty) || null,
+      difficulty: currentDiff || null,
       mempoolBytes: mempool.vsize,
       mempoolTx: mempool.count,
       feeFast: fees.fastestFee,
@@ -286,8 +286,8 @@ async function fetchPoolBlocks(slug, opts = {}) {
 
 /**
  * Fetch recent confirmed blocks
- * Returns: array of { height, timestamp, txCount, size, weight, medianFee, totalFees, feeRange, poolName } (first 6)
- *          with _stale: true if the most recent block timestamp is >60 min old
+ * Returns: { blocks: [{ height, timestamp, txCount, size, weight, medianFee, totalFees, feeRange, poolName }], stale: boolean }
+ *          stale is true if the most recent block timestamp is >60 min old
  * opts: { baseUrl?: string }
  */
 async function fetchRecentBlocks(opts = {}) {
@@ -301,7 +301,7 @@ async function fetchRecentBlocks(opts = {}) {
     const fallbackExt = (blocks || []).find(b => b.extras && b.extras.medianFee != null)
       ? (blocks || []).find(b => b.extras && b.extras.medianFee != null).extras
       : {};
-    const result = (blocks || []).slice(0, 6).map(b => {
+    const mapped = (blocks || []).slice(0, 6).map(b => {
       const ext = b.extras || fallbackExt;
       return {
         height:    b.height,
@@ -316,12 +316,12 @@ async function fetchRecentBlocks(opts = {}) {
       };
     });
     // Staleness: most recent block older than 60 min indicates stale/cached data
-    result._stale = blocks && blocks.length > 0 &&
+    const stale = blocks && blocks.length > 0 &&
       (blocks[0].timestamp * 1000 < Date.now() - 60 * 60 * 1000);
-    return result;
+    return { blocks: mapped, stale: Boolean(stale) };
   } catch (err) {
     console.error('fetchRecentBlocks error:', err);
-    return [];
+    return { blocks: [], stale: false };
   }
 }
 
