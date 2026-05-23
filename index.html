@@ -875,6 +875,16 @@ async function fetchBTCPrice() {
 // Used by all mempool fetch functions. Override via opts.baseUrl.
 const MEMPOOL_PUBLIC = 'https://mempool.space';
 
+// Routes custom mempool URLs through the server-side proxy to avoid CORS and
+// self-signed cert issues with self-hosted nodes (e.g. Start9).
+async function mempoolGet(base, apiPath) {
+  if (base !== MEMPOOL_PUBLIC) {
+    const url = `/api/mempool-proxy?base=${encodeURIComponent(base)}&path=${encodeURIComponent(apiPath)}`;
+    return fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT) });
+  }
+  return fetch(`${base}${apiPath}`, { signal: AbortSignal.timeout(FETCH_TIMEOUT) });
+}
+
 /**
  * Fetch chain stats from Mempool.space
  * Returns: { height, hashrate, difficulty, mempoolBytes, mempoolTx, feeFast, feeMid, feeEco,
@@ -889,11 +899,11 @@ async function fetchChainStats(opts = {}) {
 
   try {
     const results = await Promise.allSettled([
-      fetch(`${base}/api/blocks/tip/height`, { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
-      fetch(`${base}/api/v1/mining/hashrate/3d`, { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
-      fetch(`${base}/api/v1/fees/recommended`, { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
-      fetch(`${base}/api/mempool`, { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
-      fetch(`${base}/api/v1/difficulty-adjustment`, { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
+      mempoolGet(base, '/api/blocks/tip/height'),
+      mempoolGet(base, '/api/v1/mining/hashrate/3d'),
+      mempoolGet(base, '/api/v1/fees/recommended'),
+      mempoolGet(base, '/api/mempool'),
+      mempoolGet(base, '/api/v1/difficulty-adjustment'),
     ]);
 
     const [blockResult, hashrateResult, feesResult, mempoolResult, diffResult] = results;
@@ -1080,9 +1090,7 @@ async function fetchRSSFeeds(feeds = [], apiKey = '') {
 async function fetchMiningPools(opts = {}) {
   const base = (opts.baseUrl && opts.baseUrl.trim()) ? opts.baseUrl.replace(/\/$/, '') : MEMPOOL_PUBLIC;
   try {
-    const r = await fetch(`${base}/api/v1/mining/pools/1w`, {
-      signal: AbortSignal.timeout(FETCH_TIMEOUT),
-    });
+    const r = await mempoolGet(base, '/api/v1/mining/pools/1w');
     if (!r.ok) throw new Error('mining pools api not ok');
     const j = await r.json();
     const total = j.blockCount || 1;
@@ -1110,9 +1118,7 @@ async function fetchMiningPools(opts = {}) {
 async function fetchPoolBlocks(slug, opts = {}) {
   const base = (opts.baseUrl && opts.baseUrl.trim()) ? opts.baseUrl.replace(/\/$/, '') : MEMPOOL_PUBLIC;
   try {
-    const r = await fetch(`${base}/api/v1/mining/pool/${slug}/blocks`, {
-      signal: AbortSignal.timeout(FETCH_TIMEOUT),
-    });
+    const r = await mempoolGet(base, `/api/v1/mining/pool/${slug}/blocks`);
     if (!r.ok) throw new Error('pool blocks api not ok');
     const blocks = await r.json();
     return (blocks || []).slice(0, 5).map(b => ({
@@ -1139,9 +1145,7 @@ async function fetchPoolBlocks(slug, opts = {}) {
 async function fetchRecentBlocks(opts = {}) {
   const base = (opts.baseUrl && opts.baseUrl.trim()) ? opts.baseUrl.replace(/\/$/, '') : MEMPOOL_PUBLIC;
   try {
-    const r = await fetch(`${base}/api/v1/blocks`, {
-      signal: AbortSignal.timeout(FETCH_TIMEOUT),
-    });
+    const r = await mempoolGet(base, '/api/v1/blocks');
     if (!r.ok) throw new Error('blocks api not ok');
     const blocks = await r.json();
     const fallbackExt = (blocks || []).find(b => b.extras && b.extras.medianFee != null)
@@ -1183,9 +1187,7 @@ async function fetchRecentBlocks(opts = {}) {
 async function fetchMempoolBlocks(opts = {}) {
   const base = (opts.baseUrl && opts.baseUrl.trim()) ? opts.baseUrl.replace(/\/$/, '') : MEMPOOL_PUBLIC;
   try {
-    const r = await fetch(`${base}/api/v1/fees/mempool-blocks`, {
-      signal: AbortSignal.timeout(FETCH_TIMEOUT),
-    });
+    const r = await mempoolGet(base, '/api/v1/fees/mempool-blocks');
     if (!r.ok) throw new Error('mempool-blocks api not ok');
     const blocks = await r.json();
     return (blocks || []).slice(0, 3).map(b => ({
@@ -1715,8 +1717,6 @@ function useResettableInterval(callback, delay) {
 }
 
 
-
-
 /**
  * useClock Hook
  * Returns formatted time string that updates every second
@@ -1856,6 +1856,11 @@ function useBTC() {
     refresh,
   };
 }
+
+
+
+
+
 
 
 /**
