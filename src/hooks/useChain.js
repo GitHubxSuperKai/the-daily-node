@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React from 'react';
 import { useResettableInterval } from './useResettableInterval.js';
 import CONFIG from '../config.js';
 import { fetchChainStats, fetchMiningPools, fetchPoolBlocks, fetchRecentBlocks, fetchMempoolBlocks } from '../utils/api.js';
@@ -8,27 +8,34 @@ import { fmtMempoolMB, nextHalving, circulatingBTC } from '../utils/formatting.j
  * useChain Hook
  * Fetches Bitcoin chain vitals from Mempool.space
  *
+ * @param {object} mempoolPrefs - { baseUrl: string, fallbackToPublic: boolean }
+ *
  * Returns: {
  *   data: object with chain stats or null,
  *   pools: [{ name, slug, blockCount, sharePct }],
  *   topPoolBlocks: [{ height, timestamp, txCount }],
  *   recentBlocks: [{ height, timestamp, txCount, size, medianFee, poolName }],
  *   mempoolBlocks: [{ nTx, medianFee, feeRange }],
+ *   stale: boolean,
  *   loading: boolean,
  *   error: boolean,
  *   lastOk: number (timestamp) or null
  * }
  */
-export function useChain() {
-  const [data, setData] = useState(null);
-  const [extData, setExtData] = useState({ pools: [], topPoolBlocks: [], recentBlocks: [], mempoolBlocks: [] });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [lastOk, setLastOk] = useState(null);
+export function useChain(mempoolPrefs = {}) {
+  const [data, setData] = React.useState(null);
+  const [extData, setExtData] = React.useState({ pools: [], topPoolBlocks: [], recentBlocks: [], mempoolBlocks: [] });
+  const [stale, setStale] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(false);
+  const [lastOk, setLastOk] = React.useState(null);
 
-  const fetchChain = useCallback(async () => {
+  const fetchChain = React.useCallback(async () => {
     try {
-      const chainData = await fetchChainStats();
+      const chainData = await fetchChainStats({
+        baseUrl: mempoolPrefs.baseUrl,
+        fallbackToPublic: mempoolPrefs.fallbackToPublic,
+      });
 
       if (Object.keys(chainData).length === 0) {
         throw new Error('fetchChainStats returned empty');
@@ -50,31 +57,35 @@ export function useChain() {
       setError(true);
       setLoading(false);
     }
-  }, []);
+  }, [mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic]);
 
-  const fetchExtended = useCallback(async () => {
+  const fetchExtended = React.useCallback(async () => {
     try {
-      const [pools, recentBlocks, mempoolBlocks] = await Promise.all([
-        fetchMiningPools(),
-        fetchRecentBlocks(),
-        fetchMempoolBlocks(),
+      const [poolsResult, recentResult, mempoolBlocks] = await Promise.all([
+        fetchMiningPools({ baseUrl: mempoolPrefs.baseUrl }),
+        fetchRecentBlocks({ baseUrl: mempoolPrefs.baseUrl }),
+        fetchMempoolBlocks({ baseUrl: mempoolPrefs.baseUrl }),
       ]);
+
+      const pools = poolsResult;
+      const recentBlocks = recentResult.blocks;
+      setStale(recentResult.stale);
 
       let topPoolBlocks = [];
       if (pools.length > 0) {
-        topPoolBlocks = await fetchPoolBlocks(pools[0].slug);
+        topPoolBlocks = await fetchPoolBlocks(pools[0].slug, { baseUrl: mempoolPrefs.baseUrl });
       }
 
       setExtData({ pools, topPoolBlocks, recentBlocks, mempoolBlocks });
     } catch (err) {
       console.error('fetchExtended error:', err);
     }
-  }, []);
+  }, [mempoolPrefs.baseUrl]);
 
   const { reset: resetChain    } = useResettableInterval(fetchChain,    CONFIG.REFRESH_INTERVALS.chain);
   const { reset: resetExtended } = useResettableInterval(fetchExtended, CONFIG.REFRESH_INTERVALS.pools);
 
-  const refresh = useCallback(() => {
+  const refresh = React.useCallback(() => {
     resetChain();
     resetExtended();
   }, [resetChain, resetExtended]);
@@ -82,6 +93,7 @@ export function useChain() {
   return {
     data,
     ...extData,
+    stale,
     loading,
     error,
     lastOk,
