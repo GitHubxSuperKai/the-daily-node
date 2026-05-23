@@ -470,6 +470,32 @@ export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSav
             ))}
           </TweaksSection>
 
+          {/* ── Data Sources ── */}
+          <span style={{ fontFamily: T.display || T.sans, fontSize: 11, letterSpacing: '0.08em', color: T.ink3, marginBottom: 4, display: 'block', marginTop: 8 }}>DATA SOURCES</span>
+          <TweaksSection T={T}>
+            <TweaksRow label="Mempool endpoint" T={T}>
+              <input
+                type="text"
+                value={v2local.mempool?.baseUrl ?? ''}
+                onChange={e => setV2Path('mempool.baseUrl', e.target.value.trim())}
+                placeholder="https://mempool.space (default)"
+                spellCheck={false}
+                style={{
+                  width: 220, background: T.paper, color: T.ink, fontSize: 13,
+                  border: '1px solid ' + T.ink3, borderRadius: 3, padding: '2px 5px',
+                }}
+              />
+            </TweaksRow>
+            {!!(v2local.mempool?.baseUrl) && (
+              <TweaksCheckRow
+                path="mempool.fallbackToPublic"
+                label="Fall back to public mempool.space if self-hosted fails"
+                get={v2get}
+                setPath={setV2Path}
+              />
+            )}
+          </TweaksSection>
+
           <div style={{ display: 'flex', gap: u(10), marginTop: u(24), borderTop: '1px solid ' + T.rule2, paddingTop: u(18) }}>
             <button style={btnPrimary} onClick={handleSave}>Save</button>
             <button style={{ ...btnPrimary, background: 'transparent', color: T.ink3 }} onClick={onClose}>Cancel</button>
