@@ -53,6 +53,11 @@ describe('loadV2Prefs', () => {
     store['dn.prefs.v2'] = 'not-json';
     expect(loadV2Prefs().version).toBe(PREFS_VERSION);
   });
+  it('returns mempool defaults with empty baseUrl and fallbackToPublic true', () => {
+    const p = loadV2Prefs();
+    expect(p.mempool.baseUrl).toBe('');
+    expect(p.mempool.fallbackToPublic).toBe(true);
+  });
 });
 
 describe('saveV2Prefs', () => {
