@@ -209,25 +209,36 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             params = parse_qs(parsed.query)
             base = params.get('base', [''])[0]
             path = params.get('path', [''])[0]
-            if not path or not path.startswith('/api/'):
+            # Reject missing prefix, dot-dot traversal segments, and query params in path
+            if not path or not path.startswith('/api/') or '..' in path.split('/'):
                 self._json(400, {'error': 'invalid path'})
                 return
             base_parsed = urlparse(base)
             if base_parsed.scheme not in ('http', 'https') or not base_parsed.netloc:
                 self._json(400, {'error': 'invalid base URL'})
                 return
+            # Block loopback SSRF — LAN addresses are expected (Start9), loopback is not
+            try:
+                if ipaddress.ip_address(base_parsed.hostname or '').is_loopback:
+                    self._json(400, {'error': 'loopback destinations not allowed'})
+                    return
+            except ValueError:
+                pass  # hostname (not a bare IP) — allow
             target = base.rstrip('/') + path
             # Disable SSL verification for self-hosted nodes (self-signed certs)
             ssl_ctx = ssl.create_default_context()
             ssl_ctx.check_hostname = False
             ssl_ctx.verify_mode = ssl.CERT_NONE
+            _PROXY_SIZE_LIMIT = 512 * 1024
             try:
                 req = urllib.request.Request(target, headers={'User-Agent': 'DailyNode/1.0'})
-                with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT + 2, context=ssl_ctx) as resp:
-                    body = resp.read()
-                    content_type = resp.headers.get('Content-Type', 'application/json')
+                with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT - 1, context=ssl_ctx) as resp:
+                    body = resp.read(_PROXY_SIZE_LIMIT)
+                if len(body) == _PROXY_SIZE_LIMIT:
+                    self._json(502, {'error': 'upstream response too large'})
+                    return
                 self.send_response(200)
-                self.send_header('Content-Type', content_type)
+                self.send_header('Content-Type', 'application/json')
                 self.send_header('Content-Length', str(len(body)))
                 self._cors()
                 self.end_headers()
