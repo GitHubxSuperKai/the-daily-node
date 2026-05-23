@@ -11,11 +11,12 @@ Then open Command Center.html. The dashboard will poll http://localhost:3001/api
 import argparse
 import json
 import os
+import ssl
 import threading
 import urllib.request
 import urllib.error
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 
 import ipaddress
@@ -203,6 +204,38 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             self._cors()
             self.end_headers()
             self.wfile.write(body)
+        elif self.path.startswith('/api/mempool-proxy'):
+            parsed = urlparse(self.path)
+            params = parse_qs(parsed.query)
+            base = params.get('base', [''])[0]
+            path = params.get('path', [''])[0]
+            if not path or not path.startswith('/api/'):
+                self._json(400, {'error': 'invalid path'})
+                return
+            base_parsed = urlparse(base)
+            if base_parsed.scheme not in ('http', 'https') or not base_parsed.netloc:
+                self._json(400, {'error': 'invalid base URL'})
+                return
+            target = base.rstrip('/') + path
+            # Disable SSL verification for self-hosted nodes (self-signed certs)
+            ssl_ctx = ssl.create_default_context()
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = ssl.CERT_NONE
+            try:
+                req = urllib.request.Request(target, headers={'User-Agent': 'DailyNode/1.0'})
+                with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT + 2, context=ssl_ctx) as resp:
+                    body = resp.read()
+                    content_type = resp.headers.get('Content-Type', 'application/json')
+                self.send_response(200)
+                self.send_header('Content-Type', content_type)
+                self.send_header('Content-Length', str(len(body)))
+                self._cors()
+                self.end_headers()
+                self.wfile.write(body)
+            except urllib.error.HTTPError as e:
+                self._json(e.code, {'error': f'upstream {e.code}'})
+            except Exception as e:
+                self._json(502, {'error': f'proxy failed: {str(e)}'})
         else:
             self.send_response(404)
             self.end_headers()
@@ -268,7 +301,10 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Private-Network', 'true')
 
     def log_message(self, fmt, *args):
-        print(f'[BitAxe API] {fmt % args}')
+        args = list(args)
+        if args and '/api/mempool-proxy?' in str(args[-1]):
+            args[-1] = str(args[-1]).split('?')[0] + '?[redacted]'
+        print(f'[BitAxe API] {fmt % tuple(args)}')
 
 
 if __name__ == '__main__':
