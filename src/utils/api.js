@@ -255,6 +255,10 @@ async function fetchMiningPools(opts = {}) {
       sharePct: ((p.blockCount / total) * 100).toFixed(1),
     }));
   } catch (err) {
+    if (opts.fallbackToPublic && base !== MEMPOOL_PUBLIC) {
+      console.warn('fetchMiningPools: failed on', base, '— falling back to public');
+      return fetchMiningPools({ baseUrl: MEMPOOL_PUBLIC, fallbackToPublic: false });
+    }
     console.error('fetchMiningPools error:', err);
     return [];
   }
@@ -279,6 +283,10 @@ async function fetchPoolBlocks(slug, opts = {}) {
       txCount: b.tx_count,
     }));
   } catch (err) {
+    if (opts.fallbackToPublic && base !== MEMPOOL_PUBLIC) {
+      console.warn('fetchPoolBlocks: failed on', base, '— falling back to public');
+      return fetchPoolBlocks(slug, { baseUrl: MEMPOOL_PUBLIC, fallbackToPublic: false });
+    }
     console.error('fetchPoolBlocks error:', err);
     return [];
   }
@@ -320,6 +328,10 @@ async function fetchRecentBlocks(opts = {}) {
       (blocks[0].timestamp * 1000 < Date.now() - 60 * 60 * 1000);
     return { blocks: mapped, stale: Boolean(stale) };
   } catch (err) {
+    if (opts.fallbackToPublic && base !== MEMPOOL_PUBLIC) {
+      console.warn('fetchRecentBlocks: failed on', base, '— falling back to public');
+      return fetchRecentBlocks({ baseUrl: MEMPOOL_PUBLIC, fallbackToPublic: false });
+    }
     console.error('fetchRecentBlocks error:', err);
     return { blocks: [], stale: false };
   }
@@ -346,6 +358,10 @@ async function fetchMempoolBlocks(opts = {}) {
         : null,
     }));
   } catch (err) {
+    if (opts.fallbackToPublic && base !== MEMPOOL_PUBLIC) {
+      console.warn('fetchMempoolBlocks: failed on', base, '— falling back to public');
+      return fetchMempoolBlocks({ baseUrl: MEMPOOL_PUBLIC, fallbackToPublic: false });
+    }
     console.error('fetchMempoolBlocks error:', err);
     return [];
   }
