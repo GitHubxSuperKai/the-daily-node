@@ -34,56 +34,85 @@ async function fetchBTCPrice() {
   }
 }
 
+// Used by all mempool fetch functions. Override via opts.baseUrl.
+const MEMPOOL_PUBLIC = 'https://mempool.space';
+
 /**
  * Fetch chain stats from Mempool.space
  * Returns: { height, hashrate, difficulty, mempoolBytes, mempoolTx, feeFast, feeMid, feeEco,
  *            diffAdj, previousDiffAdj, previousRetargetDate, blockTimeMs, remainingBlocks,
  *            progressPercent, estimatedRetargetDate }
+ * opts: { baseUrl?: string, fallbackToPublic?: boolean }
  */
-async function fetchChainStats() {
+async function fetchChainStats(opts = {}) {
+  const base = (opts.baseUrl && opts.baseUrl.trim())
+    ? opts.baseUrl.replace(/\/$/, '')
+    : MEMPOOL_PUBLIC;
+
   try {
-    const [blockRes, hashrateRes, feesRes, mempoolRes, diffRes] = await Promise.all([
-      fetch('https://mempool.space/api/blocks/tip/height', { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
-      fetch('https://mempool.space/api/v1/mining/hashrate/3d', { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
-      fetch('https://mempool.space/api/v1/fees/recommended', { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
-      fetch('https://mempool.space/api/mempool', { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
-      fetch('https://mempool.space/api/v1/difficulty-adjustment', { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
+    const results = await Promise.allSettled([
+      fetch(`${base}/api/blocks/tip/height`, { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
+      fetch(`${base}/api/v1/mining/hashrate/3d`, { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
+      fetch(`${base}/api/v1/fees/recommended`, { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
+      fetch(`${base}/api/mempool`, { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
+      fetch(`${base}/api/v1/difficulty-adjustment`, { signal: AbortSignal.timeout(FETCH_TIMEOUT) }),
     ]);
 
-    if (!blockRes.ok || !hashrateRes.ok || !feesRes.ok || !mempoolRes.ok || !diffRes.ok) {
-      throw new Error('mempool api response not ok');
+    const [blockResult, hashrateResult, feesResult, mempoolResult, diffResult] = results;
+
+    // Critical endpoints: height, fees, mempool — must succeed
+    const criticalFailed = [blockResult, feesResult, mempoolResult].some(
+      r => r.status !== 'fulfilled' || !r.value.ok
+    );
+
+    if (criticalFailed) {
+      // Retry with public fallback if requested and we were using a custom base
+      if (opts.fallbackToPublic && base !== MEMPOOL_PUBLIC) {
+        console.warn('fetchChainStats: critical endpoint failed on', base, '— falling back to public');
+        return fetchChainStats({ baseUrl: MEMPOOL_PUBLIC, fallbackToPublic: false });
+      }
+      throw new Error('mempool critical endpoint failed');
     }
 
-    const height = await blockRes.json();
-    const hashrateData = await hashrateRes.json();
-    const fees = await feesRes.json();
-    const mempool = await mempoolRes.json();
-    const diff = await diffRes.json();
+    const height = await blockResult.value.json();
+    const fees = await feesResult.value.json();
+    const mempool = await mempoolResult.value.json();
 
-    const currentHashrate = hashrateData.currentHashrate || 0;
-    const currentDiff = diff.difficultyChange !== undefined
-      ? diff.difficulty || hashrateData.currentDifficulty
-      : hashrateData.currentDifficulty;
+    // Non-critical: hashrate, difficulty-adjustment — use null on failure
+    let hashrateData = null;
+    if (hashrateResult.status === 'fulfilled' && hashrateResult.value.ok) {
+      hashrateData = await hashrateResult.value.json();
+    }
+
+    let diff = null;
+    if (diffResult.status === 'fulfilled' && diffResult.value.ok) {
+      diff = await diffResult.value.json();
+    }
+
+    const currentHashrate = hashrateData ? (hashrateData.currentHashrate || 0) : null;
+    const currentDiff = diff && diff.difficultyChange !== undefined
+      ? diff.difficulty || (hashrateData && hashrateData.currentDifficulty)
+      : (hashrateData && hashrateData.currentDifficulty);
 
     return {
       height,
       hashrate: currentHashrate,
-      difficulty: currentDiff || hashrateData.currentDifficulty,
+      difficulty: currentDiff || null,
       mempoolBytes: mempool.vsize,
       mempoolTx: mempool.count,
       feeFast: fees.fastestFee,
       feeMid:  fees.halfHourFee,
       feeEco:  fees.economyFee,
-      diffAdj: diff.difficultyChange,
-      previousDiffAdj: diff.previousRetarget,
+      diffAdj: diff ? diff.difficultyChange : null,
+      previousDiffAdj: diff ? diff.previousRetarget : null,
       // Approximation: elapsed blocks × current-epoch timeAvg. Accurate to within a few hours.
-      previousRetargetDate: (diff.remainingBlocks != null && diff.timeAvg)
+      previousRetargetDate: (diff && diff.remainingBlocks != null && diff.timeAvg)
         ? Math.round((Date.now() - (2016 - diff.remainingBlocks) * diff.timeAvg) / 1000)
         : null,
-      blockTimeMs: diff.timeAvg,
-      remainingBlocks: diff.remainingBlocks,
-      progressPercent: diff.progressPercent,
-      estimatedRetargetDate: diff.estimatedRetargetDate,
+      blockTimeMs: diff ? diff.timeAvg : null,
+      remainingBlocks: diff ? diff.remainingBlocks : null,
+      progressPercent: diff ? diff.progressPercent : null,
+      estimatedRetargetDate: diff ? diff.estimatedRetargetDate : null,
     };
   } catch (err) {
     console.error('fetchChainStats error:', err);
@@ -208,10 +237,12 @@ async function fetchRSSFeeds(feeds = [], apiKey = '') {
 /**
  * Fetch top mining pools from Mempool.space (7-day window)
  * Returns: [{ name, slug, blockCount, sharePct }] (top 6)
+ * opts: { baseUrl?: string }
  */
-async function fetchMiningPools() {
+async function fetchMiningPools(opts = {}) {
+  const base = (opts.baseUrl && opts.baseUrl.trim()) ? opts.baseUrl.replace(/\/$/, '') : MEMPOOL_PUBLIC;
   try {
-    const r = await fetch('https://mempool.space/api/v1/mining/pools/1w', {
+    const r = await fetch(`${base}/api/v1/mining/pools/1w`, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT),
     });
     if (!r.ok) throw new Error('mining pools api not ok');
@@ -224,6 +255,10 @@ async function fetchMiningPools() {
       sharePct: ((p.blockCount / total) * 100).toFixed(1),
     }));
   } catch (err) {
+    if (opts.fallbackToPublic && base !== MEMPOOL_PUBLIC) {
+      console.warn('fetchMiningPools: failed on', base, '— falling back to public');
+      return fetchMiningPools({ baseUrl: MEMPOOL_PUBLIC, fallbackToPublic: false });
+    }
     console.error('fetchMiningPools error:', err);
     return [];
   }
@@ -232,10 +267,12 @@ async function fetchMiningPools() {
 /**
  * Fetch recent blocks mined by a specific pool
  * Returns: [{ height, timestamp, txCount }] (first 5)
+ * opts: { baseUrl?: string }
  */
-async function fetchPoolBlocks(slug) {
+async function fetchPoolBlocks(slug, opts = {}) {
+  const base = (opts.baseUrl && opts.baseUrl.trim()) ? opts.baseUrl.replace(/\/$/, '') : MEMPOOL_PUBLIC;
   try {
-    const r = await fetch(`https://mempool.space/api/v1/mining/pool/${slug}/blocks`, {
+    const r = await fetch(`${base}/api/v1/mining/pool/${slug}/blocks`, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT),
     });
     if (!r.ok) throw new Error('pool blocks api not ok');
@@ -246,6 +283,10 @@ async function fetchPoolBlocks(slug) {
       txCount: b.tx_count,
     }));
   } catch (err) {
+    if (opts.fallbackToPublic && base !== MEMPOOL_PUBLIC) {
+      console.warn('fetchPoolBlocks: failed on', base, '— falling back to public');
+      return fetchPoolBlocks(slug, { baseUrl: MEMPOOL_PUBLIC, fallbackToPublic: false });
+    }
     console.error('fetchPoolBlocks error:', err);
     return [];
   }
@@ -253,43 +294,58 @@ async function fetchPoolBlocks(slug) {
 
 /**
  * Fetch recent confirmed blocks
- * Returns: [{ height, timestamp, txCount, size, weight, medianFee, totalFees, feeRange, poolName }] (first 6)
+ * Returns: { blocks: [{ height, timestamp, txCount, size, weight, medianFee, totalFees, feeRange, poolName }], stale: boolean }
+ *          stale is true if the most recent block timestamp is >60 min old
+ * opts: { baseUrl?: string }
  */
-async function fetchRecentBlocks() {
+async function fetchRecentBlocks(opts = {}) {
+  const base = (opts.baseUrl && opts.baseUrl.trim()) ? opts.baseUrl.replace(/\/$/, '') : MEMPOOL_PUBLIC;
   try {
-    const r = await fetch('https://mempool.space/api/v1/blocks', {
+    const r = await fetch(`${base}/api/v1/blocks`, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT),
     });
     if (!r.ok) throw new Error('blocks api not ok');
     const blocks = await r.json();
-    const fallbackExt = (blocks || []).find(b => b.extras?.medianFee != null)?.extras ?? {};
-    return (blocks || []).slice(0, 6).map(b => {
-      const ext = b.extras ?? fallbackExt;
+    const fallbackExt = (blocks || []).find(b => b.extras && b.extras.medianFee != null)
+      ? (blocks || []).find(b => b.extras && b.extras.medianFee != null).extras
+      : {};
+    const mapped = (blocks || []).slice(0, 6).map(b => {
+      const ext = b.extras || fallbackExt;
       return {
         height:    b.height,
         timestamp: b.timestamp,
         txCount:   b.tx_count,
         size:      b.size,
-        weight:    b.weight ?? null,
+        weight:    b.weight != null ? b.weight : null,
         medianFee: ext.medianFee != null ? Math.round(ext.medianFee * 10) / 10 : null,
-        totalFees: b.extras?.totalFees ?? null,
-        feeRange:  b.extras?.feeRange ?? null,
-        poolName:  ext.pool?.name ?? '—',
+        totalFees: b.extras && b.extras.totalFees != null ? b.extras.totalFees : null,
+        feeRange:  b.extras && b.extras.feeRange != null ? b.extras.feeRange : null,
+        poolName:  ext.pool && ext.pool.name ? ext.pool.name : '—',
       };
     });
+    // Staleness: most recent block older than 60 min indicates stale/cached data
+    const stale = blocks && blocks.length > 0 &&
+      (blocks[0].timestamp * 1000 < Date.now() - 60 * 60 * 1000);
+    return { blocks: mapped, stale: Boolean(stale) };
   } catch (err) {
+    if (opts.fallbackToPublic && base !== MEMPOOL_PUBLIC) {
+      console.warn('fetchRecentBlocks: failed on', base, '— falling back to public');
+      return fetchRecentBlocks({ baseUrl: MEMPOOL_PUBLIC, fallbackToPublic: false });
+    }
     console.error('fetchRecentBlocks error:', err);
-    return [];
+    return { blocks: [], stale: false };
   }
 }
 
 /**
  * Fetch projected fee rates for next mempool blocks
  * Returns: [{ nTx, medianFee, feeRange: [min, max] }] (first 3)
+ * opts: { baseUrl?: string }
  */
-async function fetchMempoolBlocks() {
+async function fetchMempoolBlocks(opts = {}) {
+  const base = (opts.baseUrl && opts.baseUrl.trim()) ? opts.baseUrl.replace(/\/$/, '') : MEMPOOL_PUBLIC;
   try {
-    const r = await fetch('https://mempool.space/api/v1/fees/mempool-blocks', {
+    const r = await fetch(`${base}/api/v1/fees/mempool-blocks`, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT),
     });
     if (!r.ok) throw new Error('mempool-blocks api not ok');
@@ -302,6 +358,10 @@ async function fetchMempoolBlocks() {
         : null,
     }));
   } catch (err) {
+    if (opts.fallbackToPublic && base !== MEMPOOL_PUBLIC) {
+      console.warn('fetchMempoolBlocks: failed on', base, '— falling back to public');
+      return fetchMempoolBlocks({ baseUrl: MEMPOOL_PUBLIC, fallbackToPublic: false });
+    }
     console.error('fetchMempoolBlocks error:', err);
     return [];
   }
@@ -368,6 +428,7 @@ async function fetchBitAxeMiner(ip) {
 // CommonJS exports
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    MEMPOOL_PUBLIC,
     fetchBTCPrice,
     fetchChainStats,
     fetchMiningPools,

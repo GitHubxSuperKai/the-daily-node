@@ -20,7 +20,11 @@ export function useFeedHealth(feeds) {
   useEffect(() => {
     const check = () => {
       const now = Date.now();
-      const stale = ref.current.filter(f => !f.lastOk || now - f.lastOk > (f.interval || 60000) * 2).length;
+      const stale = ref.current.filter(f =>
+        !f.lastOk ||
+        now - f.lastOk > (f.interval || 60000) * 2 ||
+        f.contentStale === true
+      ).length;
       if (stale === 0) setStatus('live');
       else if (stale < ref.current.length) setStatus('degraded');
       else setStatus('offline');

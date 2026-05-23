@@ -22,6 +22,10 @@ const PREFS_DEFAULTS = {
     bitaxe:  30,
   },
   theme: 'auto',
+  mempool: {
+    baseUrl: '',            // empty string = use public mempool.space
+    fallbackToPublic: true, // if self-hosted fails, fall back to mempool.space
+  },
 };
 
 function deepMerge(defaults, overrides) {

@@ -64,11 +64,11 @@ function App() {
   // ─── Call All Hooks ───────────────────────────────────────
   const clock = useClock(prefs.timeFormat);
   const btc = useBTC();
-  const chain = useChain();
+  const chain = useChain(v2prefs.mempool);
   const bitaxe = useBitaxe();
   const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
   const rss = useRSS();
-  const feedHealth = useFeedHealth([btc, chain, weather, rss, bitaxe]);
+  const feedHealth = useFeedHealth([btc, { ...chain, contentStale: chain.stale }, weather, rss, bitaxe]);
 
   // ─── Auto-Refresh (tab refocus + network restore) ─────────
   usePageRefresh([btc.refresh, chain.refresh, rss.refresh, weather.refresh, bitaxe.refresh]);
