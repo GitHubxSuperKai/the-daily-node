@@ -82,7 +82,7 @@ Open `http://localhost:3000/` — the Miners card will show a friendly placehold
 
 ## Architecture
 
-Custom React hooks (`useBTC`, `useChain`, `useBitaxe`, `useWeather`, `useRSS`, `useFeedHealth`) fetch from external APIs and feed the presentational component tree. Build step (`build.js`) concatenates `src/` modules and inlines them in `src/index.html` to produce the single-file `index.html`. Babel transpiles JSX in the browser at runtime.
+Custom React hooks (`useBTC`, `useChain`, `useBitaxe`, `useWeather`, `useRSS`, `useFeedHealth`) fetch from external APIs and feed the presentational component tree. Build step (`build.js`) uses esbuild to compile JSX and concatenates `src/` modules into `src/index.html`, producing the single-file `index.html`. React and ReactDOM are vendored locally — no CDN, no runtime transpiler.
 
 Full breakdown in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Setup and deployment details in [`docs/SETUP.md`](docs/SETUP.md).
 
