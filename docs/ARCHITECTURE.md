@@ -120,10 +120,10 @@ Simple time formatter that updates every 1 second. Accepts `timeFormat` string (
 3. Strips CommonJS wrapper for Node.js testability
 4. Concatenates all modules into a single JavaScript block
 5. Injects concatenated code into `src/index.html` template (replaces `/* MODULES CONCATENATED BY build.js */` placeholder)
-6. Minifies entire HTML file with esbuild (whitespace, variable mangling, but preserves React/Babel CDN)
+6. Transforms JSX via esbuild and minifies the entire HTML file (whitespace + variable mangling)
 7. Writes output to `index.html` (single-file deliverable)
 
-**Key insight:** The build process creates a **single-file HTML dashboard**. All React, Babel, and application code is bundled inline; esbuild minifies the entire document, reducing file size for easy deployment or distribution.
+**Key insight:** The build process creates a **single-file HTML dashboard**. React and ReactDOM are vendored locally and inlined as `<script>` tags — no CDN, no runtime transpiler. esbuild handles JSX at build time.
 
 ## Styling
 
@@ -142,17 +142,16 @@ Simple time formatter that updates every 1 second. Accepts `timeFormat` string (
 
 ## Dependencies
 
-**Runtime (via CDN in index.html):**
+**Runtime (vendored in `src/vendor/`, inlined at build time):**
 - **React 18.3.1** — Component library and hooks
 - **ReactDOM 18.3.1** — DOM rendering and root creation
-- **Babel Standalone 7.29.0** — JSX transpilation in the browser (transforms `.jsx` to `.js` at runtime)
 
 **Development (npm devDependencies):**
-- **esbuild 0.20.0** — Fast bundler/minifier for the final HTML file (dev-only, not shipped)
+- **esbuild 0.20.0** — JSX compilation and minifier for the final HTML file (dev-only, not shipped)
 
 **No external UI libraries, CSS frameworks, or state managers.** React hooks (`useState`, `useEffect`, `useCallback`, `useContext`, `useRef`) handle all state. Browser `localStorage` persists user preferences. `fetch()` API handles all HTTP requests.
 
-**Build chain:** Node.js (build.js) + esbuild. Source code is ES6 modules; build step concatenates modules and removes import/export, producing a single-file HTML deliverable that runs React from unpkg CDN.
+**Build chain:** Node.js (build.js) + esbuild. JSX is compiled at build time; modules are concatenated and stripped of import/export statements, producing a self-contained single-file HTML deliverable with no CDN dependencies.
 
 ---
 
@@ -168,4 +167,4 @@ Simple time formatter that updates every 1 second. Accepts `timeFormat` string (
 
 **Error handling:** All API calls include try/catch and timeouts. Hooks return `{ data, loading, error, lastOk }` so components can display fallbacks or stale data gracefully. `useFeedHealth()` monitors all sources and colors status lights red when feeds are stale.
 
-**Single-file distribution:** The final `index.html` is a complete, self-contained dashboard with no external dependencies except the React/Babel CDN. It can be opened directly in a browser or served from a simple HTTP server.
+**Single-file distribution:** The final `index.html` is a complete, self-contained dashboard with no external dependencies. It can be opened directly in a browser or served from a simple HTTP server.
