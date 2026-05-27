@@ -85,6 +85,7 @@ function BitcoinPanel({ btc, chain }) {
           color={T.orange}
           points={btc.chartPts}
           fill
+          showLabels
         />
       </div>
 
