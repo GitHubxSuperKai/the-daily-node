@@ -30,3 +30,11 @@ jobs:
             echo "ERROR: Bundle suspiciously small (<50KB), build likely broken"
             exit 1
           fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run python tests
+        run: npm run test:py
