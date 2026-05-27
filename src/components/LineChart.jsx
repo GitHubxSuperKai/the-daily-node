@@ -1,3 +1,4 @@
+import React from 'react';
 import { useT } from '../theme';
 
 const CONTAINER_STYLE = { width: '100%', height: '100%', display: 'block', flexShrink: 0 };
