@@ -1,5 +1,6 @@
 import React from 'react';
 import { useT } from '../theme';
+import { u } from '../utils/scale.js';
 import { calcSoloOdds } from '../utils/formatting';
 
 function Dot({ status }) {

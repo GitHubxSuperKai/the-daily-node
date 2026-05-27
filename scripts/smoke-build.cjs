@@ -30,13 +30,15 @@ assert.ok(html.length > 250_000, `output suspiciously small (${html.length} byte
 assert.ok(!html.includes('/* MODULES CONCATENATED BY build.js */'),
   'placeholder was not replaced — build did not concat modules');
 
-// 4. Sanity-check that key components landed in the bundle
+// 4. Sanity-check that key components landed in the bundle.
+// Note: minification mangles function/variable names, so we check string
+// literals and object-property names that survive minification unchanged.
 const REQUIRED_MARKERS = [
-  'function App',          // App.jsx
-  'CommandCenter',         // components/CommandCenter.jsx
-  'fetchBTCPrice',         // utils/api.js
-  'fmtPrice',              // utils/formatting.js
-  'METEOCONS_SVG',         // utils/svg.js
+  'dailynode-prefs',       // App.jsx (localStorage key — string literal)
+  'useHistory',            // components/CommandCenter.jsx (hook call — property key)
+  'fetchBTCPrice',         // utils/api.js (object property key)
+  'fmtPrice',              // utils/formatting.js (object property key)
+  'METEOCONS_SVG',         // utils/svg.js (object property key)
 ];
 for (const m of REQUIRED_MARKERS) {
   assert.ok(html.includes(m), `missing required marker in bundle: ${m}`);
