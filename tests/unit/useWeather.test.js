@@ -60,6 +60,8 @@ describe('useWeather', () => {
     expect(result.current.data.wxLo).toBe(60);
     expect(result.current.data.wxSunrise).toBe('06:00');
     expect(result.current.data.wxSunset).toBe('20:30');
+    // data.hourly is intentionally not asserted — useWeather builds it from
+    // new Date().getHours(), so any assertion on it would be clock-dependent.
     expect(result.current.err).toBe(false);
     expect(result.current.lastOk).toBeGreaterThan(0);
   });

@@ -41,6 +41,11 @@ describe('useChain', () => {
     expect(result.current.data.feeFast).toBe(12);
     expect(result.current.error).toBe(false);
     expect(result.current.lastOk).toBeGreaterThan(0);
+
+    // fetchExtended runs in parallel; wait for it to populate pools.
+    await waitFor(() => expect(result.current.pools.length).toBeGreaterThan(0));
+    expect(result.current.pools[0].slug).toBe('foundry');
+    expect(result.current.recentBlocks.length).toBeGreaterThan(0);
   });
 
   it('exposes error=true when chain stats fetch fails', async () => {

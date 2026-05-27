@@ -46,10 +46,10 @@ const cgMetaResp = {
 };
 
 function routeByUrl(url) {
-  const { hostname, pathname, search } = new URL(String(url));
+  const { hostname, pathname } = new URL(String(url));
   if (hostname === 'api.kraken.com') return krakenResp;
   if (hostname === 'api.coingecko.com' && pathname.endsWith('/market_chart')) return cgChartResp;
-  if (hostname === 'api.coingecko.com' && pathname.endsWith('/coins/bitcoin') && search) return cgMetaResp;
+  if (hostname === 'api.coingecko.com' && pathname === '/api/v3/coins/bitcoin') return cgMetaResp;
   return { ok: true, json: async () => ({}) };
 }
 
