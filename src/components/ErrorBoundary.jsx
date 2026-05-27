@@ -1,5 +1,6 @@
 import React from 'react';
 import { ThemeCtx } from '../theme';
+import { log } from '../utils/log.js';
 
 /**
  * ErrorBoundary — isolates render failures to a single subtree.
@@ -25,7 +26,7 @@ export class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, info) {
     const tag = this.props.label ? `[ErrorBoundary · ${this.props.label}]` : '[ErrorBoundary]';
-    console.error(tag, error, info && info.componentStack);
+    log.error(tag, error, info && info.componentStack);
   }
 
   render() {

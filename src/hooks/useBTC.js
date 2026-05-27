@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import CONFIG from '../config.js';
 import { fetchBTCPrice, fetchBitcoinMeta } from '../utils/api.js';
 import { useResettableInterval } from './useResettableInterval.js';
+import { log } from '../utils/log.js';
 
 /**
  * useBTC Hook
@@ -36,7 +37,7 @@ export function useBTC() {
         setCap(j.market_caps[j.market_caps.length - 1][1]);
       }
     } catch (err) {
-      console.error('fetch24hChart error:', err);
+      log.error('fetch24hChart error:', err);
     }
   }, []);
 
@@ -47,7 +48,7 @@ export function useBTC() {
         setBtcMeta(meta);
       }
     } catch (err) {
-      console.error('fetchMeta error:', err);
+      log.error('fetchMeta error:', err);
     }
   }, []);
 
@@ -62,7 +63,7 @@ export function useBTC() {
       setLastOk(Date.now());
       setLoading(false);
     } catch (err) {
-      console.error('fetchPrice error:', err);
+      log.error('fetchPrice error:', err);
       setError(true);
       setLoading(false);
     }

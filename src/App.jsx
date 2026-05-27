@@ -26,8 +26,15 @@ function App() {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
 
   // ─── One-time migration: remove deprecated BitAxe localStorage key ──
+  // Guarded by a marker so it only runs once per browser. Safe to delete
+  // this block entirely after 2026-08-01 — every active user will have
+  // migrated by then.
   React.useEffect(() => {
-    try { localStorage.removeItem('dailynode-bitaxe'); } catch {}
+    try {
+      if (localStorage.getItem('dailynode-bitaxe-migrated') === '1') return;
+      localStorage.removeItem('dailynode-bitaxe');
+      localStorage.setItem('dailynode-bitaxe-migrated', '1');
+    } catch {}
   }, []);
 
   // ─── User Preferences (with localStorage persistence) ──────
