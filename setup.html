@@ -208,10 +208,115 @@
 
   </div>
 <script>
-  document.getElementById('save').addEventListener('click', function () {});
-  document.getElementById('skip').addEventListener('click', function () {});
-  document.getElementById('city-search').addEventListener('click', function () {});
-  document.getElementById('dark-toggle').addEventListener('click', function () {});
+  // ─── DOM refs ──────────────────────────────────────────
+  var $ips           = document.getElementById('ips');
+  var $ipsMsg        = document.getElementById('ips-msg');
+  var $save          = document.getElementById('save');
+  var $skip          = document.getElementById('skip');
+  var $formMsg       = document.getElementById('form-msg');
+  var $city          = document.getElementById('city');
+  var $citySearch    = document.getElementById('city-search');
+  var $geoResults    = document.getElementById('geo-results');
+  var $currentSaved  = document.getElementById('current-saved');
+  var $darkToggle    = document.getElementById('dark-toggle');
+
+  // Weather selection captured from a geocoder click. null until user picks.
+  var pendingWeather = null;
+
+  // ─── IP validation (mirrors src/utils/ipValidation.js) ─
+  function isValidLanIp(ip) {
+    if (typeof ip !== 'string') return false;
+    var m = ip.trim().match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (!m) return false;
+    var o = m.slice(1).map(Number);
+    if (o.some(function (n) { return n < 0 || n > 255; })) return false;
+    if (o[0] === 10) return true;
+    if (o[0] === 172 && o[1] >= 16 && o[1] <= 31) return true;
+    if (o[0] === 192 && o[1] === 168) return true;
+    if (o[0] === 127) return true;
+    return false;
+  }
+
+  function parseIps(raw) {
+    return raw.split(/[\s,]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+
+  // ─── Messaging helpers ─────────────────────────────────
+  function setMsg(el, text, kind) {
+    el.className = 'msg' + (kind ? ' ' + kind : '');
+    el.textContent = text || '';
+  }
+
+  // ─── Initial prefill ───────────────────────────────────
+  function prefillFromServer() {
+    return fetch('/api/setup', { method: 'GET' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var ips = Array.isArray(data.bitaxe_ips) ? data.bitaxe_ips : [];
+        if (ips.length > 0) {
+          $ips.value = ips.join('\n');
+        } else {
+          $ips.focus();
+        }
+      })
+      .catch(function () { $ips.focus(); });
+  }
+
+  // ─── Save & Continue ──────────────────────────────────
+  function handleSave() {
+    setMsg($ipsMsg, '', '');
+    setMsg($formMsg, '', '');
+    var raw = parseIps($ips.value);
+    var invalid = raw.filter(function (ip) { return !isValidLanIp(ip); });
+    if (invalid.length > 0) {
+      setMsg($ipsMsg, 'Invalid IPs (must be RFC1918 or 127.x): ' + invalid.join(', '), 'err');
+      return;
+    }
+    $save.disabled = true;
+    setMsg($formMsg, 'Saving…', 'ok');
+    fetch('/api/setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bitaxe_ips: raw }),
+    })
+      .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+      .then(function (res) {
+        if (!res.ok) {
+          var errs = res.data.errors || [res.data.error || 'unknown'];
+          setMsg($ipsMsg, 'Server: ' + errs.join('; '), 'err');
+          setMsg($formMsg, '', '');
+          $save.disabled = false;
+          return;
+        }
+        // Weather merge handled in Task 4.
+        setMsg($formMsg, 'Saved. Loading dashboard…', 'ok');
+        setTimeout(function () { window.location.href = '/'; }, 600);
+      })
+      .catch(function (e) {
+        setMsg($formMsg, 'Network error: ' + e.message, 'err');
+        $save.disabled = false;
+      });
+  }
+
+  // ─── Skip (placeholder — Task 5 implements) ────────────
+  function handleSkip() {}
+
+  // ─── Weather (placeholder — Task 4 implements) ─────────
+  function handleCitySearch() {}
+
+  // ─── Dark toggle (placeholder — Task 5 implements) ─────
+  function handleDarkToggle() {}
+
+  // ─── Wiring ────────────────────────────────────────────
+  $save.addEventListener('click', handleSave);
+  $skip.addEventListener('click', handleSkip);
+  $citySearch.addEventListener('click', handleCitySearch);
+  $darkToggle.addEventListener('click', handleDarkToggle);
+  $ips.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSave();
+  });
+
+  prefillFromServer();
 </script>
 </body>
 </html>
