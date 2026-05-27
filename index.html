@@ -509,6 +509,10 @@ const RSS_FEED_MAP = [
 
 
 // CommonJS export (for Node.js testability, removed during build)
+// Wrapped in try-catch: vitest 4.x ESM transform makes module.exports read-only
+try {
+  
+} catch (_) {}
 
 
 
@@ -1413,10 +1417,7 @@ function themeFlipDecision(prevShouldBeDark, shouldBeDark, dark) {
 
 var __defProp = Object.defineProperty;
 var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __publicField = (obj, key, value) => {
-  __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
-  return value;
-};
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -1430,8 +1431,7 @@ class ErrorBoundary extends React.Component {
     console.error(tag, error, info && info.componentStack);
   }
   render() {
-    if (!this.state.hasError)
-      return this.props.children;
+    if (!this.state.hasError) return this.props.children;
     const T = this.context || {};
     return /* @__PURE__ */ React.createElement(
       "div",
@@ -1487,8 +1487,7 @@ function Kicker({ children, color, style = {} }) {
 
 function Rule({ double, dash, weight = 1, style = {} }) {
   const T = useT();
-  if (double)
-    return /* @__PURE__ */ React.createElement("div", { style: { borderTop: "2px solid " + T.rule, borderBottom: "1px solid " + T.rule, height: 5, ...style } });
+  if (double) return /* @__PURE__ */ React.createElement("div", { style: { borderTop: "2px solid " + T.rule, borderBottom: "1px solid " + T.rule, height: 5, ...style } });
   return /* @__PURE__ */ React.createElement("div", { style: { borderTop: `${weight}px ${dash ? "dashed" : "solid"} ${T.rule2}`, ...style } });
 }
 
@@ -1503,8 +1502,7 @@ function LineChart({ color, points, fill, vwap, historyPoints }) {
   const containerRef = React.useRef(null);
   const [dims, setDims] = React.useState({ w: 0, h: 0 });
   React.useLayoutEffect(() => {
-    if (!containerRef.current)
-      return;
+    if (!containerRef.current) return;
     const ro = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
       setDims({ w: Math.round(width), h: Math.round(height) });
@@ -1514,8 +1512,7 @@ function LineChart({ color, points, fill, vwap, historyPoints }) {
   }, []);
   const { w, h } = dims;
   const allPoints = React.useMemo(() => {
-    if (!Array.isArray(historyPoints) || historyPoints.length === 0)
-      return points;
+    if (!Array.isArray(historyPoints) || historyPoints.length === 0) return points;
     const converted = historyPoints.map((p) => [p.ts * 1e3, p.usd]);
     return points ? [...converted, ...points] : converted;
   }, [historyPoints, points]);
@@ -1617,8 +1614,7 @@ function getOnThisDay(date) {
 function OnThisDay() {
   const T = useT();
   const entry = getOnThisDay(/* @__PURE__ */ new Date());
-  if (!entry)
-    return null;
+  if (!entry) return null;
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Kicker, null, "On This Day"), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 7 } }, /* @__PURE__ */ React.createElement("div", { style: {
     fontFamily: T.sans,
     fontSize: u(9),
@@ -1669,8 +1665,7 @@ function WxGlyph({ kind, size, speed: speedProp }) {
   const isDark = T.paper === DARK.paper;
   const color = isDark ? "rgba(255,255,255,0.88)" : "rgba(0,0,0,0.80)";
   const uid = React.useRef(null);
-  if (uid.current === null)
-    uid.current = ++_svgUid;
+  if (uid.current === null) uid.current = ++_svgUid;
   const raw = METEOCONS_SVG[kind] || METEOCONS_SVG["overcast"];
   const speed = (_a = speedProp != null ? speedProp : wmoSpeed(kind)) != null ? _a : 2.5;
   const svg = React.useMemo(() => _processSvg(raw, uid.current, speed, size), [raw, size, speed]);
@@ -1715,6 +1710,8 @@ function useResettableInterval(callback, delay) {
 
   return { reset };
 }
+
+
 
 
 /**
@@ -2680,12 +2677,9 @@ function Weather({ weather, prefs }) {
     const val = { fontFamily: T.num, fontSize: u(13), fontWeight: 400, letterSpacing: -0.5, lineHeight: 1, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1', fontOpticalSizing: "auto" };
     const sub = { fontFamily: T.num, fontSize: u(9), color: T.ink3, marginTop: u(2) };
     return /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", marginTop: u(10), borderTop: br } }, /* @__PURE__ */ React.createElement("div", { style: cellL }, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Feels Like"), /* @__PURE__ */ React.createElement("div", { style: val }, wx.feels, "\xB0", prefs.tempUnit === "celsius" ? "C" : "F"), (() => {
-      if (wx.wxPressure == null)
-        return null;
-      if (wx.wxPressure >= 1020)
-        return /* @__PURE__ */ React.createElement("div", { style: sub }, "dry & clear");
-      if (wx.wxPressure < 1007)
-        return /* @__PURE__ */ React.createElement("div", { style: sub }, "humid & unsettled");
+      if (wx.wxPressure == null) return null;
+      if (wx.wxPressure >= 1020) return /* @__PURE__ */ React.createElement("div", { style: sub }, "dry & clear");
+      if (wx.wxPressure < 1007) return /* @__PURE__ */ React.createElement("div", { style: sub }, "humid & unsettled");
       return null;
     })()), /* @__PURE__ */ React.createElement("div", { style: cellM }, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Humidity"), /* @__PURE__ */ React.createElement("div", { style: val }, wx.wxHum)), /* @__PURE__ */ React.createElement("div", { style: cellR }, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Dew Point"), /* @__PURE__ */ React.createElement("div", { style: val }, wx.wxDewPoint != null ? `${wx.wxDewPoint}\xB0` : "\u2014")), /* @__PURE__ */ React.createElement("div", { style: cellLB }, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Wind"), /* @__PURE__ */ React.createElement("div", { style: val }, wx.wxWind), wx.wxGusts != null && /* @__PURE__ */ React.createElement("div", { style: sub }, "gusts ", wx.wxGusts, " mph")), /* @__PURE__ */ React.createElement("div", { style: cellMB }, /* @__PURE__ */ React.createElement("div", { style: lbl }, uvCellLabel), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: u(4) } }, /* @__PURE__ */ React.createElement("div", { style: { ...val, color: uvColor } }, uv), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: T.sans, fontSize: u(8), fontWeight: 600, color: uv >= 6 ? uvColor : T.ink3 } }, uvLabel)), /* @__PURE__ */ React.createElement("div", { style: { height: u(2), background: T.rule3, borderRadius: 2, marginTop: u(5) } }, /* @__PURE__ */ React.createElement("div", { style: { height: "100%", width: `${Math.min(uv / 11, 1) * 100}%`, background: uvColor, borderRadius: 2 } }))), /* @__PURE__ */ React.createElement("div", { style: cellRB }, /* @__PURE__ */ React.createElement("div", { style: lbl }, "Pressure"), /* @__PURE__ */ React.createElement("div", { style: val }, wx.wxPressure != null ? `${wx.wxPressure}` : "\u2014"), wx.wxPressure != null && (() => {
       const isHigh = wx.wxPressure >= 1020;
@@ -2715,8 +2709,7 @@ function getMinerStatus(miner) {
 }
 function getMinerName(miner) {
   var _a;
-  if ((_a = miner.data) == null ? void 0 : _a.hostname)
-    return miner.data.hostname;
+  if ((_a = miner.data) == null ? void 0 : _a.hostname) return miner.data.hostname;
   const parts = (miner.ip || "").split(".");
   return `rig-${parts[parts.length - 1] || "(no IP)"}`;
 }
@@ -2744,18 +2737,15 @@ function Miners({ bitaxe, chain }) {
   const oddsResult = chain.data && totalHashTH > 0 ? calcSoloOdds(networkHashEH, totalHashTH) : null;
   const oddsOneIn = oddsResult ? oddsResult.oddsPerDay : null;
   React.useEffect(() => {
-    if (!oddsOneIn)
-      return;
+    if (!oddsOneIn) return;
     const text = `1-in-${oddsOneIn.toLocaleString()}`;
     const measure = () => {
       const wrap = heroWrapRef.current;
-      if (!wrap)
-        return;
+      if (!wrap) return;
       const PROBE = 200;
       const cs = getComputedStyle(wrap);
       const availW = wrap.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight || "0") - parseFloat(cs.borderLeftWidth || "0") - parseFloat(cs.borderRightWidth || "0");
-      if (availW <= 0)
-        return;
+      if (availW <= 0) return;
       const clone = document.createElement("div");
       clone.style.cssText = `position:absolute;top:-9999px;white-space:nowrap;font-family:"Playfair Display",Georgia,serif;font-weight:800;font-style:italic;font-size:${PROBE}px`;
       clone.textContent = text;
@@ -2764,8 +2754,7 @@ function Miners({ bitaxe, chain }) {
       document.body.removeChild(clone);
       if (textW > 0) {
         const newSize = Math.floor(PROBE * availW / textW);
-        if (!heroSlotRef.current)
-          heroSlotRef.current = newSize;
+        if (!heroSlotRef.current) heroSlotRef.current = newSize;
         setHeroFontSize(newSize);
       }
     };
@@ -3038,8 +3027,7 @@ function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSaveV2, on
   const currentIps = React.useMemo(() => miners.map((m) => m.ip), [miners]);
   const onlineByIp = React.useMemo(() => {
     const map = /* @__PURE__ */ new Map();
-    for (const x of miners)
-      map.set(x.ip, !!x.online);
+    for (const x of miners) map.set(x.ip, !!x.online);
     return map;
   }, [miners]);
   const postIps = async (nextList) => {
@@ -3073,8 +3061,7 @@ function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSaveV2, on
   const handleAdd = () => {
     const ip = draftNewIp.trim();
     setAddError("");
-    if (!ip)
-      return;
+    if (!ip) return;
     if (!isValidLanIp(ip)) {
       setAddError("Not a private/LAN address (RFC1918 or 127.x.x.x)");
       return;
@@ -3094,16 +3081,14 @@ function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSaveV2, on
     postIps(currentIps.filter((x) => x !== ip));
   };
   const handleSearch = async () => {
-    if (!cityQuery.trim())
-      return;
+    if (!cityQuery.trim()) return;
     setGeoLoading(true);
     setGeoResults(null);
     try {
       const r = await fetch(
         `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityQuery.trim())}&count=5&language=en&format=json`
       );
-      if (!r.ok)
-        throw new Error("geo");
+      if (!r.ok) throw new Error("geo");
       const j = await r.json();
       setGeoResults(Array.isArray(j.results) && j.results.length > 0 ? j.results : []);
     } catch (e) {
@@ -3164,8 +3149,7 @@ function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSaveV2, on
     {
       style: { position: "absolute", inset: 0, zIndex: 10 },
       onClick: (e) => {
-        if (e.target === e.currentTarget)
-          onClose();
+        if (e.target === e.currentTarget) onClose();
       }
     },
     /* @__PURE__ */ React.createElement("div", { style: {
@@ -4109,15 +4093,12 @@ function CommandCenter({
   const lastShouldBeDark = React.useRef(null);
   React.useEffect(() => {
     const wx2 = weather.data;
-    if ((wx2 == null ? void 0 : wx2.wxSunriseHr) == null)
-      return;
+    if ((wx2 == null ? void 0 : wx2.wxSunriseHr) == null) return;
     const hr = (/* @__PURE__ */ new Date()).getHours();
     const shouldBeDark = hr < wx2.wxSunriseHr || hr >= wx2.wxSunsetHr;
     const { update, flip } = themeFlipDecision(lastShouldBeDark.current, shouldBeDark, dark);
-    if (update)
-      lastShouldBeDark.current = shouldBeDark;
-    if (flip)
-      onToggleDark();
+    if (update) lastShouldBeDark.current = shouldBeDark;
+    if (flip) onToggleDark();
   }, [clock.timeHM, (_a = weather.data) == null ? void 0 : _a.wxSunriseHr, dark]);
   const lastBlockTs = (_d = (_c = (_b = chain.recentBlocks) == null ? void 0 : _b[0]) == null ? void 0 : _c.timestamp) != null ? _d : null;
   const msSinceLastBlock = lastBlockTs ? (Date.now() / 1e3 - lastBlockTs) * 1e3 : null;
@@ -4212,8 +4193,7 @@ function CommandCenter({
   ];
   const freshNow = Date.now();
   const sysAgeOf = (lastOk) => {
-    if (!lastOk)
-      return "";
+    if (!lastOk) return "";
     const mins = Math.floor((ageTick - lastOk) / 6e4);
     return mins < 1 ? "" : `\u21BB ${mins}m`;
   };
@@ -4481,8 +4461,7 @@ function CommandCenter({
         const NEWS_SECTIONS = ["BREAKING", "MARKETS", "MINING", "REGULATION", "TECH", "GLOBAL", "BITCOIN"];
         const grouped = NEWS_SECTIONS.reduce((acc, topic) => {
           const group = newsItems.filter((it) => it.topic === topic);
-          if (group.length > 0)
-            acc.push({ topic, group });
+          if (group.length > 0) acc.push({ topic, group });
           return acc;
         }, []);
         return /* @__PURE__ */ React.createElement("div", { style: { borderRight: `1px solid ${T.rule2}`, paddingRight: u(24), overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } }, /* @__PURE__ */ React.createElement(Kicker, null, "Bitcoin news"), rss.err && /* @__PURE__ */ React.createElement(Kicker, { color: T.red }, "feed error")), /* @__PURE__ */ React.createElement("div", { className: `news-col-wrap${newsItems.length < 8 ? " at-bottom" : ""}`, style: { marginTop: u(8), flex: 1, minHeight: 0 } }, /* @__PURE__ */ React.createElement(
@@ -4596,8 +4575,7 @@ function App() {
   const mode = useViewportMode(900);
   const theme = dark ? DARK : LIGHT;
   React.useEffect(() => {
-    if (window.applyScale)
-      window.applyScale();
+    if (window.applyScale) window.applyScale();
   }, []);
   React.useEffect(() => {
     document.documentElement.style.setProperty("--paper", dark ? DARK.paper : LIGHT.paper);
@@ -4614,10 +4592,8 @@ function App() {
     saveV2Prefs(newPrefs);
     setV2Prefs(newPrefs);
     CONFIG.RSS_FEEDS = RSS_FEED_MAP.filter((f) => newPrefs.feeds[f.key] !== false).map((f) => f.url);
-    if (newPrefs.theme === "dark")
-      setDark(true);
-    if (newPrefs.theme === "light")
-      setDark(false);
+    if (newPrefs.theme === "dark") setDark(true);
+    if (newPrefs.theme === "light") setDark(false);
   }, []);
   const handleSaveSettings = (newPrefs) => {
     setPrefs(newPrefs);
