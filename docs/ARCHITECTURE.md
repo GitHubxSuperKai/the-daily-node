@@ -115,15 +115,13 @@ Simple time formatter that updates every 1 second. Accepts `timeFormat` string (
 **Development (`npm run dev`):** Runs Python HTTP server on `localhost:3000` serving the pre-built `index.html` file. No rebuilding needed; edit source files and manually run `npm run build` when ready to test the minified output.
 
 **Release (`npm run build`):** Executes `build.js` script which:
-1. Reads all source files in dependency order (config → theme → utils → components → hooks → App)
-2. Removes all `import`/`export` statements (file concatenation model)
-3. Strips CommonJS wrapper for Node.js testability
-4. Concatenates all modules into a single JavaScript block
-5. Injects concatenated code into `src/index.html` template (replaces `/* MODULES CONCATENATED BY build.js */` placeholder)
-6. Transforms JSX via esbuild and minifies the entire HTML file (whitespace + variable mangling)
-7. Writes output to `index.html` (single-file deliverable)
+1. Runs `esbuild.build({ entryPoints: ['src/App.jsx'], bundle: true, format: 'iife', minify: true })` to produce a minified IIFE
+2. Inlines vendored React + ReactDOM as `<script>` tags (`<!-- VENDOR -->` placeholder)
+3. Prepends a tiny `require()` shim that maps `'react'` and `'react-dom/client'` to the global `React`/`ReactDOM` (esbuild marks these as external and emits `require()` calls)
+4. Injects IIFE into `src/index.html` template (replaces `/* MODULES CONCATENATED BY build.js */` placeholder)
+5. Writes output to `index.html` (single-file deliverable)
 
-**Key insight:** The build process creates a **single-file HTML dashboard**. React and ReactDOM are vendored locally and inlined as `<script>` tags — no CDN, no runtime transpiler. esbuild handles JSX at build time.
+**Key insight:** The build process creates a **single-file HTML dashboard**. React and ReactDOM are vendored locally and inlined as `<script>` tags — no CDN, no runtime transpiler. esbuild handles the full module graph, JSX transform, and minification.
 
 ## Styling
 
@@ -147,11 +145,11 @@ Simple time formatter that updates every 1 second. Accepts `timeFormat` string (
 - **ReactDOM 18.3.1** — DOM rendering and root creation
 
 **Development (npm devDependencies):**
-- **esbuild 0.20.0** — JSX compilation and minifier for the final HTML file (dev-only, not shipped)
+- **esbuild 0.20.0** — Full bundler: resolves module graph, transforms JSX, minifies output (dev-only, not shipped)
 
 **No external UI libraries, CSS frameworks, or state managers.** React hooks (`useState`, `useEffect`, `useCallback`, `useContext`, `useRef`) handle all state. Browser `localStorage` persists user preferences. `fetch()` API handles all HTTP requests.
 
-**Build chain:** Node.js (build.js) + esbuild. JSX is compiled at build time; modules are concatenated and stripped of import/export statements, producing a self-contained single-file HTML deliverable with no CDN dependencies.
+**Build chain:** Node.js (build.js) + esbuild. esbuild bundles the full module graph from `src/App.jsx`, transforms JSX, and minifies output into a single IIFE injected into `src/index.html` — producing a self-contained single-file HTML deliverable with no CDN dependencies.
 
 ---
 
