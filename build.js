@@ -3,6 +3,7 @@ const path = require('path');
 const esbuild = require('esbuild');
 
 const srcDir = path.join(__dirname, 'src');
+const { version } = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
 
 async function buildBundle() {
   const result = await esbuild.build({
@@ -18,6 +19,7 @@ async function buildBundle() {
     external: ['react', 'react-dom/client'],
     write: false,
     logLevel: 'warning',
+    define: { __VERSION__: JSON.stringify(version) },
   });
   return result.outputFiles[0].text;
 }
