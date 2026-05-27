@@ -25,6 +25,7 @@ Built as a personal "field report" for a wall-mounted monitor. The layout is loc
 - ⛏️ **BitAxe fleet monitoring** — live hashrate, power, temps from your local miners
 - 🌤️ **Weather widget** — Open-Meteo, with auto dark mode at sunset
 - 🌗 **Light + dark themes** — toggle manually or follow sunset
+- 📱 **Mobile layout** — responsive view at <900px with tab navigation, swipe gestures, and expandable weather tile
 - ⚙️ **In-app settings** — add/remove miners, change location, time format, units, and alert thresholds without touching code
 
 ## Run it
@@ -82,7 +83,7 @@ Open `http://localhost:3000/` — the Miners card will show a friendly placehold
 
 ## Architecture
 
-Custom React hooks (`useBTC`, `useChain`, `useBitaxe`, `useWeather`, `useRSS`, `useFeedHealth`) fetch from external APIs and feed the presentational component tree. Build step (`build.js`) uses esbuild to bundle `src/App.jsx` into a minified IIFE injected into `src/index.html`, producing the single-file `index.html`. React and ReactDOM are vendored locally — no CDN, no runtime transpiler.
+Custom React hooks (`useBTC`, `useChain`, `useBitaxe`, `useWeather`, `useRSS`, `useFeedHealth`) fetch from external APIs and feed the presentational component tree. At ≥900px the app renders `CommandCenter` (4-column desktop layout); below that it routes to `MobileApp` (tab-based, swipe-navigable). Build step (`build.js`) uses esbuild to bundle `src/App.jsx` into a minified IIFE injected into `src/index.html`, producing the single-file `index.html`. React and ReactDOM are vendored locally — no CDN, no runtime transpiler.
 
 Full breakdown in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Setup and deployment details in [`docs/SETUP.md`](docs/SETUP.md).
 
