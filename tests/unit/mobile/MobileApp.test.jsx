@@ -48,4 +48,40 @@ describe('MobileApp', () => {
     fireEvent.click(screen.getByTestId('btc-tile'));
     expect(screen.getByText(/Field Report/i)).toBeDefined();
   });
+
+  it('switches to Miners panel when Miners tab clicked', () => {
+    wrap(<MobileApp {...baseProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /^miners$/i }));
+    expect(screen.getByText(/Fleet/i)).toBeDefined();
+  });
+
+  it('swipe left from Home navigates to Bitcoin', () => {
+    const { container } = render(
+      <ThemeCtx.Provider value={LIGHT}><MobileApp {...baseProps} /></ThemeCtx.Provider>
+    );
+    const outer = container.firstChild;
+    fireEvent.touchStart(outer, { touches: [{ clientX: 300, clientY: 200 }] });
+    fireEvent.touchEnd(outer, { changedTouches: [{ clientX: 200, clientY: 205 }] });
+    expect(screen.getByText(/Field Report/i)).toBeDefined();
+  });
+
+  it('swipe right at home (leftmost tab) is a no-op', () => {
+    const { container } = render(
+      <ThemeCtx.Provider value={LIGHT}><MobileApp {...baseProps} /></ThemeCtx.Provider>
+    );
+    const outer = container.firstChild;
+    fireEvent.touchStart(outer, { touches: [{ clientX: 200, clientY: 200 }] });
+    fireEvent.touchEnd(outer, { changedTouches: [{ clientX: 300, clientY: 205 }] });
+    expect(screen.getByText(/BTC \/ USD/i)).toBeDefined();
+  });
+
+  it('vertical swipe does not change tab', () => {
+    const { container } = render(
+      <ThemeCtx.Provider value={LIGHT}><MobileApp {...baseProps} /></ThemeCtx.Provider>
+    );
+    const outer = container.firstChild;
+    fireEvent.touchStart(outer, { touches: [{ clientX: 200, clientY: 100 }] });
+    fireEvent.touchEnd(outer, { changedTouches: [{ clientX: 210, clientY: 250 }] });
+    expect(screen.getByText(/BTC \/ USD/i)).toBeDefined();
+  });
 });
