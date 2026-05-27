@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-05-27
+
 ### Added
 
 - Mobile responsive layout (`MobileApp`) at <900px breakpoint — tab navigation, swipe gestures between tabs, dedicated Miners tab, expandable weather tile with hourly forecast, min/max price labels on chart.
@@ -55,5 +57,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI: build verification + Pages auto-deploy.
 - Issue templates and PR template for structured triage.
 
-[Unreleased]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/GitHubxSuperKai/the-daily-node/releases/tag/v1.0.0
