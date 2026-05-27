@@ -18,7 +18,19 @@ const baseProps = {
       { ip: '2.2.2.2', online: false, data: null },
     ],
   },
-  weather: { data: { temp: 72, wxCond: 'Clear', wxCode: 0, wxWindSpeed: 5, wxSunriseHr: 6, wxSunsetHr: 19 }, err: null },
+  weather: { data: {
+    temp: 72, wxCond: 'Clear', wxCode: 0, wxWindSpeed: 5,
+    wxSunriseHr: 6, wxSunsetHr: 19,
+    wxHi: 80, wxLo: 65,
+    wxSunrise: '06:15', wxSunset: '20:42',
+    wxUVIndex: 7,
+    wxWind: 'W 12 mph',
+    wxHum: '45%',
+    hourly: [
+      { hr: 10, t: 72, code: 0, pop: 0 },
+      { hr: 11, t: 74, code: 1, pop: 20 },
+    ],
+  }, err: null },
   rss: { items: [{ hed: 'Top story', link: 'https://x', topic: '', src: 'src', t: 'just now' }], err: null },
   feedHealth: 'live',
 };
@@ -35,12 +47,11 @@ describe('HomePanel', () => {
     expect(screen.getByText('Top story')).toBeDefined();
   });
 
-  it('fleet tile is collapsed by default, expands on click', () => {
-    wrap(<HomePanel {...baseProps} onNavigate={() => {}} />);
-    expect(screen.queryByTestId('fleet-row-1.1.1.1')).toBeNull();
+  it('fleet tile click navigates to miners tab', () => {
+    const onNavigate = vi.fn();
+    wrap(<HomePanel {...baseProps} onNavigate={onNavigate} />);
     fireEvent.click(screen.getByTestId('fleet-tile'));
-    expect(screen.getByTestId('fleet-row-1.1.1.1')).toBeDefined();
-    expect(screen.getByTestId('fleet-row-2.2.2.2')).toBeDefined();
+    expect(onNavigate).toHaveBeenCalledWith('miners');
   });
 
   it('BTC tile click navigates to bitcoin tab', () => {
@@ -55,5 +66,27 @@ describe('HomePanel', () => {
     wrap(<HomePanel {...baseProps} onNavigate={onNavigate} />);
     fireEvent.click(screen.getByTestId('lead-tile'));
     expect(onNavigate).toHaveBeenCalledWith('news');
+  });
+
+  it('weather tile has no expanded detail by default', () => {
+    wrap(<HomePanel {...baseProps} onNavigate={() => {}} />);
+    expect(screen.queryByText(/W 12 mph/i)).toBeNull();
+    expect(screen.queryByText(/UV 7/i)).toBeNull();
+  });
+
+  it('clicking weather tile reveals expanded forecast detail', () => {
+    wrap(<HomePanel {...baseProps} onNavigate={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: /expand weather/i }));
+    expect(screen.getByText('W 12 mph')).toBeDefined();
+    expect(screen.getByText('UV 7')).toBeDefined();
+    expect(screen.getByText(/06:15/)).toBeDefined();
+    expect(screen.queryByText('0%')).toBeNull();
+  });
+
+  it('clicking expanded weather tile collapses detail', () => {
+    wrap(<HomePanel {...baseProps} onNavigate={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: /expand weather/i }));
+    fireEvent.click(screen.getByRole('button', { name: /collapse weather/i }));
+    expect(screen.queryByText('W 12 mph')).toBeNull();
   });
 });
