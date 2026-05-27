@@ -1,7 +1,7 @@
 import React from 'react';
 import { afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
-import { LIGHT, ThemeCtx } from '../src/theme.js';
+import { ThemeCtx } from '../src/theme.js';
 
 // Auto-cleanup DOM after each test (required when globals: false)
 afterEach(() => cleanup());
