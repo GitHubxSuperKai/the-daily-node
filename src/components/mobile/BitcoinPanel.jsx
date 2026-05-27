@@ -45,12 +45,6 @@ function BitcoinPanel({ btc, chain }) {
       fontFamily: T.sans,
     }}>
 
-      {/* ── Field Report ── */}
-      <section style={{ paddingBottom: 16, borderBottom: `1px solid ${T.rule2}` }}>
-        <div style={sectionLabel(T)}>Field Report</div>
-        <NetworkStatusWidget chain={chain} T={T} />
-      </section>
-
       {/* ── Price ── */}
       <div>
         <div style={sectionLabel(T)}>Price</div>
@@ -93,6 +87,12 @@ function BitcoinPanel({ btc, chain }) {
           fill
         />
       </div>
+
+      {/* ── Field Report ── */}
+      <section style={{ paddingBottom: 16, borderBottom: `1px solid ${T.rule2}` }}>
+        <div style={sectionLabel(T)}>Field Report</div>
+        <NetworkStatusWidget chain={chain} T={T} />
+      </section>
 
       {/* ── Chain Vitals ── */}
       <div>
