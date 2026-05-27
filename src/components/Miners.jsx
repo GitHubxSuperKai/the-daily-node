@@ -3,6 +3,9 @@ import { useT } from '../theme';
 import { u } from '../utils/scale.js';
 import { calcSoloOdds } from '../utils/formatting';
 
+// Stable u() value used inside useMemo factory — hoisted to avoid hidden dep.
+const U11 = u(11);
+
 function Dot({ status }) {
   const T = useT();
   return (
@@ -120,7 +123,7 @@ function Miners({ bitaxe, chain }) {
 
   // Shared style fragments — declared before any conditional return so hook order is stable.
   const tnum = React.useMemo(
-    () => ({ fontFamily: T.mono, fontSize: u(11), textAlign: 'right', fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap' }),
+    () => ({ fontFamily: T.mono, fontSize: U11, textAlign: 'right', fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap' }),
     [T.mono]
   );
 
