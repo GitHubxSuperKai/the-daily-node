@@ -7,6 +7,8 @@ import LineChart from './LineChart';
 import Kicker from './Kicker';
 import { fmtPrice, fmtPct, fmtVolUsd, fmtNum } from '../utils/formatting';
 
+const ROW1_LAYOUT = { display:'flex', justifyContent:'space-between', alignItems:'flex-end' };
+
 function Price({ btc }) {
   const T = useT();
 
@@ -18,19 +20,32 @@ function Price({ btc }) {
   const btcCap     = btc.data?.cap != null ? `$${(btc.data.cap / 1e12).toFixed(2)}T` : '—';
   const btcVol     = btc.data ? fmtVolUsd(btc.data.volBtc * btc.data.price) : '—';
 
+  const rootStyle = React.useMemo(
+    () => ({ borderRight:`1px solid ${T.rule2}`, paddingRight:24, display:'flex', flexDirection:'column', gap:13, overflow:'hidden' }),
+    [T.rule2]
+  );
+  const hiLoBarStyle = React.useMemo(
+    () => ({ display:'flex', justifyContent:'space-between', fontFamily:T.num, fontSize:u(11), borderTop:`1px solid ${T.rule2}`, borderBottom:`1px solid ${T.rule2}`, padding:`${u(5)} 0`, marginBottom:u(6), fontFeatureSettings:'"tnum" 1, "lnum" 1' }),
+    [T.num, T.rule2]
+  );
+  const timeLabelsStyle = React.useMemo(
+    () => ({ display:'flex', justifyContent:'space-between', fontFamily:T.num, fontSize:u(10), color:T.ink3 }),
+    [T.num, T.ink3]
+  );
+
   return (
-    <div style={{ borderRight:`1px solid ${T.rule2}`, paddingRight:24, display:'flex', flexDirection:'column', gap:13, overflow:'hidden' }}>
+    <div style={rootStyle}>
       {/* BTC market */}
       <Kicker>Markets · BTC / USD</Kicker>
       {/* Row 1: price left, % change right */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end' }}>
+      <div style={ROW1_LAYOUT}>
         <Num size="hero" value={btcPrice} />
         <div style={{ fontFamily:T.num, fontSize:u(22), fontWeight:400, color:btcUp ? T.green : T.red, paddingBottom:u(10), fontFeatureSettings:'"tnum" 1, "lnum" 1' }}>
           {btcUp ? '▲' : '▼'} {btcChgPct}%
         </div>
       </div>
       {/* Row 2: hi · lo · cap bar */}
-      <div style={{ display:'flex', justifyContent:'space-between', fontFamily:T.num, fontSize:u(11), borderTop:`1px solid ${T.rule2}`, borderBottom:`1px solid ${T.rule2}`, padding:`${u(5)} 0`, marginBottom:u(6), fontFeatureSettings:'"tnum" 1, "lnum" 1' }}>
+      <div style={hiLoBarStyle}>
         <span style={{ color:T.green }}>hi ${btcHi}</span>
         <span style={{ color:T.ink3 }}>·</span>
         <span style={{ color:T.red }}>lo ${btcLo}</span>
@@ -42,7 +57,7 @@ function Price({ btc }) {
         <span style={{ color:T.orange }}>{btc.data ? fmtNum(Math.round(1e8 / btc.data.price)) : '—'} sat/$</span>
       </div>
       <LineChart w={470} h={110} color={T.orange} points={btc.chartPts} vwap={btc.data?.vwap} fill />
-      <div style={{ display:'flex', justifyContent:'space-between', fontFamily:T.num, fontSize:u(10), color:T.ink3 }}>
+      <div style={timeLabelsStyle}>
         <span>24h ago</span><span>−18h</span><span>−12h</span><span>−6h</span><span>now</span>
       </div>
       <Rule dash />
