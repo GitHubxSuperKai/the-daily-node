@@ -306,8 +306,18 @@
       });
   }
 
-  // ─── Skip (placeholder — Task 5 implements) ────────────
-  function handleSkip() {}
+  // ─── Skip ─────────────────────────────────────────────
+  function handleSkip() {
+    $skip.disabled = true;
+    setMsg($formMsg, 'Skipping…', 'ok');
+    fetch('/api/setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bitaxe_ips: [] }),
+    })
+      .catch(function () { /* redirect regardless, matches legacy behavior */ })
+      .then(function () { window.location.href = '/'; });
+  }
 
   // ─── Weather ──────────────────────────────────────────
   function clearChildren(node) {
@@ -404,8 +414,17 @@
       });
   }
 
-  // ─── Dark toggle (placeholder — Task 5 implements) ─────
-  function handleDarkToggle() {}
+  // ─── Dark toggle ──────────────────────────────────────
+  function handleDarkToggle() {
+    var willBeDark = !document.documentElement.classList.contains('dark');
+    document.documentElement.classList.toggle('dark', willBeDark);
+    try {
+      var raw = JSON.parse(localStorage.getItem('dn.prefs.v2') || '{}');
+      raw.version = 2;
+      raw.theme = willBeDark ? 'dark' : 'light';
+      localStorage.setItem('dn.prefs.v2', JSON.stringify(raw));
+    } catch (_) { /* localStorage unavailable */ }
+  }
 
   // ─── Wiring ────────────────────────────────────────────
   $save.addEventListener('click', handleSave);
