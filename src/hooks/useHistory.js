@@ -37,7 +37,3 @@ function useHistory(metric, range) {
 }
 
 export { useHistory };
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { useHistory };
-}

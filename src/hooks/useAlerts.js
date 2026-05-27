@@ -73,7 +73,3 @@ function useAlerts(triggers, prefs) {
 }
 
 export { useAlerts };
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { useAlerts };
-}
