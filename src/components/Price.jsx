@@ -1,5 +1,6 @@
 import React from 'react';
 import { useT } from '../theme';
+import { u } from '../utils/scale.js';
 import Num from './Num';
 import Rule from './Rule';
 import LineChart from './LineChart';

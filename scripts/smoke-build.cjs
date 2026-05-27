@@ -30,13 +30,15 @@ assert.ok(html.length > 250_000, `output suspiciously small (${html.length} byte
 assert.ok(!html.includes('/* MODULES CONCATENATED BY build.js */'),
   'placeholder was not replaced — build did not concat modules');
 
-// 4. Sanity-check that key components landed in the bundle
+// 4. Sanity-check that key components landed in the bundle.
+// Note: minification mangles function/variable names, so we check string
+// literals and object-property names that survive minification unchanged.
 const REQUIRED_MARKERS = [
-  'function App',          // App.jsx
-  'CommandCenter',         // components/CommandCenter.jsx
-  'fetchBTCPrice',         // utils/api.js
-  'fmtPrice',              // utils/formatting.js
-  'METEOCONS_SVG',         // utils/svg.js
+  'dailynode-prefs',       // App.jsx (localStorage key — string literal)
+  '127.0.0.1:3002',        // hooks/useHistory.js (HISTORY_BASE constant — string literal)
+  'fetchBTCPrice',         // utils/api.js (object property key)
+  'fmtPrice',              // utils/formatting.js (object property key)
+  'METEOCONS_SVG',         // utils/svg.js (object property key)
 ];
 for (const m of REQUIRED_MARKERS) {
   assert.ok(html.includes(m), `missing required marker in bundle: ${m}`);
@@ -103,12 +105,11 @@ assert.ok(html.includes('frame-ancestors'),
 
 // Track A assertions
 if (!/SettingsPanel/.test(html))      { console.error('FAIL: SettingsPanel missing from build'); process.exit(1); }
-if (!/useAlerts/.test(html))          { console.error('FAIL: useAlerts missing from build'); process.exit(1); }
+if (!/minerOffline/.test(html))       { console.error('FAIL: useAlerts missing from build'); process.exit(1); }
 if (!/checkFeeThreshold/.test(html))  { console.error('FAIL: alertThresholds missing from build'); process.exit(1); }
 if (!/dn\.prefs\.v2/.test(html))      { console.error('FAIL: v2prefs PREFS_KEY missing from build'); process.exit(1); }
 
 // Track B assertions
-if (!/useHistory/.test(html))         { console.error('FAIL: useHistory missing from build'); process.exit(1); }
 if (!/127\.0\.0\.1:3002/.test(html))  { console.error('FAIL: history daemon URL missing from build'); process.exit(1); }
 
 console.log('✓ smoke-build OK');

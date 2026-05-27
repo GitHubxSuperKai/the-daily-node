@@ -1,5 +1,6 @@
 import React from 'react';
 import { useT } from '../theme';
+import { u } from '../utils/scale.js';
 import { wmoSpeed } from '../utils/formatting';
 import { METEOCONS_SVG, _processSvg } from '../utils/svg';
 import { DARK } from '../theme';
