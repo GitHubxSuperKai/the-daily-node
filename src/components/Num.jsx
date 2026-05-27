@@ -1,4 +1,6 @@
 import React from 'react';
+import { useT } from '../theme';
+import { u } from '../utils/scale.js';
 
 const NUM_PX = { hero: 64, lg: 28, md: 20, sm: 15, xs: 12 };
 

@@ -3,16 +3,19 @@ import CONFIG from '../config.js';
 import { sourceFreshness } from '../utils/freshness.js';
 import { themeFlipDecision } from '../utils/autoTheme.js';
 import { useT } from '../theme';
+import { u } from '../utils/scale.js';
+import { useHistory } from '../hooks/useHistory.js';
+import { useAlerts } from '../hooks/useAlerts.js';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Masthead } from './Masthead';
-import { Rule } from './Rule';
-import { Kicker } from './Kicker';
+import Rule from './Rule';
+import Kicker from './Kicker';
 import { OnThisDay } from './OnThisDay';
 import { ProofOfRead } from './ProofOfRead';
-import { Num } from './Num';
+import Num from './Num';
 import StatusDot from './StatusDot';
 import { WxGlyph } from './WxGlyph';
-import { LineChart } from './LineChart';
+import LineChart from './LineChart';
 import { NetworkStatusWidget } from './NetworkStatusWidget';
 import Miners from './Miners';
 import {
@@ -26,7 +29,7 @@ import {
   fmtBlockTime,
   safeISODate,
   calcSoloOdds,
-} from '../utils';
+} from '../utils/formatting.js';
 
 
 /**
