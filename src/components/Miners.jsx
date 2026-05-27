@@ -118,6 +118,12 @@ function Miners({ bitaxe, chain }) {
     { label: 'Watts',  fade: true  },
   ];
 
+  // Shared style fragments — declared before any conditional return so hook order is stable.
+  const tnum = React.useMemo(
+    () => ({ fontFamily: T.mono, fontSize: u(11), textAlign: 'right', fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap' }),
+    [T.mono]
+  );
+
   const noApi = bitaxe.err || (bitaxe.miners.length === 0 && !bitaxe.loading);
 
   if (noApi) {
@@ -167,12 +173,6 @@ function Miners({ bitaxe, chain }) {
       </div>
     );
   }
-
-  // Shared style fragments
-  const tnum = {
-    fontFamily: T.mono, fontSize: u(11), textAlign: 'right',
-    fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap',
-  };
 
   return (
     <div style={{ marginBottom: u(4) }}>
