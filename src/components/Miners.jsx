@@ -2,7 +2,7 @@ import React from 'react';
 import { useT } from '../theme';
 import { u } from '../utils/scale.js';
 import { calcSoloOdds } from '../utils/formatting';
-import { MinerRow, getMinerStatus, fmtPower } from './MinerRow.jsx';
+import { MinerRow, fmtPower } from './MinerRow.jsx';
 import { FleetSummary } from './FleetSummary.jsx';
 
 function Miners({ bitaxe, chain }) {
