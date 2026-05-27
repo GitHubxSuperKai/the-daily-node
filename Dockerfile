@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # ─── Build stage: compile src/ → index.html ─────────────────────────
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 
 # Install deps with cached layer (only re-runs if package files change)
