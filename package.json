@@ -6,7 +6,8 @@
     "build": "node build.js",
     "dev": "python -m http.server 3000",
     "serve": "npm run build && npm run dev",
-    "test": "npm run test:smoke && npm run test:unit && npm run test:py",
+    "lint": "eslint .",
+    "test": "npm run lint && npm run test:smoke && npm run test:unit && npm run test:py",
     "test:smoke": "node scripts/smoke-build.cjs",
     "test:unit": "vitest run",
     "test:py": "python -m unittest discover -s tests -p \"test_*.py\" -v",
@@ -14,8 +15,12 @@
     "verify:vendor": "node scripts/verify-vendor.cjs"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@testing-library/react": "16.3.2",
     "esbuild": "0.28.0",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^15.15.0",
     "jsdom": "29.1.1",
     "playwright": "1.60.0",
     "vitest": "4.1.7"

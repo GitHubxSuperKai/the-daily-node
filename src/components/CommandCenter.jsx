@@ -24,15 +24,8 @@ import {
   fmtDiff,
   fmtMempoolMB,
   fmtBlockTime,
-  fmtBlockSize,
-  fmtBestDiff,
-  timeAgoUnix,
   safeISODate,
   calcSoloOdds,
-  fmtHour,
-  wmoIcon,
-  wmoDesc,
-  wmoSpeed,
 } from '../utils';
 
 
@@ -102,13 +95,14 @@ export function CommandCenter({
     const { update, flip } = themeFlipDecision(lastShouldBeDark.current, shouldBeDark, dark);
     if (update) lastShouldBeDark.current = shouldBeDark;
     if (flip) onToggleDark();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: re-runs on clock tick only; weather.data + onToggleDark closure is read fresh
   }, [clock.timeHM, weather.data?.wxSunriseHr, dark]);
 
   const lastBlockTs = chain.recentBlocks?.[0]?.timestamp ?? null;
   const msSinceLastBlock = lastBlockTs ? (Date.now() / 1000 - lastBlockTs) * 1000 : null;
 
   const priceHistory = useHistory('price', '24h');
-  const yesterdayPrice = priceHistory.data.length > 0 ? priceHistory.data[0].usd : null;
+  const _yesterdayPrice = priceHistory.data.length > 0 ? priceHistory.data[0].usd : null;
 
   const { toasts } = useAlerts(
     {
@@ -188,7 +182,7 @@ export function CommandCenter({
   const mempoolTxCol =
     rawMempoolTx == null ? T.ink : rawMempoolTx < 5000 ? T.green : rawMempoolTx < 20000 ? T.ink : T.red;
 
-  const miningRows = [
+  const _miningRows = [
     { k: 'Hashrate', v: hashrate },
     { k: 'Difficulty', v: difficulty },
     { k: 'Avg block', v: chain.data?.blockTimeMs ? fmtBlockTime(chain.data.blockTimeMs) : '—', c: blockTimeCol },
@@ -197,12 +191,12 @@ export function CommandCenter({
     { k: 'Retarget date', v: retargetDate },
     { k: 'Epoch', v: epochStr },
   ];
-  const chainStatRows = [
+  const _chainStatRows = [
     { k: 'Block height', v: blockHeight },
     { k: 'Circulating', v: chain.data ? chain.data.circulating : '—' },
     { k: 'Next halving', v: chain.data ? chain.data.nextHalvingDate : '—' },
   ];
-  const mempoolRows = [
+  const _mempoolRows = [
     { k: 'Size', v: mempoolMB, c: mempoolCol },
     { k: 'Tx count', v: mempoolTx, c: mempoolTxCol },
     { k: 'Blocks to clear', v: blocksToClr != null ? `${blocksToClr} blk` : '—', c: blocksToClrCol },
