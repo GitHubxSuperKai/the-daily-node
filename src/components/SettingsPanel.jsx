@@ -100,9 +100,10 @@ export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSav
           <div style={{ borderTop: '1px solid ' + T.rule2, margin: u(20) + ' 0 ' + u(16) }} />
           <IntervalsDataSection v2get={v2get} setV2Path={setV2Path} v2local={v2local} />
 
-          <div style={{ display: 'flex', gap: u(10), marginTop: u(24), borderTop: '1px solid ' + T.rule2, paddingTop: u(18) }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: u(10), marginTop: u(24), borderTop: '1px solid ' + T.rule2, paddingTop: u(18) }}>
             <button style={btnPrimary} onClick={handleSave}>Save</button>
             <button style={{ ...btnPrimary, background: 'transparent', color: T.ink3 }} onClick={onClose}>Cancel</button>
+            <span style={{ marginLeft: 'auto', fontSize: u(10), color: T.ink4, fontFamily: T.mono }}>{`v${__VERSION__}`}</span>
           </div>
         </div>
       </div>

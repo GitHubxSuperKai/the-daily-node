@@ -53,6 +53,8 @@ const concatGlobals = {
   // src/utils/*.js use a dual export pattern: `if (typeof module !== ...)`
   // to remain testable under Node. In-browser the typeof check is undefined.
   module: 'readonly',
+  // build-time constant injected by esbuild define
+  __VERSION__: 'readonly',
 };
 
 export default [

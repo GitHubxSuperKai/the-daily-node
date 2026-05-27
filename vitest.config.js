@@ -7,4 +7,7 @@ export default defineConfig({
     globals: false,
     setupFiles: ['tests/setup.js'],
   },
+  define: {
+    __VERSION__: JSON.stringify('test'),
+  },
 });

@@ -85,6 +85,11 @@ assert.ok(html.includes('createRoot'),
 assert.ok(html.includes('createElement'),
   'createElement not found — JSX transform may have failed');
 
+// 9b. Build-time __VERSION__ define was replaced with actual version string
+const { version } = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+assert.ok(html.includes(`"v${version}"`),
+  `version string "v${version}" not found — __VERSION__ define may not have been replaced`);
+
 // 10. CSP meta tag must be present with required directives
 assert.ok(html.includes('Content-Security-Policy'),
   'CSP meta tag missing from output');
