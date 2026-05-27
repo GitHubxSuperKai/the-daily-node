@@ -21,33 +21,7 @@ Preview tool server ID: `the-daily-node`
 
 ## Build System
 
-`build.js` transforms each `src/*.jsx` file's JSX with esbuild (`loader: 'jsx'`, `target: 'es2018'`) at build time, strips ESM `import`/`export` statements, and concatenates all `src/` files in dependency order into a single plain `<script>` block (the `/* MODULES CONCATENATED BY build.js */` placeholder in `src/index.html`), writing the result to `index.html`. React and ReactDOM are the production UMD builds vendored under `src/vendor/`, inlined as `<script>` tags (the `<!-- VENDOR -->` placeholder) — there is no CDN dependency and no in-browser Babel. The output HTML is written as-is (no minification step).
-
-**Critical — read before touching any component:**
-
-### 1. Imports: default only, never combined
-The build regex strips `import X from 'module'` but silently breaks on combined default+named imports:
-```js
-// BREAKS build (blank page):
-import React, { useRef, useState } from 'react';
-
-// Correct — use React.* prefix for all hooks:
-import React from 'react';
-const ref = React.useRef(null);
-const [x, setX] = React.useState(null);
-```
-
-### 2. Hook dependency arrays: declare variables first
-A `useEffect` dependency array that references a variable declared *later* in the same function body breaks — the binding isn't initialized when the dependency array is evaluated during render. Always declare computed values before the hook that uses them.
-```js
-// BROKEN:
-React.useEffect(() => { ... }, [oddsOneIn]);
-const oddsOneIn = ...;
-
-// Correct:
-const oddsOneIn = ...;
-React.useEffect(() => { ... }, [oddsOneIn]);
-```
+`build.js` runs `esbuild.build({ entryPoints: ['src/App.jsx'], bundle: true, format: 'iife', minify: true })` to produce a single minified IIFE. React + ReactDOM are vendored UMD builds inlined into `src/index.html` as separate `<script>` tags (the `<!-- VENDOR -->` placeholder); a small `require()` shim before the IIFE maps the `react` and `react-dom/client` module specifiers to the global `React` / `ReactDOM`. No CDN, no in-browser Babel, no concat hack. Output goes to the `/* MODULES CONCATENATED BY build.js */` placeholder.
 
 ## Architecture
 
