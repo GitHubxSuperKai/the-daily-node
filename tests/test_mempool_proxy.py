@@ -18,16 +18,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import bitaxe_api  # noqa: E402
 
 
-def _free_port():
-    """Bind to port 0 and return the OS-assigned port."""
-    import socket
-    s = socket.socket()
-    s.bind(('127.0.0.1', 0))
-    port = s.getsockname()[1]
-    s.close()
-    return port
-
-
 class _StubUpstream(BaseHTTPRequestHandler):
     """Configurable upstream. Set class attrs body / status before requests."""
     body = b'{"ok": true}'
@@ -52,11 +42,11 @@ class MempoolProxyTestBase(unittest.TestCase):
         # Allow same-origin (no Origin header) — _check_origin returns True
         bitaxe_api.BitaxeAPIHandler.ALLOWED_ORIGINS = []
 
-        cls.proxy_port = _free_port()
-        cls.upstream_port = _free_port()
-
-        cls.proxy = HTTPServer(('127.0.0.1', cls.proxy_port), bitaxe_api.BitaxeAPIHandler)
-        cls.upstream = HTTPServer(('127.0.0.1', cls.upstream_port), _StubUpstream)
+        # Use port 0 — OS assigns an available port atomically, no TOCTOU race.
+        cls.proxy = HTTPServer(('127.0.0.1', 0), bitaxe_api.BitaxeAPIHandler)
+        cls.proxy_port = cls.proxy.server_address[1]
+        cls.upstream = HTTPServer(('127.0.0.1', 0), _StubUpstream)
+        cls.upstream_port = cls.upstream.server_address[1]
 
         cls.proxy_thread = threading.Thread(target=cls.proxy.serve_forever, daemon=True)
         cls.upstream_thread = threading.Thread(target=cls.upstream.serve_forever, daemon=True)
@@ -128,6 +118,12 @@ class PathTraversalTest(MempoolProxyTestBase):
 
     def test_dotdot_segment_mid_path_rejected(self):
         self._assert_rejected('/api/v1/../../secret')
+
+    def test_missing_path_param_rejected(self):
+        # parse_qs returns '' for absent key; empty string must also be rejected.
+        status, body = self._get(f'/api/mempool-proxy?base={self.base}')
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body)['error'], 'invalid path')
 
 
 class BaseUrlValidationTest(MempoolProxyTestBase):
@@ -212,8 +208,12 @@ class UpstreamErrorTest(MempoolProxyTestBase):
             _StubUpstream.body = b'{"ok": true}'
 
     def test_connection_failure_returns_502(self):
-        # Point at a port nobody is listening on.
-        bad = _free_port()
+        # Point at a port nobody is listening on — allocate via port 0 then close immediately.
+        import socket
+        s = socket.socket()
+        s.bind(('127.0.0.1', 0))
+        bad = s.getsockname()[1]
+        s.close()
         base = f'http://localhost:{bad}'
         status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/x')
         self.assertEqual(status, 502)
