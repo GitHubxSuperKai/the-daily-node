@@ -41,6 +41,7 @@ export function CommandCenter({
 
   const lastShouldBeDark = React.useRef(null);
   React.useEffect(() => {
+    if (v2prefs?.theme !== 'auto') return;
     const wx = weather.data;
     if (wx?.wxSunriseHr == null) return;
     const hr = new Date().getHours();
@@ -49,7 +50,7 @@ export function CommandCenter({
     if (update) lastShouldBeDark.current = shouldBeDark;
     if (flip) onToggleDark();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: re-runs on clock tick only; weather.data + onToggleDark closure is read fresh
-  }, [clock.timeHM, weather.data?.wxSunriseHr, dark]);
+  }, [clock.timeHM, weather.data?.wxSunriseHr, dark, v2prefs?.theme]);
 
   const lastBlockTs = chain.recentBlocks?.[0]?.timestamp ?? null;
   const msSinceLastBlock = lastBlockTs ? (Date.now() / 1000 - lastBlockTs) * 1000 : null;
