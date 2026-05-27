@@ -1,3 +1,4 @@
+import React from 'react';
 import { useResettableInterval } from './useResettableInterval.js';
 
 const HISTORY_BASE      = 'http://127.0.0.1:3002';

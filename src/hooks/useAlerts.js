@@ -1,3 +1,4 @@
+import React from 'react';
 import { checkFeeThreshold, checkBlockTimeThreshold, checkMinerOfflineThreshold, checkPriceThreshold } from '../utils/alertThresholds.js';
 
 function useAlerts(triggers, prefs) {
