@@ -47,12 +47,11 @@ describe('HomePanel', () => {
     expect(screen.getByText('Top story')).toBeDefined();
   });
 
-  it('fleet tile is collapsed by default, expands on click', () => {
-    wrap(<HomePanel {...baseProps} onNavigate={() => {}} />);
-    expect(screen.queryByTestId('fleet-row-1.1.1.1')).toBeNull();
+  it('fleet tile click navigates to miners tab', () => {
+    const onNavigate = vi.fn();
+    wrap(<HomePanel {...baseProps} onNavigate={onNavigate} />);
     fireEvent.click(screen.getByTestId('fleet-tile'));
-    expect(screen.getByTestId('fleet-row-1.1.1.1')).toBeDefined();
-    expect(screen.getByTestId('fleet-row-2.2.2.2')).toBeDefined();
+    expect(onNavigate).toHaveBeenCalledWith('miners');
   });
 
   it('BTC tile click navigates to bitcoin tab', () => {

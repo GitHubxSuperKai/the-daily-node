@@ -48,4 +48,10 @@ describe('MobileApp', () => {
     fireEvent.click(screen.getByTestId('btc-tile'));
     expect(screen.getByText(/Field Report/i)).toBeDefined();
   });
+
+  it('switches to Miners panel when Miners tab clicked', () => {
+    wrap(<MobileApp {...baseProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /^miners$/i }));
+    expect(screen.getByText(/Fleet/i)).toBeDefined();
+  });
 });

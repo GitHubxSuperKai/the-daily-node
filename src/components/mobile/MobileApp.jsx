@@ -6,6 +6,7 @@ import { MobileTabBar } from './MobileTabBar.jsx';
 import { HomePanel } from './HomePanel.jsx';
 import { BitcoinPanel } from './BitcoinPanel.jsx';
 import { NewsPanel } from './NewsPanel.jsx';
+import { MinersPanel } from './MinersPanel.jsx';
 
 function MobileApp(props) {
   const T = useT();
@@ -60,6 +61,9 @@ function MobileApp(props) {
       )}
       {activeTab === 'bitcoin' && (
         <BitcoinPanel btc={btc} chain={chain} />
+      )}
+      {activeTab === 'miners' && (
+        <MinersPanel bitaxe={bitaxe} />
       )}
       {activeTab === 'news' && (
         <NewsPanel rss={rss} />

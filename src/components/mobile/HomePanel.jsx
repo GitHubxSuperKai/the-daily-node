@@ -10,7 +10,6 @@ import { sourceFreshness } from '../../utils/freshness.js';
 
 function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate }) {
   const T = useT();
-  const [fleetExpanded, setFleetExpanded] = React.useState(false);
   const [wxExpanded, setWxExpanded] = React.useState(false);
 
   const miners = bitaxe.miners || [];
@@ -70,12 +69,12 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
         </div>
       </StatusTile>
 
-      {/* Fleet — full width, expandable */}
+      {/* Fleet — full width, taps to Miners tab */}
       <StatusTile
         label="Fleet"
         fullWidth
-        onClick={() => setFleetExpanded(v => !v)}
-        ariaLabel="Toggle fleet detail"
+        onClick={() => onNavigate('miners')}
+        ariaLabel="Open Miners tab"
       >
         <div data-testid="fleet-tile" style={{ fontFamily: T.num, fontSize: 16, color: T.ink }}>
           {minerCount === 0
@@ -86,22 +85,6 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
               </>
           }
         </div>
-        {fleetExpanded && miners.length > 0 && (
-          <div style={{ marginTop: 10, borderTop: `1px solid ${T.rule3}`, paddingTop: 8 }}>
-            {miners.map(m => (
-              <div
-                key={m.ip}
-                data-testid={`fleet-row-${m.ip}`}
-                style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontFamily: T.sans, fontSize: 12 }}
-              >
-                <span style={{ color: T.ink }}>{(m.data && m.data.hostname) || m.ip}</span>
-                <span style={{ color: m.online ? T.green : T.red }}>
-                  {m.online ? `${((m.data.hashRate || 0) / 1000).toFixed(1)} GH/s` : 'offline'}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
       </StatusTile>
 
       {/* Status dots — full width */}

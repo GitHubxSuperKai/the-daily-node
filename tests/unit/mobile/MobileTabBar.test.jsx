@@ -11,11 +11,19 @@ function wrap(ui) {
 }
 
 describe('MobileTabBar', () => {
-  it('renders three tab buttons', () => {
+  it('renders four tab buttons', () => {
     wrap(<MobileTabBar activeTab="home" onChange={() => {}} />);
     expect(screen.getByRole('button', { name: /home/i })).toBeDefined();
     expect(screen.getByRole('button', { name: /bitcoin/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /miners/i })).toBeDefined();
     expect(screen.getByRole('button', { name: /news/i })).toBeDefined();
+  });
+
+  it('invokes onChange with miners when Miners tab clicked', () => {
+    const onChange = vi.fn();
+    wrap(<MobileTabBar activeTab="home" onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: /miners/i }));
+    expect(onChange).toHaveBeenCalledWith('miners');
   });
 
   it('invokes onChange with new tab id when an inactive tab is clicked', () => {
