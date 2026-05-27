@@ -1,5 +1,6 @@
 import React from 'react';
 import { useT } from '../theme';
+import { u } from '../utils/scale.js';
 import { safeISODate } from '../utils/formatting.js';
 import Kicker from './Kicker';
 

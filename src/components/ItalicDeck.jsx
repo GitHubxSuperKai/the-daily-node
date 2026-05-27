@@ -1,6 +1,6 @@
 import React from 'react';
-
-// Import useT hook from theme context (available in build context)
+import { useT } from '../theme';
+import { u } from '../utils/scale.js';
 
 function ItalicDeck({ children, style = {} }) {
   const T = useT();

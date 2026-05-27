@@ -21,6 +21,8 @@ function checkPriceThreshold(currentUsd, historyPoints, pctThreshold, windowSeco
   return Math.abs((currentUsd - baseline.usd) / baseline.usd * 100) >= pctThreshold;
 }
 
+export { checkFeeThreshold, checkBlockTimeThreshold, checkMinerOfflineThreshold, checkPriceThreshold };
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { checkFeeThreshold, checkBlockTimeThreshold, checkMinerOfflineThreshold, checkPriceThreshold };
 }
