@@ -9,7 +9,7 @@ import {
   calcSoloOdds,
 } from '../utils/formatting.js';
 
-export function DesktopTicker({ btc, chain, bitaxe, feedHealth }) {
+export function DesktopTicker({ btc: _btc, chain, bitaxe, feedHealth }) {
   const T = useT();
 
   const blockHeight   = chain.data ? fmtNum(chain.data.height) : '—';
