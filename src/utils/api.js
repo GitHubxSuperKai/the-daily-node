@@ -2,6 +2,8 @@
 // Extracted from Command Center.html (now index.html)
 // All functions use fetch() with 5s timeout and sensible error handling
 
+import { log } from './log.js';
+
 const FETCH_TIMEOUT = 5000;
 
 /**
@@ -29,7 +31,7 @@ async function fetchBTCPrice() {
 
     return { price, chgAbs, chgPct, hi, lo, vwap, volBtc };
   } catch (err) {
-    console.error('fetchBTCPrice error:', err);
+    log.error('fetchBTCPrice error:', err);
     return {};
   }
 }
@@ -78,7 +80,7 @@ async function fetchChainStats(opts = {}) {
     if (criticalFailed) {
       // Retry with public fallback if requested and we were using a custom base
       if (opts.fallbackToPublic && base !== MEMPOOL_PUBLIC) {
-        console.warn('fetchChainStats: critical endpoint failed on', base, '— falling back to public');
+        log.warn('fetchChainStats: critical endpoint failed on', base, '— falling back to public');
         return fetchChainStats({ baseUrl: MEMPOOL_PUBLIC, fallbackToPublic: false });
       }
       throw new Error('mempool critical endpoint failed');
@@ -125,7 +127,7 @@ async function fetchChainStats(opts = {}) {
       estimatedRetargetDate: diff ? diff.estimatedRetargetDate : null,
     };
   } catch (err) {
-    console.error('fetchChainStats error:', err);
+    log.error('fetchChainStats error:', err);
     return {};
   }
 }
@@ -189,7 +191,7 @@ async function fetchWeather(lat, lng, tempUnit = 'fahrenheit', tzName = 'auto') 
       hourly: hourly.slice(0, 8),
     };
   } catch (err) {
-    console.error('fetchWeather error:', err);
+    log.error('fetchWeather error:', err);
     return {};
   }
 }
@@ -239,7 +241,7 @@ async function fetchRSSFeeds(feeds = [], apiKey = '') {
 
     return all;
   } catch (err) {
-    console.error('fetchRSSFeeds error:', err);
+    log.error('fetchRSSFeeds error:', err);
     return [];
   }
 }
@@ -264,10 +266,10 @@ async function fetchMiningPools(opts = {}) {
     }));
   } catch (err) {
     if (opts.fallbackToPublic && base !== MEMPOOL_PUBLIC) {
-      console.warn('fetchMiningPools: failed on', base, '— falling back to public');
+      log.warn('fetchMiningPools: failed on', base, '— falling back to public');
       return fetchMiningPools({ baseUrl: MEMPOOL_PUBLIC, fallbackToPublic: false });
     }
-    console.error('fetchMiningPools error:', err);
+    log.error('fetchMiningPools error:', err);
     return [];
   }
 }
@@ -290,10 +292,10 @@ async function fetchPoolBlocks(slug, opts = {}) {
     }));
   } catch (err) {
     if (opts.fallbackToPublic && base !== MEMPOOL_PUBLIC) {
-      console.warn('fetchPoolBlocks: failed on', base, '— falling back to public');
+      log.warn('fetchPoolBlocks: failed on', base, '— falling back to public');
       return fetchPoolBlocks(slug, { baseUrl: MEMPOOL_PUBLIC, fallbackToPublic: false });
     }
-    console.error('fetchPoolBlocks error:', err);
+    log.error('fetchPoolBlocks error:', err);
     return [];
   }
 }
@@ -333,10 +335,10 @@ async function fetchRecentBlocks(opts = {}) {
     return { blocks: mapped, stale: Boolean(stale) };
   } catch (err) {
     if (opts.fallbackToPublic && base !== MEMPOOL_PUBLIC) {
-      console.warn('fetchRecentBlocks: failed on', base, '— falling back to public');
+      log.warn('fetchRecentBlocks: failed on', base, '— falling back to public');
       return fetchRecentBlocks({ baseUrl: MEMPOOL_PUBLIC, fallbackToPublic: false });
     }
-    console.error('fetchRecentBlocks error:', err);
+    log.error('fetchRecentBlocks error:', err);
     return { blocks: [], stale: false };
   }
 }
@@ -361,10 +363,10 @@ async function fetchMempoolBlocks(opts = {}) {
     }));
   } catch (err) {
     if (opts.fallbackToPublic && base !== MEMPOOL_PUBLIC) {
-      console.warn('fetchMempoolBlocks: failed on', base, '— falling back to public');
+      log.warn('fetchMempoolBlocks: failed on', base, '— falling back to public');
       return fetchMempoolBlocks({ baseUrl: MEMPOOL_PUBLIC, fallbackToPublic: false });
     }
-    console.error('fetchMempoolBlocks error:', err);
+    log.error('fetchMempoolBlocks error:', err);
     return [];
   }
 }
@@ -388,7 +390,7 @@ async function fetchBitcoinMeta() {
       circulatingSupply: md?.circulating_supply ?? null,
     };
   } catch (err) {
-    console.error('fetchBitcoinMeta error:', err);
+    log.error('fetchBitcoinMeta error:', err);
     return {};
   }
 }
@@ -406,7 +408,7 @@ async function fetchBitAxeMiners(apiUrl) {
     const body = await r.json();
     return body.miners || [];
   } catch (err) {
-    console.error('fetchBitAxeMiners error:', err);
+    log.error('fetchBitAxeMiners error:', err);
     return [];
   }
 }
@@ -422,7 +424,7 @@ async function fetchBitAxeMiner(ip) {
     const data = await r.json();
     return { ip, online: true, data };
   } catch (err) {
-    console.error(`fetchBitAxeMiner(${ip}) error:`, err);
+    log.error(`fetchBitAxeMiner(${ip}) error:`, err);
     return { ip, online: false };
   }
 }

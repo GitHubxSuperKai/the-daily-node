@@ -1,5 +1,6 @@
 import React from 'react';
 import { useT } from '../theme';
+import { u } from '../utils/scale.js';
 import Kicker from './Kicker';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];

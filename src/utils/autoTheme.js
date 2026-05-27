@@ -13,6 +13,8 @@ function themeFlipDecision(prevShouldBeDark, shouldBeDark, dark) {
   return { update: true, flip: shouldBeDark !== dark };
 }
 
+export { themeFlipDecision };
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { themeFlipDecision };
 }
