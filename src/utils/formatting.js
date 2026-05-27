@@ -202,6 +202,10 @@ function classifyTopic(title) {
   return 'BITCOIN';
 }
 
+function isFresh(t) {
+  return t === 'just now' || /^\d+s ago$/.test(t) || /^[1-4]m ago$/.test(t);
+}
+
 // ─── CommonJS Exports ────────────────────────────────────────────
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -227,5 +231,6 @@ if (typeof module !== 'undefined' && module.exports) {
     wmoSpeed,
     fmtBestDiff,
     classifyTopic,
+    isFresh,
   };
 }
