@@ -1,11 +1,14 @@
 // Debug-gated logger.
 // Enabled when ?debug=1 in the URL OR localStorage.dailynode-debug === '1'.
 // Errors always print regardless — the noise reduction is about info/warn.
+//
+// NOTE: DEBUG is evaluated once at module load time. Setting the localStorage
+// flag in DevTools requires a page reload before gated messages become visible.
 
 function isDebugEnabled() {
   try {
     if (typeof window === 'undefined') return false;
-    if (window.location && window.location.search.includes('debug=1')) return true;
+    if (window.location && new URLSearchParams(window.location.search).get('debug') === '1') return true;
     if (window.localStorage && window.localStorage.getItem('dailynode-debug') === '1') return true;
   } catch (_) {
     // localStorage can throw in private-mode Safari etc.

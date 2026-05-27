@@ -8,6 +8,9 @@ import Kicker from './Kicker';
 import { fmtPrice, fmtPct, fmtVolUsd, fmtNum } from '../utils/formatting';
 
 const ROW1_LAYOUT = { display:'flex', justifyContent:'space-between', alignItems:'flex-end' };
+// Stable u() values used inside useMemo factories — hoisted so they aren't
+// hidden deps that would trigger exhaustive-deps lint warnings.
+const U5 = u(5); const U6 = u(6); const U10 = u(10); const U11 = u(11);
 
 function Price({ btc }) {
   const T = useT();
@@ -25,11 +28,11 @@ function Price({ btc }) {
     [T.rule2]
   );
   const hiLoBarStyle = React.useMemo(
-    () => ({ display:'flex', justifyContent:'space-between', fontFamily:T.num, fontSize:u(11), borderTop:`1px solid ${T.rule2}`, borderBottom:`1px solid ${T.rule2}`, padding:`${u(5)} 0`, marginBottom:u(6), fontFeatureSettings:'"tnum" 1, "lnum" 1' }),
+    () => ({ display:'flex', justifyContent:'space-between', fontFamily:T.num, fontSize:U11, borderTop:`1px solid ${T.rule2}`, borderBottom:`1px solid ${T.rule2}`, padding:`${U5} 0`, marginBottom:U6, fontFeatureSettings:'"tnum" 1, "lnum" 1' }),
     [T.num, T.rule2]
   );
   const timeLabelsStyle = React.useMemo(
-    () => ({ display:'flex', justifyContent:'space-between', fontFamily:T.num, fontSize:u(10), color:T.ink3 }),
+    () => ({ display:'flex', justifyContent:'space-between', fontFamily:T.num, fontSize:U10, color:T.ink3 }),
     [T.num, T.ink3]
   );
 
