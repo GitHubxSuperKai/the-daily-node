@@ -15,7 +15,9 @@ export function PreferencesSection({ prefs, inp, onChange }) {
   const [timeFormat, setTimeFormat]           = React.useState(prefs.timeFormat);
   const [tempUnit, setTempUnit]               = React.useState(prefs.tempUnit);
 
+  const mounted = React.useRef(false);
   React.useEffect(() => {
+    if (!mounted.current) { mounted.current = true; return; }
     onChange({ lat: pendingLat, lng: pendingLng, cityName: pendingCityName, timeFormat, tempUnit });
   }, [pendingLat, pendingLng, pendingCityName, timeFormat, tempUnit]); // eslint-disable-line react-hooks/exhaustive-deps
 

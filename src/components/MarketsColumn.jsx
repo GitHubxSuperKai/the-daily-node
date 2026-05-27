@@ -14,9 +14,8 @@ import {
   fmtVolUsd,
   fmtHashrate,
   fmtMempoolMB,
+  isFresh,
 } from '../utils/formatting.js';
-
-const isFresh = t => t === 'just now' || /^\d+s ago$/.test(t) || /^[1-4]m ago$/.test(t);
 
 export function MarketsColumn({ btc, chain, rss, priceHistoryData }) {
   const T = useT();

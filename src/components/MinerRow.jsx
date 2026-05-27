@@ -13,6 +13,8 @@ function Dot({ status }) {
   );
 }
 
+export const fmtPower = (w) => w < 1000 ? `${Math.round(w)}W` : `${(w / 1000).toFixed(1)}kW`;
+
 export function getMinerStatus(miner) {
   return (miner.online && miner.data) ? 'hashing' : 'unreachable';
 }
