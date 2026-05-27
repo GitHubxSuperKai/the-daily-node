@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import CONFIG from '../config.js';
 import { useResettableInterval } from './useResettableInterval.js';
+import { wmoDesc } from '../utils/formatting.js';
 
 /**
  * useWeather Hook
