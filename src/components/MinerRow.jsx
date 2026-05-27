@@ -25,7 +25,7 @@ export function getMinerName(miner) {
   return `rig-${parts[parts.length - 1] || '(no IP)'}`;
 }
 
-export function MinerRow({ miner, ri, isLast }) {
+export function MinerRow({ miner, ri: _ri, isLast }) {
   const T = useT();
   const tnum = React.useMemo(
     () => ({ fontFamily: T.mono, fontSize: u(11), textAlign: 'right', fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap' }),

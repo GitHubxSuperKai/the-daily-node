@@ -133,7 +133,6 @@ export function CommandCenter({
   ];
 
   const wx = weather.data;
-  const lead = rss.leadStory;
   const newsItems = rss.items;
   const tempUnitLabel = prefs.tempUnit === 'celsius' ? '°C' : '°F';
   const wxSummary = wx ? `${wx.temp}${tempUnitLabel} ${wx.wxCond.toLowerCase()}` : `—${tempUnitLabel}`;
