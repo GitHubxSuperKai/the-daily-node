@@ -195,6 +195,18 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             return
         if not self._check_origin():
             return
+        if self.path == '/api/setup':
+            body = json.dumps({
+                'bitaxe_ips': list(BITAXE_IPS),
+                'configured': CONFIGURED,
+            }).encode()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(body)))
+            self._cors()
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if self.path == '/api/miners':
             miners = fetch_all_miners()
             body = json.dumps({'miners': miners, 'count': len(miners)}).encode()

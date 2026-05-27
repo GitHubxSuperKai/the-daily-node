@@ -10,7 +10,7 @@ import { sourceFreshness } from '../../utils/freshness.js';
 
 function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate }) {
   const T = useT();
-  const [fleetExpanded, setFleetExpanded] = React.useState(false);
+  const [wxExpanded, setWxExpanded] = React.useState(false);
 
   const miners = bitaxe.miners || [];
   const onlineCount = miners.filter(m => m.online).length;
@@ -29,7 +29,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
   const btcUp = btcChange != null && btcChange >= 0;
 
   const onlineCountForFeed = bitaxe.miners ? bitaxe.miners.filter(m => m.online).length : 0;
-  const minerCountForFeed  = bitaxe.miners ? bitaxe.miners.length : 0;
+  const _minerCountForFeed = bitaxe.miners ? bitaxe.miners.length : 0;
 
   const freshNow = Date.now();
   const lastBlockTs = chain.recentBlocks?.[0]?.timestamp ?? null;
@@ -69,12 +69,12 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
         </div>
       </StatusTile>
 
-      {/* Fleet — full width, expandable */}
+      {/* Fleet — full width, taps to Miners tab */}
       <StatusTile
         label="Fleet"
         fullWidth
-        onClick={() => setFleetExpanded(v => !v)}
-        ariaLabel="Toggle fleet detail"
+        onClick={() => onNavigate('miners')}
+        ariaLabel="Open Miners tab"
       >
         <div data-testid="fleet-tile" style={{ fontFamily: T.num, fontSize: 16, color: T.ink }}>
           {minerCount === 0
@@ -85,22 +85,6 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
               </>
           }
         </div>
-        {fleetExpanded && miners.length > 0 && (
-          <div style={{ marginTop: 10, borderTop: `1px solid ${T.rule3}`, paddingTop: 8 }}>
-            {miners.map(m => (
-              <div
-                key={m.ip}
-                data-testid={`fleet-row-${m.ip}`}
-                style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontFamily: T.sans, fontSize: 12 }}
-              >
-                <span style={{ color: T.ink }}>{(m.data && m.data.hostname) || m.ip}</span>
-                <span style={{ color: m.online ? T.green : T.red }}>
-                  {m.online ? `${((m.data.hashRate || 0) / 1000).toFixed(1)} GH/s` : 'offline'}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
       </StatusTile>
 
       {/* Status dots — full width */}
@@ -149,8 +133,13 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
         </div>
       </StatusTile>
 
-      {/* Weather — half */}
-      <StatusTile label="Weather">
+      {/* Weather — half (or full when expanded) */}
+      <StatusTile
+        label="Weather"
+        fullWidth={wxExpanded}
+        onClick={() => setWxExpanded(v => !v)}
+        ariaLabel={wxExpanded ? 'Collapse weather detail' : 'Expand weather detail'}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {wx && (
             <WxGlyph
@@ -168,6 +157,65 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
             </div>
           </div>
         </div>
+
+        {wxExpanded && wx && (
+          <div style={{ marginTop: 12 }}>
+            {wx.hourly && wx.hourly.length > 0 && (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'flex-start',
+                gap: 6,
+                marginBottom: 10,
+                overflowX: 'auto',
+              }}>
+                {wx.hourly.map(function(slot) {
+                  const label = slot.hr === 0 ? '12a' : slot.hr < 12 ? `${slot.hr}a` : slot.hr === 12 ? '12p' : `${slot.hr - 12}p`;
+                  return (
+                    <div key={slot.hr} style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 2,
+                      minWidth: 32,
+                    }}>
+                      <div style={{ fontFamily: T.sans, fontSize: 9, color: T.ink3 }}>{label}</div>
+                      <WxGlyph
+                        kind={wmoIcon(slot.code, slot.hr, 0, wx.wxSunriseHr, wx.wxSunsetHr)}
+                        size={16}
+                        speed={1}
+                      />
+                      <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink }}>{slot.t}°</div>
+                      {slot.pop > 0 && (
+                        <div style={{ fontFamily: T.sans, fontSize: 9, color: T.ink3 }}>{slot.pop}%</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontFamily: T.sans, fontSize: 11, color: T.ink2 }}>
+                H {wx.wxHi}{tempUnit} / L {wx.wxLo}{tempUnit}
+              </span>
+              <span style={{ fontFamily: T.sans, fontSize: 11, color: T.ink2 }}>
+                {wx.wxSunrise} / {wx.wxSunset}
+              </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontFamily: T.sans, fontSize: 11, color: T.ink2 }}>
+                {wx.wxWind}
+              </span>
+              <span style={{ fontFamily: T.sans, fontSize: 11, color: T.ink2 }}>
+                Hum {wx.wxHum}
+              </span>
+              {wx.wxUVIndex != null && (
+                <span style={{ fontFamily: T.sans, fontSize: 11, color: T.ink2 }}>
+                  UV {wx.wxUVIndex}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </StatusTile>
 
       {/* Clock — half */}
