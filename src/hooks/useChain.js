@@ -3,6 +3,7 @@ import { useResettableInterval } from './useResettableInterval.js';
 import CONFIG from '../config.js';
 import { fetchChainStats, fetchMiningPools, fetchPoolBlocks, fetchRecentBlocks, fetchMempoolBlocks } from '../utils/api.js';
 import { fmtMempoolMB, nextHalving, circulatingBTC } from '../utils/formatting.js';
+import { log } from '../utils/log.js';
 
 /**
  * useChain Hook
@@ -53,7 +54,7 @@ export function useChain(mempoolPrefs = {}) {
       setLastOk(Date.now());
       setLoading(false);
     } catch (err) {
-      console.error('fetchChain error:', err);
+      log.error('fetchChain error:', err);
       setError(true);
       setLoading(false);
     }
@@ -78,7 +79,7 @@ export function useChain(mempoolPrefs = {}) {
 
       setExtData({ pools, topPoolBlocks, recentBlocks, mempoolBlocks });
     } catch (err) {
-      console.error('fetchExtended error:', err);
+      log.error('fetchExtended error:', err);
       setStale(false);
     }
   }, [mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic]);

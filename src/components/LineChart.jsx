@@ -1,5 +1,8 @@
 import { useT } from '../theme';
 
+const CONTAINER_STYLE = { width: '100%', height: '100%', display: 'block', flexShrink: 0 };
+const SVG_BLOCK = { display: 'block' };
+
 function LineChart({ color, points, fill, vwap, historyPoints }) {
   const T = useT();
   color = color ?? T.orange;
@@ -66,9 +69,9 @@ function LineChart({ color, points, fill, vwap, historyPoints }) {
   const lastPt = pts[pts.length - 1];
 
   return (
-    <div ref={containerRef} style={{ width: '100%', height: '100%', display: 'block', flexShrink: 0 }}>
+    <div ref={containerRef} style={CONTAINER_STYLE}>
       {w > 0 && h > 0 && (
-        <svg width={w} height={h} style={{ display: 'block' }}>
+        <svg width={w} height={h} style={SVG_BLOCK}>
           {fill && d && <path d={`${d} L${w},${h} L0,${h}Z`} fill={color} fillOpacity={0.07} />}
           {vwapY != null && (
             <line x1={0} y1={vwapY} x2={w} y2={vwapY}
