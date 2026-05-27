@@ -28,7 +28,7 @@ const MASTHEAD_QUOTES = [
   { text: 'Gradually, then all at once.', attr: 'Bitcoin community' },
 ];
 
-export function Masthead({ clock, wxSummary, blockReward, rewardEra, dark, onToggleDark, onOpenSettings }) {
+export function Masthead({ clock: _clock, wxSummary: _wxSummary, blockReward, rewardEra, dark, onToggleDark, onOpenSettings }) {
   const T = useT();
 
   const quote = MASTHEAD_QUOTES[new Date().getHours()];
