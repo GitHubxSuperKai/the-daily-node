@@ -1,67 +1,12 @@
 import React from 'react';
 import { useT } from '../theme';
 import Kicker from './Kicker';
-import { isValidLanIp } from '../utils/ipValidation';
 import { u } from '../utils/scale';
-
-// ── Helper components for v2 preferences ──
-function TweaksNumInput({ path, min, max, get, setPath, T }) {
-  return (
-    <input
-      type="number"
-      value={get(path) ?? ''}
-      min={min}
-      max={max}
-      onChange={e => setPath(path, Number(e.target.value))}
-      style={{
-        width: 64, background: T.paper, color: T.ink, fontSize: 13,
-        border: `1px solid ${T.ink3}`, borderRadius: 3, padding: '2px 5px',
-        textAlign: 'right',
-      }}
-    />
-  );
-}
-
-function TweaksCheckRow({ path, label, get, setPath }) {
-  return (
-    <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer' }}>
-      <input
-        type="checkbox"
-        checked={!!get(path)}
-        onChange={e => setPath(path, e.target.checked)}
-        style={{ width: 14, height: 14 }}
-      />
-      <span style={{ fontSize: 13 }}>{label}</span>
-    </label>
-  );
-}
-
-function TweaksRow({ label, children, T }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 0' }}>
-      <span style={{ fontSize: 12, color: T.ink2 }}>{label}</span>
-      {children}
-    </div>
-  );
-}
-
-function TweaksSection({ children, T }) {
-  return (
-    <div style={{ borderTop: `1px solid ${T.ink3}`, paddingTop: 8, marginBottom: 12 }}>
-      {children}
-    </div>
-  );
-}
+import { TweaksSection, TweaksRow, TweaksNumInput, TweaksCheckRow } from './settings/helpers';
+import { MinersSection } from './settings/MinersSection';
 
 export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSaveV2, onClose }) {
   const T = useT();
-
-  // ── Miners section state ──
-  const [draftNewIp, setDraftNewIp] = React.useState('');
-  const [addError, setAddError]     = React.useState('');
-  const [busy, setBusy]             = React.useState(false);
-  const [statusText, setStatusText] = React.useState('');
-  const [statusKind, setStatusKind] = React.useState('idle');
 
   // ── Preferences section state ──
   const [cityQuery, setCityQuery]             = React.useState(prefs.cityName);
@@ -89,66 +34,6 @@ export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSav
     });
   }, []);
   const v2get = (path) => path.split('.').reduce((o, k) => o?.[k], v2local);
-
-  const currentIps = React.useMemo(() => miners.map(m => m.ip), [miners]);
-  const onlineByIp = React.useMemo(() => {
-    const map = new Map();
-    for (const x of miners) map.set(x.ip, !!x.online);
-    return map;
-  }, [miners]);
-
-  const postIps = async (nextList) => {
-    setBusy(true);
-    setStatusKind('busy');
-    setStatusText('Saving…');
-    try {
-      const r = await fetch('/api/setup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bitaxe_ips: nextList }),
-      });
-      const data = await r.json();
-      if (!r.ok) {
-        const msg = (data.errors || [data.error || 'unknown']).join('; ');
-        setStatusKind('err');
-        setStatusText(msg);
-        return;
-      }
-      setStatusKind('ok');
-      setStatusText('Saved (' + data.bitaxe_ips.length + ' miner' + (data.bitaxe_ips.length === 1 ? '' : 's') + ')');
-      setDraftNewIp('');
-      onRefresh?.();
-    } catch (e) {
-      setStatusKind('err');
-      setStatusText('Network error: ' + e.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleAdd = () => {
-    const ip = draftNewIp.trim();
-    setAddError('');
-    if (!ip) return;
-    if (!isValidLanIp(ip)) {
-      setAddError('Not a private/LAN address (RFC1918 or 127.x.x.x)');
-      return;
-    }
-    if (currentIps.includes(ip)) {
-      setAddError('Already in the list');
-      return;
-    }
-    postIps([...currentIps, ip]);
-  };
-
-  const handleRemove = (ip) => {
-    if (currentIps.length === 1 && !window.confirm(
-      'Remove last miner? Dashboard will keep running with 0 miners until you add one.'
-    )) {
-      return;
-    }
-    postIps(currentIps.filter(x => x !== ip));
-  };
 
   const handleSearch = async () => {
     if (!cityQuery.trim()) return;
@@ -233,81 +118,9 @@ export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSav
 
         <div style={{ padding: u(18) + ' ' + u(28) + ' ' + u(28), display: 'flex', flexDirection: 'column' }}>
 
-          {/* ── MINERS (row-based) ── */}
+          {/* ── MINERS ── */}
           <Kicker>Miners</Kicker>
-          <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: u(11), color: T.ink3, marginTop: u(3), marginBottom: u(8) }}>
-            Each row updates the server&apos;s polled list immediately.
-          </div>
-
-          {currentIps.length === 0 && (
-            <div style={{ fontSize: u(11), color: T.ink3, marginBottom: u(6) }}>No miners configured.</div>
-          )}
-
-          {currentIps.map((ip) => {
-            const online = onlineByIp.get(ip);
-            const dotColor = online === true ? T.green : online === false ? T.red : T.ink3;
-            const stateLabel = online === true ? 'online' : online === false ? 'offline' : 'unknown';
-            return (
-              <div key={ip} style={{
-                display: 'flex', alignItems: 'center', gap: u(8),
-                padding: u(6) + ' 0', borderBottom: '1px solid ' + T.rule3,
-              }}>
-                <span
-                  aria-label={ip + ' ' + stateLabel}
-                  title={stateLabel}
-                  style={{ width: u(8), height: u(8), borderRadius: '50%', background: dotColor, flexShrink: 0 }}
-                />
-                <span style={{ fontFamily: T.mono, fontSize: u(13), color: T.ink, flex: 1 }}>{ip}</span>
-                <button
-                  onClick={() => handleRemove(ip)}
-                  aria-label={'Remove ' + ip}
-                  disabled={busy}
-                  style={{
-                    background: 'transparent', border: 'none',
-                    color: T.ink3, fontSize: u(14), cursor: busy ? 'wait' : 'pointer',
-                    padding: '0 ' + u(6),
-                  }}
-                >×</button>
-              </div>
-            );
-          })}
-
-          <div style={{ display: 'flex', gap: u(8), marginTop: u(10), alignItems: 'center' }}>
-            <input
-              aria-label="Add miner IP"
-              style={{ ...inp, flex: 1, width: 'auto' }}
-              value={draftNewIp}
-              onChange={(e) => { setDraftNewIp(e.target.value); setAddError(''); }}
-              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-              placeholder="e.g. 192.168.x.y"
-              spellCheck={false}
-              disabled={busy}
-            />
-            <button
-              onClick={handleAdd}
-              disabled={busy || !draftNewIp.trim()}
-              style={{
-                fontFamily: T.sans, fontSize: u(10), fontWeight: 700,
-                letterSpacing: u(1.5), textTransform: 'uppercase',
-                padding: u(7) + ' ' + u(14), cursor: busy ? 'wait' : 'pointer',
-                border: 'none', background: T.ink, color: T.paper,
-              }}
-            >Add</button>
-          </div>
-          {addError && (
-            <div style={{ fontSize: u(11), color: T.red, marginTop: u(4) }}>{addError}</div>
-          )}
-          {statusText && (
-            <div style={{
-              fontSize: u(11), marginTop: u(4),
-              color: statusKind === 'err' ? T.red : statusKind === 'ok' ? T.green : T.ink3,
-            }}>{statusText}</div>
-          )}
-          <div style={{ marginTop: u(8) }}>
-            <a href="/setup.html" style={{ fontSize: u(11), color: T.ink3, textDecoration: 'underline' }}>
-              Re-run onboarding
-            </a>
-          </div>
+          <MinersSection miners={miners} onRefresh={onRefresh} inp={inp} />
 
           <div style={{ borderTop: '1px solid ' + T.rule2, margin: u(20) + ' 0 ' + u(16) }} />
           <Kicker>Preferences</Kicker>
