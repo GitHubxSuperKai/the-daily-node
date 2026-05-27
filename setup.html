@@ -288,7 +288,15 @@
           $save.disabled = false;
           return;
         }
-        // Weather merge handled in Task 4.
+        if (pendingWeather) {
+          try {
+            var existing = JSON.parse(localStorage.getItem('dailynode-prefs') || '{}');
+            existing.cityName = pendingWeather.cityName;
+            existing.lat = pendingWeather.lat;
+            existing.lng = pendingWeather.lng;
+            localStorage.setItem('dailynode-prefs', JSON.stringify(existing));
+          } catch (_) { /* localStorage unavailable */ }
+        }
         setMsg($formMsg, 'Saved. Loading dashboard…', 'ok');
         setTimeout(function () { window.location.href = '/'; }, 600);
       })
@@ -301,8 +309,100 @@
   // ─── Skip (placeholder — Task 5 implements) ────────────
   function handleSkip() {}
 
-  // ─── Weather (placeholder — Task 4 implements) ─────────
-  function handleCitySearch() {}
+  // ─── Weather ──────────────────────────────────────────
+  function clearChildren(node) {
+    while (node.firstChild) node.removeChild(node.firstChild);
+  }
+
+  function renderCurrentSaved() {
+    clearChildren($currentSaved);
+    try {
+      var prefs = JSON.parse(localStorage.getItem('dailynode-prefs') || '{}');
+      if (prefs.cityName && typeof prefs.lat === 'number' && typeof prefs.lng === 'number') {
+        var label = document.createTextNode('Currently saved: ' + prefs.cityName + ' ');
+        var changeBtn = document.createElement('button');
+        changeBtn.type = 'button';
+        changeBtn.className = 'change-link';
+        changeBtn.textContent = 'Change';
+        changeBtn.addEventListener('click', function () {
+          $currentSaved.hidden = true;
+          $city.focus();
+        });
+        $currentSaved.appendChild(label);
+        $currentSaved.appendChild(changeBtn);
+        $currentSaved.hidden = false;
+      } else {
+        $currentSaved.hidden = true;
+      }
+    } catch (_) {
+      $currentSaved.hidden = true;
+    }
+  }
+
+  function renderSelectedBanner(label) {
+    clearChildren($currentSaved);
+    $currentSaved.appendChild(document.createTextNode('Selected: ' + label));
+    $currentSaved.hidden = false;
+  }
+
+  function clearGeoResults() {
+    clearChildren($geoResults);
+  }
+
+  function renderGeoResults(results) {
+    clearGeoResults();
+    if (!results || results.length === 0) {
+      var empty = document.createElement('div');
+      empty.className = 'msg';
+      empty.textContent = 'No results found';
+      $geoResults.appendChild(empty);
+      return;
+    }
+    results.forEach(function (r) {
+      var label = [r.name, r.admin1, r.country_code].filter(Boolean).join(', ');
+      var row = document.createElement('div');
+      row.className = 'geo-result';
+      var nameSpan = document.createElement('span');
+      nameSpan.textContent = label;
+      var coordSpan = document.createElement('span');
+      coordSpan.className = 'coords';
+      coordSpan.textContent = r.latitude.toFixed(2) + ', ' + r.longitude.toFixed(2);
+      row.appendChild(nameSpan);
+      row.appendChild(coordSpan);
+      row.addEventListener('click', function () {
+        pendingWeather = { cityName: label, lat: r.latitude, lng: r.longitude };
+        $city.value = label;
+        clearGeoResults();
+        renderSelectedBanner(label);
+      });
+      $geoResults.appendChild(row);
+    });
+  }
+
+  function handleCitySearch() {
+    var q = $city.value.trim();
+    if (!q) return;
+    clearGeoResults();
+    var loading = document.createElement('div');
+    loading.className = 'msg';
+    loading.textContent = 'Searching…';
+    $geoResults.appendChild(loading);
+    fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) + '&count=5&language=en&format=json')
+      .then(function (r) {
+        if (!r.ok) throw new Error('geo');
+        return r.json();
+      })
+      .then(function (j) {
+        renderGeoResults(Array.isArray(j.results) ? j.results : []);
+      })
+      .catch(function () {
+        clearGeoResults();
+        var err = document.createElement('div');
+        err.className = 'msg err';
+        err.textContent = 'Search unavailable';
+        $geoResults.appendChild(err);
+      });
+  }
 
   // ─── Dark toggle (placeholder — Task 5 implements) ─────
   function handleDarkToggle() {}
@@ -311,12 +411,16 @@
   $save.addEventListener('click', handleSave);
   $skip.addEventListener('click', handleSkip);
   $citySearch.addEventListener('click', handleCitySearch);
+  $city.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); handleCitySearch(); }
+  });
   $darkToggle.addEventListener('click', handleDarkToggle);
   $ips.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSave();
   });
 
   prefillFromServer();
+  renderCurrentSaved();
 </script>
 </body>
 </html>
