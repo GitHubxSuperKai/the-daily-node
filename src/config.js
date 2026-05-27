@@ -68,7 +68,10 @@ const RSS_FEED_MAP = [
 export default CONFIG;
 
 // CommonJS export (for Node.js testability, removed during build)
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = CONFIG;
-  module.exports.RSS_FEED_MAP = RSS_FEED_MAP;
-}
+// Wrapped in try-catch: vitest 4.x ESM transform makes module.exports read-only
+try {
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = CONFIG;
+    module.exports.RSS_FEED_MAP = RSS_FEED_MAP;
+  }
+} catch (_) {}
