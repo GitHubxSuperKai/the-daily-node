@@ -2,9 +2,9 @@ import React from 'react';
 import { useT } from '../theme';
 import { u } from '../utils/scale.js';
 import Kicker from './Kicker';
+import { isFresh } from '../utils/formatting.js';
 
 const NEWS_SECTIONS = ['BREAKING', 'MARKETS', 'MINING', 'REGULATION', 'TECH', 'GLOBAL', 'BITCOIN'];
-const isFresh = t => t === 'just now' || /^\d+s ago$/.test(t) || /^[1-4]m ago$/.test(t);
 
 export function NewsColumn({ newsItems, rssErr }) {
   const T = useT();

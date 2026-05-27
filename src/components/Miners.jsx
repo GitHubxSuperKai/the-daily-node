@@ -2,7 +2,7 @@ import React from 'react';
 import { useT } from '../theme';
 import { u } from '../utils/scale.js';
 import { calcSoloOdds } from '../utils/formatting';
-import { MinerRow, getMinerStatus } from './MinerRow.jsx';
+import { MinerRow, getMinerStatus, fmtPower } from './MinerRow.jsx';
 import { FleetSummary } from './FleetSummary.jsx';
 
 function Miners({ bitaxe, chain }) {
@@ -22,7 +22,6 @@ function Miners({ bitaxe, chain }) {
   const totalRej    = bitaxe.miners.reduce((s, m) => s + (m.data?.sharesRejected || 0), 0);
   const totalAcc    = bitaxe.miners.reduce((s, m) => s + (m.data?.sharesAccepted || 0), 0);
   const errRate     = totalRej > 0 ? ((totalRej / (totalAcc + totalRej)) * 100).toFixed(2) : null;
-  const fmtPower    = (w) => w < 1000 ? `${Math.round(w)}W` : `${(w / 1000).toFixed(1)}kW`;
 
   const networkHashEH = chain.data ? chain.data.hashrate / 1e18 : 0;
   const oddsResult = chain.data && totalHashTH > 0

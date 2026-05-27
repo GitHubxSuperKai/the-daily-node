@@ -1,9 +1,7 @@
 import React from 'react';
 import { useT } from '../theme';
 import { u } from '../utils/scale.js';
-import { getMinerStatus } from './MinerRow.jsx';
-
-const fmtPower = (w) => w < 1000 ? `${Math.round(w)}W` : `${(w / 1000).toFixed(1)}kW`;
+import { getMinerStatus, fmtPower } from './MinerRow.jsx';
 
 export function FleetSummary({ miners }) {
   const T = useT();
