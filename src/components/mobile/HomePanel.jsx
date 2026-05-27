@@ -29,7 +29,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
   const btcUp = btcChange != null && btcChange >= 0;
 
   const onlineCountForFeed = bitaxe.miners ? bitaxe.miners.filter(m => m.online).length : 0;
-  const minerCountForFeed  = bitaxe.miners ? bitaxe.miners.length : 0;
+  const _minerCountForFeed = bitaxe.miners ? bitaxe.miners.length : 0;
 
   const freshNow = Date.now();
   const lastBlockTs = chain.recentBlocks?.[0]?.timestamp ?? null;

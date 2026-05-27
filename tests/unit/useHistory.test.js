@@ -3,6 +3,7 @@ globalThis.React = React;
 
 // Shim for the build-time global: call callback on mount, return reset=callback
 globalThis.useResettableInterval = function(callback, _delay) {
+  // eslint-disable-next-line react-hooks/rules-of-hooks, react-hooks/exhaustive-deps -- test shim that runs callback once on mount
   React.useEffect(() => { callback(); }, []);
   return { reset: callback };
 };
