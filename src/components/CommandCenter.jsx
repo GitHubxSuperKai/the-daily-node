@@ -18,6 +18,9 @@ import { WxGlyph } from './WxGlyph';
 import LineChart from './LineChart';
 import { NetworkStatusWidget } from './NetworkStatusWidget';
 import Miners from './Miners';
+import Weather from './Weather';
+import { LeadImage } from './LeadImage';
+import { SettingsPanel } from './SettingsPanel';
 import {
   fmtPrice,
   fmtPct,
@@ -31,41 +34,6 @@ import {
   calcSoloOdds,
 } from '../utils/formatting.js';
 
-
-/**
- * CommandCenter — Main layout orchestrator
- * Renders a 4-column newspaper dashboard on desktop/TV.
- *
- * Layout uses CSS --u variable (set by index.html) so all dimensions
- * scale proportionally across 4K, 2K, 1080p, and smaller screens.
- */
-function LeadImage({ src, domain }) {
-  const T = useT();
-  const [errored, setErrored] = React.useState(false);
-  if (errored) {
-    return (
-      <div style={{
-        width: '100%',
-        height: u(80),
-        background: `repeating-linear-gradient(45deg, ${T.rule3} 0, ${T.rule3} 1px, transparent 0, transparent 8px)`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 3,
-      }}>
-        <span style={{ fontFamily: T.mono, fontSize: u(10), color: T.ink4 }}>{domain}</span>
-      </div>
-    );
-  }
-  return (
-    <img
-      src={src}
-      alt=""
-      style={{ width: '100%', height: u(160), objectFit: 'cover', borderRadius: 3, display: 'block' }}
-      onError={() => setErrored(true)}
-    />
-  );
-}
 
 const isFresh = t => t === 'just now' || /^\d+s ago$/.test(t) || /^[1-4]m ago$/.test(t);
 
