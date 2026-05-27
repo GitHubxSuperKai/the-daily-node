@@ -20,4 +20,5 @@ global.ResizeObserver = class ResizeObserver {
 
 // useT is a build-time global (defined in theme.js, stripped of imports/exports during concat).
 // In tests, provide it as a global that returns the LIGHT theme.
+// eslint-disable-next-line react-hooks/rules-of-hooks -- test shim: assigning to global, not declaring a component
 global.useT = () => React.useContext(ThemeCtx);

@@ -28,6 +28,7 @@ function useHistory(metric, range) {
   React.useEffect(() => {
     if (!mounted.current) { mounted.current = true; return; }
     reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: reset is stable from useResettableInterval; effect re-runs only on metric/range change
   }, [metric, range]);
 
   return state;
