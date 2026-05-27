@@ -10,16 +10,13 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { Masthead } from './Masthead';
 import Rule from './Rule';
 import Kicker from './Kicker';
-import { OnThisDay } from './OnThisDay';
 import { ProofOfRead } from './ProofOfRead';
 import Num from './Num';
-import StatusDot from './StatusDot';
-import { WxGlyph } from './WxGlyph';
 import LineChart from './LineChart';
 import { NetworkStatusWidget } from './NetworkStatusWidget';
 import Miners from './Miners';
-import Weather from './Weather';
 import { LeadImage } from './LeadImage';
+import { Sidebar } from './Sidebar';
 import { SettingsPanel } from './SettingsPanel';
 import {
   fmtPrice,
@@ -366,79 +363,7 @@ export function CommandCenter({
       >
         {/* COL 0 — WORDMARK RAIL */}
         <ErrorBoundary label="Sidebar">
-        <div
-          style={{
-            borderRight: `1px solid ${T.rule2}`,
-            paddingRight: u(22),
-            display: 'flex',
-            flexDirection: 'column',
-            gap: u(18),
-            overflow: 'hidden',
-          }}
-        >
-          {/* Clock */}
-          <div>
-            <Kicker>Today</Kicker>
-            <div style={{ marginTop: u(6) }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: u(6) }}>
-                <Num size="lg" value={clock.timeHM} unit={clock.timeSec} style={{ alignItems: 'baseline' }} />
-                {clock.amPm && (
-                  <span style={{ fontFamily: T.num, fontSize: u(16), color: T.ink2, lineHeight: 1 }}>
-                    {clock.amPm}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: u(13), color: T.ink2, marginTop: u(4) }}>
-              {clock.dayStr}
-            </div>
-          </div>
-          <Rule dash />
-          {/* On This Day */}
-          <OnThisDay />
-          <Rule dash />
-          {/* Weather */}
-          <Weather weather={weather} prefs={prefs} />
-          <Rule dash />
-          {/* System */}
-          <div>
-            <Kicker>System</Kicker>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr auto',
-                rowGap: u(5),
-                columnGap: u(12),
-                marginTop: u(8),
-              }}
-            >
-              {sys.map((s, i) => (
-                <React.Fragment key={i}>
-                  <span style={{ fontFamily: T.num, fontSize: u(12), color: T.ink2 }}>
-                    <StatusDot state={s.state} />
-                    {s.k}
-                  </span>
-                  <span style={{ fontFamily: T.num, fontSize: u(10), color: s.state === 'stale' ? T.orange : s.state === 'down' ? T.red : T.ink3, textAlign: 'right' }}>
-                    {s.d}
-                  </span>
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
-          <div style={{ flex: 1 }} />
-          <div
-            style={{
-              fontFamily: T.body,
-              fontStyle: 'italic',
-              fontSize: u(10),
-              color: T.ink3,
-              borderTop: `1px solid ${T.rule2}`,
-              paddingTop: u(8),
-            }}
-          >
-            Published from a home on the internet. Set in Playfair Display &amp; Newsreader.
-          </div>
-        </div>
+          <Sidebar clock={clock} weather={weather} prefs={prefs} sys={sys} />
         </ErrorBoundary>
 
         {/* COL 1 — MARKETS + LEAD STORY */}
