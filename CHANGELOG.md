@@ -38,6 +38,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Auto dark mode now re-evaluates only at sunset/sunrise crossings (edge-trigger), not on every weather poll.
 - CSP `connect-src` allowlist extended to cover geocoding API and CoinGecko.
 
+## [1.2.0] — 2026-05-09
+
+### Added
+
+- Unified `SettingsPanel` — all settings consolidated into one ⚙ overlay; replaces separate MastheadPanel and TweaksPanel.
+- Miner management in-app — add, remove, and validate BitAxe IPs inline without touching config files; config persists server-side to `bitaxe_config.json`.
+- Mobile layout shows "open on desktop to configure" notice when settings are unavailable.
+- Docker `:latest` image publishes automatically on every merge to `main` — no manual tag needed for routine updates.
+
+### Fixed
+
+- CSP `connect-src` extended to include `geocoding-api.open-meteo.com` so city-name weather search works correctly.
+
 ## [1.0.0] — 2026-05-06
 
 ### Added
@@ -59,4 +72,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [Unreleased]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.3.0...HEAD
 [1.3.0]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.0.0...v1.2.0
 [1.0.0]: https://github.com/GitHubxSuperKai/the-daily-node/releases/tag/v1.0.0
