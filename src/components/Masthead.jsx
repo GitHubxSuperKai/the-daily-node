@@ -1,5 +1,6 @@
 import React from 'react';
 import { useT } from '../theme';
+import { u } from '../utils/scale.js';
 
 const MASTHEAD_QUOTES = [
   { text: "The root problem with conventional currency is all the trust that's required to make it work.", attr: 'Satoshi Nakamoto · 2009' },

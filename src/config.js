@@ -64,8 +64,9 @@ const RSS_FEED_MAP = [
   { key: 'newsBitcoin',     url: 'https://news.bitcoin.com/feed/' },
 ];
 
-// ES6 export
+// ES6 exports
 export default CONFIG;
+export { RSS_FEED_MAP };
 
 // CommonJS export (for Node.js testability, removed during build)
 // Wrapped in try-catch: vitest 4.x ESM transform makes module.exports read-only

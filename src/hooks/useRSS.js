@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import CONFIG from '../config.js';
 import { useResettableInterval } from './useResettableInterval.js';
+import { classifyTopic, timeAgo } from '../utils/formatting.js';
 
 
 export function useRSS() {

@@ -1,3 +1,6 @@
+import React from 'react';
+import { useResettableInterval } from './useResettableInterval.js';
+
 const HISTORY_BASE      = 'http://127.0.0.1:3002';
 const RANGE_SECONDS     = { '1h': 3600, '24h': 86400, '7d': 604800 };
 const RANGE_BUCKET      = { '1h': 'min', '24h': 'min', '7d': 'hour' };
@@ -34,6 +37,4 @@ function useHistory(metric, range) {
   return state;
 }
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { useHistory };
-}
+export { useHistory };
