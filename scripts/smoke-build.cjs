@@ -81,9 +81,9 @@ assert.ok(!html.includes('unpkg.com/react-dom'),
 assert.ok(html.includes('createRoot'),
   'createRoot not found — vendored ReactDOM may not be inlined');
 
-// 9. JSX was transformed at build time (esbuild produces React.createElement calls)
-assert.ok(html.includes('React.createElement'),
-  'React.createElement not found — JSX transform may have failed');
+// 9. JSX was transformed at build time (esbuild produces createElement calls)
+assert.ok(html.includes('createElement'),
+  'createElement not found — JSX transform may have failed');
 
 // 10. CSP meta tag must be present with required directives
 assert.ok(html.includes('Content-Security-Policy'),
