@@ -149,12 +149,12 @@ class BaseUrlValidationTest(MempoolProxyTestBase):
     def test_loopback_ipv4_rejected(self):
         status, body = self._get_raw(f'base=http://127.0.0.1:{self.upstream_port}&path=/api/x')
         self.assertEqual(status, 400)
-        self.assertEqual(json.loads(body)['error'], 'loopback destinations not allowed')
+        self.assertEqual(json.loads(body)['error'], 'loopback/link-local destinations not allowed')
 
     def test_loopback_ipv6_rejected(self):
         status, body = self._get_raw('base=http://[::1]&path=/api/x')
         self.assertEqual(status, 400)
-        self.assertEqual(json.loads(body)['error'], 'loopback destinations not allowed')
+        self.assertEqual(json.loads(body)['error'], 'loopback/link-local destinations not allowed')
 
 
 class ResponseSizeCapTest(MempoolProxyTestBase):

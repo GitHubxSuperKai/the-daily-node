@@ -229,10 +229,11 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             if base_parsed.scheme not in ('http', 'https') or not base_parsed.netloc:
                 self._json(400, {'error': 'invalid base URL'})
                 return
-            # Block loopback SSRF — LAN addresses are expected (Start9), loopback is not
+            # Block loopback and link-local SSRF — LAN addresses are expected (Start9), loopback/metadata are not
             try:
-                if ipaddress.ip_address(base_parsed.hostname or '').is_loopback:
-                    self._json(400, {'error': 'loopback destinations not allowed'})
+                ip = ipaddress.ip_address(base_parsed.hostname or '')
+                if ip.is_loopback or ip.is_link_local:
+                    self._json(400, {'error': 'loopback/link-local destinations not allowed'})
                     return
             except ValueError:
                 pass  # hostname (not a bare IP) — allow
