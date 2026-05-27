@@ -14,20 +14,13 @@ import { ChainColumn } from './ChainColumn';
 import { MarketsColumn } from './MarketsColumn';
 import { SettingsPanel } from './SettingsPanel';
 import {
-  fmtPrice,
   fmtPct,
   fmtNum,
-  fmtVolUsd,
   fmtHashrate,
-  fmtDiff,
   fmtMempoolMB,
   fmtBlockTime,
-  safeISODate,
   calcSoloOdds,
 } from '../utils/formatting.js';
-
-
-const isFresh = t => t === 'just now' || /^\d+s ago$/.test(t) || /^[1-4]m ago$/.test(t);
 
 export function CommandCenter({
   dark,
@@ -86,29 +79,17 @@ export function CommandCenter({
   }, []);
 
   // Derived values
-  const btcPrice = btc.data ? `$${fmtPrice(btc.data.price)}` : '—';
   const btcChgPct = btc.data ? fmtPct(btc.data.chgPct) : '—';
-  const btcUp = btc.data ? btc.data.chgPct >= 0 : true;
-  const btcHi = btc.data ? fmtPrice(btc.data.hi) : '—';
-  const btcLo = btc.data ? fmtPrice(btc.data.lo) : '—';
-  const btcCap = btc.data?.cap != null ? `$${(btc.data.cap / 1e12).toFixed(2)}T` : '—';
-  const btcVol = btc.data ? fmtVolUsd(btc.data.volBtc * btc.data.price) : '—';
-  const athPct = btc.data?.ath ? ((btc.data.price - btc.data.ath) / btc.data.ath) * 100 : null;
-  const athAtNew = athPct != null && athPct >= 0;
 
   const blockHeight = chain.data ? fmtNum(chain.data.height) : '—';
-  const hashrate = chain.data ? fmtHashrate(chain.data.hashrate) : '—';
   const halvings = chain.data ? Math.floor(chain.data.height / 210000) : null;
   const blockReward = halvings != null ? 50 / Math.pow(2, halvings) : null;
   const rewardEra = halvings != null ? halvings + 1 : null;
   const blockRewardStr = blockReward != null
     ? (blockReward >= 0.001 ? `${blockReward} BTC` : `${blockReward.toFixed(8)} BTC`)
     : null;
-  const difficulty = chain.data ? fmtDiff(chain.data.difficulty) : '—';
   const mempoolMB = chain.data ? fmtMempoolMB(chain.data.mempoolBytes) : '—';
   const mempoolTx = chain.data ? fmtNum(chain.data.mempoolTx) : '—';
-  const feeFast = chain.data ? `${chain.data.feeFast} sat/vB` : '—';
-  const feeEco = chain.data ? `${chain.data.feeEco} sat/vB` : '—';
 
   // BitAxe fleet derived
   const onlineMiners = bitaxe.miners.filter((m) => m.online && m.data);
@@ -122,54 +103,15 @@ export function CommandCenter({
     chain.data && totalHashrateTHS > 0 ? calcSoloOdds(chain.data.hashrate / 1e18, totalHashrateTHS) : null;
   const etaStr = soloOdds ? `~${fmtNum(soloOdds.etaYears)} yrs` : '—';
 
-  const diffAdjVal = chain.data?.diffAdj;
-  const diffAdjStr = diffAdjVal != null ? `${diffAdjVal >= 0 ? '+' : ''}${diffAdjVal.toFixed(2)}%` : '—';
-  const diffAdjCol = diffAdjVal != null ? (diffAdjVal >= 0 ? T.green : T.red) : T.ink;
   const epochPct = chain.data?.progressPercent;
-  const epochBlocks = chain.data ? Math.round((epochPct / 100) * 2016) : null;
-  const epochStr = epochPct != null ? `${epochPct.toFixed(0)}% · ${epochBlocks}/2016` : '—';
-  const retargetDate = safeISODate(chain.data?.estimatedRetargetDate) ?? '—';
   const blockTimeSec = chain.data?.blockTimeMs ? chain.data.blockTimeMs / 1000 : null;
   const blockTimeCol =
     blockTimeSec == null ? T.ink : blockTimeSec < 570 ? T.orange : blockTimeSec <= 630 ? T.green : T.red;
   const blocksToClr = chain.data ? Math.ceil(chain.data.mempoolBytes / 1_000_000) : null;
   const blocksToClrCol = blocksToClr == null ? T.ink : blocksToClr <= 2 ? T.green : blocksToClr <= 8 ? T.ink : T.red;
-  const rawFeeFast = chain.data?.feeFast;
-  const rawFeeEco = chain.data?.feeEco;
-  const feeFastCol = rawFeeFast == null ? T.ink : rawFeeFast < 10 ? T.green : rawFeeFast < 50 ? T.ink : T.red;
-  const feeEcoCol = rawFeeEco == null ? T.ink : rawFeeEco < 5 ? T.green : rawFeeEco < 20 ? T.ink : T.red;
   const rawMempoolMB = chain.data ? chain.data.mempoolBytes / 1e6 : null;
   const mempoolCol =
     rawMempoolMB == null ? T.ink : rawMempoolMB < 10 ? T.green : rawMempoolMB < 50 ? T.ink : T.red;
-  const rawMempoolTx = chain.data?.mempoolTx;
-  const mempoolTxCol =
-    rawMempoolTx == null ? T.ink : rawMempoolTx < 5000 ? T.green : rawMempoolTx < 20000 ? T.ink : T.red;
-
-  const _miningRows = [
-    { k: 'Hashrate', v: hashrate },
-    { k: 'Difficulty', v: difficulty },
-    { k: 'Avg block', v: chain.data?.blockTimeMs ? fmtBlockTime(chain.data.blockTimeMs) : '—', c: blockTimeCol },
-    { k: 'Diff retarget', v: diffAdjStr, c: diffAdjCol },
-    { k: 'Retarget in', v: chain.data?.remainingBlocks != null ? `${fmtNum(chain.data.remainingBlocks)} blk` : '—' },
-    { k: 'Retarget date', v: retargetDate },
-    { k: 'Epoch', v: epochStr },
-  ];
-  const _chainStatRows = [
-    { k: 'Block height', v: blockHeight },
-    { k: 'Circulating', v: chain.data ? chain.data.circulating : '—' },
-    { k: 'Next halving', v: chain.data ? chain.data.nextHalvingDate : '—' },
-  ];
-  const _mempoolRows = [
-    { k: 'Size', v: mempoolMB, c: mempoolCol },
-    { k: 'Tx count', v: mempoolTx, c: mempoolTxCol },
-    { k: 'Blocks to clear', v: blocksToClr != null ? `${blocksToClr} blk` : '—', c: blocksToClrCol },
-    { k: 'Fee · fast', v: feeFast, c: feeFastCol },
-    { k: 'Fee · eco', v: feeEco, c: feeEcoCol },
-    ...(chain.mempoolBlocks || []).map((b, i) => ({
-      k: `${i === 0 ? 'Next blk' : `+${i} blk`} · ${fmtNum(b.nTx)} tx`,
-      v: b.feeRange ? `${b.feeRange[0]}–${b.feeRange[1]} s/vB` : `${b.medianFee} s/vB`,
-    })),
-  ];
 
   const freshNow = Date.now();
   const sysAgeOf = (lastOk) => {
