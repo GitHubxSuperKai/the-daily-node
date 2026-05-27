@@ -4,6 +4,7 @@ import { useT } from '../../theme.js';
 const TABS = [
   { id: 'home',    label: 'Home',    glyph: '◉' },
   { id: 'bitcoin', label: 'Bitcoin', glyph: '₿' },
+  { id: 'miners',  label: 'Miners',  glyph: '⛏' },
   { id: 'news',    label: 'News',    glyph: '▤' },
 ];
 

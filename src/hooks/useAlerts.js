@@ -1,3 +1,6 @@
+import React from 'react';
+import { checkFeeThreshold, checkBlockTimeThreshold, checkMinerOfflineThreshold, checkPriceThreshold } from '../utils/alertThresholds.js';
+
 function useAlerts(triggers, prefs) {
   const { fastFee, msSinceLastBlock, miners, btcPrice, priceHistory } = triggers;
   const alertPrefs = prefs.alerts;
@@ -70,6 +73,4 @@ function useAlerts(triggers, prefs) {
   return { toasts };
 }
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { useAlerts };
-}
+export { useAlerts };

@@ -48,7 +48,7 @@ describe('ErrorBoundary', () => {
 
   it('logs the failure via componentDidCatch with the boundary label', () => {
     wrap(<ErrorBoundary label="Markets"><Boom /></ErrorBoundary>);
-    const tagged = errSpy.mock.calls.some(args => String(args[0]).includes('[ErrorBoundary · Markets]'));
+    const tagged = errSpy.mock.calls.some(args => args.some(a => String(a).includes('[ErrorBoundary · Markets]')));
     expect(tagged).toBe(true);
   });
 });

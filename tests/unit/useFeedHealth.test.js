@@ -93,7 +93,7 @@ describe('useFeedHealth', () => {
 
   it('re-evaluates on the 5s interval tick', () => {
     const feeds = [{ lastOk: NOW - 10_000, interval: MIN }];
-    const { result, rerender } = renderHook(({ f }) => useFeedHealth(f), {
+    const { result, rerender: _rerender } = renderHook(({ f }) => useFeedHealth(f), {
       initialProps: { f: feeds },
     });
     expect(result.current).toBe('live');
