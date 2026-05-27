@@ -13,11 +13,10 @@ import Kicker from './Kicker';
 import { ProofOfRead } from './ProofOfRead';
 import Num from './Num';
 import LineChart from './LineChart';
-import { NetworkStatusWidget } from './NetworkStatusWidget';
-import Miners from './Miners';
 import { LeadImage } from './LeadImage';
 import { Sidebar } from './Sidebar';
 import { NewsColumn } from './NewsColumn';
+import { ChainColumn } from './ChainColumn';
 import { SettingsPanel } from './SettingsPanel';
 import {
   fmtPrice,
@@ -467,21 +466,7 @@ export function CommandCenter({
 
         {/* COL 3 — FIELD REPORT + CHAIN VITALS */}
         <ErrorBoundary label="Network">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 0, overflow: 'hidden' }}>
-          <Miners bitaxe={bitaxe} chain={chain} />
-          <div className="news-col-wrap" style={{ marginTop: u(32), flexShrink: 1, minHeight: 0 }}>
-            <div
-              className="no-scrollbar"
-              style={{ height: '100%', overflowY: 'auto' }}
-              onScroll={(e) => {
-                const el = e.currentTarget;
-                el.parentElement.classList.toggle('at-bottom', el.scrollHeight - el.scrollTop - el.clientHeight < 4);
-              }}
-            >
-              <NetworkStatusWidget chain={chain} T={T} />
-            </div>
-          </div>
-        </div>
+          <ChainColumn bitaxe={bitaxe} chain={chain} />
         </ErrorBoundary>
       </div>
 
