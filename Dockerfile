@@ -13,7 +13,7 @@ COPY build.js ./
 RUN node build.js
 
 # ─── Runtime stage: minimal Python serving the dashboard + API ──────
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 WORKDIR /app
 
 # Drop to a non-root user; create /data for persistent config
