@@ -49,14 +49,6 @@ const CONFIG = {
   REFRESH_STAGGER_MS: 100,
 };
 
-const INTERVALS = {
-  BTC:     CONFIG.REFRESH_INTERVALS.price,
-  CHART:   CONFIG.REFRESH_INTERVALS.chart,
-  CHAIN:   CONFIG.REFRESH_INTERVALS.chain,
-  BITAXE:  CONFIG.REFRESH_INTERVALS.bitaxe,
-  WEATHER: CONFIG.REFRESH_INTERVALS.weather,
-  RSS:     CONFIG.REFRESH_INTERVALS.news,
-};
 
 const RSS_FEED_MAP = [
   { key: 'bitcoinMagazine', url: 'https://bitcoinmagazine.com/.rss/full/' },
