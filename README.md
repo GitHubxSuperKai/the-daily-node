@@ -2,11 +2,14 @@
 
 > A single-file React dashboard for Bitcoin price, news, weather, and BitAxe mining stats. Designed for a 1920×1080 wall display.
 
+[![Build](https://github.com/GitHubxSuperKai/the-daily-node/actions/workflows/build.yml/badge.svg)](https://github.com/GitHubxSuperKai/the-daily-node/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![GitHub release](https://img.shields.io/github/v/release/GitHubxSuperKai/the-daily-node)](https://github.com/GitHubxSuperKai/the-daily-node/releases)
 [![Last commit](https://img.shields.io/github/last-commit/GitHubxSuperKai/the-daily-node)](https://github.com/GitHubxSuperKai/the-daily-node/commits/main)
 
 **[🔗 Live demo](https://GitHubxSuperKai.github.io/the-daily-node/)** · **[📊 Pitch deck](https://GitHubxSuperKai.github.io/the-daily-node/pitch-deck.html)**
+
+> No BitAxe? The Miners card shows a friendly placeholder — all other panels (price, news, chain stats, weather) pull live data.
 
 ![Light mode](docs/screenshots/dashboard-light.png)
 ![Dark mode](docs/screenshots/dashboard-dark.png)
