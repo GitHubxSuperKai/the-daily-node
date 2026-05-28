@@ -1,0 +1,2 @@
+# Mark the pre-built bundle as generated so GitHub excludes it from language stats
+index.html linguist-generated=true
