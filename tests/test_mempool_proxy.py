@@ -156,6 +156,16 @@ class BaseUrlValidationTest(MempoolProxyTestBase):
         self.assertEqual(status, 400)
         self.assertEqual(json.loads(body)['error'], 'loopback/link-local destinations not allowed')
 
+    def test_link_local_ipv4_rejected(self):
+        status, body = self._get_raw('base=http://169.254.169.254&path=/api/x')
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body)['error'], 'loopback/link-local destinations not allowed')
+
+    def test_link_local_ipv6_rejected(self):
+        status, body = self._get_raw('base=http://[fe80::1]&path=/api/x')
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body)['error'], 'loopback/link-local destinations not allowed')
+
 
 class ResponseSizeCapTest(MempoolProxyTestBase):
     def test_oversized_upstream_response_returns_502(self):
