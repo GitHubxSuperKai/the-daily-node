@@ -20,14 +20,17 @@ export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSav
   const setV2Path = React.useCallback((path, value) => {
     setV2Local(prev => {
       const parts = path.split('.');
-      if (parts.some(k => k === '__proto__' || k === 'constructor' || k === 'prototype')) return prev;
       const next = { ...prev };
       let obj = next;
       for (let i = 0; i < parts.length - 1; i++) {
-        obj[parts[i]] = { ...obj[parts[i]] };
-        obj = obj[parts[i]];
+        const key = parts[i];
+        if (key === '__proto__' || key === 'constructor' || key === 'prototype') return prev;
+        obj[key] = { ...obj[key] };
+        obj = obj[key];
       }
-      obj[parts[parts.length - 1]] = value;
+      const last = parts[parts.length - 1];
+      if (last === '__proto__' || last === 'constructor' || last === 'prototype') return prev;
+      obj[last] = value;
       return next;
     });
   }, []);
