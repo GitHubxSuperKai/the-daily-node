@@ -228,7 +228,7 @@ class HistoryHandler(BaseHTTPRequestHandler):
     def _send_cors(self):
         origin = self.headers.get('Origin', '')
         if origin in _ALLOWED_ORIGINS:
-            self.send_header('Access-Control-Allow-Origin', origin)
+            self.send_header('Access-Control-Allow-Origin', origin.replace('\r', '').replace('\n', ''))
 
     def do_OPTIONS(self):
         self.send_response(204)

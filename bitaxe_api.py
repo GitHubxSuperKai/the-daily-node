@@ -317,7 +317,7 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
     def _cors(self):
         origin = getattr(self, '_matched_origin', '')
         if origin:
-            self.send_header('Access-Control-Allow-Origin', origin)
+            self.send_header('Access-Control-Allow-Origin', origin.replace('\r', '').replace('\n', ''))
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         # PNA: allow page on loopback (http://localhost) to fetch this private-IP server.
