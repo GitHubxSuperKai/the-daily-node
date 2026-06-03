@@ -23,6 +23,11 @@ Preview tool server ID: `the-daily-node`
 
 `build.js` runs `esbuild.build({ entryPoints: ['src/App.jsx'], bundle: true, format: 'iife', minify: true })` to produce a single minified IIFE. React + ReactDOM are vendored UMD builds inlined into `src/index.html` as separate `<script>` tags (the `<!-- VENDOR -->` placeholder); a small `require()` shim before the IIFE maps the `react` and `react-dom/client` module specifiers to the global `React` / `ReactDOM`. No CDN, no in-browser Babel, no concat hack. Output goes to the `/* MODULES CONCATENATED BY build.js */` placeholder.
 
+## Build/Test Gotchas
+
+- **Smoke assertions run against the MINIFIED bundle** (`index.html`), so assert on tokens that survive minification — string literals and object-property keys, not mangled function/var names. Recurring traps: use `createElement` not `React.createElement` (esbuild jsxFactory output); match the version as `"v${version}"`; the Docker HTML check (`.github/workflows/docker.yml`) must match `<!doctype html>` case-insensitively. Read the comments in `scripts/smoke-build.cjs` before changing a marker.
+- **Don't reintroduce stale build claims in docs.** `README.md` / `docs/ARCHITECTURE.md` must NOT describe in-browser Babel, `type="text/babel"`, CDN/unpkg React, or any runtime transpiler — JSX is transformed at build time by esbuild and React/ReactDOM are vendored locally from `src/vendor/`. Verify build/dependency statements against `build.js` and `src/index.html` before writing them; treat any such existing claim as stale and correct it.
+
 ## Architecture
 
 Single-file React dashboard for Bitcoin & mining monitoring. React + ReactDOM are vendored locally (inlined from `src/vendor/` at build time) — no CDN, no runtime bundler, no Babel.
