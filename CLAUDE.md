@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Life-goal framing for this project lives at `D:\Ikigai\00-PARA\1-Projects\the-daily-node.md`. Read it for the "why" — goal, success criteria, current state.
 
+## Repo Workflow
+
+- **`main` is protected:** changes must land via a pull request and pass the required `build` status check. **Never direct-push to `main`** — branch, push, open a PR (this applies to docs too). Admin bypass exists but is not the workflow; using it skips the `build` gate.
+
 ## Commands
 
 ```bash
