@@ -78,6 +78,6 @@ App (root — owns all hooks, theme, localStorage prefs)
 | `src/utils/scale.js` | Viewport scaling logic |
 | `src/utils/svg.js` | SVG icon helpers |
 | `src/hooks/useFeedHealth.js` | Monitors all data sources, drives sidebar status lights |
-| `src/hooks/useLayoutSize.js` | Responsive layout dimensions |
+| `src/hooks/useViewportMode.js` | Responsive layout dimensions |
 | `src/hooks/usePageRefresh.js` | Scheduled page reload |
 | `src/hooks/useResettableInterval.js` | Interval that resets on demand |
