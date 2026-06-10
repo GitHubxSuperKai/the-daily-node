@@ -53,6 +53,14 @@ function wrap(ui) {
   return render(<ThemeCtx.Provider value={LIGHT}>{ui}</ThemeCtx.Provider>);
 }
 
+// jsdom normalizes hex colors to rgb() on read-back; convert for assertions
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
 const btcProps = {
   data: { price: 67000, chgPct: 2.1, hi: 68000, lo: 65000, cap: 1.3e12 },
   chartPts: [],
@@ -90,14 +98,15 @@ describe('BitcoinPanel — Chain Vitals', () => {
   it('CLR value is red when > 8 blocks', () => {
     const { container } = wrap(<BitcoinPanel btc={btcProps} chain={chainProps} />);
     const clrEl = screen.getByText('9 blk');
-    expect(clrEl.style.color).toBe(LIGHT.red);
+    expect(clrEl.style.color).toBe(hexToRgb(LIGHT.red));
   });
 
   it('CLR value is green when <= 2 blocks', () => {
-    const smallMempool = { data: { ...chainProps.data, mempoolBytes: 1_500_000 }, recentBlocks: [], mempoolBlocks: [] };
+    // 900_000 bytes → Math.ceil(0.9) = 1 blk → green threshold (≤ 2)
+    const smallMempool = { data: { ...chainProps.data, mempoolBytes: 900_000 }, recentBlocks: [], mempoolBlocks: [] };
     wrap(<BitcoinPanel btc={btcProps} chain={smallMempool} />);
     const clrEl = screen.getByText('1 blk');
-    expect(clrEl.style.color).toBe(LIGHT.green);
+    expect(clrEl.style.color).toBe(hexToRgb(LIGHT.green));
   });
 });
 ```
@@ -613,8 +622,9 @@ describe('NewsPanel — lead story', () => {
   });
 
   it('does not render snippet when lead.snippet is empty', () => {
-    wrap(<NewsPanel rss={rssNoImage} />);
-    expect(screen.queryByText(/Lightning/)).toBeNull();
+    // NewsPanel has no <p> elements besides the snippet; absence proves no snippet rendered
+    const { container } = wrap(<NewsPanel rss={rssNoImage} />);
+    expect(container.querySelector('p')).toBeNull();
   });
 
   it('truncates snippet longer than 160 chars', () => {
@@ -739,7 +749,7 @@ The orchestrator must verify each panel at 390 px width using the Preview MCP. F
 
 **MinersPanel checks:**
 - When miners are online, "Efficiency", "Solo odds", and "ETA" stats appear below the fleet count
-- When `chain` prop is null/missing, the panel renders without errors (no efficiency section)
+- When `chain.data` is null, the panel renders without errors; efficiency (J/TH) still shows (local calc), but solo odds/ETA cells are absent
 
 **NewsPanel checks:**
 - Lead story shows image when `lead.img` is set
