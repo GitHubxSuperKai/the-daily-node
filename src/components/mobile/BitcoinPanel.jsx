@@ -1,6 +1,6 @@
 import React from 'react';
 import { useT } from '../../theme.js';
-import { fmtPrice, fmtPct, fmtHashrate, fmtDiff, fmtMempoolMB, fmtBlockTime } from '../../utils/formatting.js';
+import { fmtPrice, fmtPct, fmtHashrate, fmtDiff, fmtMempoolMB, fmtBlockTime, fmtNum } from '../../utils/formatting.js';
 import LineChart from '../LineChart.jsx';
 import { NetworkStatusWidget } from '../NetworkStatusWidget.jsx';
 import { OnThisDay } from '../OnThisDay.jsx';
@@ -27,13 +27,18 @@ function BitcoinPanel({ btc, chain }) {
   const chgUp = chgPct != null && chgPct >= 0;
   const chgColor = chgUp ? T.green : T.red;
 
+  const blocksToClr = c ? Math.ceil(c.mempoolBytes / 1_000_000) : null;
+  const clrColor    = blocksToClr == null ? T.ink : blocksToClr <= 2 ? T.green : blocksToClr <= 8 ? T.ink : T.red;
+
   const vitals = [
-    { label: 'Hashrate',   value: c ? fmtHashrate(c.hashrate) : '—' },
-    { label: 'Difficulty', value: c ? fmtDiff(c.difficulty) : '—' },
-    { label: 'Block Time', value: c ? fmtBlockTime(c.blockTimeMs) : '—' },
-    { label: 'Mempool',    value: c ? fmtMempoolMB(c.mempoolBytes) : '—' },
-    { label: 'Fast Fee',   value: c ? `${c.feeFast} sat/vB` : '—' },
-    { label: 'Height',     value: c ? `#${Number(c.height).toLocaleString('en-US')}` : '—' },
+    { label: 'Hashrate',   value: c ? fmtHashrate(c.hashrate) : '—',                          color: T.ink },
+    { label: 'Difficulty', value: c ? fmtDiff(c.difficulty) : '—',                             color: T.ink },
+    { label: 'Block Time', value: c ? fmtBlockTime(c.blockTimeMs) : '—',                       color: T.ink },
+    { label: 'Mempool',    value: c ? fmtMempoolMB(c.mempoolBytes) : '—',                      color: T.ink },
+    { label: 'Fast Fee',   value: c ? `${c.feeFast} sat/vB` : '—',                             color: T.ink },
+    { label: 'Eco Fee',    value: c ? `${c.feeEco} sat/vB` : '—',                              color: T.ink },
+    { label: 'CLR',        value: blocksToClr != null ? `${blocksToClr} blk` : '—',            color: clrColor },
+    { label: 'Height',     value: c ? `#${Number(c.height).toLocaleString('en-US')}` : '—',    color: T.ink },
   ];
 
   return (
@@ -119,7 +124,7 @@ function BitcoinPanel({ btc, chain }) {
                   fontFamily: T.mono,
                   fontSize: 14,
                   fontWeight: 600,
-                  color: T.ink,
+                  color: v.color,
                 }}>{v.value}</div>
               </div>
             );
