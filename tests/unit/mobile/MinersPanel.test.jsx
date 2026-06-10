@@ -44,3 +44,49 @@ describe('MinersPanel', () => {
     expect(screen.getByText(/no miners configured/i)).toBeDefined();
   });
 });
+
+const chainWithHashrate = {
+  data: { hashrate: 5e18 },
+};
+
+const minersWithPower = {
+  miners: [
+    { ip: '10.0.0.1', online: true,  data: { hostname: 'bitaxe-01', hashRate: 5000, temp: 62, power: 200 } },
+    { ip: '10.0.0.2', online: false, data: null },
+  ],
+};
+
+describe('MinersPanel — efficiency and solo stats', () => {
+  it('renders fleet efficiency in J/TH', () => {
+    wrap(<MinersPanel bitaxe={minersWithPower} chain={chainWithHashrate} />);
+    expect(screen.getByText('40.0 J/TH')).toBeDefined();
+  });
+
+  it('renders solo odds', () => {
+    wrap(<MinersPanel bitaxe={minersWithPower} chain={chainWithHashrate} />);
+    expect(screen.getByText('1:6,944/d')).toBeDefined();
+  });
+
+  it('renders ETA years', () => {
+    wrap(<MinersPanel bitaxe={minersWithPower} chain={chainWithHashrate} />);
+    expect(screen.getByText('~19 yrs')).toBeDefined();
+  });
+
+  it('efficiency section hidden when no miners online', () => {
+    const noOnline = { miners: [{ ip: '10.0.0.1', online: false, data: null }] };
+    wrap(<MinersPanel bitaxe={noOnline} chain={chainWithHashrate} />);
+    expect(screen.queryByText(/J\/TH/)).toBeNull();
+  });
+
+  it('solo odds hidden when chain.data is null', () => {
+    wrap(<MinersPanel bitaxe={minersWithPower} chain={{ data: null }} />);
+    // Efficiency still shows (local calc); solo odds require chain.data
+    expect(screen.getByText('40.0 J/TH')).toBeDefined();
+    expect(screen.queryByText(/\/d/)).toBeNull();
+  });
+
+  it('existing tests still pass when chain prop omitted', () => {
+    wrap(<MinersPanel bitaxe={{ miners: [] }} />);
+    expect(screen.getByText(/no miners configured/i)).toBeDefined();
+  });
+});
