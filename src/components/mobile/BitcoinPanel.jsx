@@ -132,6 +132,57 @@ function BitcoinPanel({ btc, chain }) {
         </div>
       </div>
 
+      {/* ── Epoch & Halving ── */}
+      {c && (
+        <div>
+          <div style={sectionLabel(T)}>Epoch & Halving</div>
+          <div style={{ height: 4, background: T.rule2, borderRadius: 2, marginBottom: 4 }}>
+            <div style={{
+              height: '100%',
+              width: `${Math.min(c.progressPercent || 0, 100)}%`,
+              background: T.orange,
+              borderRadius: 2,
+            }} />
+          </div>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontFamily: T.sans,
+            fontSize: 10,
+            color: T.ink3,
+            marginBottom: 12,
+          }}>
+            <span>{(c.progressPercent || 0).toFixed(0)}% complete</span>
+            <span>{fmtNum(c.remainingBlocks)} blk left</span>
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <div style={{
+              fontFamily: T.sans, fontSize: 9, fontWeight: 600,
+              letterSpacing: 1.5, textTransform: 'uppercase',
+              color: T.ink3, marginBottom: 2,
+            }}>Supply</div>
+            <div style={{ fontFamily: T.mono, fontSize: 14, fontWeight: 600, color: T.ink }}>
+              {c.circulating || '—'}
+            </div>
+          </div>
+          <div>
+            <div style={{
+              fontFamily: T.sans, fontSize: 9, fontWeight: 600,
+              letterSpacing: 1.5, textTransform: 'uppercase',
+              color: T.ink3, marginBottom: 2,
+            }}>Next Halving</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <span style={{ fontFamily: T.mono, fontSize: 14, fontWeight: 600, color: T.ink }}>
+                {c.nextHalvingDate || '—'}
+              </span>
+              <span style={{ fontFamily: T.mono, fontSize: 11, color: T.ink3 }}>
+                {c.height ? `${fmtNum(Math.ceil((c.height + 1) / 210000) * 210000 - c.height)} blk` : '—'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── On This Day ── */}
       <div>
         <div style={sectionLabel(T)}>On This Day</div>
