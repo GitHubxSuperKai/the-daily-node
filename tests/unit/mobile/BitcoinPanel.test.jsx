@@ -66,3 +66,36 @@ describe('BitcoinPanel — Chain Vitals', () => {
     expect(clrEl.style.color).toBe(hexToRgb(LIGHT.green));
   });
 });
+
+describe('BitcoinPanel — Epoch & Halving section', () => {
+  it('renders epoch progress percentage', () => {
+    wrap(<BitcoinPanel btc={btcProps} chain={chainProps} />);
+    expect(screen.getByText(/71% complete/)).toBeDefined();
+  });
+
+  it('renders remaining blocks', () => {
+    wrap(<BitcoinPanel btc={btcProps} chain={chainProps} />);
+    expect(screen.getByText(/591 blk left/)).toBeDefined();
+  });
+
+  it('renders circulating supply', () => {
+    wrap(<BitcoinPanel btc={btcProps} chain={chainProps} />);
+    expect(screen.getByText('19.86M BTC')).toBeDefined();
+  });
+
+  it('renders next halving date', () => {
+    wrap(<BitcoinPanel btc={btcProps} chain={chainProps} />);
+    expect(screen.getByText('Apr 2028')).toBeDefined();
+  });
+
+  it('renders halving blocks remaining', () => {
+    // height 900000 → next multiple of 210000 is 1050000 → 150000 blk remaining
+    wrap(<BitcoinPanel btc={btcProps} chain={chainProps} />);
+    expect(screen.getByText('150,000 blk')).toBeDefined();
+  });
+
+  it('epoch section is hidden when chain.data is null', () => {
+    wrap(<BitcoinPanel btc={btcProps} chain={{ data: null, recentBlocks: [], mempoolBlocks: [] }} />);
+    expect(screen.queryByText(/complete/)).toBeNull();
+  });
+});
