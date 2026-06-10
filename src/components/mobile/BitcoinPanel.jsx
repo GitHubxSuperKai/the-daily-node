@@ -21,7 +21,7 @@ function BitcoinPanel({ btc, chain }) {
   const T = useT();
 
   const d = btc.data;
-  const c = chain.data;
+  const c = chain?.data;
 
   const chgPct = d ? d.chgPct : null;
   const chgUp = chgPct != null && chgPct >= 0;
