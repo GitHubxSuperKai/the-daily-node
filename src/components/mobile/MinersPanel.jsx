@@ -1,5 +1,6 @@
 import React from 'react';
 import { useT } from '../../theme.js';
+import { calcSoloOdds, fmtNum } from '../../utils/formatting.js';
 
 function sectionLabel(T) {
   return {
@@ -13,11 +14,19 @@ function sectionLabel(T) {
   };
 }
 
-function MinersPanel({ bitaxe }) {
+function MinersPanel({ bitaxe, chain }) {
   const T = useT();
   const miners = bitaxe.miners || [];
   const onlineCount = miners.filter(m => m.online).length;
   const totalHashTHs = miners.reduce((s, m) => s + (m.online && m.data ? m.data.hashRate || 0 : 0), 0) / 1000;
+
+  const onlineMiners     = miners.filter(m => m.online && m.data);
+  const totalHashrateTHS = onlineMiners.reduce((s, m) => s + ((m.data.hashRate || 0) / 1000), 0);
+  const totalPower       = onlineMiners.reduce((s, m) => s + (m.data.power || 0), 0);
+  const combinedEff      = totalHashrateTHS > 0 ? (totalPower / totalHashrateTHS).toFixed(1) : null;
+  const soloOdds         = (chain && chain.data && totalHashrateTHS > 0)
+    ? calcSoloOdds(chain.data.hashrate / 1e18, totalHashrateTHS)
+    : null;
 
   return (
     <div style={{
@@ -36,9 +45,56 @@ function MinersPanel({ bitaxe }) {
             No miners configured — open Settings
           </div>
         ) : (
-          <div style={{ fontFamily: T.mono, fontSize: 16, color: T.ink }}>
-            {onlineCount}/{miners.length} online · {totalHashTHs.toFixed(2)} TH/s
-          </div>
+          <>
+            <div style={{ fontFamily: T.mono, fontSize: 16, color: T.ink }}>
+              {onlineCount}/{miners.length} online · {totalHashTHs.toFixed(2)} TH/s
+            </div>
+            {combinedEff !== null && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '8px 12px',
+                marginTop: 10,
+                paddingTop: 10,
+                borderTop: `0.5px solid ${T.rule2}`,
+              }}>
+                <div>
+                  <div style={{
+                    fontFamily: T.sans, fontSize: 9, fontWeight: 600,
+                    letterSpacing: 1.5, textTransform: 'uppercase',
+                    color: T.ink3, marginBottom: 2,
+                  }}>Efficiency</div>
+                  <div style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.ink }}>
+                    {combinedEff} J/TH
+                  </div>
+                </div>
+                {soloOdds && (
+                  <div>
+                    <div style={{
+                      fontFamily: T.sans, fontSize: 9, fontWeight: 600,
+                      letterSpacing: 1.5, textTransform: 'uppercase',
+                      color: T.ink3, marginBottom: 2,
+                    }}>Solo odds</div>
+                    <div style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.ink }}>
+                      1:{fmtNum(soloOdds.oddsPerDay)}/d
+                    </div>
+                  </div>
+                )}
+                {soloOdds && (
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <div style={{
+                      fontFamily: T.sans, fontSize: 9, fontWeight: 600,
+                      letterSpacing: 1.5, textTransform: 'uppercase',
+                      color: T.ink3, marginBottom: 2,
+                    }}>ETA</div>
+                    <div style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.ink }}>
+                      ~{fmtNum(soloOdds.etaYears)} yrs
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </section>
 
