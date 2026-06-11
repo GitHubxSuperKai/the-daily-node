@@ -33,7 +33,7 @@ const leadNoImage = {
 };
 
 const rssWithImage = { leadStory: leadWithImage, items: [], err: null };
-const rssNoImage   = { leadStory: leadNoImage,  err: null };
+const rssNoImage   = { leadStory: leadNoImage, items: [], err: null };
 
 describe('NewsPanel — lead story', () => {
   it('renders lead headline', () => {

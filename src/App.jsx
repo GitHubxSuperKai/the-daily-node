@@ -25,6 +25,7 @@ function applyV2ToConfig(p) {
   CONFIG.REFRESH_INTERVALS.weather = p.intervals.weather * 1000;
   CONFIG.REFRESH_INTERVALS.news    = p.intervals.rss     * 1000;
   CONFIG.REFRESH_INTERVALS.bitaxe  = p.intervals.bitaxe  * 1000;
+  // Running hooks capture their interval on mount; changes take effect on next reload.
 }
 
 function App() {
