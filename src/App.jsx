@@ -18,13 +18,15 @@ import { LIGHT, DARK, ThemeCtx } from './theme.js';
 import { loadV2Prefs, saveV2Prefs } from './utils/v2prefs.js';
 import { RSS_FEED_MAP } from './config.js';
 
+const MIN_INTERVAL_MS = 5_000;
+
 function applyV2ToConfig(p) {
   CONFIG.RSS_FEEDS = RSS_FEED_MAP.filter(f => p.feeds[f.key] !== false).map(f => f.url);
-  CONFIG.REFRESH_INTERVALS.price   = p.intervals.price   * 1000;
-  CONFIG.REFRESH_INTERVALS.chain   = p.intervals.chain   * 1000;
-  CONFIG.REFRESH_INTERVALS.weather = p.intervals.weather * 1000;
-  CONFIG.REFRESH_INTERVALS.news    = p.intervals.rss     * 1000;
-  CONFIG.REFRESH_INTERVALS.bitaxe  = p.intervals.bitaxe  * 1000;
+  CONFIG.REFRESH_INTERVALS.price   = Math.max(MIN_INTERVAL_MS, p.intervals.price   * 1000);
+  CONFIG.REFRESH_INTERVALS.chain   = Math.max(MIN_INTERVAL_MS, p.intervals.chain   * 1000);
+  CONFIG.REFRESH_INTERVALS.weather = Math.max(MIN_INTERVAL_MS, p.intervals.weather * 1000);
+  CONFIG.REFRESH_INTERVALS.news    = Math.max(MIN_INTERVAL_MS, p.intervals.rss     * 1000);
+  CONFIG.REFRESH_INTERVALS.bitaxe  = Math.max(MIN_INTERVAL_MS, p.intervals.bitaxe  * 1000);
   // Running hooks capture their interval on mount; changes take effect on next reload.
 }
 
