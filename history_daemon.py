@@ -243,6 +243,7 @@ class HistoryHandler(BaseHTTPRequestHandler):
 
         if len(parts) != 2 or parts[0] != 'history' or parts[1] not in METRIC_QUERIES:
             self.send_response(404)
+            self._send_cors()
             self.end_headers()
             return
 
@@ -265,6 +266,7 @@ class HistoryHandler(BaseHTTPRequestHandler):
         except Exception as e:
             print(f'[api] query error: {e}', file=sys.stderr)
             self.send_response(500)
+            self._send_cors()
             self.end_headers()
             return
 
