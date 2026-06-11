@@ -65,6 +65,14 @@ describe('BitcoinPanel — Chain Vitals', () => {
     const clrEl = screen.getByText('1 blk');
     expect(clrEl.style.color).toBe(hexToRgb(LIGHT.green));
   });
+
+  it('CLR value is neutral when 3-8 blocks', () => {
+    // 5_000_000 bytes → Math.ceil(5) = 5 blk → neutral range (3–8)
+    const midMempool = { data: { ...chainProps.data, mempoolBytes: 5_000_000 }, recentBlocks: [], mempoolBlocks: [] };
+    wrap(<BitcoinPanel btc={btcProps} chain={midMempool} />);
+    const clrEl = screen.getByText('5 blk');
+    expect(clrEl.style.color).toBe(hexToRgb(LIGHT.ink));
+  });
 });
 
 describe('BitcoinPanel — Epoch & Halving section', () => {
