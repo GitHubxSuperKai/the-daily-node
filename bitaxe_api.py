@@ -222,7 +222,7 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             params = parse_qs(parsed.query)
             base = params.get('base', [''])[0]
             path = params.get('path', [''])[0]
-            # Reject missing prefix, dot-dot traversal segments, and query params in path
+            # Reject missing /api/ prefix and dot-dot traversal segments
             if not path or not path.startswith('/api/') or '..' in path.split('/'):
                 self._json(400, {'error': 'invalid path'})
                 return
