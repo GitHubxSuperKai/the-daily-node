@@ -1,7 +1,6 @@
 import React from 'react';
 import { useResettableInterval } from './useResettableInterval.js';
-
-const HISTORY_BASE      = 'http://127.0.0.1:3002';
+import CONFIG from '../config.js';
 const RANGE_SECONDS     = { '1h': 3600, '24h': 86400, '7d': 604800 };
 const RANGE_BUCKET      = { '1h': 'min', '24h': 'min', '7d': 'hour' };
 const HISTORY_REFRESH_MS = 10 * 60 * 1000;
@@ -14,7 +13,7 @@ function useHistory(metric, range) {
     const to     = Math.floor(Date.now() / 1000);
     const from   = to - (RANGE_SECONDS[range] ?? 86400);
     const bucket = RANGE_BUCKET[range] ?? 'min';
-    const url    = `${HISTORY_BASE}/history/${metric}?from=${from}&to=${to}&bucket=${bucket}`;
+    const url    = `${CONFIG.HISTORY_BASE}/history/${metric}?from=${from}&to=${to}&bucket=${bucket}`;
 
     fetch(url)
       .then(r => {

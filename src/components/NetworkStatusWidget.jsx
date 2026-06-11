@@ -64,9 +64,9 @@ export function NetworkStatusWidget({ chain, T }) {
   const pools = chain.pools || [];
   const d = chain.data;
 
-  const halvings = Math.floor((d?.height || 0) / 210000);
-  const halvingBlocks = (halvings + 1) * 210000 - (d?.height || 0);
-  const blockSubsidy = 50 / Math.pow(2, halvings);
+  const halvings      = d ? Math.floor(d.height / 210000) : null;
+  const halvingBlocks = d ? (halvings + 1) * 210000 - d.height : null;
+  const blockSubsidy  = d ? 50 / Math.pow(2, halvings) : null;
 
   const blockIntervalMin = d?.blockTimeMs ? (d.blockTimeMs / 60000).toFixed(1) : '—';
   const bMinRaw = d ? d.blockTimeMs / 60000 : 10;
@@ -91,7 +91,7 @@ export function NetworkStatusWidget({ chain, T }) {
     ? safeISODate(d.previousRetargetDate * 1000)
     : null;
 
-  const halvingYrs = (halvingBlocks * 10 / 60 / 24 / 365).toFixed(1);
+  const halvingYrs = halvingBlocks != null ? (halvingBlocks * 10 / 60 / 24 / 365).toFixed(1) : null;
 
   const mempoolMBRaw = d ? d.mempoolBytes / 1e6 : null;
   const mempoolLabel = mempoolMBRaw == null ? '—'
@@ -139,10 +139,10 @@ export function NetworkStatusWidget({ chain, T }) {
           {[
             { val: d ? fmtHashrate(d.hashrate) : '—', label: 'Hashrate',      size: 22, color: T.ink },
             { val: `${blockIntervalMin}m`,              label: 'Block Interval', size: 16, color: blockIntervalCol },
-            { val: `${halvingBlocks.toLocaleString()} blks`, label: 'Halving', size: 16, color: T.ink, sub: `~${halvingYrs}yr` },
+            { val: halvingBlocks != null ? `${halvingBlocks.toLocaleString()} blks` : '—', label: 'Halving',      size: 16, color: T.ink, sub: halvingBlocks != null ? `~${halvingYrs}yr` : null },
             { val: d ? fmtDiff(d.difficulty)   : '—', label: 'Difficulty',    size: 22, color: T.ink },
-            { val: `${blockSubsidy} BTC`,               label: 'Block Reward', size: 16, color: T.ink },
-            { val: `${Number((blockSubsidy / 2).toFixed(8))} BTC`, label: 'Next Reward', size: 16, color: T.ink4 },
+            { val: blockSubsidy  != null ? `${blockSubsidy} BTC`  : '—',                   label: 'Block Reward', size: 16, color: T.ink },
+            { val: blockSubsidy  != null ? `${Number((blockSubsidy / 2).toFixed(8))} BTC` : '—', label: 'Next Reward', size: 16, color: T.ink4 },
           ].map(({ val, label, size, color, sub }, i) => (
             <div key={i} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <div style={{

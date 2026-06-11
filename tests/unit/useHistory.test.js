@@ -61,7 +61,8 @@ describe('useHistory', () => {
     });
     renderHook(() => useHistory('fees', '24h'));
     await act(async () => {});
-    expect(spy.mock.calls[0][0]).toContain('127.0.0.1:3002/history/fees');
+    expect(spy.mock.calls[0][0]).toContain('/history/fees');
+    expect(spy.mock.calls[0][0]).toContain(':3002');
     expect(spy.mock.calls[0][0]).toContain('bucket=min');
   });
 
