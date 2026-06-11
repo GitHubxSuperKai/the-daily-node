@@ -1,6 +1,6 @@
 import React from 'react';
 import { useT } from '../../theme.js';
-import { fmtPrice, fmtPct, fmtHashrate, fmtDiff, fmtMempoolMB, fmtBlockTime } from '../../utils/formatting.js';
+import { fmtPrice, fmtPct, fmtHashrate, fmtDiff, fmtMempoolMB, fmtBlockTime, fmtNum } from '../../utils/formatting.js';
 import LineChart from '../LineChart.jsx';
 import { NetworkStatusWidget } from '../NetworkStatusWidget.jsx';
 import { OnThisDay } from '../OnThisDay.jsx';
@@ -21,19 +21,24 @@ function BitcoinPanel({ btc, chain }) {
   const T = useT();
 
   const d = btc.data;
-  const c = chain.data;
+  const c = chain?.data;
 
   const chgPct = d ? d.chgPct : null;
   const chgUp = chgPct != null && chgPct >= 0;
   const chgColor = chgUp ? T.green : T.red;
 
+  const blocksToClr = c ? Math.ceil(c.mempoolBytes / 1_000_000) : null;
+  const clrColor    = blocksToClr == null ? T.ink : blocksToClr <= 2 ? T.green : blocksToClr <= 8 ? T.ink : T.red;
+
   const vitals = [
-    { label: 'Hashrate',   value: c ? fmtHashrate(c.hashrate) : '—' },
-    { label: 'Difficulty', value: c ? fmtDiff(c.difficulty) : '—' },
-    { label: 'Block Time', value: c ? fmtBlockTime(c.blockTimeMs) : '—' },
-    { label: 'Mempool',    value: c ? fmtMempoolMB(c.mempoolBytes) : '—' },
-    { label: 'Fast Fee',   value: c ? `${c.feeFast} sat/vB` : '—' },
-    { label: 'Height',     value: c ? `#${Number(c.height).toLocaleString('en-US')}` : '—' },
+    { label: 'Hashrate',   value: c ? fmtHashrate(c.hashrate) : '—',                          color: T.ink },
+    { label: 'Difficulty', value: c ? fmtDiff(c.difficulty) : '—',                             color: T.ink },
+    { label: 'Block Time', value: c ? fmtBlockTime(c.blockTimeMs) : '—',                       color: T.ink },
+    { label: 'Mempool',    value: c ? fmtMempoolMB(c.mempoolBytes) : '—',                      color: T.ink },
+    { label: 'Fast Fee',   value: c ? `${c.feeFast} sat/vB` : '—',                             color: T.ink },
+    { label: 'Eco Fee',    value: c ? `${c.feeEco} sat/vB` : '—',                              color: T.ink },
+    { label: 'CLR',        value: blocksToClr != null ? `${blocksToClr} blk` : '—',            color: clrColor },
+    { label: 'Height',     value: c ? `#${Number(c.height).toLocaleString('en-US')}` : '—',    color: T.ink },
   ];
 
   return (
@@ -119,13 +124,64 @@ function BitcoinPanel({ btc, chain }) {
                   fontFamily: T.mono,
                   fontSize: 14,
                   fontWeight: 600,
-                  color: T.ink,
+                  color: v.color,
                 }}>{v.value}</div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* ── Epoch & Halving ── */}
+      {c && (
+        <div>
+          <div style={sectionLabel(T)}>Epoch & Halving</div>
+          <div style={{ height: 4, background: T.rule2, borderRadius: 2, marginBottom: 4 }}>
+            <div style={{
+              height: '100%',
+              width: `${Math.min(c.progressPercent || 0, 100)}%`,
+              background: T.orange,
+              borderRadius: 2,
+            }} />
+          </div>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontFamily: T.sans,
+            fontSize: 10,
+            color: T.ink3,
+            marginBottom: 12,
+          }}>
+            <span>{(c.progressPercent || 0).toFixed(0)}% complete</span>
+            <span>{fmtNum(c.remainingBlocks)} blk left</span>
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <div style={{
+              fontFamily: T.sans, fontSize: 9, fontWeight: 600,
+              letterSpacing: 1.5, textTransform: 'uppercase',
+              color: T.ink3, marginBottom: 2,
+            }}>Supply</div>
+            <div style={{ fontFamily: T.mono, fontSize: 14, fontWeight: 600, color: T.ink }}>
+              {c.circulating || '—'}
+            </div>
+          </div>
+          <div>
+            <div style={{
+              fontFamily: T.sans, fontSize: 9, fontWeight: 600,
+              letterSpacing: 1.5, textTransform: 'uppercase',
+              color: T.ink3, marginBottom: 2,
+            }}>Next Halving</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <span style={{ fontFamily: T.mono, fontSize: 14, fontWeight: 600, color: T.ink }}>
+                {c.nextHalvingDate || '—'}
+              </span>
+              <span style={{ fontFamily: T.mono, fontSize: 11, color: T.ink3 }}>
+                {c.height ? `${fmtNum(Math.ceil((c.height + 1) / 210000) * 210000 - c.height)} blk` : '—'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── On This Day ── */}
       <div>
