@@ -269,6 +269,7 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
                 self._json(502, {'error': f'proxy failed: {str(e)}'})
         else:
             self.send_response(404)
+            self._cors()
             self.end_headers()
 
     def do_POST(self):
