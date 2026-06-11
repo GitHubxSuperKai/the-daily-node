@@ -58,6 +58,14 @@ describe('useResettableInterval', () => {
     expect(cb).toHaveBeenCalledTimes(2);
   });
 
+  it('does NOT set up interval when delay is NaN', () => {
+    const cb = vi.fn();
+    renderHook(() => useResettableInterval(cb, NaN));
+    expect(cb).toHaveBeenCalledTimes(1);
+    act(() => { vi.advanceTimersByTime(10_000); });
+    expect(cb).toHaveBeenCalledTimes(1);
+  });
+
   it('reset() with delay=0 fires callback once but starts no interval', () => {
     const cb = vi.fn();
     const { result } = renderHook(() => useResettableInterval(cb, 0));

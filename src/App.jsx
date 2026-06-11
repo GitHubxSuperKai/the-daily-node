@@ -19,14 +19,15 @@ import { loadV2Prefs, saveV2Prefs } from './utils/v2prefs.js';
 import { RSS_FEED_MAP } from './config.js';
 
 const MIN_INTERVAL_MS = 5_000;
+const toMs = v => { const ms = Number(v) * 1000; return Number.isFinite(ms) && ms > 0 ? Math.max(MIN_INTERVAL_MS, ms) : MIN_INTERVAL_MS; };
 
 function applyV2ToConfig(p) {
   CONFIG.RSS_FEEDS = RSS_FEED_MAP.filter(f => p.feeds[f.key] !== false).map(f => f.url);
-  CONFIG.REFRESH_INTERVALS.price   = Math.max(MIN_INTERVAL_MS, p.intervals.price   * 1000);
-  CONFIG.REFRESH_INTERVALS.chain   = Math.max(MIN_INTERVAL_MS, p.intervals.chain   * 1000);
-  CONFIG.REFRESH_INTERVALS.weather = Math.max(MIN_INTERVAL_MS, p.intervals.weather * 1000);
-  CONFIG.REFRESH_INTERVALS.news    = Math.max(MIN_INTERVAL_MS, p.intervals.rss     * 1000);
-  CONFIG.REFRESH_INTERVALS.bitaxe  = Math.max(MIN_INTERVAL_MS, p.intervals.bitaxe  * 1000);
+  CONFIG.REFRESH_INTERVALS.price   = toMs(p.intervals.price);
+  CONFIG.REFRESH_INTERVALS.chain   = toMs(p.intervals.chain);
+  CONFIG.REFRESH_INTERVALS.weather = toMs(p.intervals.weather);
+  CONFIG.REFRESH_INTERVALS.news    = toMs(p.intervals.rss);
+  CONFIG.REFRESH_INTERVALS.bitaxe  = toMs(p.intervals.bitaxe);
   // Running hooks capture their interval on mount; changes take effect on next reload.
 }
 
