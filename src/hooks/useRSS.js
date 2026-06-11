@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import CONFIG from '../config.js';
 import { useResettableInterval } from './useResettableInterval.js';
-import { classifyTopic, timeAgo } from '../utils/formatting.js';
+import { classifyTopic, timeAgo, safeUrl } from '../utils/formatting.js';
 
 
 export function useRSS() {
@@ -29,7 +29,7 @@ export function useRSS() {
           src,
           pubDate: it.pubDate,
           t: timeAgo(it.pubDate),
-          link: it.link,
+          link: safeUrl(it.link),
           img:
             it.thumbnail ||
             (it.enclosure && it.enclosure.type && it.enclosure.type.startsWith('image/') ? it.enclosure.link : null) ||
