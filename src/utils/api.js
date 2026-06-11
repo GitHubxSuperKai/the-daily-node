@@ -3,7 +3,6 @@
 // All functions use fetch() with 5s timeout and sensible error handling
 
 import { log } from './log.js';
-import { safeUrl } from './formatting.js';
 
 const FETCH_TIMEOUT = 5000;
 
@@ -194,56 +193,6 @@ async function fetchWeather(lat, lng, tempUnit = 'fahrenheit', tzName = 'auto') 
   } catch (err) {
     log.error('fetchWeather error:', err);
     return {};
-  }
-}
-
-/**
- * Fetch multiple RSS feeds via rss2json
- * Returns: array of feed items sorted by pubDate
- */
-async function fetchRSSFeeds(feeds = [], apiKey = '') {
-  try {
-    if (!Array.isArray(feeds) || feeds.length === 0) {
-      return [];
-    }
-
-    const key = apiKey ? `&api_key=${apiKey}` : '';
-    const results = await Promise.allSettled(
-      feeds.map(async feedUrl => {
-        const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}${key}`;
-        const r = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT) });
-        if (!r.ok) throw new Error('rss2json api not ok');
-        const j = await r.json();
-        if (j.status !== 'ok') throw new Error('rss2json status not ok');
-
-        const src = j.feed.title || new URL(feedUrl).hostname;
-        return j.items.map(it => ({
-          cat: (it.categories && it.categories[0]) ? it.categories[0].toUpperCase().slice(0, 20) : 'BITCOIN',
-          topic: classifyTopic(it.title),
-          hed: it.title,
-          src,
-          pubDate: it.pubDate,
-          link: safeUrl(it.link),
-          img: it.thumbnail
-            || (it.enclosure && it.enclosure.type && it.enclosure.type.startsWith('image/') ? it.enclosure.link : null)
-            || (it.description ? (it.description.match(/<img\b[^>]*\bsrc=["']([^"']+)["']/i) || [])[1] || null : null)
-            || null,
-          snippet: it.description
-            ? it.description.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 1000)
-            : '',
-        }));
-      })
-    );
-
-    const all = results
-      .filter(r => r.status === 'fulfilled')
-      .flatMap(r => r.value)
-      .sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
-
-    return all;
-  } catch (err) {
-    log.error('fetchRSSFeeds error:', err);
-    return [];
   }
 }
 
@@ -442,7 +391,6 @@ if (typeof module !== 'undefined' && module.exports) {
     fetchMempoolBlocks,
     fetchBitcoinMeta,
     fetchWeather,
-    fetchRSSFeeds,
     fetchBitAxeMiners,
     fetchBitAxeMiner,
   };
