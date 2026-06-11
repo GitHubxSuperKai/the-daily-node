@@ -129,6 +129,7 @@ def fetch_all_miners():
 
 class BitaxeAPIHandler(BaseHTTPRequestHandler):
     ALLOWED_ORIGINS = []
+    ALLOWED_PROXY_HOSTS = frozenset()
     CONFIG_PATH = CONFIG_PATH  # overridden in __main__ from args.config
     _setup_page = None
     _dashboard = None
@@ -236,7 +237,9 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
                     self._json(400, {'error': 'loopback/link-local destinations not allowed'})
                     return
             except ValueError:
-                pass  # hostname (not a bare IP) — allow
+                if base_parsed.hostname not in self.ALLOWED_PROXY_HOSTS:
+                    self._json(400, {'error': 'hostname-based proxy URLs are not supported; use an IP address'})
+                    return
             target = base.rstrip('/') + path
             # Disable SSL verification for self-hosted nodes (self-signed certs)
             ssl_ctx = ssl.create_default_context()
