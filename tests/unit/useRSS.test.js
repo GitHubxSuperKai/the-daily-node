@@ -45,4 +45,48 @@ describe('useRSS', () => {
     expect(result.current.items).toEqual([]);
     expect(result.current.leadStory).toBeNull();
   });
+
+  it('strips javascript: links — unsafe link becomes null', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: 'ok',
+        feed: { title: 'XSSFeed' },
+        items: [
+          {
+            title: 'Safe story',
+            link: 'https://example.com/safe',
+            pubDate: new Date(2026, 0, 2).toISOString(),
+            description: '',
+            categories: ['News'],
+          },
+          {
+            title: 'XSS story',
+            link: 'javascript:alert(document.cookie)',
+            pubDate: new Date(2026, 0, 1).toISOString(),
+            description: '',
+            categories: ['News'],
+          },
+        ],
+      }),
+    });
+    const { result } = renderHook(() => useRSS());
+    await waitFor(() => expect(result.current.leadStory).not.toBeNull());
+
+    // CONFIG.RSS_FEEDS has 3 feeds; mock returns same 2 items per feed,
+    // so items contains duplicates. Filter by title to find the XSS item
+    // regardless of position.
+    const xssItems = result.current.items.filter(i => i.hed === 'XSS story');
+    expect(xssItems.length).toBeGreaterThan(0);
+    xssItems.forEach(i => expect(i.link).toBeNull());
+
+    // Safe items must keep their https: link
+    const allItems = [
+      ...(result.current.leadStory ? [result.current.leadStory] : []),
+      ...result.current.items,
+    ];
+    const safeItems = allItems.filter(i => i.hed === 'Safe story');
+    expect(safeItems.length).toBeGreaterThan(0);
+    safeItems.forEach(i => expect(i.link).toBe('https://example.com/safe'));
+  });
 });

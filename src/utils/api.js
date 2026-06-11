@@ -3,6 +3,7 @@
 // All functions use fetch() with 5s timeout and sensible error handling
 
 import { log } from './log.js';
+import { safeUrl } from './formatting.js';
 
 const FETCH_TIMEOUT = 5000;
 
@@ -222,7 +223,7 @@ async function fetchRSSFeeds(feeds = [], apiKey = '') {
           hed: it.title,
           src,
           pubDate: it.pubDate,
-          link: it.link,
+          link: safeUrl(it.link),
           img: it.thumbnail
             || (it.enclosure && it.enclosure.type && it.enclosure.type.startsWith('image/') ? it.enclosure.link : null)
             || (it.description ? (it.description.match(/<img\b[^>]*\bsrc=["']([^"']+)["']/i) || [])[1] || null : null)

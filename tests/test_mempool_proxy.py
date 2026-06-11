@@ -41,6 +41,8 @@ class MempoolProxyTestBase(unittest.TestCase):
     def setUpClass(cls):
         # Allow same-origin (no Origin header) — _check_origin returns True
         bitaxe_api.BitaxeAPIHandler.ALLOWED_ORIGINS = []
+        # Allow 'localhost' for stub upstream; production default is frozenset()
+        bitaxe_api.BitaxeAPIHandler.ALLOWED_PROXY_HOSTS = frozenset({'localhost'})
 
         # Use port 0 — OS assigns an available port atomically, no TOCTOU race.
         cls.proxy = HTTPServer(('127.0.0.1', 0), bitaxe_api.BitaxeAPIHandler)
@@ -84,9 +86,8 @@ class HappyPathTest(MempoolProxyTestBase):
         _StubUpstream.status = 200
 
     def test_proxies_upstream_body_verbatim(self):
-        # 'localhost' is a hostname, not a bare IP, so loopback IP check
-        # falls through (per bitaxe_api.py:225-226). Actual DNS resolution
-        # then hits 127.0.0.1, which is what we want here.
+        # 'localhost' is a hostname; passes because ALLOWED_PROXY_HOSTS includes
+        # 'localhost' in tests (patched in setUpClass for stub infrastructure).
         base = f'http://localhost:{self.upstream_port}'
         path = '/api/blocks/tip/height'
         status, body = self._get(f'/api/mempool-proxy?base={base}&path={path}')
@@ -166,6 +167,30 @@ class BaseUrlValidationTest(MempoolProxyTestBase):
         self.assertEqual(status, 400)
         self.assertEqual(json.loads(body)['error'], 'loopback/link-local destinations not allowed')
 
+    def test_unspecified_ipv4_rejected(self):
+        # 0.0.0.0 routes to localhost on Linux — must be blocked
+        status, body = self._get_raw('base=http://0.0.0.0&path=/api/x')
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body)['error'], 'loopback/link-local destinations not allowed')
+
+    def test_unspecified_ipv6_rejected(self):
+        # :: routes to localhost on Linux — must be blocked
+        status, body = self._get_raw('base=http://[::]&path=/api/x')
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body)['error'], 'loopback/link-local destinations not allowed')
+
+    def test_ipv4_mapped_loopback_rejected(self):
+        # ::ffff:127.0.0.1 is IPv4-mapped IPv6; is_loopback=False but connects to 127.0.0.1
+        status, body = self._get_raw('base=http://[::ffff:127.0.0.1]&path=/api/x')
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body)['error'], 'loopback/link-local destinations not allowed')
+
+    def test_ipv4_mapped_link_local_rejected(self):
+        # ::ffff:169.254.169.254 is IPv4-mapped IPv6; is_link_local=False but reaches metadata range
+        status, body = self._get_raw('base=http://[::ffff:169.254.169.254]&path=/api/x')
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body)['error'], 'loopback/link-local destinations not allowed')
+
 
 class ResponseSizeCapTest(MempoolProxyTestBase):
     def test_oversized_upstream_response_returns_502(self):
@@ -228,6 +253,38 @@ class UpstreamErrorTest(MempoolProxyTestBase):
         status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/x')
         self.assertEqual(status, 502)
         self.assertTrue(json.loads(body)['error'].startswith('proxy failed'))
+
+
+class HostnameAllowlistTest(MempoolProxyTestBase):
+    """Hostname-based base URLs are rejected unless explicitly in ALLOWED_PROXY_HOSTS."""
+
+    def test_unlisted_hostname_rejected(self):
+        # evil.com is a hostname; not in the allowlist (even in tests,
+        # where only 'localhost' is added for stub infrastructure)
+        status, body = self._get(
+            '/api/mempool-proxy?base=http://evil.com&path=/api/v1/blocks/tip/height'
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(
+            json.loads(body)['error'],
+            'hostname-based proxy URLs are not supported; use an IP address'
+        )
+
+    def test_listed_hostname_allowed(self):
+        # 'localhost' is added to ALLOWED_PROXY_HOSTS in MempoolProxyTestBase.setUpClass
+        # (test infrastructure; production default is frozenset())
+        _StubUpstream.body = b'{"height": 900000}'
+        _StubUpstream.status = 200
+        try:
+            base = f'http://localhost:{self.upstream_port}'
+            status, body = self._get(
+                f'/api/mempool-proxy?base={base}&path=/api/v1/blocks/tip/height'
+            )
+            self.assertEqual(status, 200)
+            self.assertEqual(json.loads(body), {'height': 900000})
+        finally:
+            _StubUpstream.body = b'{"ok": true}'
+            _StubUpstream.status = 200
 
 
 if __name__ == '__main__':
