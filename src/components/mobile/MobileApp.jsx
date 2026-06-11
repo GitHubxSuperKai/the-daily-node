@@ -90,7 +90,7 @@ function MobileApp(props) {
         <BitcoinPanel btc={btc} chain={chain} />
       )}
       {activeTab === 'miners' && (
-        <MinersPanel bitaxe={bitaxe} />
+        <MinersPanel bitaxe={bitaxe} chain={chain} />
       )}
       {activeTab === 'news' && (
         <NewsPanel rss={rss} />

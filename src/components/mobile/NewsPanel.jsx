@@ -28,6 +28,21 @@ function NewsPanel({ rss }) {
           }}>
             {lead.topic === 'BREAKING' ? 'BREAKING' : `● ${lead.cat || 'TOP'}`} · {lead.src}
           </div>
+          {lead.img && (
+            <img
+              src={lead.img}
+              alt=""
+              style={{
+                width: '100%',
+                height: 160,
+                objectFit: 'cover',
+                borderRadius: 6,
+                display: 'block',
+                marginBottom: 10,
+              }}
+              onError={function(e) { e.target.style.display = 'none'; }}
+            />
+          )}
           <a href={lead.link} target="_blank" rel="noopener noreferrer">
             <h2 style={{
               fontFamily: T.serif, fontSize: 26, fontWeight: 700,
@@ -36,6 +51,20 @@ function NewsPanel({ rss }) {
               {lead.hed}
             </h2>
           </a>
+          {lead.snippet && (
+            <p style={{
+              fontFamily: T.body,
+              fontSize: 14,
+              lineHeight: 1.5,
+              color: T.ink2,
+              marginTop: 8,
+              marginBottom: 0,
+            }}>
+              {lead.snippet.length > 160
+                ? lead.snippet.slice(0, 160) + '…'
+                : lead.snippet}
+            </p>
+          )}
         </section>
       )}
 
