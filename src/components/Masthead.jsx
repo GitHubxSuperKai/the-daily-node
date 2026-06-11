@@ -32,7 +32,7 @@ const MASTHEAD_QUOTES = [
 export function Masthead({ clock: _clock, wxSummary: _wxSummary, blockReward, rewardEra, dark, onToggleDark, onOpenSettings }) {
   const T = useT();
 
-  const quote = MASTHEAD_QUOTES[new Date().getHours()];
+  const quote = MASTHEAD_QUOTES[new Date().getHours() % MASTHEAD_QUOTES.length];
 
   const metaStyle = {
     fontFamily: T.sans,
