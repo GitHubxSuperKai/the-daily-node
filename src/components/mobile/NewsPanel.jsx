@@ -5,9 +5,8 @@ const isFreshTs = t => t === 'just now' || /^\d+s ago$/.test(t) || /^[1-4]m ago$
 
 function NewsPanel({ rss }) {
   const T = useT();
-  const items = (rss && rss.items) || [];
-  const lead = items[0];
-  const rest = items.slice(1, 25);
+  const lead = rss?.leadStory ?? null;
+  const rest = (rss && rss.items) || [];
 
   return (
     <div style={{ padding: '14px 16px 80px', background: T.paper, color: T.ink }}>
@@ -77,7 +76,7 @@ function NewsPanel({ rss }) {
         }}>
           Bitcoin News
         </div>
-        {items.length === 0 ? (
+        {rest.length === 0 ? (
           <div style={{ fontFamily: T.num, fontSize: 12, color: T.ink3 }}>
             {rss && rss.err ? 'Feed unavailable' : 'Loading…'}
           </div>

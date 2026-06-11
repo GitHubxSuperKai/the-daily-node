@@ -18,9 +18,19 @@ import { LIGHT, DARK, ThemeCtx } from './theme.js';
 import { loadV2Prefs, saveV2Prefs } from './utils/v2prefs.js';
 import { RSS_FEED_MAP } from './config.js';
 
+function applyV2ToConfig(p) {
+  CONFIG.RSS_FEEDS = RSS_FEED_MAP.filter(f => p.feeds[f.key] !== false).map(f => f.url);
+  CONFIG.REFRESH_INTERVALS.price   = p.intervals.price   * 1000;
+  CONFIG.REFRESH_INTERVALS.chain   = p.intervals.chain   * 1000;
+  CONFIG.REFRESH_INTERVALS.weather = p.intervals.weather * 1000;
+  CONFIG.REFRESH_INTERVALS.news    = p.intervals.rss     * 1000;
+  CONFIG.REFRESH_INTERVALS.bitaxe  = p.intervals.bitaxe  * 1000;
+  // Running hooks capture their interval on mount; changes take effect on next reload.
+}
+
 function App() {
   // ─── Dark Mode ────────────────────────────────────────────
-  const [dark, setDark] = React.useState(false);
+  const [dark, setDark] = React.useState(() => loadV2Prefs().theme === 'dark');
 
   // ─── Settings Panel ───────────────────────────────────────
   const [settingsOpen, setSettingsOpen] = React.useState(false);
@@ -59,12 +69,7 @@ function App() {
   // ─── v2 Prefs (alerts, feeds, intervals, theme) ───────────────
   const [v2prefs, setV2Prefs] = React.useState(() => {
     const p = loadV2Prefs();
-    CONFIG.RSS_FEEDS = RSS_FEED_MAP.filter(f => p.feeds[f.key] !== false).map(f => f.url);
-    CONFIG.REFRESH_INTERVALS.price   = p.intervals.price   * 1000;
-    CONFIG.REFRESH_INTERVALS.chain   = p.intervals.chain   * 1000;
-    CONFIG.REFRESH_INTERVALS.weather = p.intervals.weather * 1000;
-    CONFIG.REFRESH_INTERVALS.news    = p.intervals.rss     * 1000;
-    CONFIG.REFRESH_INTERVALS.bitaxe  = p.intervals.bitaxe  * 1000;
+    applyV2ToConfig(p);
     return p;
   });
 
@@ -93,22 +98,16 @@ function App() {
 
   React.useEffect(() => {
     document.documentElement.style.setProperty('--paper', dark ? DARK.paper : LIGHT.paper);
+    document.body.style.background = dark ? DARK.paper : LIGHT.paper;
   }, [dark]);
 
   // ─── Event Handlers ───────────────────────────────────────
-  const handleToggleDark = () => {
-    setDark(prev => {
-      const next = !prev;
-      document.body.style.background = next ? DARK.paper : LIGHT.paper;
-      document.documentElement.style.setProperty('--paper', next ? DARK.paper : LIGHT.paper);
-      return next;
-    });
-  };
+  const handleToggleDark = () => setDark(prev => !prev);
 
   const handleSaveV2Prefs = React.useCallback((newPrefs) => {
     saveV2Prefs(newPrefs);
     setV2Prefs(newPrefs);
-    CONFIG.RSS_FEEDS = RSS_FEED_MAP.filter(f => newPrefs.feeds[f.key] !== false).map(f => f.url);
+    applyV2ToConfig(newPrefs);
     if (newPrefs.theme === 'dark')  setDark(true);
     if (newPrefs.theme === 'light') setDark(false);
   }, []);

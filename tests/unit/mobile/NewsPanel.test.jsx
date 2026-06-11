@@ -32,8 +32,8 @@ const leadNoImage = {
   snippet: '',
 };
 
-const rssWithImage = { items: [leadWithImage], err: null };
-const rssNoImage   = { items: [leadNoImage],  err: null };
+const rssWithImage = { leadStory: leadWithImage, items: [], err: null };
+const rssNoImage   = { leadStory: leadNoImage, items: [], err: null };
 
 describe('NewsPanel — lead story', () => {
   it('renders lead headline', () => {
@@ -66,7 +66,7 @@ describe('NewsPanel — lead story', () => {
 
   it('truncates snippet longer than 160 chars', () => {
     const longSnippet = 'A'.repeat(200);
-    const rssLong = { items: [{ ...leadWithImage, snippet: longSnippet }], err: null };
+    const rssLong = { leadStory: { ...leadWithImage, snippet: longSnippet }, items: [], err: null };
     wrap(<NewsPanel rss={rssLong} />);
     const truncated = screen.getByText('A'.repeat(160) + '…');
     expect(truncated).toBeDefined();

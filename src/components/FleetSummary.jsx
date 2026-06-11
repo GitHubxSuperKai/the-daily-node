@@ -36,9 +36,9 @@ export function FleetSummary({ miners }) {
     ? activeMiners.reduce((s, m) => s + (m.data?.temp || m.data?.temperature || 0), 0) / activeMiners.length
     : 0;
 
-  const vrAvailable = miners.some(m => m.data?.vrTemp != null);
-  const avgVr = vrAvailable && activeMiners.length > 0
-    ? activeMiners.reduce((s, m) => s + (m.data?.vrTemp || 0), 0) / activeMiners.length
+  const vrMiners = activeMiners.filter(m => m.data?.vrTemp != null);
+  const avgVr = vrMiners.length
+    ? vrMiners.reduce((s, m) => s + m.data.vrTemp, 0) / vrMiners.length
     : null;
 
   const ft = { ...tnum, fontWeight: 700, padding: `${u(5)} 0` };
