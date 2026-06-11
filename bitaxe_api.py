@@ -233,7 +233,11 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             # Block loopback and link-local SSRF — LAN addresses are expected (Start9), loopback/metadata are not
             try:
                 ip = ipaddress.ip_address(base_parsed.hostname or '')
-                if ip.is_loopback or ip.is_link_local:
+                # Normalize IPv4-mapped IPv6 (::ffff:127.0.0.1) before checking so
+                # is_loopback / is_link_local fire correctly for the mapped address.
+                if ip.version == 6 and ip.ipv4_mapped:
+                    ip = ip.ipv4_mapped
+                if ip.is_loopback or ip.is_link_local or ip.is_unspecified:
                     self._json(400, {'error': 'loopback/link-local destinations not allowed'})
                     return
             except ValueError:

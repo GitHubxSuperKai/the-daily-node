@@ -167,6 +167,30 @@ class BaseUrlValidationTest(MempoolProxyTestBase):
         self.assertEqual(status, 400)
         self.assertEqual(json.loads(body)['error'], 'loopback/link-local destinations not allowed')
 
+    def test_unspecified_ipv4_rejected(self):
+        # 0.0.0.0 routes to localhost on Linux — must be blocked
+        status, body = self._get_raw('base=http://0.0.0.0&path=/api/x')
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body)['error'], 'loopback/link-local destinations not allowed')
+
+    def test_unspecified_ipv6_rejected(self):
+        # :: routes to localhost on Linux — must be blocked
+        status, body = self._get_raw('base=http://[::]&path=/api/x')
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body)['error'], 'loopback/link-local destinations not allowed')
+
+    def test_ipv4_mapped_loopback_rejected(self):
+        # ::ffff:127.0.0.1 is IPv4-mapped IPv6; is_loopback=False but connects to 127.0.0.1
+        status, body = self._get_raw('base=http://[::ffff:127.0.0.1]&path=/api/x')
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body)['error'], 'loopback/link-local destinations not allowed')
+
+    def test_ipv4_mapped_link_local_rejected(self):
+        # ::ffff:169.254.169.254 is IPv4-mapped IPv6; is_link_local=False but reaches metadata range
+        status, body = self._get_raw('base=http://[::ffff:169.254.169.254]&path=/api/x')
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body)['error'], 'loopback/link-local destinations not allowed')
+
 
 class ResponseSizeCapTest(MempoolProxyTestBase):
     def test_oversized_upstream_response_returns_502(self):
