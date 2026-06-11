@@ -152,6 +152,7 @@ export default [
       '_site/**',
       'docs/**',
       '.worktrees/**',
+      '.claude/**',
     ],
   },
 ];
