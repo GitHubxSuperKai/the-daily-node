@@ -4,7 +4,7 @@
 
 **Goal:** Fix two confirmed security vulnerabilities: XSS via unsanitized RSS link URLs and SSRF via DNS rebinding in the mempool proxy endpoint.
 
-**Architecture:** Add `safeUrl()` to `src/utils/formatting.js` and apply it once at the useRSS data layer; no render-site changes needed. In `bitaxe_api.py`, add `ALLOWED_PROXY_HOSTS` as a class attribute on `BitaxeAPIHandler` and reject hostname-based proxy URLs that are not in the allowlist.
+**Architecture:** Add `safeUrl()` to `src/utils/formatting.js` and apply it once at the useRSS data layer (plus the dead `fetchRSSFeeds` in api.js for consistency); no render-site changes needed. In `bitaxe_api.py`, add `ALLOWED_PROXY_HOSTS = frozenset()` as a class attribute on `BitaxeAPIHandler` and reject all hostname-based proxy URLs not in the allowlist (default: none — the proxy serves LAN IP nodes only).
 
 **Tech Stack:** JavaScript/React (esbuild bundle, Vitest tests), Python 3 (stdlib HTTPServer, unittest)
 
@@ -16,8 +16,9 @@
 |------|--------|
 | `src/utils/formatting.js` | Add `safeUrl(url)` function + export it |
 | `src/hooks/useRSS.js` | Import `safeUrl`; apply to `it.link` |
+| `src/utils/api.js` | Apply `safeUrl` to dead `fetchRSSFeeds` mapper (one line) |
 | `tests/unit/useRSS.test.js` | Add test: `javascript:` link → `null`; `https:` passes |
-| `bitaxe_api.py` | Add `ALLOWED_PROXY_HOSTS` class attr; fix `except ValueError` |
+| `bitaxe_api.py` | Add `ALLOWED_PROXY_HOSTS = frozenset()` class attr; fix `except ValueError` |
 | `tests/test_mempool_proxy.py` | Patch allowlist in base class; add `HostnameAllowlistTest` |
 
 ---
@@ -61,8 +62,18 @@ it('strips javascript: links — unsafe link becomes null', async () => {
   const { result } = renderHook(() => useRSS());
   await waitFor(() => expect(result.current.leadStory).not.toBeNull());
 
-  expect(result.current.leadStory.link).toBe('https://example.com/safe');
-  expect(result.current.items[0].link).toBeNull();
+  // CONFIG.RSS_FEEDS has 3 feeds; mock returns same 2 items per feed, so
+  // items contains duplicates sorted by pubDate desc. Filter by title to find
+  // the XSS item regardless of its position.
+  const xssItems = result.current.items.filter(i => i.hed === 'XSS story');
+  expect(xssItems.length).toBeGreaterThan(0);
+  xssItems.forEach(i => expect(i.link).toBeNull());
+
+  // Safe items must keep their https: link
+  const safeItems = [...(result.current.leadStory ? [result.current.leadStory] : []),
+                     ...result.current.items].filter(i => i.hed === 'Safe story');
+  expect(safeItems.length).toBeGreaterThan(0);
+  safeItems.forEach(i => expect(i.link).toBe('https://example.com/safe'));
 });
 ```
 
@@ -175,10 +186,29 @@ The new `'strips javascript: links'` test must be listed as PASS. Python tests r
 
 If the count is 235+ that is correct (new test added).
 
+- [ ] **Step 5b: Apply `safeUrl` to dead `fetchRSSFeeds` mapper in `src/utils/api.js`**
+
+`fetchRSSFeeds` at line ~225 has the same `link: it.link` mapping. It has zero callers but is exported, so a future caller would reintroduce the vulnerability. Fix the one line:
+
+Find (around line 225, inside `fetchRSSFeeds`):
+```js
+          link: it.link,
+```
+Replace with:
+```js
+          link: safeUrl(it.link),
+```
+
+Also add `safeUrl` to the import at the top of `api.js`. Find the existing formatting import (look for `import {` and `formatting.js`):
+```js
+import { classifyTopic, timeAgo } from './utils/formatting.js';
+```
+— or whatever the existing import looks like in api.js — and add `safeUrl` to it. If `api.js` uses `require()` or CJS, mirror the pattern.
+
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/utils/formatting.js src/hooks/useRSS.js tests/unit/useRSS.test.js
+git add src/utils/formatting.js src/hooks/useRSS.js src/utils/api.js tests/unit/useRSS.test.js
 git commit -m "fix(xss): sanitize RSS item links via safeUrl() — block javascript: scheme"
 ```
 
@@ -190,7 +220,7 @@ git commit -m "fix(xss): sanitize RSS item links via safeUrl() — block javascr
 - Modify: `bitaxe_api.py` (add class attr + fix except block)
 - Modify: `tests/test_mempool_proxy.py` (patch allowlist in base class; add HostnameAllowlistTest)
 
-**Background:** `BitaxeAPIHandler` has class-level attrs `ALLOWED_ORIGINS` and `CONFIG_PATH` that tests patch via `bitaxe_api.BitaxeAPIHandler.ALLOWED_ORIGINS = [...]`. Add `ALLOWED_PROXY_HOSTS` following the same pattern so tests can extend it to include `'localhost'` (needed by the stub upstream infrastructure).
+**Background:** The proxy is only ever used for self-hosted LAN nodes (Start9, Umbrel etc.). Those nodes are almost always accessed by bare LAN IP (e.g. `192.168.1.59:3006`), which already passes the existing IP check. The default allowlist is therefore `frozenset()` — no hostnames allowed unless explicitly configured. The class-attribute pattern (`ALLOWED_PROXY_HOSTS`) mirrors how `ALLOWED_ORIGINS` is done, so tests can patch it to `frozenset({'localhost'})` to let the stub upstream at `127.0.0.1` work without coupling production config to test infra.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -198,23 +228,28 @@ In `tests/test_mempool_proxy.py`, add a new test class **after** `UpstreamErrorT
 
 ```python
 class HostnameAllowlistTest(MempoolProxyTestBase):
-    """Hostname-based base URLs are rejected unless the hostname is in ALLOWED_PROXY_HOSTS."""
+    """Hostname-based base URLs are rejected unless explicitly in ALLOWED_PROXY_HOSTS."""
 
     def test_unlisted_hostname_rejected(self):
-        # evil.com is a hostname not in ALLOWED_PROXY_HOSTS
+        # evil.com is a hostname; not in the allowlist (even in tests, where
+        # only 'localhost' is added for stub infrastructure)
         status, body = self._get('/api/mempool-proxy?base=http://evil.com&path=/api/v1/blocks/tip/height')
         self.assertEqual(status, 400)
-        self.assertEqual(json.loads(body)['error'], 'hostname-based proxy URLs must use an allowed host')
+        self.assertEqual(json.loads(body)['error'], 'hostname-based proxy URLs are not supported; use an IP address')
 
     def test_listed_hostname_allowed(self):
         # 'localhost' is added to ALLOWED_PROXY_HOSTS in MempoolProxyTestBase.setUpClass
-        # (test infrastructure; production only allows mempool.space)
+        # (test infrastructure; production default is frozenset())
         _StubUpstream.body = b'{"height": 900000}'
         _StubUpstream.status = 200
-        base = f'http://localhost:{self.upstream_port}'
-        status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/v1/blocks/tip/height')
-        self.assertEqual(status, 200)
-        self.assertEqual(json.loads(body), {'height': 900000})
+        try:
+            base = f'http://localhost:{self.upstream_port}'
+            status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/v1/blocks/tip/height')
+            self.assertEqual(status, 200)
+            self.assertEqual(json.loads(body), {'height': 900000})
+        finally:
+            _StubUpstream.body = b'{"ok": true}'
+            _StubUpstream.status = 200
 ```
 
 - [ ] **Step 2: Run the tests to confirm they fail**
@@ -227,12 +262,12 @@ Expected: FAIL — `test_unlisted_hostname_rejected` gets 200 (bug: hostname pas
 
 - [ ] **Step 3: Add `ALLOWED_PROXY_HOSTS` to `BitaxeAPIHandler` in `bitaxe_api.py`**
 
-In the class definition (around line 131, after `ALLOWED_ORIGINS = []`), add the new class attribute:
+In the class definition (around line 131, after `ALLOWED_ORIGINS = []`), add the new class attribute. Default is `frozenset()` — no hostnames allowed. Administrators who genuinely need hostname-based proxy access can add entries at startup; in practice, all documented LAN node configurations (Start9, Umbrel) use bare IPs.
 
 ```python
 class BitaxeAPIHandler(BaseHTTPRequestHandler):
     ALLOWED_ORIGINS = []
-    ALLOWED_PROXY_HOSTS = frozenset({'mempool.space'})
+    ALLOWED_PROXY_HOSTS = frozenset()
     CONFIG_PATH = CONFIG_PATH  # overridden in __main__ from args.config
     _setup_page = None
     _dashboard = None
@@ -262,7 +297,7 @@ Replace the `except ValueError` block:
                     return
             except ValueError:
                 if base_parsed.hostname not in self.ALLOWED_PROXY_HOSTS:
-                    self._json(400, {'error': 'hostname-based proxy URLs must use an allowed host'})
+                    self._json(400, {'error': 'hostname-based proxy URLs are not supported; use an IP address'})
                     return
 ```
 
@@ -275,8 +310,8 @@ In `tests/test_mempool_proxy.py`, update `MempoolProxyTestBase.setUpClass` to pa
     def setUpClass(cls):
         # Allow same-origin (no Origin header) — _check_origin returns True
         bitaxe_api.BitaxeAPIHandler.ALLOWED_ORIGINS = []
-        # Allow 'localhost' for stub upstream; production only allows 'mempool.space'
-        bitaxe_api.BitaxeAPIHandler.ALLOWED_PROXY_HOSTS = frozenset({'mempool.space', 'localhost'})
+        # Allow 'localhost' for stub upstream; production default is frozenset()
+        bitaxe_api.BitaxeAPIHandler.ALLOWED_PROXY_HOSTS = frozenset({'localhost'})
 
         # Use port 0 — OS assigns an available port atomically, no TOCTOU race.
         cls.proxy = HTTPServer(('127.0.0.1', 0), bitaxe_api.BitaxeAPIHandler)
@@ -317,7 +352,7 @@ Expected: all tests pass, including the two new `HostnameAllowlistTest` cases an
 npm test
 ```
 
-Expected: 30 Python tests pass (was 28 before; 2 new tests added), 234+ JS unit tests pass, smoke passes.
+Expected: 32 Python tests pass (was 30 before; 2 new tests added), 234+ JS unit tests pass, smoke passes.
 
 - [ ] **Step 8: Commit**
 
