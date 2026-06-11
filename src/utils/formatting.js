@@ -206,6 +206,16 @@ function isFresh(t) {
   return t === 'just now' || /^\d+s ago$/.test(t) || /^[1-4]m ago$/.test(t);
 }
 
+function safeUrl(url) {
+  if (!url) return null;
+  try {
+    const scheme = new URL(url).protocol;
+    return scheme === 'http:' || scheme === 'https:' ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── CommonJS Exports ────────────────────────────────────────────
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -232,5 +242,6 @@ if (typeof module !== 'undefined' && module.exports) {
     fmtBestDiff,
     classifyTopic,
     isFresh,
+    safeUrl,
   };
 }
