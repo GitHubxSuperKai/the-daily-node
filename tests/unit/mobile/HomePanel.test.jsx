@@ -31,7 +31,7 @@ const baseProps = {
       { hr: 11, t: 74, code: 1, pop: 20 },
     ],
   }, err: null },
-  rss: { items: [{ hed: 'Top story', link: 'https://x', topic: '', src: 'src', t: 'just now' }], err: null },
+  rss: { leadStory: { hed: 'Top story', link: 'https://x', topic: '', src: 'src', t: 'just now' }, items: [], err: null },
   feedHealth: 'live',
 };
 

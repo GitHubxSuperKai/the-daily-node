@@ -23,7 +23,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
 
   const wx = weather && weather.data;
   const tempUnit = prefs.tempUnit === 'celsius' ? '°C' : '°F';
-  const lead = rss && rss.items && rss.items[0];
+  const lead = rss?.leadStory ?? null;
 
   const btcChange = btc.data ? btc.data.chgPct : null;
   const btcUp = btcChange != null && btcChange >= 0;
