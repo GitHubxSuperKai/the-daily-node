@@ -14,6 +14,7 @@ export function useResettableInterval(callback, delay) {
 
   const start = useCallback(() => {
     if (idRef.current) clearInterval(idRef.current);
+    if (!delay || delay <= 0) return;
     idRef.current = setInterval(() => cbRef.current(), delay);
   }, [delay]);
 
