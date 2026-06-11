@@ -29,21 +29,18 @@ export function useWeather(lat, lng, tempUnit) {
       const cur = j.current;
       const windDirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
       const windDir = windDirs[Math.round(cur.wind_direction_10m / 45) % 8];
-      const now = new Date();
-      const curHour = now.getHours();
-
-      // Build 8 hourly slots starting from current hour
+      // Build 8 hourly slots starting from the current time.
+      // Find the first entry whose timestamp is >= now, then take 8 sequential
+      // entries — avoids midnight wraparound from hour-of-day matching.
+      const nowMs = Date.now();
+      const startIdx = j.hourly.time.findIndex(t => new Date(t).getTime() >= nowMs);
+      const base = startIdx >= 0 ? startIdx : 0;
       const hourly = [];
       for (let i = 0; i < 8; i++) {
-        const idx = j.hourly.time.findIndex(t => {
-          const h = new Date(t).getHours();
-          return h === (curHour + i) % 24;
-        });
-        if (idx >= 0) {
-          const t = new Date(j.hourly.time[idx]);
-          const hr = t.getHours();
+        const idx = base + i;
+        if (idx < j.hourly.time.length) {
           hourly.push({
-            hr,
+            hr: new Date(j.hourly.time[idx]).getHours(),
             t: Math.round(j.hourly.temperature_2m[idx]),
             code: j.hourly.weather_code[idx],
             pop: j.hourly.precipitation_probability[idx] ?? 0,
