@@ -16,6 +16,12 @@ const CONFIG = {
   // rss2json API key — free tier works without one, or get one at rss2json.com
   RSS2JSON_KEY: '',
 
+  // Base URL for history_daemon. Derived from the serving host so remote
+  // viewers on the local network reach the daemon correctly.
+  HISTORY_BASE: typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.hostname}:3002`
+    : 'http://127.0.0.1:3002',
+
   // ─── Weather ──────────────────────────────────────────
   // Your location for weather (decimal degrees)
   // User customization via: in-app location search or edit before build
