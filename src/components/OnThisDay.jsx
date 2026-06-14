@@ -34,17 +34,10 @@ const BTC_HISTORY = [
   { mo:2,  d:9,  y:2011, t:'Bitcoin reaches parity with the US dollar for the first time.' },
 ];
 
-function getOnThisDay(date) {
+export function getOnThisDay(date) {
   const mo = date.getMonth() + 1;
   const d  = date.getDate();
-  let best = null, bestDist = Infinity;
-  for (const e of BTC_HISTORY) {
-    const eDoy = e.mo * 31 + e.d;
-    const tDoy = mo * 31 + d;
-    const dist = Math.min(Math.abs(eDoy - tDoy), 31 * 12 - Math.abs(eDoy - tDoy));
-    if (dist < bestDist) { bestDist = dist; best = e; }
-  }
-  return best;
+  return BTC_HISTORY.find(e => e.mo === mo && e.d === d) || null;
 }
 
 export function OnThisDay() {
@@ -72,6 +65,10 @@ export function OnThisDay() {
           fontSize: u(13),
           lineHeight: 1.5,
           color: T.ink2,
+          display: '-webkit-box',
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
         }}>
           {entry.t}
         </div>
