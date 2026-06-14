@@ -107,31 +107,73 @@ function MinersPanel({ bitaxe, chain }) {
               const hostname = (m.data && m.data.hostname) || m.ip;
               const hashTHs = m.online && m.data ? ((m.data.hashRate || 0) / 1000).toFixed(1) : null;
               const temp = m.online && m.data ? m.data.temp : null;
+              const watts = m.online && m.data && m.data.power != null ? Math.round(m.data.power) : null;
+              const uptimePct = m.online && m.data && m.data.uptimeSeconds != null
+                ? Math.min(99.9, (m.data.uptimeSeconds / 86400) * 100).toFixed(0)
+                : null;
+              const sharesAcc = m.online && m.data && m.data.sharesAccepted != null
+                ? m.data.sharesAccepted
+                : null;
+              const sharesRej = m.online && m.data ? (m.data.sharesRejected || 0) : null;
+              const hasStats = watts !== null || uptimePct !== null || sharesAcc !== null;
               return (
                 <div key={m.ip} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
+                  paddingBottom: 12,
+                  borderBottom: `0.5px solid ${T.rule3}`,
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {/* Primary row: status + name | hash + temp */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{
+                        width: 8, height: 8, borderRadius: '50%',
+                        background: m.online ? T.green : T.red,
+                        display: 'inline-block', flexShrink: 0,
+                      }} />
+                      <span style={{ fontFamily: T.sans, fontSize: 14, color: T.ink }}>
+                        {hostname}
+                      </span>
+                    </div>
                     <span style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      background: m.online ? T.green : T.red,
-                      display: 'inline-block',
-                      flexShrink: 0,
-                    }} />
-                    <span style={{ fontFamily: T.sans, fontSize: 14, color: T.ink }}>
-                      {hostname}
+                      fontFamily: T.mono, fontSize: 13,
+                      color: m.online ? T.ink : T.red,
+                      fontFeatureSettings: '"tnum" 1, "lnum" 1',
+                    }}>
+                      {m.online
+                        ? `${hashTHs} TH/s${temp != null ? `  ${temp}°C` : ''}`
+                        : 'offline'
+                      }
                     </span>
                   </div>
-                  <span style={{ fontFamily: T.mono, fontSize: 13, color: m.online ? T.ink : T.red, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
-                    {m.online
-                      ? `${hashTHs} TH/s${temp != null ? `  ${temp}°C` : ''}`
-                      : 'offline'
-                    }
-                  </span>
+                  {/* Secondary row: power + uptime + shares (online only, when any stat available) */}
+                  {m.online && hasStats && (
+                    <div style={{ display: 'flex', gap: 12, marginTop: 4, paddingLeft: 16 }}>
+                      {watts !== null && (
+                        <span style={{
+                          fontFamily: T.mono, fontSize: 11, color: T.ink3,
+                          fontFeatureSettings: '"tnum" 1, "lnum" 1',
+                        }}>
+                          {watts}W
+                        </span>
+                      )}
+                      {uptimePct !== null && (
+                        <span style={{
+                          fontFamily: T.mono, fontSize: 11, color: T.ink3,
+                          fontFeatureSettings: '"tnum" 1, "lnum" 1',
+                        }}>
+                          {uptimePct}% up
+                        </span>
+                      )}
+                      {sharesAcc !== null && (
+                        <span style={{
+                          fontFamily: T.mono, fontSize: 11,
+                          color: sharesRej > 50 ? T.red : T.ink3,
+                          fontFeatureSettings: '"tnum" 1, "lnum" 1',
+                        }}>
+                          {sharesAcc.toLocaleString()}/{sharesRej}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
