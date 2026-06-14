@@ -2,7 +2,7 @@ import React from 'react';
 import { fmtHashrate, fmtDiff, fmtNum, fmtBlockSize, safeISODate } from '../utils/formatting.js';
 import { u } from '../utils/scale.js';
 
-function SubLabel({ children, right, alert, rightColor, noBorder, badge, T }) {
+function SubLabel({ children, right, alert, rightColor, noBorder, T }) {
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
@@ -18,13 +18,6 @@ function SubLabel({ children, right, alert, rightColor, noBorder, badge, T }) {
         <div style={{
           fontFamily: T.num, fontSize: u(13), fontWeight: 400,
           color: rightColor || (alert ? T.red : T.green),
-          ...(badge && {
-            border: `1px solid ${rightColor || T.green}`,
-            padding: `0 ${u(5)}`,
-            fontSize: u(9),
-            letterSpacing: u(0.5),
-            textTransform: 'uppercase',
-          }),
         }}>
           {right}
         </div>
@@ -222,7 +215,7 @@ export function NetworkStatusWidget({ chain, T }) {
 
       {/* Mempool */}
       <div style={{ marginBottom: u(20), paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
-        <SubLabel right={mempoolLabel} rightColor={mempoolColor} badge T={T}>
+        <SubLabel right={mempoolLabel} rightColor={mempoolColor} T={T}>
           Mempool
         </SubLabel>
         <div style={{ display: 'flex', flexDirection: 'column', gap: u(5) }}>
