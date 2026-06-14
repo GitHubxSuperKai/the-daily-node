@@ -42,7 +42,7 @@ function NewsPanel({ rss }) {
               onError={function(e) { e.target.style.display = 'none'; }}
             />
           )}
-          <a href={lead.link} target="_blank" rel="noopener noreferrer">
+          <a href={lead.link} target="_blank" rel="noopener noreferrer" style={{ WebkitTapHighlightColor: T.rule3, color: 'inherit' }}>
             <h2 style={{
               fontFamily: T.serif, fontSize: 26, fontWeight: 700,
               lineHeight: 1.1, letterSpacing: -0.5, color: T.ink, margin: 0,
@@ -92,6 +92,8 @@ function NewsPanel({ rss }) {
               borderBottom: `1px solid ${T.rule3}`,
               borderLeft: it.topic === 'BREAKING' ? `3px solid ${T.red}` : 'none',
               paddingLeft: it.topic === 'BREAKING' ? 10 : 0,
+              WebkitTapHighlightColor: T.rule3,
+              color: 'inherit',
             }}
           >
             <div style={{ fontFamily: T.body, fontSize: 15, lineHeight: 1.3, color: T.ink, letterSpacing: -0.1 }}>

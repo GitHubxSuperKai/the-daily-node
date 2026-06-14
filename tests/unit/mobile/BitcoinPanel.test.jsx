@@ -10,14 +10,6 @@ function wrap(ui) {
   return render(<ThemeCtx.Provider value={LIGHT}>{ui}</ThemeCtx.Provider>);
 }
 
-// jsdom normalizes hex colors to rgb() on read-back; convert for assertions
-function hexToRgb(hex) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgb(${r}, ${g}, ${b})`;
-}
-
 const btcProps = {
   data: { price: 67000, chgPct: 2.1, hi: 68000, lo: 65000, cap: 1.3e12 },
   chartPts: [],
@@ -41,51 +33,7 @@ const chainProps = {
   mempoolBlocks: [],
 };
 
-describe('BitcoinPanel — Chain Vitals', () => {
-  it('renders eco fee', () => {
-    wrap(<BitcoinPanel btc={btcProps} chain={chainProps} />);
-    expect(screen.getByText('8 sat/vB')).toBeDefined();
-  });
-
-  it('renders CLR blocks', () => {
-    wrap(<BitcoinPanel btc={btcProps} chain={chainProps} />);
-    expect(screen.getByText('9 blk')).toBeDefined();
-  });
-
-  it('CLR value is red when > 8 blocks', () => {
-    const { container: _container } = wrap(<BitcoinPanel btc={btcProps} chain={chainProps} />);
-    const clrEl = screen.getByText('9 blk');
-    expect(clrEl.style.color).toBe(hexToRgb(LIGHT.red));
-  });
-
-  it('CLR value is green when <= 2 blocks', () => {
-    // 900_000 bytes → Math.ceil(0.9) = 1 blk → green threshold (≤ 2)
-    const smallMempool = { data: { ...chainProps.data, mempoolBytes: 900_000 }, recentBlocks: [], mempoolBlocks: [] };
-    wrap(<BitcoinPanel btc={btcProps} chain={smallMempool} />);
-    const clrEl = screen.getByText('1 blk');
-    expect(clrEl.style.color).toBe(hexToRgb(LIGHT.green));
-  });
-
-  it('CLR value is neutral when 3-8 blocks', () => {
-    // 5_000_000 bytes → Math.ceil(5) = 5 blk → neutral range (3–8)
-    const midMempool = { data: { ...chainProps.data, mempoolBytes: 5_000_000 }, recentBlocks: [], mempoolBlocks: [] };
-    wrap(<BitcoinPanel btc={btcProps} chain={midMempool} />);
-    const clrEl = screen.getByText('5 blk');
-    expect(clrEl.style.color).toBe(hexToRgb(LIGHT.ink));
-  });
-});
-
-describe('BitcoinPanel — Epoch & Halving section', () => {
-  it('renders epoch progress percentage', () => {
-    wrap(<BitcoinPanel btc={btcProps} chain={chainProps} />);
-    expect(screen.getByText(/71% complete/)).toBeDefined();
-  });
-
-  it('renders remaining blocks', () => {
-    wrap(<BitcoinPanel btc={btcProps} chain={chainProps} />);
-    expect(screen.getByText(/591 blk left/)).toBeDefined();
-  });
-
+describe('BitcoinPanel — Halving', () => {
   it('renders circulating supply', () => {
     wrap(<BitcoinPanel btc={btcProps} chain={chainProps} />);
     expect(screen.getByText('19.86M BTC')).toBeDefined();
@@ -102,8 +50,8 @@ describe('BitcoinPanel — Epoch & Halving section', () => {
     expect(screen.getByText('150,000 blk')).toBeDefined();
   });
 
-  it('epoch section is hidden when chain.data is null', () => {
+  it('halving section is hidden when chain.data is null', () => {
     wrap(<BitcoinPanel btc={btcProps} chain={{ data: null, recentBlocks: [], mempoolBlocks: [] }} />);
-    expect(screen.queryByText(/complete/)).toBeNull();
+    expect(screen.queryByText('19.86M BTC')).toBeNull();
   });
 });

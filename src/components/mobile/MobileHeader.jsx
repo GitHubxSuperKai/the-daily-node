@@ -27,7 +27,7 @@ function MobileHeader({ clock, dark, onToggleDark, onOpenSettings }) {
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
-        <div style={{ fontFamily: T.num, fontSize: 11, color: T.ink3 }}>
+        <div style={{ fontFamily: T.mono, fontSize: 11, color: T.ink3, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
           {clock.timeHM}{clock.amPm ? ' ' + clock.amPm : ''}
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
