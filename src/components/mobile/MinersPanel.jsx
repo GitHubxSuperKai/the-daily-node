@@ -46,7 +46,7 @@ function MinersPanel({ bitaxe, chain }) {
           </div>
         ) : (
           <>
-            <div style={{ fontFamily: T.mono, fontSize: 16, color: T.ink }}>
+            <div style={{ fontFamily: T.mono, fontSize: 16, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
               {onlineCount}/{miners.length} online · {totalHashTHs.toFixed(2)} TH/s
             </div>
             {combinedEff !== null && (
@@ -64,7 +64,7 @@ function MinersPanel({ bitaxe, chain }) {
                     letterSpacing: 1.5, textTransform: 'uppercase',
                     color: T.ink3, marginBottom: 2,
                   }}>Efficiency</div>
-                  <div style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.ink }}>
+                  <div style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
                     {combinedEff} J/TH
                   </div>
                 </div>
@@ -75,7 +75,7 @@ function MinersPanel({ bitaxe, chain }) {
                       letterSpacing: 1.5, textTransform: 'uppercase',
                       color: T.ink3, marginBottom: 2,
                     }}>Solo odds</div>
-                    <div style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.ink }}>
+                    <div style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
                       1:{fmtNum(soloOdds.oddsPerDay)}/d
                     </div>
                   </div>
@@ -87,7 +87,7 @@ function MinersPanel({ bitaxe, chain }) {
                       letterSpacing: 1.5, textTransform: 'uppercase',
                       color: T.ink3, marginBottom: 2,
                     }}>ETA</div>
-                    <div style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.ink }}>
+                    <div style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
                       ~{fmtNum(soloOdds.etaYears)} yrs
                     </div>
                   </div>
@@ -126,7 +126,7 @@ function MinersPanel({ bitaxe, chain }) {
                       {hostname}
                     </span>
                   </div>
-                  <span style={{ fontFamily: T.mono, fontSize: 13, color: m.online ? T.ink : T.red }}>
+                  <span style={{ fontFamily: T.mono, fontSize: 13, color: m.online ? T.ink : T.red, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
                     {m.online
                       ? `${hashTHs} TH/s${temp != null ? `  ${temp}°C` : ''}`
                       : 'offline'
