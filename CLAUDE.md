@@ -61,7 +61,7 @@ App (root — owns all hooks, theme, localStorage prefs)
 
 **Styling:** Inline `style` props only. No CSS files. All colors from `ThemeCtx` via `useT()`. Dark mode = swap theme object.
 
-**Canvas scaling:** Dashboard renders at 1920×1080, scaled to viewport via CSS `transform`. `src/utils/scale.js` exports `u(n)` — returns `calc(var(--u) * n)` for design-px values. Scaling logic lives inline in the component that mounts the canvas.
+**Canvas scaling:** Dashboard renders at 1920×1080, scaled to viewport via CSS `transform`. `src/utils/scale.js` exports `u(n)` — returns `calc(var(--u) * n)` for design-px values. Scaling logic lives inline in the component that mounts the canvas. **`u()` is desktop-canvas-only** — `--u` is unset in mobile context, so `calc(var(--u) * N)` resolves to an invalid value (padding → 0, font-size → inherited). Never call `u()` in components that can render in the mobile layout. (Root cause of PR #84 `NetworkStatusWidget` badge regression.)
 
 **localStorage:** User prefs (weather location, time format, temp unit) persist under `dailynode-prefs`; v2 prefs (alerts, feeds, intervals, theme) under their own key via `utils/v2prefs.js`. App reads localStorage on mount, falls back to `config.js` defaults. The legacy `dailynode-bitaxe` key is removed unconditionally on mount as a one-time migration.
 
