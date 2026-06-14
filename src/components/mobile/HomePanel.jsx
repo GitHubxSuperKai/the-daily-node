@@ -63,7 +63,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
           </span>
           {btcChange != null && (
             <span style={{ fontFamily: T.mono, fontSize: 14, color: btcUp ? T.green : T.red, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
-              {btcUp ? '▲' : '▼'} {fmtPct(btcChange)}
+              {btcUp ? '▲' : '▼'} {fmtPct(btcChange)}%
             </span>
           )}
         </div>
