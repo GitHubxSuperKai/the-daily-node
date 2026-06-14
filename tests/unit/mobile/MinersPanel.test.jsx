@@ -90,3 +90,30 @@ describe('MinersPanel — efficiency and solo stats', () => {
     expect(screen.getByText(/no miners configured/i)).toBeDefined();
   });
 });
+
+describe('MinersPanel — per-miner secondary stats row', () => {
+  const minerWithStats = {
+    miners: [
+      {
+        ip: '10.0.0.1',
+        online: true,
+        data: {
+          hostname: 'bitaxe-01',
+          hashRate: 1200000,
+          temp: 62,
+          power: 200,
+          uptimeSeconds: 72000,
+          sharesAccepted: 500,
+          sharesRejected: 2,
+        },
+      },
+    ],
+  };
+
+  it('shows power, uptime, and shares in secondary stats row', () => {
+    wrap(<MinersPanel bitaxe={minerWithStats} />);
+    expect(screen.getByText('200W')).toBeDefined();
+    expect(screen.getByText('83% up')).toBeDefined();
+    expect(screen.getByText('500/2')).toBeDefined();
+  });
+});
