@@ -27,14 +27,23 @@ function StatusTile({ label, onClick, ariaLabel, fullWidth, children }) {
     >
       {label && (
         <div style={{
-          fontFamily: T.sans,
-          fontSize: 9,
-          fontWeight: 600,
-          letterSpacing: 1.6,
-          textTransform: 'uppercase',
-          color: T.ink3,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
         }}>
-          {label}
+          <div style={{
+            fontFamily: T.sans,
+            fontSize: 9,
+            fontWeight: 600,
+            letterSpacing: 1.6,
+            textTransform: 'uppercase',
+            color: T.ink3,
+          }}>
+            {label}
+          </div>
+          {onClick && (
+            <span style={{ fontFamily: T.sans, fontSize: 12, color: T.ink4, lineHeight: 1 }}>›</span>
+          )}
         </div>
       )}
       <div>{children}</div>
