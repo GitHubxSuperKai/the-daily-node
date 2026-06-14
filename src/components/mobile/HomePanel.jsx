@@ -58,11 +58,11 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
         ariaLabel="BTC price — open detail"
       >
         <div data-testid="btc-tile" style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-          <span style={{ fontFamily: T.numDisplay, fontSize: 32, fontWeight: 700, color: T.ink, letterSpacing: -1 }}>
-            {btc.data ? fmtPrice(btc.data.price) : '—'}
+          <span style={{ fontFamily: T.mono, fontSize: 32, fontWeight: 700, color: T.ink, letterSpacing: -1, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
+            {btc.data ? `$${fmtPrice(btc.data.price)}` : '—'}
           </span>
           {btcChange != null && (
-            <span style={{ fontFamily: T.num, fontSize: 14, color: btcUp ? T.green : T.red }}>
+            <span style={{ fontFamily: T.mono, fontSize: 14, color: btcUp ? T.green : T.red, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
               {btcUp ? '▲' : '▼'} {fmtPct(btcChange)}
             </span>
           )}
@@ -76,7 +76,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
         onClick={() => onNavigate('miners')}
         ariaLabel="Open Miners tab"
       >
-        <div data-testid="fleet-tile" style={{ fontFamily: T.num, fontSize: 16, color: T.ink }}>
+        <div data-testid="fleet-tile" style={{ fontFamily: T.mono, fontSize: 16, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
           {minerCount === 0
             ? <span style={{ color: T.ink3 }}>No miners configured</span>
             : <>
@@ -111,10 +111,10 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
         onClick={() => onNavigate('bitcoin')}
         ariaLabel="Mempool — open detail"
       >
-        <div style={{ fontFamily: T.num, fontSize: 18, color: T.ink }}>
+        <div style={{ fontFamily: T.mono, fontSize: 18, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
           {chain.data ? fmtMempoolMB(chain.data.mempoolBytes) : '—'}
         </div>
-        <div style={{ fontFamily: T.sans, fontSize: 10, color: T.ink3, marginTop: 2 }}>
+        <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink3, marginTop: 2, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
           {chain.data ? `${chain.data.feeFast} sat/vB` : '—'}
         </div>
       </StatusTile>
@@ -125,10 +125,10 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
         onClick={() => onNavigate('bitcoin')}
         ariaLabel="Block time — open detail"
       >
-        <div style={{ fontFamily: T.num, fontSize: 18, color: T.ink }}>
+        <div style={{ fontFamily: T.mono, fontSize: 18, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
           {chain.data ? fmtBlockTime(chain.data.blockTimeMs) : '—'}
         </div>
-        <div style={{ fontFamily: T.sans, fontSize: 10, color: T.ink3, marginTop: 2 }}>
+        <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink3, marginTop: 2, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
           {chain.data && chain.data.height ? `#${chain.data.height.toLocaleString()}` : '—'}
         </div>
       </StatusTile>
@@ -149,7 +149,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
             />
           )}
           <div>
-            <div style={{ fontFamily: T.num, fontSize: 18, color: T.ink }}>
+            <div style={{ fontFamily: T.mono, fontSize: 18, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
               {wx ? `${wx.temp}${tempUnit}` : `—${tempUnit}`}
             </div>
             <div style={{ fontFamily: T.sans, fontSize: 10, color: T.ink3 }}>
@@ -184,7 +184,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
                         size={16}
                         speed={1}
                       />
-                      <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink }}>{slot.t}°</div>
+                      <div style={{ fontFamily: T.mono, fontSize: 10, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>{slot.t}°</div>
                       {slot.pop > 0 && (
                         <div style={{ fontFamily: T.sans, fontSize: 9, color: T.ink3 }}>{slot.pop}%</div>
                       )}
@@ -194,22 +194,22 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span style={{ fontFamily: T.sans, fontSize: 11, color: T.ink2 }}>
+              <span style={{ fontFamily: T.mono, fontSize: 11, color: T.ink2, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
                 H {wx.wxHi}{tempUnit} / L {wx.wxLo}{tempUnit}
               </span>
-              <span style={{ fontFamily: T.sans, fontSize: 11, color: T.ink2 }}>
+              <span style={{ fontFamily: T.mono, fontSize: 11, color: T.ink2, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
                 {wx.wxSunrise} / {wx.wxSunset}
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontFamily: T.sans, fontSize: 11, color: T.ink2 }}>
+              <span style={{ fontFamily: T.mono, fontSize: 11, color: T.ink2, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
                 {wx.wxWind}
               </span>
-              <span style={{ fontFamily: T.sans, fontSize: 11, color: T.ink2 }}>
+              <span style={{ fontFamily: T.mono, fontSize: 11, color: T.ink2, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
                 Hum {wx.wxHum}
               </span>
               {wx.wxUVIndex != null && (
-                <span style={{ fontFamily: T.sans, fontSize: 11, color: T.ink2 }}>
+                <span style={{ fontFamily: T.mono, fontSize: 11, color: T.ink2, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
                   UV {wx.wxUVIndex}
                 </span>
               )}
@@ -220,7 +220,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
 
       {/* Clock — half */}
       <StatusTile label="Local">
-        <div style={{ fontFamily: T.num, fontSize: 18, color: T.ink }}>
+        <div style={{ fontFamily: T.mono, fontSize: 18, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
           {clock.timeHM}{clock.amPm ? ` ${clock.amPm}` : ''}
         </div>
         <div style={{ fontFamily: T.sans, fontSize: 10, color: T.ink3, marginTop: 2 }}>

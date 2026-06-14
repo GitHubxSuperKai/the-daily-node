@@ -161,7 +161,7 @@ function BitcoinPanel({ btc, chain }) {
               letterSpacing: 1.5, textTransform: 'uppercase',
               color: T.ink3, marginBottom: 2,
             }}>Supply</div>
-            <div style={{ fontFamily: T.mono, fontSize: 14, fontWeight: 600, color: T.ink }}>
+            <div style={{ fontFamily: T.mono, fontSize: 14, fontWeight: 600, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
               {c.circulating || '—'}
             </div>
           </div>
@@ -172,10 +172,10 @@ function BitcoinPanel({ btc, chain }) {
               color: T.ink3, marginBottom: 2,
             }}>Next Halving</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <span style={{ fontFamily: T.mono, fontSize: 14, fontWeight: 600, color: T.ink }}>
+              <span style={{ fontFamily: T.mono, fontSize: 14, fontWeight: 600, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
                 {c.nextHalvingDate || '—'}
               </span>
-              <span style={{ fontFamily: T.mono, fontSize: 11, color: T.ink3 }}>
+              <span style={{ fontFamily: T.mono, fontSize: 11, color: T.ink3, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
                 {c.height ? `${fmtNum(Math.ceil((c.height + 1) / 210000) * 210000 - c.height)} blk` : '—'}
               </span>
             </div>
