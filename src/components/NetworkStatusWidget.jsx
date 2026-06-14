@@ -286,7 +286,7 @@ export function NetworkStatusWidget({ chain, T }) {
                     {pool.name}
                   </div>
                   <div style={{
-                    flex: 1, height: 4, background: T.rule3, margin: `0 ${u(8)}`, position: 'relative',
+                    flex: 1, height: u(4), background: T.rule3, margin: `0 ${u(8)}`, position: 'relative',
                   }}>
                     <div style={{
                       position: 'absolute', left: 0, top: 0, height: '100%',
