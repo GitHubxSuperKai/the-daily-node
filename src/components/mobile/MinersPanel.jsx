@@ -109,7 +109,7 @@ function MinersPanel({ bitaxe, chain }) {
               const temp = m.online && m.data ? m.data.temp : null;
               const watts = m.online && m.data && m.data.power != null ? Math.round(m.data.power) : null;
               const uptimePct = m.online && m.data && m.data.uptimeSeconds != null
-                ? Math.min(99.9, (m.data.uptimeSeconds / 86400) * 100).toFixed(0)
+                ? ((m.data.uptimeSeconds / 86400) * 100).toFixed(0)
                 : null;
               const sharesAcc = m.online && m.data && m.data.sharesAccepted != null
                 ? m.data.sharesAccepted
@@ -169,7 +169,7 @@ function MinersPanel({ bitaxe, chain }) {
                           color: sharesRej > 50 ? T.red : T.ink3,
                           fontFeatureSettings: '"tnum" 1, "lnum" 1',
                         }}>
-                          {sharesAcc.toLocaleString()}/{sharesRej}
+                          {sharesAcc.toLocaleString()}/{sharesRej.toLocaleString()}
                         </span>
                       )}
                     </div>
