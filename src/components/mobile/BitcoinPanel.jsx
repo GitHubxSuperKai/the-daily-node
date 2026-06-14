@@ -33,7 +33,7 @@ function BitcoinPanel({ btc, chain }) {
       display: 'flex',
       flexDirection: 'column',
       gap: 20,
-      padding: '16px 16px 32px',
+      padding: '16px 16px 80px',
       fontFamily: T.sans,
     }}>
 
