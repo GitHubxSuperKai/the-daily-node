@@ -47,6 +47,7 @@ function BitcoinPanel({ btc, chain }) {
             fontWeight: 700,
             color: T.ink,
             letterSpacing: -1,
+            fontFeatureSettings: '"tnum" 1, "lnum" 1',
           }}>
             {d ? `$${fmtPrice(d.price)}` : '—'}
           </span>
@@ -56,6 +57,7 @@ function BitcoinPanel({ btc, chain }) {
               fontSize: 16,
               fontWeight: 600,
               color: chgColor,
+              fontFeatureSettings: '"tnum" 1, "lnum" 1',
             }}>
               {fmtPct(chgPct)}%
             </span>
@@ -66,6 +68,7 @@ function BitcoinPanel({ btc, chain }) {
           fontSize: 11,
           color: T.ink3,
           marginTop: 4,
+          fontFeatureSettings: '"tnum" 1, "lnum" 1',
         }}>
           {d ? `H $${fmtPrice(d.hi)}  ·  L $${fmtPrice(d.lo)}  ·  Cap $${d.cap ? (d.cap / 1e9).toFixed(0) + 'B' : '—'}` : '—'}
         </div>
