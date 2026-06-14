@@ -115,6 +115,7 @@ export function NetworkStatusWidget({ chain, T }) {
 
   const topPool = pools[0];
   const poolRisk = topPool && parseFloat(topPool.sharePct) > 40;
+  const maxShare = pools.reduce((m, p) => Math.max(m, parseFloat(p.sharePct)), 0) || 1;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -279,17 +280,17 @@ export function NetworkStatusWidget({ chain, T }) {
                 }}>
                   <div style={{
                     fontFamily: T.sans, fontSize: u(12), fontWeight: 400, color: T.ink2,
-                    width: u(72), flexShrink: 0, overflow: 'hidden',
+                    width: u(100), flexShrink: 0, overflow: 'hidden',
                     textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
                     {pool.name}
                   </div>
                   <div style={{
-                    flex: 1, height: u(2), background: T.rule3, margin: `0 ${u(8)}`, position: 'relative',
+                    flex: 1, height: 4, background: T.rule3, margin: `0 ${u(8)}`, position: 'relative',
                   }}>
                     <div style={{
                       position: 'absolute', left: 0, top: 0, height: '100%',
-                      width: `${share}%`, background: isRisk ? T.red : T.ink3,
+                      width: `${(share / maxShare) * 100}%`, background: isRisk ? T.red : T.ink3,
                     }} />
                   </div>
                   <div style={{
