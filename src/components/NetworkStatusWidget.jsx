@@ -222,7 +222,7 @@ export function NetworkStatusWidget({ chain, T }) {
 
       {/* Mempool */}
       <div style={{ marginBottom: u(20), paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
-        <SubLabel right={mempoolLabel} rightColor={mempoolColor} badge T={T}>
+        <SubLabel right={mempoolLabel} rightColor={mempoolColor} T={T}>
           Mempool
         </SubLabel>
         <div style={{ display: 'flex', flexDirection: 'column', gap: u(5) }}>
