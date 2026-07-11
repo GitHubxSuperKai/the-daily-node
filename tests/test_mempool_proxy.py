@@ -287,5 +287,65 @@ class HostnameAllowlistTest(MempoolProxyTestBase):
             _StubUpstream.status = 200
 
 
+class RedirectTest(MempoolProxyTestBase):
+    """The base-host SSRF guard only validates the URL the caller supplied —
+    if the proxy follows a 3xx redirect, the redirect target bypasses that
+    guard entirely. A reachable-but-otherwise-fine host can 302 the proxy
+    into 127.0.0.1 or link-local metadata. Uses two dedicated, throwaway
+    handler classes (not the shared _StubUpstream) so their per-test state
+    can't bleed into other tests."""
+
+    def test_redirect_to_internal_target_not_followed(self):
+        sentinel = b'{"SECRET": "INTERNAL-SENTINEL-9f3a"}'
+
+        class _InternalTargetHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', str(len(sentinel)))
+                self.end_headers()
+                self.wfile.write(sentinel)
+
+            def log_message(self, *a, **k):
+                pass  # silence
+
+        internal = HTTPServer(('127.0.0.1', 0), _InternalTargetHandler)
+        internal_port = internal.server_address[1]
+        internal_thread = threading.Thread(target=internal.serve_forever, daemon=True)
+        internal_thread.start()
+
+        class _RedirectingUpstreamHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(302)
+                self.send_header('Location', f'http://127.0.0.1:{internal_port}/secret')
+                self.send_header('Content-Length', '0')
+                self.end_headers()
+
+            def log_message(self, *a, **k):
+                pass  # silence
+
+        redirecting = HTTPServer(('127.0.0.1', 0), _RedirectingUpstreamHandler)
+        redirecting_port = redirecting.server_address[1]
+        redirecting_thread = threading.Thread(target=redirecting.serve_forever, daemon=True)
+        redirecting_thread.start()
+
+        try:
+            # 'localhost' passes ALLOWED_PROXY_HOSTS (patched in setUpClass) —
+            # that's the vector: the guard sees a fine host, then the
+            # response redirects the fetch to an internal target.
+            base = f'http://localhost:{redirecting_port}'
+            status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/x')
+            self.assertNotEqual(status, 200, f'redirect was followed to 200; body={body!r}')
+            self.assertNotIn(
+                b'INTERNAL-SENTINEL-9f3a', body,
+                'internal-target sentinel leaked into proxy response — redirect was followed'
+            )
+        finally:
+            internal.shutdown()
+            internal.server_close()
+            redirecting.shutdown()
+            redirecting.server_close()
+
+
 if __name__ == '__main__':
     unittest.main()
