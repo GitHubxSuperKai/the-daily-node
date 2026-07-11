@@ -21,6 +21,16 @@ from urllib.parse import urlparse, parse_qs
 
 import ipaddress
 
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Refuses to follow 3xx redirects — the mempool-proxy validates the base
+    host before fetching, but a redirect target bypasses that check entirely,
+    so redirects must surface as an error instead of being followed."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 CONFIG_PATH = (
     os.environ.get('CONFIG_PATH')
     or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bitaxe_config.json')
@@ -252,7 +262,8 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             _PROXY_SIZE_LIMIT = 512 * 1024
             try:
                 req = urllib.request.Request(target, headers={'User-Agent': 'DailyNode/1.0'})
-                with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT - 1, context=ssl_ctx) as resp:
+                opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ssl_ctx), _NoRedirect)
+                with opener.open(req, timeout=FETCH_TIMEOUT - 1) as resp:
                     body = resp.read(_PROXY_SIZE_LIMIT)
                 if len(body) == _PROXY_SIZE_LIMIT:
                     self._json(502, {'error': 'upstream response too large'})
@@ -264,7 +275,10 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(body)
             except urllib.error.HTTPError as e:
-                self._json(e.code, {'error': f'upstream {e.code}'})
+                # A 3xx here means _NoRedirect refused to follow a redirect (SSRF guard);
+                # surface it as an upstream error, not a client-actionable bare redirect.
+                status = 502 if 300 <= e.code < 400 else e.code
+                self._json(status, {'error': f'upstream {e.code}'})
             except Exception as e:
                 self._json(502, {'error': f'proxy failed: {str(e)}'})
         else:

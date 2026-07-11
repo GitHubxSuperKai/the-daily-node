@@ -29,10 +29,19 @@ jobs:
           test -f "index.html"
           size=$(wc -c < "index.html")
           echo "Bundle size: $size bytes"
-          if [ "$size" -lt 50000 ]; then
-            echo "ERROR: Bundle suspiciously small (<50KB), build likely broken"
+          if [ "$size" -lt 250000 ]; then
+            echo "ERROR: Bundle suspiciously small (<250KB), build likely broken"
             exit 1
           fi
+
+      - name: Verify vendored React integrity
+        run: npm run verify:vendor
+
+      - name: Smoke test
+        run: npm run test:smoke
+
+      - name: Unit tests
+        run: npm run test:unit
 
       - name: Set up Python
         uses: actions/setup-python@v6

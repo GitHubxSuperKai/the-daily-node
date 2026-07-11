@@ -111,5 +111,6 @@ export function useChain(mempoolPrefs = {}) {
     error,
     lastOk,
     refresh,
+    interval: CONFIG.REFRESH_INTERVALS.chain,
   };
 }
