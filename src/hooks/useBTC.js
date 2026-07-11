@@ -94,5 +94,6 @@ export function useBTC() {
     error,
     lastOk,
     refresh,
+    interval: CONFIG.REFRESH_INTERVALS.price,
   };
 }
