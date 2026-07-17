@@ -50,10 +50,24 @@ class MempoolProxyTestBase(unittest.TestCase):
         cls.upstream = HTTPServer(('127.0.0.1', 0), _StubUpstream)
         cls.upstream_port = cls.upstream.server_address[1]
 
+        # Authorize the stub upstream in the outbound allowlist (production default
+        # is frozenset() — every destination rejected). Tests that use a different
+        # destination register it via _allow_bases().
+        cls._base_upstream = f'http://localhost:{cls.upstream_port}'
+        cls._allow_bases(cls._base_upstream)
+
         cls.proxy_thread = threading.Thread(target=cls.proxy.serve_forever, daemon=True)
         cls.upstream_thread = threading.Thread(target=cls.upstream.serve_forever, daemon=True)
         cls.proxy_thread.start()
         cls.upstream_thread.start()
+
+    @classmethod
+    def _allow_bases(cls, *bases):
+        """Add normalized base URLs to the handler's outbound proxy allowlist."""
+        current = set(bitaxe_api.BitaxeAPIHandler.ALLOWED_PROXY_BASES)
+        for b in bases:
+            current.add(bitaxe_api.normalize_proxy_base(b))
+        bitaxe_api.BitaxeAPIHandler.ALLOWED_PROXY_BASES = frozenset(current)
 
     @classmethod
     def tearDownClass(cls):
@@ -250,6 +264,7 @@ class UpstreamErrorTest(MempoolProxyTestBase):
         bad = s.getsockname()[1]
         s.close()
         base = f'http://localhost:{bad}'
+        self._allow_bases(base)  # authorize so the request reaches the connection attempt
         status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/x')
         self.assertEqual(status, 502)
         self.assertTrue(json.loads(body)['error'].startswith('proxy failed'))
@@ -285,6 +300,94 @@ class HostnameAllowlistTest(MempoolProxyTestBase):
         finally:
             _StubUpstream.body = b'{"ok": true}'
             _StubUpstream.status = 200
+
+
+class OutboundAllowlistTest(MempoolProxyTestBase):
+    """The destination origin must be explicitly authorized server-side
+    (--allow-proxy / config proxy_hosts). This is the SSRF gate (CWE-918):
+    an otherwise-reachable host is refused unless it is on the allowlist."""
+
+    def test_unlisted_host_rejected(self):
+        # A non-loopback, non-link-local host (RFC 5737 TEST-NET-3) clears the IP
+        # guards but is NOT on the allowlist, so the proxy must refuse it before
+        # any network call — the allowlist is the authoritative gate.
+        status, body = self._get(
+            '/api/mempool-proxy?base=http://203.0.113.10:3006&path=/api/blocks/tip/height'
+        )
+        self.assertEqual(status, 403)
+        self.assertEqual(json.loads(body)['error'], 'destination not in proxy allowlist')
+
+    def test_listed_base_with_trailing_slash_matches(self):
+        # Normalization drops the trailing slash / path, so the registered base matches.
+        _StubUpstream.body = b'{"ok": 1}'
+        _StubUpstream.status = 200
+        try:
+            base = f'http://localhost:{self.upstream_port}/'
+            status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/blocks/tip/height')
+            self.assertEqual(status, 200)
+            self.assertEqual(json.loads(body), {'ok': 1})
+        finally:
+            _StubUpstream.body = b'{"ok": true}'
+
+    def test_path_cannot_smuggle_a_different_host(self):
+        # The target is rebuilt as authorized_base + path, and path always starts with
+        # '/api/', so authority-smuggling chars in the path (@, ?, extra slashes) stay in
+        # the path component — the request must still reach the authorized stub, not evil.com.
+        _StubUpstream.body = b'{"from": "stub"}'
+        _StubUpstream.status = 200
+        try:
+            base = f'http://localhost:{self.upstream_port}'
+            for smuggle in ('/api/x@evil.com/y', '/api/x?next=http://evil.com', '/api//evil.com/z'):
+                status, body = self._get(f'/api/mempool-proxy?base={base}&path={smuggle}')
+                self.assertEqual(status, 200, f'path {smuggle!r} did not reach the stub')
+                self.assertEqual(json.loads(body), {'from': 'stub'},
+                                 f'path {smuggle!r} reached a different host')
+        finally:
+            _StubUpstream.body = b'{"ok": true}'
+
+    def test_empty_allowlist_rejects_everything(self):
+        # Secure default: with no authorized destinations, every proxy request is refused.
+        saved = bitaxe_api.BitaxeAPIHandler.ALLOWED_PROXY_BASES
+        bitaxe_api.BitaxeAPIHandler.ALLOWED_PROXY_BASES = frozenset()
+        try:
+            base = f'http://localhost:{self.upstream_port}'
+            status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/x')
+            self.assertEqual(status, 403)
+            self.assertEqual(json.loads(body)['error'], 'destination not in proxy allowlist')
+        finally:
+            bitaxe_api.BitaxeAPIHandler.ALLOWED_PROXY_BASES = saved
+
+
+class NormalizeProxyBaseTest(unittest.TestCase):
+    """Pure-function coverage for the base-URL canonicalizer that backs the allowlist."""
+
+    def test_default_ports_are_explicit(self):
+        self.assertEqual(bitaxe_api.normalize_proxy_base('http://host'), 'http://host:80')
+        self.assertEqual(bitaxe_api.normalize_proxy_base('https://host'), 'https://host:443')
+
+    def test_case_and_path_and_slash_stripped(self):
+        self.assertEqual(
+            bitaxe_api.normalize_proxy_base('HTTP://Host:3006/api/foo?q=1#frag'),
+            'http://host:3006',
+        )
+
+    def test_ipv6_bracketed(self):
+        self.assertEqual(bitaxe_api.normalize_proxy_base('http://[2001:db8::1]:8080'),
+                         'http://[2001:db8::1]:8080')
+
+    def test_invalid_scheme_and_port_and_empty(self):
+        self.assertIsNone(bitaxe_api.normalize_proxy_base('ftp://host'))
+        self.assertIsNone(bitaxe_api.normalize_proxy_base('file:///etc/passwd'))
+        self.assertIsNone(bitaxe_api.normalize_proxy_base('http://host:notaport'))
+        self.assertIsNone(bitaxe_api.normalize_proxy_base(''))
+        self.assertIsNone(bitaxe_api.normalize_proxy_base(None))
+
+    def test_validate_dedupes_and_collects_errors(self):
+        valid, errors = bitaxe_api.validate_proxy_bases(
+            ['https://n:3006', 'https://n:3006/', 'gopher://x']
+        )
+        self.assertEqual(valid, ['https://n:3006'])  # dupe (trailing slash) collapsed
+        self.assertEqual(len(errors), 1)  # gopher scheme rejected
 
 
 class RedirectTest(MempoolProxyTestBase):
@@ -334,6 +437,7 @@ class RedirectTest(MempoolProxyTestBase):
             # that's the vector: the guard sees a fine host, then the
             # response redirects the fetch to an internal target.
             base = f'http://localhost:{redirecting_port}'
+            self._allow_bases(base)  # authorize the entry host; the redirect target is not
             status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/x')
             self.assertNotEqual(status, 200, f'redirect was followed to 200; body={body!r}')
             self.assertNotIn(
