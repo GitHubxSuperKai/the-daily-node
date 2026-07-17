@@ -330,6 +330,30 @@ Notes:
 - The default allowlist covers `http://localhost:3000`, `http://127.0.0.1:3000`, `http://localhost:3002`, `http://127.0.0.1:3002`. Add your LAN URL only when you need it.
 - This is not authentication. Anyone on your LAN who can spoof the `Origin` header (trivial with `curl`) can reach the proxy. Treat your LAN as trusted, or run a reverse proxy with HTTP basic auth in front.
 
+### Self-hosted mempool node (`/api/mempool-proxy`)
+
+If you point the dashboard at your own mempool instance (Settings → "Self-hosted mempool node URL"), the browser can't reach it cross-origin, so requests route through the server's `/api/mempool-proxy` endpoint. To prevent this from becoming an open SSRF relay into your network, the proxy **only forwards to destinations you explicitly authorize** — every other destination returns `403`.
+
+Authorize your node's exact base URL with `--allow-proxy` (repeatable):
+
+    python bitaxe_api.py --bind 0.0.0.0 --allow-origin http://<lan-ip>:3000 \
+        --allow-proxy https://<node-ip>:3006
+
+Or persist it in `bitaxe_config.json`:
+
+```json
+{
+  "bitaxe_ips": ["<miner-ip>"],
+  "proxy_hosts": ["https://<node-ip>:3006"]
+}
+```
+
+Notes:
+- Match is on the exact normalized origin (`scheme://host:port`) — the port must match, and only the request's `/api/…` path varies. `--allow-proxy` overrides `proxy_hosts` when both are set.
+- With no entries configured (the default), `/api/mempool-proxy` rejects everything. Public `mempool.space` is fetched directly by the browser and never touches this endpoint, so leaving the allowlist empty only disables *self-hosted* nodes.
+- **Prefer an IP literal** (`https://<node-ip>:3006`) over a hostname. The allowlist pins the origin, but a hostname is still resolved at request time, so a DNS-rebinding attacker who controls that name could point it elsewhere after the check; an IP literal has no such window.
+- **Loopback / same-host destinations are not supported.** `127.0.0.1`, link-local, and unspecified addresses are blocked by an earlier guard regardless of the allowlist, so authorizing them has no effect. Run the dashboard server and the mempool node on separate hosts, or put the node on a LAN IP.
+
 ## Support & Contributing
 
 For issues, feature requests, or contributions, see the main repository README or contact the project maintainers.

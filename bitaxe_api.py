@@ -48,13 +48,75 @@ def load_config(path=CONFIG_PATH):
         return []
 
 
+def load_proxy_hosts(path=CONFIG_PATH):
+    """Return list of authorized mempool-proxy base URLs from config file, or []."""
+    try:
+        with open(path, 'r') as f:
+            data = json.load(f)
+        hosts = data.get('proxy_hosts', [])
+        return [str(h) for h in hosts if isinstance(h, str) and h.strip()]
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return []
+
+
 def save_config(path=CONFIG_PATH, ips=()):
-    """Persist IPs to config file as JSON. Logs a warning on write failure."""
+    """Persist IPs to config file as JSON. Logs a warning on write failure.
+    Preserves any other existing keys (e.g. proxy_hosts) rather than clobbering
+    the whole file, so a setup POST can't silently drop the proxy allowlist."""
+    existing = {}
+    try:
+        with open(path, 'r') as f:
+            loaded = json.load(f)
+        if isinstance(loaded, dict):
+            existing = loaded
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        existing = {}
+    existing['bitaxe_ips'] = list(ips)
     try:
         with open(path, 'w') as f:
-            json.dump({'bitaxe_ips': list(ips)}, f, indent=2)
+            json.dump(existing, f, indent=2)
     except OSError as e:
         print(f'[BitAxe API] WARNING: could not save config to {path}: {e}')
+
+
+def normalize_proxy_base(raw):
+    """Canonicalize a proxy base URL to 'scheme://host:port' (lowercased scheme and
+    host, explicit port, no path/query/fragment/userinfo). Return None if it is not a
+    valid http/https base URL. IPv6 hosts are returned bracketed."""
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    parsed = urlparse(raw.strip())
+    if parsed.scheme not in ('http', 'https'):
+        return None
+    host = parsed.hostname
+    if not host:
+        return None
+    try:
+        port = parsed.port
+    except ValueError:
+        return None
+    if port is None:
+        port = 443 if parsed.scheme == 'https' else 80
+    host_fmt = f'[{host}]' if ':' in host else host
+    return f'{parsed.scheme}://{host_fmt}:{port}'
+
+
+def validate_proxy_bases(raw_bases):
+    """Return (valid_normalized, errors). Each entry must be an http/https base URL.
+    Normalized to scheme://host:port and deduped, preserving first-seen order."""
+    valid = []
+    errors = []
+    seen = set()
+    for raw in raw_bases:
+        normalized = normalize_proxy_base(raw)
+        if normalized is None:
+            errors.append(f'invalid proxy base URL: {raw!r}')
+            continue
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        valid.append(normalized)
+    return valid, errors
 
 
 def is_private_ip(host):
@@ -140,6 +202,7 @@ def fetch_all_miners():
 class BitaxeAPIHandler(BaseHTTPRequestHandler):
     ALLOWED_ORIGINS = []
     ALLOWED_PROXY_HOSTS = frozenset()
+    ALLOWED_PROXY_BASES = frozenset()  # authorized proxy destinations: normalized scheme://host:port
     CONFIG_PATH = CONFIG_PATH  # overridden in __main__ from args.config
     _setup_page = None
     _dashboard = None
@@ -254,7 +317,21 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
                 if base_parsed.hostname not in self.ALLOWED_PROXY_HOSTS:
                     self._json(400, {'error': 'hostname-based proxy URLs are not supported; use an IP address'})
                     return
-            target = base.rstrip('/') + path
+            # Outbound allowlist — the SSRF gate (CWE-918). The destination origin must
+            # be explicitly authorized server-side (--allow-proxy / config proxy_hosts).
+            # The IP/hostname checks above are defense-in-depth; THIS is what stops a
+            # caller from directing the request at an arbitrary internal host.
+            base_norm = normalize_proxy_base(base)
+            if base_norm is None or base_norm not in self.ALLOWED_PROXY_BASES:
+                self._json(403, {'error': 'destination not in proxy allowlist'})
+                return
+            # base_norm is now proven to be a member of the allowlist. Source the authority
+            # string from the frozenset itself (config-derived, not caller-derived) so both a
+            # human reader and static taint analysis see the request host as server-controlled.
+            # `path` is guaranteed to start with '/api/', so appending it can only extend the
+            # path — it can never alter the scheme/host/port authority.
+            authorized_base = next(b for b in self.ALLOWED_PROXY_BASES if b == base_norm)
+            target = authorized_base + path
             # Disable SSL verification for self-hosted nodes (self-signed certs)
             ssl_ctx = ssl.create_default_context()
             ssl_ctx.check_hostname = False
@@ -366,6 +443,9 @@ if __name__ == '__main__':
                         help='Comma-separated BitAxe IPs (overrides env and config file)')
     parser.add_argument('--config', default=CONFIG_PATH,
                         help=f'Path to config file (default: {CONFIG_PATH})')
+    parser.add_argument('--allow-proxy', dest='proxy_bases', action='append', default=None,
+                        help='Authorized mempool-proxy base URL, e.g. '
+                             'https://192.168.x.x:3006 (repeatable). Overrides config proxy_hosts.')
     args = parser.parse_args()
 
     # IP precedence: --ips > BITAXE_IPS env > config file > empty
@@ -400,6 +480,18 @@ if __name__ == '__main__':
             'http://localhost:3002', 'http://127.0.0.1:3002',
         ]
     BitaxeAPIHandler.ALLOWED_ORIGINS = args.allow_origins
+
+    # Proxy allowlist precedence: --allow-proxy > config file proxy_hosts > empty.
+    # Empty means the mempool-proxy rejects every destination (secure default).
+    raw_bases = args.proxy_bases if args.proxy_bases is not None else load_proxy_hosts(args.config)
+    proxy_bases, proxy_errs = validate_proxy_bases(raw_bases)
+    for e in proxy_errs:
+        print(f'[BitAxe API] --allow-proxy ignored entry: {e}')
+    BitaxeAPIHandler.ALLOWED_PROXY_BASES = frozenset(proxy_bases)
+    if proxy_bases:
+        print(f'Proxy allowlist  ->  {", ".join(proxy_bases)}')
+    else:
+        print('Proxy allowlist  ->  (none — mempool-proxy rejects all destinations)')
 
     # Load dashboard HTML once at startup
     dashboard_path = args.dashboard or os.path.join(os.path.dirname(__file__), 'index.html')
