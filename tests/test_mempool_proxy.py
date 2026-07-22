@@ -494,7 +494,10 @@ class RedirectTest(MempoolProxyTestBase):
             # response redirects the fetch to an internal target.
             base = f'http://localhost:{redirecting_port}'
             self._allow_bases(base)  # authorize the entry host; the redirect target is not
-            status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/x')
+            # Use an allowlisted path so the fetch actually reaches the redirecting
+            # upstream — the endpoint allowlist would 400 an unlisted path before the
+            # redirect-suppression path (_NoRedirect) could be exercised.
+            status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/v1/blocks')
             self.assertNotEqual(status, 200, f'redirect was followed to 200; body={body!r}')
             self.assertNotIn(
                 b'INTERNAL-SENTINEL-9f3a', body,
