@@ -213,7 +213,7 @@ class ResponseSizeCapTest(MempoolProxyTestBase):
         _StubUpstream.status = 200
         try:
             base = f'http://localhost:{self.upstream_port}'
-            status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/bulk')
+            status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/v1/blocks')
             self.assertEqual(status, 502)
             self.assertEqual(json.loads(body)['error'], 'upstream response too large')
         finally:
@@ -224,7 +224,7 @@ class ResponseSizeCapTest(MempoolProxyTestBase):
         _StubUpstream.status = 200
         try:
             base = f'http://localhost:{self.upstream_port}'
-            status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/medium')
+            status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/mempool')
             self.assertEqual(status, 200)
             self.assertEqual(len(body), 400 * 1024)
         finally:
@@ -237,7 +237,7 @@ class UpstreamErrorTest(MempoolProxyTestBase):
         _StubUpstream.body = b'not found'
         try:
             base = f'http://localhost:{self.upstream_port}'
-            status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/missing')
+            status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/v1/blocks')
             self.assertEqual(status, 404)
             self.assertEqual(json.loads(body)['error'], 'upstream 404')
         finally:
@@ -249,7 +249,7 @@ class UpstreamErrorTest(MempoolProxyTestBase):
         _StubUpstream.body = b'oops'
         try:
             base = f'http://localhost:{self.upstream_port}'
-            status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/boom')
+            status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/v1/blocks')
             self.assertEqual(status, 500)
             self.assertEqual(json.loads(body)['error'], 'upstream 500')
         finally:
@@ -265,7 +265,7 @@ class UpstreamErrorTest(MempoolProxyTestBase):
         s.close()
         base = f'http://localhost:{bad}'
         self._allow_bases(base)  # authorize so the request reaches the connection attempt
-        status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/x')
+        status, body = self._get(f'/api/mempool-proxy?base={base}&path=/api/v1/blocks')
         self.assertEqual(status, 502)
         self.assertTrue(json.loads(body)['error'].startswith('proxy failed'))
 
@@ -293,7 +293,7 @@ class HostnameAllowlistTest(MempoolProxyTestBase):
         try:
             base = f'http://localhost:{self.upstream_port}'
             status, body = self._get(
-                f'/api/mempool-proxy?base={base}&path=/api/v1/blocks/tip/height'
+                f'/api/mempool-proxy?base={base}&path=/api/blocks/tip/height'
             )
             self.assertEqual(status, 200)
             self.assertEqual(json.loads(body), {'height': 900000})
@@ -330,18 +330,19 @@ class OutboundAllowlistTest(MempoolProxyTestBase):
             _StubUpstream.body = b'{"ok": true}'
 
     def test_path_cannot_smuggle_a_different_host(self):
-        # The target is rebuilt as authorized_base + path, and path always starts with
-        # '/api/', so authority-smuggling chars in the path (@, ?, extra slashes) stay in
-        # the path component — the request must still reach the authorized stub, not evil.com.
+        # Authority-smuggling attempts in the path (@, ?, extra slashes) are not among the
+        # allowlisted mempool endpoints, so the endpoint allowlist refuses them outright
+        # before any upstream request — a strictly stronger guarantee than relying on URL
+        # parsing to keep the smuggle chars in the path component.
         _StubUpstream.body = b'{"from": "stub"}'
         _StubUpstream.status = 200
         try:
             base = f'http://localhost:{self.upstream_port}'
             for smuggle in ('/api/x@evil.com/y', '/api/x?next=http://evil.com', '/api//evil.com/z'):
                 status, body = self._get(f'/api/mempool-proxy?base={base}&path={smuggle}')
-                self.assertEqual(status, 200, f'path {smuggle!r} did not reach the stub')
-                self.assertEqual(json.loads(body), {'from': 'stub'},
-                                 f'path {smuggle!r} reached a different host')
+                self.assertEqual(status, 400, f'path {smuggle!r} was not refused')
+                self.assertEqual(json.loads(body)['error'], 'path not in proxy endpoint allowlist',
+                                 f'path {smuggle!r} refused for the wrong reason')
         finally:
             _StubUpstream.body = b'{"ok": true}'
 
@@ -356,6 +357,61 @@ class OutboundAllowlistTest(MempoolProxyTestBase):
             self.assertEqual(json.loads(body)['error'], 'destination not in proxy allowlist')
         finally:
             bitaxe_api.BitaxeAPIHandler.ALLOWED_PROXY_BASES = saved
+
+
+class EndpointAllowlistTest(MempoolProxyTestBase):
+    """The caller-controlled `path` is constrained to the specific mempool
+    endpoints the dashboard actually requests (CodeQL py/partial-ssrf #191).
+    Only those reach the authorized upstream; any other /api/* path is refused
+    even when the destination host is already on the outbound allowlist."""
+
+    ENDPOINT_ERR = 'path not in proxy endpoint allowlist'
+
+    def setUp(self):
+        _StubUpstream.body = b'{"ok": true}'
+        _StubUpstream.status = 200
+        self.base = self._base_upstream
+
+    def test_unlisted_api_path_rejected(self):
+        # Clears the /api/ prefix + no-traversal guard, and the destination host is
+        # authorized, but it is not an endpoint the dashboard uses — the endpoint
+        # allowlist must refuse it before any upstream request.
+        status, body = self._get(
+            f'/api/mempool-proxy?base={self.base}&path=/api/v1/internal/secret'
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body)['error'], self.ENDPOINT_ERR)
+
+    def test_listed_static_path_allowed(self):
+        status, body = self._get(
+            f'/api/mempool-proxy?base={self.base}&path=/api/mempool'
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {'ok': True})
+
+    def test_pool_blocks_parametric_path_allowed(self):
+        # The one parametric endpoint the dashboard requests, with a realistic slug.
+        status, body = self._get(
+            f'/api/mempool-proxy?base={self.base}&path=/api/v1/mining/pool/foundryusa/blocks'
+        )
+        self.assertEqual(status, 200)
+
+    def test_pool_blocks_wrong_suffix_rejected(self):
+        # Correct prefix + valid slug chars but not the /blocks suffix. Proves the
+        # parametric matcher is anchored (full match), not a permissive prefix pass.
+        status, body = self._get(
+            f'/api/mempool-proxy?base={self.base}&path=/api/v1/mining/pool/foundryusa/txs'
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body)['error'], self.ENDPOINT_ERR)
+
+    def test_pool_blocks_injection_char_in_slug_rejected(self):
+        # An authority/injection char in the slug must fail the restrictive match.
+        status, body = self._get(
+            f'/api/mempool-proxy?base={self.base}&path=/api/v1/mining/pool/foo@evil.com/blocks'
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body)['error'], self.ENDPOINT_ERR)
 
 
 class NormalizeProxyBaseTest(unittest.TestCase):
