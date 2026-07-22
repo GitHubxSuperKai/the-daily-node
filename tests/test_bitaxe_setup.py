@@ -4,6 +4,7 @@ import sys
 import os
 import tempfile
 import threading
+import unittest
 import urllib.request
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -49,37 +50,34 @@ def _post_json(port, path, body):
         return resp.status, json.loads(resp.read().decode())
 
 
-def test_get_setup_returns_empty_when_unconfigured():
-    server, port, cfg_path = _start_server()
-    try:
-        status, body = _get_json(port, '/api/setup')
-        assert status == 200
-        assert body == {'bitaxe_ips': [], 'configured': False}
-    finally:
-        server.shutdown()
-        os.unlink(cfg_path)
+class SetupEndpointTest(unittest.TestCase):
+    """Bring up the real handler on a random port with a temp config file."""
+
+    def setUp(self):
+        self.server, self.port, self.cfg_path = _start_server()
+
+    def tearDown(self):
+        self.server.shutdown()
+        os.unlink(self.cfg_path)
+
+    def test_get_setup_returns_empty_when_unconfigured(self):
+        status, body = _get_json(self.port, '/api/setup')
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {'bitaxe_ips': [], 'configured': False})
+
+    def test_get_setup_reflects_post(self):
+        _post_json(self.port, '/api/setup', {'bitaxe_ips': ['192.168.1.10', '10.0.0.5']})
+        status, body = _get_json(self.port, '/api/setup')
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {'bitaxe_ips': ['192.168.1.10', '10.0.0.5'], 'configured': True})
+
+    def test_get_setup_configured_true_after_empty_post(self):
+        """Skip path: POST [] sets CONFIGURED=True even with no IPs."""
+        _post_json(self.port, '/api/setup', {'bitaxe_ips': []})
+        status, body = _get_json(self.port, '/api/setup')
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {'bitaxe_ips': [], 'configured': True})
 
 
-def test_get_setup_reflects_post():
-    server, port, cfg_path = _start_server()
-    try:
-        _post_json(port, '/api/setup', {'bitaxe_ips': ['192.168.1.10', '10.0.0.5']})
-        status, body = _get_json(port, '/api/setup')
-        assert status == 200
-        assert body == {'bitaxe_ips': ['192.168.1.10', '10.0.0.5'], 'configured': True}
-    finally:
-        server.shutdown()
-        os.unlink(cfg_path)
-
-
-def test_get_setup_configured_true_after_empty_post():
-    """Skip path: POST [] sets CONFIGURED=True even with no IPs."""
-    server, port, cfg_path = _start_server()
-    try:
-        _post_json(port, '/api/setup', {'bitaxe_ips': []})
-        status, body = _get_json(port, '/api/setup')
-        assert status == 200
-        assert body == {'bitaxe_ips': [], 'configured': True}
-    finally:
-        server.shutdown()
-        os.unlink(cfg_path)
+if __name__ == '__main__':
+    unittest.main()
