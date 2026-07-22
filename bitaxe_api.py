@@ -11,6 +11,7 @@ Then open Command Center.html. The dashboard will poll http://localhost:3001/api
 import argparse
 import json
 import os
+import re
 import ssl
 import threading
 import urllib.request
@@ -325,13 +326,37 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             if base_norm is None or base_norm not in self.ALLOWED_PROXY_BASES:
                 self._json(403, {'error': 'destination not in proxy allowlist'})
                 return
+            # Endpoint allowlist for the caller-controlled `path`. The host half is already
+            # locked to the server-side allowlist (above, #190); this locks the path half to
+            # exactly the mempool endpoints the dashboard requests, so a caller can no longer
+            # widen the request to arbitrary paths on the already-trusted node (CodeQL
+            # py/partial-ssrf #191). Both branches are recognized taint barriers: `in` against
+            # a set of string literals is a constant-comparison barrier, and re.fullmatch()
+            # constrains the parametric pool-blocks slug so it can't inject path/authority
+            # characters. Keep this set in sync with mempoolGet() callers in src/utils/api.js.
+            if path in {
+                '/api/blocks/tip/height',
+                '/api/v1/mining/hashrate/3d',
+                '/api/v1/fees/recommended',
+                '/api/mempool',
+                '/api/v1/difficulty-adjustment',
+                '/api/v1/mining/pools/1w',
+                '/api/v1/blocks',
+                '/api/v1/fees/mempool-blocks',
+            }:
+                safe_path = path
+            elif re.fullmatch(r'/api/v1/mining/pool/[A-Za-z0-9._-]{1,64}/blocks', path):
+                safe_path = path
+            else:
+                self._json(400, {'error': 'path not in proxy endpoint allowlist'})
+                return
             # base_norm is now proven to be a member of the allowlist. Source the authority
             # string from the frozenset itself (config-derived, not caller-derived) so both a
             # human reader and static taint analysis see the request host as server-controlled.
-            # `path` is guaranteed to start with '/api/', so appending it can only extend the
-            # path — it can never alter the scheme/host/port authority.
+            # `safe_path` is barrier-validated above, so appending it can only reach one of the
+            # known mempool endpoints — it can never alter the scheme/host/port authority.
             authorized_base = next(b for b in self.ALLOWED_PROXY_BASES if b == base_norm)
-            target = authorized_base + path
+            target = authorized_base + safe_path
             # Disable SSL verification for self-hosted nodes (self-signed certs)
             ssl_ctx = ssl.create_default_context()
             ssl_ctx.check_hostname = False

@@ -350,6 +350,7 @@ Or persist it in `bitaxe_config.json`:
 
 Notes:
 - Match is on the exact normalized origin (`scheme://host:port`) — the port must match, and only the request's `/api/…` path varies. `--allow-proxy` overrides `proxy_hosts` when both are set.
+- The forwarded path is also restricted to the exact set of mempool endpoints the dashboard uses (block, fee, mempool, and mining-pool reads); any other `/api/…` path on an authorized node returns `400`. This keeps the caller-controlled path from widening the request beyond the endpoints the dashboard needs.
 - With no entries configured (the default), `/api/mempool-proxy` rejects everything. Public `mempool.space` is fetched directly by the browser and never touches this endpoint, so leaving the allowlist empty only disables *self-hosted* nodes.
 - **Prefer an IP literal** (`https://<node-ip>:3006`) over a hostname. The allowlist pins the origin, but a hostname is still resolved at request time, so a DNS-rebinding attacker who controls that name could point it elsewhere after the check; an IP literal has no such window.
 - **Loopback / same-host destinations are not supported.** `127.0.0.1`, link-local, and unspecified addresses are blocked by an earlier guard regardless of the allowlist, so authorizing them has no effect. Run the dashboard server and the mempool node on separate hosts, or put the node on a LAN IP.
