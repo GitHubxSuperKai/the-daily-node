@@ -1,6 +1,7 @@
 import React from 'react';
 import { useT } from '../theme';
 import { u } from '../utils/scale.js';
+import { fmtUptime } from '../utils/formatting.js';
 
 function Dot({ status }) {
   const T = useT();
@@ -42,7 +43,6 @@ export function MinerRow({ miner, ri: _ri, isLast }) {
   const temp     = md ? (md.temp || md.temperature || 0) : 0;
   const vrT      = md?.vrTemp ?? null;
   const upSec    = md?.uptimeSeconds ?? null;
-  const upPct    = upSec != null ? Math.min(99.9, (upSec / 86400) * 100) : null;
   const accS     = md?.sharesAccepted || 0;
   const rejS     = md?.sharesRejected || 0;
   const pwrLimit = md?.powerLimit || null;
@@ -61,8 +61,8 @@ export function MinerRow({ miner, ri: _ri, isLast }) {
       </div>
       <div style={{ ...rowBase, ...tnum, color: T.ink }}>{isOff ? '—' : hr.toFixed(2)}</div>
       <div style={{ ...rowBase, ...tnum, color: eff > 25 ? T.red : T.ink }}>{isOff ? '—' : eff.toFixed(1)}</div>
-      <div style={{ ...rowBase, ...tnum, color: upPct != null && upPct < 80 ? T.red : T.ink2 }}>
-        {isOff ? '—' : (upPct != null ? `${upPct.toFixed(0)}%` : '—')}
+      <div style={{ ...rowBase, ...tnum, color: T.ink2 }}>
+        {isOff ? '—' : (upSec != null ? fmtUptime(upSec) : '—')}
       </div>
       <div style={{ ...rowBase, ...tnum, color: T.ink2 }}>
         {isOff ? '—' : <>{accS.toLocaleString()}<span style={{ color: rejS > 50 ? T.red : T.ink4 }}> /{rejS}</span></>}
