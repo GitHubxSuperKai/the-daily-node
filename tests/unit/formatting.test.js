@@ -316,26 +316,41 @@ describe('fmtUptime', () => {
   it('formats sub-minute uptime in seconds', () => {
     expect(fmtUptime(42)).toBe('42s');
     expect(fmtUptime(0)).toBe('0s');
+    expect(fmtUptime(59)).toBe('59s');
   });
   it('formats sub-hour uptime in whole minutes', () => {
+    expect(fmtUptime(60)).toBe('1m');
     expect(fmtUptime(600)).toBe('10m');
     expect(fmtUptime(3599)).toBe('59m');
   });
   it('formats sub-day uptime as hours and minutes', () => {
     expect(fmtUptime(3600)).toBe('1h 0m');
     expect(fmtUptime(22200)).toBe('6h 10m');
+    expect(fmtUptime(72000)).toBe('20h 0m');
+    expect(fmtUptime(86399)).toBe('23h 59m');
   });
   it('formats multi-day uptime as days and hours', () => {
     expect(fmtUptime(86400)).toBe('1d 0h');
-    expect(fmtUptime(72000)).toBe('20h 0m');
     // the 400% bug: 4 days of uptime must read as a duration, never a percentage
     expect(fmtUptime(345600)).toBe('4d 0h');
     expect(fmtUptime(354600)).toBe('4d 2h');
   });
-  it('returns em-dash for null/NaN/negative input', () => {
+  it('truncates fractional seconds rather than leaking decimals', () => {
+    expect(fmtUptime(42.9)).toBe('42s');
+    expect(fmtUptime(3600.5)).toBe('1h 0m');
+  });
+  it('returns em-dash for any non-finite or negative input', () => {
     expect(fmtUptime(null)).toBe('—');
     expect(fmtUptime(undefined)).toBe('—');
     expect(fmtUptime(NaN)).toBe('—');
     expect(fmtUptime(-5)).toBe('—');
+    expect(fmtUptime(Infinity)).toBe('—');
+    expect(fmtUptime(-Infinity)).toBe('—');
+  });
+  it('returns em-dash for non-numeric input rather than coercing it', () => {
+    expect(fmtUptime('')).toBe('—');
+    expect(fmtUptime('600')).toBe('—');
+    expect(fmtUptime([5])).toBe('—');
+    expect(fmtUptime(true)).toBe('—');
   });
 });

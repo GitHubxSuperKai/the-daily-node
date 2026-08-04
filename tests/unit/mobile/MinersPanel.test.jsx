@@ -127,6 +127,7 @@ describe('MinersPanel — per-miner secondary stats row', () => {
     };
     wrap(<MinersPanel bitaxe={fourDays} />);
     expect(screen.getByText('4d 2h up')).toBeDefined();
-    expect(screen.queryByText(/\d{3,}% up/)).toBeNull();
+    // no percentage in any form — the clamped "99% up" is just as wrong as "400% up"
+    expect(screen.queryByText(/% up/)).toBeNull();
   });
 });

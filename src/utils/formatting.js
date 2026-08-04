@@ -49,7 +49,7 @@ function fmtMempoolMB(bytes) {
 // Miner uptime is a monotonic since-boot counter, not an availability ratio —
 // render it as an elapsed duration, never as a percentage of a 24h window.
 function fmtUptime(seconds) {
-  if (seconds == null || isNaN(seconds) || seconds < 0) return '—';
+  if (!Number.isFinite(seconds) || seconds < 0) return '—';
   const s = Math.floor(seconds);
   if (s < 60)    return `${s}s`;
   if (s < 3600)  return `${Math.floor(s / 60)}m`;

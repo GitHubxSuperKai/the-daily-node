@@ -51,7 +51,7 @@ export function FleetSummary({ miners }) {
       </div>
       <div style={{ ...ft, color: T.ink }}>{totalHashTH.toFixed(2)}</div>
       <div style={{ ...ft, color: avgEff > 25 ? T.red : T.ink }}>{avgEff.toFixed(1)}</div>
-      <div style={{ ...ft, color: T.ink }}>{minUp != null ? fmtUptime(minUp) : '—'}</div>
+      <div style={{ ...ft, color: T.ink }}>{minUp != null ? `≥${fmtUptime(minUp)}` : '—'}</div>
       <div style={{ ...ft, color: T.ink }}>
         {totalAcc.toLocaleString()}<span style={{ color: totalRej > 200 ? T.red : T.ink4 }}> /{totalRej}</span>
       </div>

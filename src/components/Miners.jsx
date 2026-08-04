@@ -11,7 +11,9 @@ function Miners({ bitaxe, chain }) {
   const heroSlotRef = React.useRef(null);
   const [heroFontSize, setHeroFontSize] = React.useState(null);
 
-  const GRID = `minmax(0,1fr) ${u(52)} ${u(46)} ${u(44)} ${u(80)} ${u(48)} ${u(48)} ${u(52)}`;
+  // Uptime track fits the widest duration string plus the fleet row's "≥" prefix
+  // ("≥23h 59m" = 8 mono chars at u(11), 0.6em advance).
+  const GRID = `minmax(0,1fr) ${u(52)} ${u(46)} ${u(56)} ${u(80)} ${u(48)} ${u(48)} ${u(52)}`;
 
   const onlineMiners = bitaxe.miners.filter(m => m.online && m.data);
   const minerCount   = bitaxe.miners.length;
