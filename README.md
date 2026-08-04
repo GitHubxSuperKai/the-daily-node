@@ -66,7 +66,7 @@ python3 bitaxe_api.py --bind 0.0.0.0
 
 On Windows, use `python` instead of `python3`. Open `http://localhost:3001/` — a setup page will guide you through entering your miner IPs. The dashboard loads immediately after.
 
-> **Want to modify the source?** Run `npm install` then `npm run build` (Node 20+ required) to rebuild `index.html` from `src/`. On Windows, run those as separate commands — `&&` is not supported in PowerShell.
+> **Want to modify the source?** Run `npm install` then `npm run build` (Node 22.22+, 24.15+, or 26+ — see `engines` in `package.json`) to rebuild `index.html` from `src/`. On Windows, run those as separate commands — `&&` is not supported in PowerShell.
 
 ### Option C — Static dashboard, no miners
 
