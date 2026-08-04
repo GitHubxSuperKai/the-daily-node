@@ -11,9 +11,12 @@ function Miners({ bitaxe, chain }) {
   const heroSlotRef = React.useRef(null);
   const [heroFontSize, setHeroFontSize] = React.useState(null);
 
-  // Uptime track fits the widest duration string plus the fleet row's "≥" prefix
-  // ("≥23h 59m" = 8 mono chars at u(11), 0.6em advance).
-  const GRID = `minmax(0,1fr) ${u(52)} ${u(46)} ${u(56)} ${u(80)} ${u(48)} ${u(48)} ${u(52)}`;
+  // Uptime track sized for the widest duration string plus the fleet row's "≥"
+  // prefix: "≥23h 59m" = 8 chars at u(11) x 0.6em advance = 52.8px. The 0.8px
+  // sits inside the 4px columnGap. NB the "≥" (U+2265) falls outside Courier
+  // Prime's declared unicode-range, so it always renders from the next font in
+  // T.mono — keep a monospace fallback in that stack or this arithmetic breaks.
+  const GRID = `minmax(0,1fr) ${u(52)} ${u(46)} ${u(52)} ${u(80)} ${u(48)} ${u(48)} ${u(52)}`;
 
   const onlineMiners = bitaxe.miners.filter(m => m.online && m.data);
   const minerCount   = bitaxe.miners.length;

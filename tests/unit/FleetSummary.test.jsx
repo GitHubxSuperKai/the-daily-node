@@ -48,16 +48,23 @@ describe('FleetSummary uptime cell', () => {
   });
 
   it('falls back to an em-dash when no active miner reports uptime', () => {
+    // vrTemp is set so the VR° cell renders a number: without it that cell's own
+    // em-dash satisfies the assertion and the test passes against the old "0%".
     wrap(<FleetSummary miners={[
-      miner('10.0.0.1', { hashRate: 1200000, power: 200 }),
+      miner('10.0.0.1', { hashRate: 1200000, power: 200, vrTemp: 55 }),
     ]} />);
-    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('—')).toHaveLength(1);
   });
 
   it('ignores unreachable miners when picking the minimum', () => {
+    // Written as a literal rather than via miner(): the guard under test is the
+    // activeMiners filter, which only bites when an offline miner still carries
+    // data. bitaxe_api.py omits `data` entirely on failure, so this is
+    // defensive-only — but a fixture with data:null is dropped by the null
+    // filter instead and leaves the guard unexercised.
     wrap(<FleetSummary miners={[
-      miner('10.0.0.1', { hashRate: 1200000, power: 200, uptimeSeconds: 345600 }),
-      miner('10.0.0.2', null),
+      { ip: '10.0.0.1', online: true,  data: { hashRate: 1200000, power: 200, uptimeSeconds: 345600 } },
+      { ip: '10.0.0.2', online: false, data: { hashRate: 0, power: 0, uptimeSeconds: 60 } },
     ]} />);
     expect(screen.getByText('≥4d 0h')).toBeDefined();
   });
