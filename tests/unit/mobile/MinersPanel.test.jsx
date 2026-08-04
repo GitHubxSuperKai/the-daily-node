@@ -113,7 +113,20 @@ describe('MinersPanel — per-miner secondary stats row', () => {
   it('shows power, uptime, and shares in secondary stats row', () => {
     wrap(<MinersPanel bitaxe={minerWithStats} />);
     expect(screen.getByText('200W')).toBeDefined();
-    expect(screen.getByText('83% up')).toBeDefined();
+    expect(screen.getByText('20h 0m up')).toBeDefined();
     expect(screen.getByText('500/2')).toBeDefined();
+  });
+
+  it('renders multi-day uptime as a duration, never as a >100% figure', () => {
+    const fourDays = {
+      miners: [{
+        ip: '10.0.0.2',
+        online: true,
+        data: { hostname: 'bitaxe-02', hashRate: 1200000, temp: 62, uptimeSeconds: 354600 },
+      }],
+    };
+    wrap(<MinersPanel bitaxe={fourDays} />);
+    expect(screen.getByText('4d 2h up')).toBeDefined();
+    expect(screen.queryByText(/\d{3,}% up/)).toBeNull();
   });
 });

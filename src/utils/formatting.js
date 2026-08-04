@@ -46,6 +46,17 @@ function fmtMempoolMB(bytes) {
   return mb > 100 ? `${Math.round(mb)} MB` : `${mb.toFixed(1)} MB`;
 }
 
+// Miner uptime is a monotonic since-boot counter, not an availability ratio —
+// render it as an elapsed duration, never as a percentage of a 24h window.
+function fmtUptime(seconds) {
+  if (seconds == null || isNaN(seconds) || seconds < 0) return '—';
+  const s = Math.floor(seconds);
+  if (s < 60)    return `${s}s`;
+  if (s < 3600)  return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+  return `${Math.floor(s / 86400)}d ${Math.floor((s % 86400) / 3600)}h`;
+}
+
 function timeAgo(dateStr) {
   const diff = (Date.now() - new Date(dateStr)) / 1000;
   if (diff < 1)    return 'just now';
@@ -230,6 +241,7 @@ if (typeof module !== 'undefined' && module.exports) {
     fmtBlockSize,
     timeAgoUnix,
     timeAgo,
+    fmtUptime,
     fmtHour,
     fmtHHMM,
     safeISODate,

@@ -64,7 +64,7 @@ function Miners({ bitaxe, chain }) {
     { label: 'Rig',    fade: false },
     { label: 'TH/s',  fade: false },
     { label: 'J/T',   fade: false },
-    { label: '24h%',  fade: true  },
+    { label: 'Uptime', fade: true  },
     { label: 'Shares', fade: true },
     { label: 'ASIC°', fade: true  },
     { label: 'VR°',   fade: true  },
