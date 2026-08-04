@@ -3,7 +3,9 @@
 > [!NOTE] Resolved 2026-07-22
 > Fixed and closed. PR [#105](https://github.com/GitHubxSuperKai/the-daily-node/pull/105) merged to `main` (`8a9a987`) added an endpoint allowlist that constrains the caller-controlled `path`: an `in {…8 string literals…}` membership check (CodeQL `ConstCompareBarrier`) for the static endpoints and an anchored `re.fullmatch()` (CodeQL `StringRestrictionSanitizerGuard`) for the parametric `pool/<slug>/blocks` endpoint. The post-merge CodeQL scan of `main` transitioned alert **#191** to `state: fixed` (`fixed_at 2026-07-22T23:25:00Z`). All 9 real `mempoolGet()` endpoints remain reachable; PR #96's host allowlist was untouched. Regression coverage: `EndpointAllowlistTest` (non-vacuous rejection of unlisted paths / wrong suffix / injection-char slug) plus the redirect-SSRF test repointed to stay non-vacuous.
 
-Session 2026-07-22 diagnosed open CodeQL code-scanning alert **#191** (`py/partial-ssrf`, **critical**) while verifying the Dependabot-batch ship (PR #103). No code fix was applied in-session — the user chose **option A (remediate)** and this hand-off carries it forward. The alert is a real, current finding on `main`, not stale state.
+Session 2026-07-22 diagnosed open CodeQL code-scanning alert **#191** (`py/partial-ssrf`, **critical**) while verifying the Dependabot-batch ship (PR #103). No code fix was applied in that session — the user chose **option A (remediate)** and this hand-off carried it forward. *As of that session* the alert was a real, current finding on `main`, not stale state; it was remediated later the same day (see the banner above).
+
+> Everything below this line is the hand-off as written on 2026-07-22, preserved for the diagnosis. Line citations refer to the **pre-fix** `bitaxe_api.py` and will not match `main` today. Item status is tracked in the Inventory table.
 
 ## Diagnosis (confirmed this session)
 
@@ -18,12 +20,14 @@ Make the `path` taint provably safe so CodeQL #191 closes, without breaking legi
 
 ## Inventory
 
-| ID | Item | Priority | Notes |
-|----|------|----------|-------|
-| S1 | Constrain user-controlled `path` at `bitaxe_api.py:334`/`:341` so `py/partial-ssrf` #191 closes | High | Host already locked (#96); this is the remaining path-taint half. Prefer path-prefix allowlist or reconstruct-from-parsed over raw `authorized_base + path` |
-| S2 | Add regression test proving the path constraint rejects the crafted input | High | Style-match `tests/test_mempool_proxy.py`; must fail against unpatched code (non-vacuous), like #95's redirect test |
-| S3 | Verify #191 auto-closes `fixed` on the post-merge main CodeQL scan | Medium | `gh api repos/GitHubxSuperKai/the-daily-node/code-scanning/alerts/191 --jq .state` |
-| S4 | Decide fate of the empty-default vs authorized-node UX | Low | Confirm the tighter path rule doesn't block a real Start9 `/api/*` endpoint the proxy is meant to serve |
+| ID | Status | Item | Priority | Notes |
+|----|--------|------|----------|-------|
+| S1 | ✅ Done | Constrain user-controlled `path` at `bitaxe_api.py:334`/`:341` so `py/partial-ssrf` #191 closes | High | Shipped in PR #105. Landed as an endpoint allowlist, not a path-prefix rule: `in {…8 literals…}` for static endpoints + anchored `re.fullmatch()` for `pool/<slug>/blocks` |
+| S2 | ✅ Done | Add regression test proving the path constraint rejects the crafted input | High | `EndpointAllowlistTest` — rejects unlisted paths, wrong suffix, injection-char slug; the #95 redirect test was repointed to stay non-vacuous |
+| S3 | ✅ Done | Verify #191 auto-closes `fixed` on the post-merge main CodeQL scan | Medium | Confirmed `state: fixed`, `fixed_at 2026-07-22T23:25:00Z`. Re-verified 2026-08-04, still `fixed` |
+| S4 | ⚠️ Open | Decide fate of the empty-default vs authorized-node UX | Low | Confirm the tighter path rule doesn't block a real Start9 `/api/*` endpoint the proxy is meant to serve |
+
+**S4 is the one item still genuinely open.** The allowlist has never been exercised against a real self-hosted node: the proxy 403s until a base is authorized via `--allow-proxy`/`proxy_hosts`, and the VM node has not been configured. So whether the 8 allowlisted endpoints plus the `pool/<slug>/blocks` pattern actually cover what a live Start9 mempool serves is **untested, not confirmed**. If proxying is ever switched on, expect to discover missing endpoints there first.
 
 ## Not in scope for this hand-off (tracked elsewhere)
 
