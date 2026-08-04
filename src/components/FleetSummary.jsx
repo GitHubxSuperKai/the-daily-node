@@ -2,6 +2,7 @@ import React from 'react';
 import { useT } from '../theme';
 import { u } from '../utils/scale.js';
 import { getMinerStatus, fmtPower } from './MinerRow.jsx';
+import { fmtUptime } from '../utils/formatting.js';
 
 export function FleetSummary({ miners }) {
   const T = useT();
@@ -24,12 +25,11 @@ export function FleetSummary({ miners }) {
       }, 0) / activeMiners.length
     : 0;
 
-  const avgUp = activeMiners.length > 0
-    ? activeMiners.reduce((s, m) => {
-        const up = m.data?.uptimeSeconds != null
-          ? Math.min(99.9, (m.data.uptimeSeconds / 86400) * 100) : 0;
-        return s + up;
-      }, 0) / activeMiners.length
+  // Fleet uptime = the shortest run in the fleet — the most recent reboot is
+  // the number that matters; an average would hide one rig that keeps dropping.
+  const upMiners = activeMiners.filter(m => m.data?.uptimeSeconds != null);
+  const minUp = upMiners.length
+    ? Math.min(...upMiners.map(m => m.data.uptimeSeconds))
     : null;
 
   const avgAsic = activeMiners.length > 0
@@ -51,7 +51,7 @@ export function FleetSummary({ miners }) {
       </div>
       <div style={{ ...ft, color: T.ink }}>{totalHashTH.toFixed(2)}</div>
       <div style={{ ...ft, color: avgEff > 25 ? T.red : T.ink }}>{avgEff.toFixed(1)}</div>
-      <div style={{ ...ft, color: avgUp != null && avgUp < 80 ? T.red : T.ink }}>{avgUp != null ? `${avgUp.toFixed(0)}%` : '—'}</div>
+      <div style={{ ...ft, color: T.ink }}>{minUp != null ? `≥${fmtUptime(minUp)}` : '—'}</div>
       <div style={{ ...ft, color: T.ink }}>
         {totalAcc.toLocaleString()}<span style={{ color: totalRej > 200 ? T.red : T.ink4 }}> /{totalRej}</span>
       </div>

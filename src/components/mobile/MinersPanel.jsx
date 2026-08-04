@@ -1,6 +1,6 @@
 import React from 'react';
 import { useT } from '../../theme.js';
-import { calcSoloOdds, fmtNum } from '../../utils/formatting.js';
+import { calcSoloOdds, fmtNum, fmtUptime } from '../../utils/formatting.js';
 
 function sectionLabel(T) {
   return {
@@ -108,14 +108,14 @@ function MinersPanel({ bitaxe, chain }) {
               const hashTHs = m.online && m.data ? ((m.data.hashRate || 0) / 1000).toFixed(1) : null;
               const temp = m.online && m.data ? m.data.temp : null;
               const watts = m.online && m.data && m.data.power != null ? Math.round(m.data.power) : null;
-              const uptimePct = m.online && m.data && m.data.uptimeSeconds != null
-                ? ((m.data.uptimeSeconds / 86400) * 100).toFixed(0)
+              const uptime = m.online && m.data && m.data.uptimeSeconds != null
+                ? fmtUptime(m.data.uptimeSeconds)
                 : null;
               const sharesAcc = m.online && m.data && m.data.sharesAccepted != null
                 ? m.data.sharesAccepted
                 : null;
               const sharesRej = m.online && m.data ? (m.data.sharesRejected || 0) : null;
-              const hasStats = watts !== null || uptimePct !== null || sharesAcc !== null;
+              const hasStats = watts !== null || uptime !== null || sharesAcc !== null;
               return (
                 <div key={m.ip} style={{
                   paddingBottom: 12,
@@ -155,12 +155,12 @@ function MinersPanel({ bitaxe, chain }) {
                           {watts}W
                         </span>
                       )}
-                      {uptimePct !== null && (
+                      {uptime !== null && (
                         <span style={{
                           fontFamily: T.mono, fontSize: 11, color: T.ink3,
                           fontFeatureSettings: '"tnum" 1, "lnum" 1',
                         }}>
-                          {uptimePct}% up
+                          {uptime} up
                         </span>
                       )}
                       {sharesAcc !== null && (
