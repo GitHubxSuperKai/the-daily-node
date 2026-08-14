@@ -21,9 +21,17 @@ services:
     volumes:
       - daily-node-config:/data
     healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:3001/',timeout=5).status==200 else 1)"]
-      interval: 30s
-      timeout: 10s
+      # Probes /api/setup, not / — it returns tiny JSON and proves the config
+      # path actually loaded, whereas / serves the whole inlined dashboard
+      # bundle on every probe and the client exits without reading it.
+      # Interval is deliberately off-harmonic with the dashboard's own 30s
+      # miner poll: the server is single-threaded, an unreachable miner can
+      # block request handling for ~6s, and a harmonic probe would eventually
+      # phase-lock onto that window and report unhealthy while the app is fine.
+      # Port is fixed at 3001 — if you override `command:` with --port, update this.
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; r=urllib.request.urlopen('http://127.0.0.1:3001/api/setup',timeout=5); r.read(); sys.exit(0 if r.status==200 else 1)"]
+      interval: 45s
+      timeout: 6s
       retries: 3
       start_period: 15s
     restart: unless-stopped

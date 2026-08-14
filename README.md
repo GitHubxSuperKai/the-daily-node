@@ -52,6 +52,15 @@ Or with Compose — copy [`docker-compose.yml`](docker-compose.yml), edit the `B
 docker compose up -d
 ```
 
+If you track your deployment in git, put your real IPs in a
+`docker-compose.override.yml` instead — Compose merges it automatically with no
+extra flags, and it is gitignored, so your LAN addresses stay out of any commit.
+
+The container ships a healthcheck, so `docker ps` shows `(healthy)` once the app
+is actually answering rather than merely running. It is informational only:
+plain Docker and Compose never restart a container for being unhealthy — that
+requires Swarm, Kubernetes, or a helper like `autoheal`.
+
 Multi-arch images are published for `linux/amd64` and `linux/arm64`. Same image runs in any LXC container that has Docker installed.
 
 ### Option B — Run from source

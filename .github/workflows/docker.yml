@@ -12,6 +12,7 @@ on:
       - 'build.js'
       - 'package.json'
       - 'package-lock.json'
+      - 'docker-compose.yml'
       - '.github/workflows/docker.yml'
   pull_request:
     paths:
@@ -22,6 +23,7 @@ on:
       - 'build.js'
       - 'package.json'
       - 'package-lock.json'
+      - 'docker-compose.yml'
       - '.github/workflows/docker.yml'
   workflow_dispatch:
 
@@ -37,6 +39,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
+      # docker-compose.yml is not exercised by the container smoke test below
+      # (it uses `docker run`), so validate it directly: a malformed compose
+      # file or a healthcheck that fails to resolve would otherwise reach users
+      # untested.
+      - name: Validate compose file
+        run: |
+          docker compose -f docker-compose.yml config -q
+          docker compose -f docker-compose.yml config | grep -q 'healthcheck:' \
+            || { echo "healthcheck missing from resolved compose config"; exit 1; }
 
       - uses: docker/setup-buildx-action@v4
 
