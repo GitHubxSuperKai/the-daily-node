@@ -40,3 +40,9 @@ docs/superpowers/
 .env*
 *.pem
 *.key
+
+# Timestamped local backups (docker-compose.yml.bak-YYYYMMDD and friends).
+# These are made in place before editing deployment config, so they carry
+# whatever real LAN addresses the live file had. Untracked and unignored,
+# they were one `git add -A` away from being published.
+*.bak*
