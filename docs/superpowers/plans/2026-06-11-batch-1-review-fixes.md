@@ -22,13 +22,13 @@
 | 6 | `src/components/FleetSummary.jsx` | 8 |
 | 7 | `src/components/Masthead.jsx` | 9 |
 
-All work happens in worktree: `D:\Claude\The Daily Node\.claude\worktrees\fix+batch-1-review-fixes`
+All work happens in worktree: `<repo>/.claude/worktrees/fix+batch-1-review-fixes`
 
 ---
 
 ## Task 1: HISTORY_BASE — derive from window.location (Item 2)
 
-**Problem:** `HISTORY_BASE = 'http://127.0.0.1:3002'` is hardcoded. From any viewer not on the server host (e.g. VM at 192.168.1.59), this resolves to the viewer's own localhost and silently fails — emptying the price chart and disabling price-move alerts.
+**Problem:** `HISTORY_BASE = 'http://127.0.0.1:3002'` is hardcoded. From any viewer not on the server host (e.g. a VM elsewhere on the LAN), this resolves to the viewer's own localhost and silently fails — emptying the price chart and disabling price-move alerts.
 
 **Files:**
 - Modify: `src/config.js`
@@ -52,7 +52,7 @@ expect(spy.mock.calls[0][0]).toContain(':3002');
 - [ ] **Step 2: Run the test to confirm it FAILS (still uses old URL)**
 
 ```
-cd "D:\Claude\The Daily Node\.claude\worktrees\fix+batch-1-review-fixes"
+cd "<repo>/.claude/worktrees/fix+batch-1-review-fixes"
 npm run test:unit -- --reporter=verbose tests/unit/useHistory.test.js
 ```
 
@@ -65,7 +65,7 @@ In `src/config.js`, add this field to the CONFIG object after `RSS2JSON_KEY`:
 ```js
   // ─── History Daemon ───────────────────────────────────
   // Base URL for history_daemon. Derived from the serving host so remote
-  // viewers (VM at 192.168.1.59) reach the daemon correctly.
+  // viewers (a VM elsewhere on the LAN) reach the daemon correctly.
   HISTORY_BASE: typeof window !== 'undefined'
     ? `${window.location.protocol}//${window.location.hostname}:3002`
     : 'http://127.0.0.1:3002',
