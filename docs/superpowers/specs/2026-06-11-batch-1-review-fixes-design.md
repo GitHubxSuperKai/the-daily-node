@@ -28,7 +28,7 @@ const [dark, setDark] = React.useState(() => loadV2Prefs().theme === 'dark');
 
 ### 2 [HIGH] HISTORY_BASE hardcoded to 127.0.0.1 — `src/hooks/useHistory.js:4`
 
-**Problem:** `const HISTORY_BASE = 'http://127.0.0.1:3002'` — always resolves to the *viewer's* localhost. Fails silently for all remote viewers (VM deployment at 192.168.1.59). Silently empties the price-history chart and disables the price-move alert (`checkPriceThreshold` returns false for an empty array).
+**Problem:** `const HISTORY_BASE = 'http://127.0.0.1:3002'` — always resolves to the *viewer's* localhost. Fails silently for all remote viewers (e.g. a LAN VM deployment). Silently empties the price-history chart and disables the price-move alert (`checkPriceThreshold` returns false for an empty array).
 
 **Fix:** Add `HISTORY_BASE` to `config.js`, derived from `window.location.hostname` at runtime:
 ```js
@@ -39,7 +39,7 @@ HISTORY_BASE: typeof window !== 'undefined'
 
 `useHistory.js` drops its local constant and reads `CONFIG.HISTORY_BASE` instead.
 
-**Rationale:** When viewed from LAN (`http://192.168.1.59:8000`), `window.location.hostname` = `192.168.1.59`, so history fetches target `http://192.168.1.59:3002` — where history_daemon is actually listening. No manual configuration required.
+**Rationale:** When viewed from LAN (`http://<lan-host>:8000`), `window.location.hostname` = `<lan-host>`, so history fetches target `http://<lan-host>:3002` — where history_daemon is actually listening. No manual configuration required.
 
 ---
 

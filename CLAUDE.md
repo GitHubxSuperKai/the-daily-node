@@ -4,11 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Ikigai context
 
-Life-goal framing for this project lives at `D:\Ikigai\00-PARA\1-Projects\the-daily-node.md`. Read it for the "why" — goal, success criteria, current state.
+Life-goal framing for this project lives in the Ikigai vault at `00-PARA/1-Projects/the-daily-node.md`. Read it for the "why" — goal, success criteria, current state.
 
 ## Repo Workflow
 
 - **`main` is protected:** changes must land via a pull request and pass the required `build` status check. **Never direct-push to `main`** — branch, push, open a PR (this applies to docs too). Admin bypass exists but is not the workflow; using it skips the `build` gate.
+- **This repo is PUBLIC — never commit environment details.** No real LAN/host IPs, hostnames, usernames, absolute local paths (`D:\...`, `/home/<user>/...`), SSH key paths, or deployment topology — in code, docs, plans, specs, or commit messages alike. Use placeholders instead: `<lan-host>`, `<repo>/…`, `<user>`. Note `npm run check:secrets` (a pre-commit hook) rejects any literal private IP in scanned files, so write examples as placeholders rather than real-looking addresses. Planning docs under `docs/superpowers/` are the historical leak vector — they narrate real debugging sessions, so scrub them before committing.
+- **Deployment is out of scope for this repo.** Deploying the image to any local/self-hosted instance is handled in a separate private workspace, not from here. Do not run deploy commands, SSH, or reference specific hosts in this repo.
 
 ## Commands
 
