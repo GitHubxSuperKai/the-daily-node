@@ -12,8 +12,11 @@ on:
       - 'build.js'
       - 'package.json'
       - 'package-lock.json'
-      - 'docker-compose.yml'
       - '.github/workflows/docker.yml'
+  # NOTE: docker-compose.yml is deliberately absent from the push filter above.
+  # The publish job has no path guard of its own, so listing it here would
+  # republish :latest for a change that alters zero image bytes. It appears
+  # only under pull_request, where it gates the smoke job.
   pull_request:
     paths:
       - 'Dockerfile'
@@ -40,15 +43,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # docker-compose.yml is not exercised by the container smoke test below
-      # (it uses `docker run`), so validate it directly: a malformed compose
-      # file or a healthcheck that fails to resolve would otherwise reach users
-      # untested.
+      # The smoke test below uses `docker run`, so it never reads the compose
+      # file. Validate the YAML here; the probe itself is executed against the
+      # running container further down (asserting a `healthcheck:` key exists
+      # would prove nothing — Compose never parses or runs the test string).
       - name: Validate compose file
-        run: |
-          docker compose -f docker-compose.yml config -q
-          docker compose -f docker-compose.yml config | grep -q 'healthcheck:' \
-            || { echo "healthcheck missing from resolved compose config"; exit 1; }
+        run: docker compose -f docker-compose.yml config -q
 
       - uses: docker/setup-buildx-action@v4
 
@@ -88,6 +88,20 @@ jobs:
         run: |
           # No miners configured, but endpoint should still return valid JSON
           curl -fsS http://localhost:3001/api/miners | python3 -c "import sys, json; d = json.load(sys.stdin); assert 'miners' in d and 'count' in d"
+
+      # Runs the EXACT probe string the compose healthcheck ships, inside the
+      # image it ships against. A probe with a syntax error, a wrong path or a
+      # wrong port resolves fine in `compose config` and only fails here.
+      # Note the container is started by `docker run` without --health-cmd, so
+      # it has no health status to inspect; executing the probe is the
+      # equivalent assertion.
+      - name: Verify the shipped healthcheck probe exits 0
+        run: |
+          docker compose -f docker-compose.yml config --format json \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['services']['daily-node']['healthcheck']['test'][-1])" \
+            > /tmp/probe.py
+          echo "--- probe under test ---"; cat /tmp/probe.py
+          docker exec -i dn-smoke python3 - < /tmp/probe.py
 
       - name: Stop container
         if: always()

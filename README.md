@@ -53,8 +53,19 @@ docker compose up -d
 ```
 
 If you track your deployment in git, put your real IPs in a
-`docker-compose.override.yml` instead — Compose merges it automatically with no
-extra flags, and it is gitignored, so your LAN addresses stay out of any commit.
+`docker-compose.override.yml` instead of editing the file above — Compose merges
+it automatically with no extra flags:
+
+```yaml
+services:
+  daily-node:
+    environment:
+      BITAXE_IPS: "<miner-ip-1>,<miner-ip-2>"
+```
+
+This repo gitignores that filename. If you keep your deployment in a repo of
+your own, add the same rule there — otherwise your LAN addresses are one
+`git add -A` from a commit.
 
 The container ships a healthcheck, so `docker ps` shows `(healthy)` once the app
 is actually answering rather than merely running. It is informational only:
