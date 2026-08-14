@@ -17,3 +17,19 @@ scripts/
 index.html
 .vscode/
 .idea/
+
+# Local backups / compose override files — keep them out of the build context
+# too. They cannot reach the image (the Dockerfile COPYs named files, never
+# `. .`), so this is defense in depth. Patterns are **-prefixed because
+# .dockerignore uses Go filepath.Match, where * does not cross a /.
+**/*.bak
+**/*.bak-*
+**/*.orig
+**/*.rej
+**/*.old
+**/*.save
+**/*~
+**/.#*
+**/*.swp
+docker-compose.override.y*ml
+compose.override.y*ml

@@ -40,3 +40,22 @@ docs/superpowers/
 .env*
 *.pem
 *.key
+
+# In-place and editor backups (docker-compose.yml.bak-YYYYMMDD and friends).
+# These are made before editing deployment config, so they carry whatever real
+# LAN addresses the live file had. Untracked and unignored, they are one
+# `git add -A` away from being published from a working deployment.
+*.bak
+*.bak-*
+*.orig
+*.rej
+*.old
+*.save
+*~
+.#*
+*.swp
+
+# Compose auto-merges an override file with no flags, which makes it the
+# natural place to put real miner IPs while keeping the committed file clean.
+docker-compose.override.y*ml
+compose.override.y*ml
