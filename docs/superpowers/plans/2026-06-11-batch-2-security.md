@@ -220,7 +220,7 @@ git commit -m "fix(xss): sanitize RSS item links via safeUrl() — block javascr
 - Modify: `bitaxe_api.py` (add class attr + fix except block)
 - Modify: `tests/test_mempool_proxy.py` (patch allowlist in base class; add HostnameAllowlistTest)
 
-**Background:** The proxy is only ever used for self-hosted LAN nodes (Start9, Umbrel etc.). Those nodes are almost always accessed by bare LAN IP (e.g. `192.168.1.59:3006`), which already passes the existing IP check. The default allowlist is therefore `frozenset()` — no hostnames allowed unless explicitly configured. The class-attribute pattern (`ALLOWED_PROXY_HOSTS`) mirrors how `ALLOWED_ORIGINS` is done, so tests can patch it to `frozenset({'localhost'})` to let the stub upstream at `127.0.0.1` work without coupling production config to test infra.
+**Background:** The proxy is only ever used for self-hosted LAN nodes (Start9, Umbrel etc.). Those nodes are almost always accessed by bare LAN IP (e.g. `<lan-host>:3006`), which already passes the existing IP check. The default allowlist is therefore `frozenset()` — no hostnames allowed unless explicitly configured. The class-attribute pattern (`ALLOWED_PROXY_HOSTS`) mirrors how `ALLOWED_ORIGINS` is done, so tests can patch it to `frozenset({'localhost'})` to let the stub upstream at `127.0.0.1` work without coupling production config to test infra.
 
 - [ ] **Step 1: Write the failing tests**
 

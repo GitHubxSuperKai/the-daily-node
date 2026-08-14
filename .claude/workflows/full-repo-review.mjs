@@ -8,7 +8,9 @@ export const meta = {
   ],
 };
 
-const PROJECT_ROOT = 'D:/Claude/The Daily Node';
+// Repo-relative: agents run from the repo root, so no absolute path is needed
+// (and this file is public — see CLAUDE.md on not committing local paths).
+const PROJECT_ROOT = '.';
 
 const GROUPS = [
   {
