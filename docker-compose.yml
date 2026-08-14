@@ -20,6 +20,26 @@ services:
       # BITAXE_IPS: "<miner-ip-1>,<miner-ip-2>"
     volumes:
       - daily-node-config:/data
+    healthcheck:
+      # Probes /api/setup rather than /: it returns ~66 bytes where / is the
+      # inlined dashboard bundle (~300 KB), which the probe would fetch and
+      # discard every interval on a single-threaded server. Both endpoints
+      # serve startup-cached state, so this is about cost, not fidelity —
+      # what it proves is that the request loop is still servicing requests.
+      # `retries: 3` is what prevents a false unhealthy: an unreachable miner
+      # can block request handling for ~6s (fetch_all_miners joins at
+      # FETCH_TIMEOUT+1), and 45s vs the dashboard's 30s poll keeps probes off
+      # that window most of the time — but three CONSECUTIVE collisions is the
+      # real safeguard.
+      # ProxyHandler({}) because urlopen otherwise honours http_proxy from the
+      # environment and would route a loopback probe through it.
+      # Host and port are fixed — if you override `command:` with --port or
+      # --bind, update this line too.
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; o=urllib.request.build_opener(urllib.request.ProxyHandler({})); r=o.open('http://127.0.0.1:3001/api/setup',timeout=5); r.read(); sys.exit(0 if r.status==200 else 1)"]
+      interval: 45s
+      timeout: 6s
+      retries: 3
+      start_period: 15s
     restart: unless-stopped
 
 volumes:
