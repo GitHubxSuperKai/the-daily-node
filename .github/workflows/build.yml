@@ -24,6 +24,18 @@ jobs:
       - name: Build bundle
         run: npm run build
 
+      - name: Verify committed artifact matches rebuild
+        run: |
+          if ! git diff --quiet -- index.html; then
+            echo "ERROR: committed index.html does not match a fresh build."
+            echo "The bundle was rebuilt from src/ and the result differs from what is checked in."
+            echo "Fix: run 'node build.js' locally and commit the regenerated index.html."
+            echo "--- diffstat ---"
+            git diff --stat -- index.html
+            exit 1
+          fi
+          echo "Committed index.html matches the rebuild."
+
       - name: Verify output
         run: |
           test -f "index.html"
