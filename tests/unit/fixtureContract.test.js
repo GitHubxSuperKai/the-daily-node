@@ -12,7 +12,8 @@ import { useWeather } from '../../src/hooks/useWeather.js';
 import { useRSS } from '../../src/hooks/useRSS.js';
 import { useClock } from '../../src/hooks/useClock.js';
 import { useFeedHealth } from '../../src/hooks/useFeedHealth.js';
-import { fmtMempoolMB, nextHalving, circulatingBTC } from '../../src/utils/formatting.js';
+import { fmtMempoolMB, nextHalving, circulatingBTC, wmoDesc } from '../../src/utils/formatting.js';
+import CONFIG from '../../src/config.js';
 
 /**
  * Contract check for tests/fixtures/dashboardProps.js.
@@ -40,16 +41,29 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 // ─── Shape diffing ──────────────────────────────────────────────────────────
 
 /**
- * Flatten a value into `dotted.path -> type tag`. Arrays are described by their
- * FIRST element (`path[0]`) — enough to catch a wrong element shape without
- * assuming a length.
+ * Flatten a value into `dotted.path -> type tag`. EVERY element of an array folds
+ * onto one `path[]` entry, so a field present on only the second element still
+ * registers. A path carried by some but not all elements is tagged
+ * `partial:<type>` — a plain union would let one element's missing `slug` hide
+ * behind its sibling's. On a type clash the non-null wins, so one nullable element
+ * cannot erase the real type of the rest.
  */
 function shapeOf(value, prefix = '', out = new Map()) {
   if (value === null) {
     out.set(prefix, 'null');
   } else if (Array.isArray(value)) {
     out.set(prefix, 'array');
-    if (value.length > 0) shapeOf(value[0], `${prefix}[0]`, out);
+    const seen = new Map();
+    for (const el of value) {
+      for (const [p, type] of shapeOf(el, `${prefix}[]`)) {
+        const prev = seen.get(p);
+        if (!prev) seen.set(p, { type, count: 1 });
+        else seen.set(p, { type: prev.type === 'null' ? type : prev.type, count: prev.count + 1 });
+      }
+    }
+    for (const [p, { type, count }] of seen) {
+      out.set(p, count === value.length ? type : `partial:${type}`);
+    }
   } else if (typeof value === 'object') {
     out.set(prefix, 'object');
     for (const key of Object.keys(value)) {
@@ -64,28 +78,33 @@ function shapeOf(value, prefix = '', out = new Map()) {
 /**
  * Diff two shapes. Returns human-readable problem strings, empty when they agree.
  *
- * Deliberate holes, both because the alternative is a false failure:
- *  - `null` on either side matches anything. Nullable fields (img, wxGusts,
- *    athDate) legitimately arrive as null from one side and a value from the other.
- *  - An EMPTY array on either side suppresses only the element comparison for that
- *    path; array-ness itself is still compared. `chartPts: []` in the fixture is
- *    real production state, so its element shape cannot be checked here.
+ * Two deliberate holes, both because the alternative is a false failure:
+ *  - `null` on either side matches any type. Nullable fields (img, wxGusts,
+ *    athDate) legitimately arrive as null from one side and a value from the
+ *    other. `strict: true` closes this, and every down-state comparison uses it —
+ *    with all sources failing, each field has exactly one correct value.
+ *  - An EMPTY array suppresses the element comparison for that ONE path; array-ness
+ *    itself is still compared. The stem is the immediate parent array, so an empty
+ *    inner array does not suppress its siblings. `chartPts: []` is real production
+ *    state, so its element shape cannot be checked here; every other fixture array
+ *    is asserted non-empty below so this hole stays where it is documented.
  */
-function diffShapes(actual, expected, { actualLabel, expectedLabel }) {
+function diffShapes(actual, expected, { actualLabel, expectedLabel, strict = false }) {
   const a = shapeOf(actual);
   const e = shapeOf(expected);
   const problems = [];
 
+  const nullable = (x, y) => !strict && (x === 'null' || y === 'null');
   const elementSuppressed = (p) => {
-    const stem = p.replace(/\[0\](\..*)?$/, '');
+    const stem = p.replace(/\[\][^[\]]*$/, '');
     return stem !== p && (a.get(stem) === 'array' || e.get(stem) === 'array')
-      && (!a.has(`${stem}[0]`) || !e.has(`${stem}[0]`));
+      && (!a.has(`${stem}[]`) || !e.has(`${stem}[]`));
   };
 
   for (const [p, type] of a) {
     if (e.has(p)) {
       const other = e.get(p);
-      if (type !== other && type !== 'null' && other !== 'null') {
+      if (type !== other && !nullable(type, other)) {
         problems.push(`${p}: ${actualLabel} is ${type}, ${expectedLabel} is ${other}`);
       }
     } else if (!elementSuppressed(p)) {
@@ -100,11 +119,11 @@ function diffShapes(actual, expected, { actualLabel, expectedLabel }) {
   return problems.sort();
 }
 
-function expectSameShape(hookResult, fixtureSlot, slot) {
-  const problems = diffShapes(hookResult, fixtureSlot, {
-    actualLabel: 'hook', expectedLabel: `fixture.${slot}`,
+function expectSameShape(actual, fixtureSlot, slot, { strict = false, actualLabel = 'hook' } = {}) {
+  const problems = diffShapes(actual, fixtureSlot, {
+    actualLabel, expectedLabel: `fixture.${slot}`, strict,
   });
-  expect(problems, `${slot} fixture drifted from its hook:\n  ${problems.join('\n  ')}`).toEqual([]);
+  expect(problems, `${slot} fixture drifted from its source:\n  ${problems.join('\n  ')}`).toEqual([]);
 }
 
 // ─── Stubbed upstream payloads ──────────────────────────────────────────────
@@ -112,7 +131,20 @@ function expectSameShape(hookResult, fixtureSlot, slot) {
 const ok = (body) => ({ ok: true, json: async () => body });
 const NOW = Date.now();
 const NOW_SEC = Math.floor(NOW / 1000);
-const iso = (msFromNow) => new Date(NOW + msFromNow).toISOString().slice(0, 16);
+
+const pad = (n) => String(n).padStart(2, '0');
+/**
+ * Open-Meteo is called with `timezone=auto` and returns LOCAL wall-clock stamps
+ * carrying no offset, which useWeather parses as local. Emitting UTC here would
+ * put every slot in the past for any contributor east of UTC+3 and starve the
+ * 8-slot window — so build these from local components, as the API does.
+ */
+function localStamp(msFromNow) {
+  const d = new Date(NOW + msFromNow);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+    + `T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+const localDay = (msFromNow) => localStamp(msFromNow).slice(0, 10);
 
 const KRAKEN = ok({
   error: [],
@@ -137,8 +169,8 @@ const CG_META = ok({
   },
 });
 
-// Open-Meteo needs 2 forecast days (wxSunriseTomorrow) and >=8 hourly slots at or
-// after "now" (useWeather seeks the first future entry, then takes 8).
+// Needs 2 forecast days (wxSunriseTomorrow) and >=9 hourly slots from now, since
+// useWeather seeks the first entry at or after now and then takes 8.
 const OPEN_METEO = ok({
   current: {
     temperature_2m: 75.2, apparent_temperature: 73.8, weather_code: 3,
@@ -146,7 +178,7 @@ const OPEN_METEO = ok({
     wind_gusts_10m: 18.4, pressure_msl: 1013.2, dew_point_2m: 55.1,
   },
   hourly: {
-    time: Array.from({ length: 12 }, (_, i) => iso(i * 3600_000)),
+    time: Array.from({ length: 12 }, (_, i) => localStamp(i * 3600_000)),
     temperature_2m: Array.from({ length: 12 }, (_, i) => 70 + i),
     weather_code: Array.from({ length: 12 }, () => 3),
     precipitation_probability: Array.from({ length: 12 }, () => 0),
@@ -154,8 +186,8 @@ const OPEN_METEO = ok({
   },
   daily: {
     temperature_2m_max: [79.4, 81.0], temperature_2m_min: [61.2, 62.5],
-    sunrise: [`${iso(0).slice(0, 10)}T06:12`, `${iso(86_400_000).slice(0, 10)}T06:13`],
-    sunset: [`${iso(0).slice(0, 10)}T19:44`, `${iso(86_400_000).slice(0, 10)}T19:43`],
+    sunrise: [`${localDay(0)}T06:12`, `${localDay(86_400_000)}T06:13`],
+    sunset: [`${localDay(0)}T19:44`, `${localDay(86_400_000)}T19:43`],
     precipitation_sum: [0, 0.2], uv_index_max: [6.1, 7.4], wind_speed_10m_max: [14.2, 16.0],
   },
 });
@@ -203,7 +235,13 @@ function mempoolRouter(url) {
     });
   }
   if (u.includes('/api/v1/mining/pools/1w')) {
-    return ok({ blockCount: 146, pools: [{ name: 'Foundry USA', slug: 'foundryusa', blockCount: 42 }] });
+    return ok({
+      blockCount: 146,
+      pools: [
+        { name: 'Foundry USA', slug: 'foundryusa', blockCount: 42 },
+        { name: 'AntPool', slug: 'antpool', blockCount: 31 },
+      ],
+    });
   }
   if (u.includes('/api/v1/mining/pool/') && u.includes('/blocks')) {
     return ok([{ height: 899_998, timestamp: NOW_SEC - 1800, tx_count: 3100 }]);
@@ -230,19 +268,26 @@ function routeAll(url) {
   return mempoolRouter(u);
 }
 
+// `vi.restoreAllMocks` does not undo a bare `global.fetch = …` assignment, so stub
+// through vi.stubGlobal and unstub in afterEach.
 function stubHealthy() {
-  global.fetch = vi.fn().mockImplementation((url) => Promise.resolve(routeAll(url)));
+  vi.stubGlobal('fetch', vi.fn().mockImplementation((url) => Promise.resolve(routeAll(url))));
 }
 
 function stubDown() {
-  global.fetch = vi.fn().mockRejectedValue(new TypeError('fetch failed'));
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed')));
+}
+
+function unstub() {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 }
 
 // ─── Hook-driven slots ──────────────────────────────────────────────────────
 
 describe('fixture contract — healthy dashboard (makeProps)', () => {
   beforeEach(() => { stubHealthy(); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  afterEach(() => { unstub(); });
 
   it('btc matches useBTC', async () => {
     const { result } = renderHook(() => useBTC());
@@ -315,52 +360,90 @@ describe('fixture contract — healthy dashboard (makeProps)', () => {
     const { prefs } = makeProps();
     const { result } = renderHook(() => useClock(prefs.timeFormat));
     expectSameShape(result.current, makeProps().clock, 'clock');
+
+    // Applied to the hook's own output first, so these patterns are pinned to the
+    // real producer rather than being one more hand transcription of it. A ':30'
+    // seconds unit read as '30', or a fabricated `dateLong`, blanks the sidebar
+    // date line without throwing.
+    for (const clock of [result.current, makeProps().clock]) {
+      expect(clock.timeSec).toMatch(/^:\d{2}$/);
+      expect(clock.timeHM).toMatch(/^\d{1,2}:\d{2}$/);
+      expect(clock.dateShort).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(clock.dayStr).toMatch(/^[A-Z][a-z]+day, [A-Z][a-z]+ \d{1,2}$/);
+      expect(clock.amPm).toMatch(/^(AM|PM)$/);
+    }
   });
 
-  it('clock strings match the formats useClock emits', () => {
-    const { clock } = makeProps();
-    // A ':30' seconds unit read as '30', or a fabricated `dateLong`, blanks the
-    // sidebar date line without throwing.
-    expect(clock.timeSec).toMatch(/^:\d{2}$/);
-    expect(clock.timeHM).toMatch(/^\d{1,2}:\d{2}$/);
-    expect(clock.dateShort).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(clock.dayStr).toMatch(/^[A-Z][a-z]+day, [A-Z][a-z]+ \d{1,2}$/);
+  it('every fixture array except chartPts is non-empty, keeping element checks live', () => {
+    // An empty array on either side suppresses its element comparison. chartPts is
+    // the one slot where [] is real production state; anywhere else an empty array
+    // would silently switch off a shape check that looks like it is running.
+    const p = makeProps();
+    const arrays = {
+      'chain.pools': p.chain.pools,
+      'chain.topPoolBlocks': p.chain.topPoolBlocks,
+      'chain.recentBlocks': p.chain.recentBlocks,
+      'chain.mempoolBlocks': p.chain.mempoolBlocks,
+      'chain.recentBlocks[].feeRange': p.chain.recentBlocks[0]?.feeRange,
+      'chain.mempoolBlocks[].feeRange': p.chain.mempoolBlocks[0]?.feeRange,
+      'rss.items': p.rss.items,
+      'bitaxe.miners': p.bitaxe.miners,
+      'weather.data.hourly': p.weather.data.hourly,
+    };
+    for (const [name, arr] of Object.entries(arrays)) {
+      expect(arr, `${name} is empty or missing — its element shape check is dead`)
+        .toEqual(expect.arrayContaining([expect.anything()]));
+    }
+  });
+
+  it('interval values match CONFIG, which feedHealth staleness is measured against', () => {
+    const p = makeProps();
+    expect(p.btc.interval).toBe(CONFIG.REFRESH_INTERVALS.price);
+    expect(p.chain.interval).toBe(CONFIG.REFRESH_INTERVALS.chain);
+    expect(p.weather.interval).toBe(CONFIG.REFRESH_INTERVALS.weather);
+    expect(p.rss.interval).toBe(CONFIG.REFRESH_INTERVALS.news);
+    expect(p.bitaxe.interval).toBe(CONFIG.REFRESH_INTERVALS.bitaxe);
   });
 });
 
 describe('fixture contract — every source down (makeDownProps)', () => {
   beforeEach(() => { stubDown(); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  afterEach(() => { unstub(); });
+
+  // Down-state comparisons run STRICT: with every source failing each field has
+  // exactly one correct value, so the nullable escape hatch is not needed and
+  // would only hide a fixture claiming a shape the hooks never reach.
+  const strict = { strict: true };
 
   it('btc matches useBTC with fetch failing', async () => {
     const { result } = renderHook(() => useBTC());
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expectSameShape(result.current, makeDownProps().btc, 'btc (down)');
+    expectSameShape(result.current, makeDownProps().btc, 'btc (down)', strict);
   });
 
   it('chain matches useChain with fetch failing', async () => {
     const { result } = renderHook(() => useChain({}));
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expectSameShape(result.current, makeDownProps().chain, 'chain (down)');
+    expectSameShape(result.current, makeDownProps().chain, 'chain (down)', strict);
   });
 
   it('weather matches useWeather with fetch failing', async () => {
     const { prefs } = makeProps();
     const { result } = renderHook(() => useWeather(prefs.lat, prefs.lng, prefs.tempUnit));
     await waitFor(() => expect(result.current.err).toBe(true));
-    expectSameShape(result.current, makeDownProps().weather, 'weather (down)');
+    expectSameShape(result.current, makeDownProps().weather, 'weather (down)', strict);
   });
 
   it('rss matches useRSS with fetch failing', async () => {
     const { result } = renderHook(() => useRSS());
     await waitFor(() => expect(result.current.err).toBe(true));
-    expectSameShape(result.current, makeDownProps().rss, 'rss (down)');
+    expectSameShape(result.current, makeDownProps().rss, 'rss (down)', strict);
   });
 
   it('bitaxe matches useBitaxe with fetch failing', async () => {
     const { result } = renderHook(() => useBitaxe());
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expectSameShape(result.current, makeDownProps().bitaxe, 'bitaxe (down)');
+    expectSameShape(result.current, makeDownProps().bitaxe, 'bitaxe (down)', strict);
   });
 
   it('down props keep the error flags hooks actually set — booleans, not strings', () => {
@@ -396,13 +479,18 @@ describe('fixture contract — miner shape', () => {
 
   it('miner.data carries exactly the fields production reads', () => {
     // The BitAxe firmware is the producer, so the contract is defined from the
-    // consumer side: every field the miner components read must exist, and the
-    // fixture must not invent one nothing reads.
-    const files = [
-      'src/components/MinerRow.jsx',
-      'src/components/FleetSummary.jsx',
-      'src/components/mobile/MinersPanel.jsx',
-    ];
+    // consumer side: every field any component reads must exist, and the fixture
+    // must not invent one nothing reads.
+    const components = [];
+    const walk = (dir) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (entry.name.endsWith('.jsx') || entry.name.endsWith('.js')) components.push(full);
+      }
+    };
+    walk(path.join(ROOT, 'src/components'));
+
     // `md` is MinerRow's local alias for miner.data; anchoring on the receiver
     // keeps chain.data/btc.data reads in the same files out of the set.
     const patterns = [
@@ -414,8 +502,8 @@ describe('fixture contract — miner shape', () => {
     const ALTERNATES = new Set(['temperature']);
 
     const read = new Set();
-    for (const rel of files) {
-      const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+    for (const file of components) {
+      const src = fs.readFileSync(file, 'utf8');
       for (const re of patterns) {
         for (const m of src.matchAll(re)) read.add(m[1]);
       }
@@ -424,6 +512,14 @@ describe('fixture contract — miner shape', () => {
     for (const alt of ALTERNATES) read.delete(alt);
 
     expect(Object.keys(makeMiner().data).sort()).toEqual([...read].sort());
+  });
+
+  it('makeProps().bitaxe.miners[0] is the pinned miner shape, not a hand-rolled one', () => {
+    // The helper being correct does not help if the slot consumers actually receive
+    // was built some other way.
+    const miner = makeProps().bitaxe.miners[0];
+    expect(miner).toBeDefined();
+    expectSameShape(miner, makeMiner(), 'bitaxe.miners[0]', { strict: true, actualLabel: 'makeProps' });
   });
 
   it('makeMiner merges data overrides instead of discarding the defaults', () => {
@@ -457,6 +553,11 @@ describe('fixture contract — derived values inside the right type', () => {
     expect(data.nextHalvingDate).toBe(nextHalving(data.height));
   });
 
+  it('weather.data.wxCond is wmoDesc of its own wxCode', () => {
+    const wx = makeProps().weather.data;
+    expect(wx.wxCond).toBe(wmoDesc(wx.wxCode));
+  });
+
   it('chain.pools[].sharePct keeps the one-decimal string toFixed(1) produces', () => {
     for (const pool of makeProps().chain.pools) {
       expect(pool.sharePct).toMatch(/^\d+\.\d$/);
@@ -485,6 +586,8 @@ describe('fixture contract — derived values inside the right type', () => {
 });
 
 describe('fixture contract — feedHealth', () => {
+  // Mirrors App.jsx's useFeedHealth call. If that call changes, this hand copy is
+  // the thing to update — the feed list is not exported from App.jsx to import.
   const feedsOf = (p) => [p.btc, { ...p.chain, contentStale: p.chain.stale }, p.weather, p.rss, p.bitaxe];
 
   it('makeProps feeds actually produce its declared feedHealth', () => {

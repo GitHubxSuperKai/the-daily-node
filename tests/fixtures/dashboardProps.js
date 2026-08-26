@@ -199,7 +199,9 @@ export function makeProps(overrides = {}) {
 export function makeDownProps(overrides = {}) {
   return makeProps({
     btc: {
-      data: null, chartPts: [], loading: false, error: true, lastOk: null,
+      // chartPts starts null in useBTC and stays null when the chart fetch fails —
+      // it is never emptied to [].
+      data: null, chartPts: null, loading: false, error: true, lastOk: null,
       refresh: vi.fn(), interval: 30000,
     },
     chain: {
