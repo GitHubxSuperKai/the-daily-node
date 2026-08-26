@@ -46,12 +46,23 @@ export const NEWS_ITEMS = [
   },
 ];
 
-/** One online miner. `temp` is near-universal; `vrTemp` is optional — supply both. */
+/**
+ * One online miner. `temp` is near-universal; `vrTemp` is optional — supply both.
+ *
+ * A `data` override is merged INTO these defaults rather than replacing them, so a
+ * suite that only cares about one field still renders against a realistic miner.
+ * Set a field to `undefined` to model a miner that does not report it: the key is
+ * deleted outright, which is what bitaxe_api.py passes through when the firmware
+ * omits it. Any other `data` value is taken verbatim.
+ */
 export function makeMiner(overrides = {}) {
-  return {
-    ip: '10.0.0.2',
-    online: true,
-    data: {
+  const { data: dataOverride, ...rest } = overrides;
+  const isMerge = dataOverride === undefined
+    || (typeof dataOverride === 'object' && dataOverride !== null && !Array.isArray(dataOverride));
+
+  let data = dataOverride;
+  if (isMerge) {
+    data = {
       hostname: 'bitaxe-01',
       hashRate: 500,        // GH/s; MinerRow divides by 1000
       power: 15,
@@ -61,9 +72,14 @@ export function makeMiner(overrides = {}) {
       sharesAccepted: 1200,
       sharesRejected: 3,
       powerLimit: 25,
-    },
-    ...overrides,
-  };
+      ...dataOverride,
+    };
+    for (const key of Object.keys(data)) {
+      if (data[key] === undefined) delete data[key];
+    }
+  }
+
+  return { ip: '10.0.0.2', online: true, data, ...rest };
 }
 
 /** The server emits offline entries with NO `data` key at all — see bitaxe_api.py. */
@@ -183,7 +199,9 @@ export function makeProps(overrides = {}) {
 export function makeDownProps(overrides = {}) {
   return makeProps({
     btc: {
-      data: null, chartPts: [], loading: false, error: true, lastOk: null,
+      // chartPts starts null in useBTC and stays null when the chart fetch fails —
+      // it is never emptied to [].
+      data: null, chartPts: null, loading: false, error: true, lastOk: null,
       refresh: vi.fn(), interval: 30000,
     },
     chain: {
