@@ -43,9 +43,9 @@ Single-file React dashboard for Bitcoin & mining monitoring. React + ReactDOM ar
 App (root — owns all hooks, theme, localStorage prefs)
 └── ThemeCtx.Provider
     └── CommandCenter (4-column grid)
-        ├── Masthead + Ticker (top chrome)
+        ├── Masthead + DesktopTicker (top chrome)
         ├── Col 0: Sidebar (Logo, Clock, Weather, StatusDots)
-        ├── Col 1: Price, LineChart, LeadStory
+        ├── Col 1: MarketsColumn (price rendered inline), LineChart, LeadStory
         ├── Col 2: News feed
         └── Col 3: Miners, Chain stats, Kicker
 ```
