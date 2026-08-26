@@ -18,6 +18,12 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
 };
 
+// jsdom does not implement the CSS Font Loading API; Miners.jsx calls
+// document.fonts.load() to measure its hero type before sizing it.
+if (!document.fonts) {
+  document.fonts = { load: () => Promise.resolve([]), ready: Promise.resolve() };
+}
+
 // useT is a build-time global (defined in theme.js, stripped of imports/exports during concat).
 // In tests, provide it as a global that returns the LIGHT theme.
 // eslint-disable-next-line react-hooks/rules-of-hooks -- test shim: assigning to global, not declaring a component
