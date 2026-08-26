@@ -573,9 +573,14 @@ describe('fixture contract — miner shape', () => {
     // the name assertion above so the two cannot drift apart: add a field there
     // without adding it here and this test fails.
     const miner = makeMiner();
-    expect(typeof miner.ip).toBe('string');
-    expect(typeof miner.online).toBe('boolean');
-    expect(typeof makeOfflineMiner().error).toBe('string');
+    const offline = makeOfflineMiner();
+    // The offline envelope needs its own assertions: it never appears in
+    // makeProps(), so the shape diff never sees it.
+    for (const [label, m] of [['makeMiner', miner], ['makeOfflineMiner', offline]]) {
+      expect(typeof m.ip, `${label}().ip`).toBe('string');
+      expect(typeof m.online, `${label}().online`).toBe('boolean');
+    }
+    expect(typeof offline.error).toBe('string');
 
     const TYPES = {
       hostname: 'string', hashRate: 'number', power: 'number', temp: 'number',
