@@ -74,6 +74,12 @@ for (const [i, group] of groups.entries()) {
   if (!group || !Array.isArray(group.files)) {
     fail(`✗ ${where} has no files array -- this check can no longer read GROUPS`);
   }
+  // The aggregate zero-paths check below only fires if EVERY group is empty. A
+  // single empty group is the silent no-op this script exists to catch: it renders
+  // an empty file list into the agent prompt and the run still reports success.
+  if (group.files.length === 0) {
+    fail(`✗ ${where} has an empty files array -- it would review nothing`);
+  }
   for (const f of group.files) {
     if (typeof f !== 'string' || f.length === 0) {
       fail(`✗ ${where} contains a non-string entry in files`);
@@ -90,10 +96,16 @@ if (files.length === 0) {
 // existsSync is case-insensitive on Windows, so it would pass a path that fails on
 // Linux CI. Compare against the real directory entry to catch that locally too.
 function resolves(rel) {
+  // Entries must be repo-relative: an absolute path or one climbing out through
+  // '..' could resolve somewhere the review agent will never read.
+  if (path.isAbsolute(rel) || rel.split(/[\\/]/).includes('..')) return false;
   const abs = path.join(REPO_ROOT, rel);
-  if (!fs.existsSync(abs)) return false;
   try {
-    return fs.readdirSync(path.dirname(abs)).includes(path.basename(abs));
+    // isFile() matters because a directory entry would otherwise pass and review
+    // nothing; readdir matters because existsSync alone is case-insensitive on
+    // Windows and would pass a path that fails on Linux CI.
+    return fs.statSync(abs).isFile()
+      && fs.readdirSync(path.dirname(abs)).includes(path.basename(abs));
   } catch {
     return false;
   }
