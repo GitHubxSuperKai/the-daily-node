@@ -143,21 +143,28 @@ assert.ok(bundleIdx !== -1,
 assert.ok(scaleIdx < bundleIdx,
   'inline scaling script must come BEFORE the bundle script — otherwise --u is unset at React first paint and the canvas renders at 1px unscaled');
 
-// Locate the enclosing <script> tag. Prove the anchor really is inside a script element:
-// there is a literal "<script" inside the CSP explainer comment in <head>, so an anchor that
-// drifted into a comment would silently redirect the checks below onto that tag and pass forever.
+// Locate the enclosing <script> tag, then prove it is a real tag and not one quoted inside
+// markup. src/index.html carries a literal "<script" in the CSP explainer comment in <head>,
+// and the first real "</script" is ~16KB further on, so "no closing tag in between" does NOT
+// on its own rule that decoy out — the comment-exclusion test below is what does.
 const scaleTagStart = html.lastIndexOf('<script', scaleIdx);
 assert.ok(scaleTagStart !== -1 && !html.slice(scaleTagStart, scaleIdx).includes('</script'),
-  'could not locate the opening <script> tag of the scaling block — the "function updateScale" anchor matched outside a script element (a comment?)');
+  'could not locate the opening <script> tag of the scaling block — the "function updateScale" anchor matched outside a script element');
+assert.ok(html.lastIndexOf('<!--', scaleTagStart) <= html.lastIndexOf('-->', scaleTagStart),
+  'the <script> tag located for the scaling block sits inside an HTML comment — the "function updateScale" anchor has drifted (a comment mentioning it?)');
 const scaleTagEnd = html.indexOf('>', scaleTagStart) + 1;
 const scaleTag = html.slice(scaleTagStart, scaleTagEnd);
 assert.ok(!/\bdefer\b|\basync\b|type\s*=\s*["']?module\b/.test(scaleTag),
   `inline scaling <script> must stay synchronous (no defer/async/type="module"): ${scaleTag}`);
 
 // Scope the body checks to this script so another block cannot satisfy them by accident.
-const scaleBody = html.slice(scaleTagEnd, html.indexOf('</script', scaleTagEnd));
-assert.ok(/^\s*updateScale\(\);/m.test(scaleBody),
-  'scaling script must call updateScale() at parse time — with only the load listener, --u stays at 1px through React first paint');
+const scaleClose = html.indexOf('</script', scaleTagEnd);
+assert.ok(scaleClose !== -1, 'scaling <script> is never closed — cannot scope the body assertions');
+const scaleBody = html.slice(scaleTagEnd, scaleClose);
+// Anchored at column 0 deliberately: `^\s*` would also match the call indented inside a
+// DOMContentLoaded/setTimeout callback, which is the regression this assertion exists to catch.
+assert.ok(/^updateScale\(\);$/m.test(scaleBody),
+  'scaling script must call updateScale() unindented at top level, at parse time — deferring it behind load/DOMContentLoaded/setTimeout leaves --u at 1px through React first paint');
 assert.ok(/window\.updateScale\s*=\s*updateScale/.test(scaleBody),
   'window.updateScale assignment missing — scripts/capture-mobile.cjs calls it to force a rescale');
 
