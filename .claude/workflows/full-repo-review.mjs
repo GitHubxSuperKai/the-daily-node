@@ -15,8 +15,9 @@ const PROJECT_ROOT = '.';
 const GROUPS = [
   {
     key: 'app-root',
-    label: 'App Root (App.jsx / config.js / theme.js)',
+    label: 'App Root (index.html shell / App.jsx / config.js / theme.js)',
     files: [
+      'src/index.html',
       'src/App.jsx',
       'src/config.js',
       'src/theme.js',
@@ -68,12 +69,10 @@ const GROUPS = [
     files: [
       'src/components/CommandCenter.jsx',
       'src/components/Masthead.jsx',
-      'src/components/Ticker.jsx',
       'src/components/DesktopTicker.jsx',
       'src/components/Sidebar.jsx',
       'src/components/MarketsColumn.jsx',
       'src/components/NewsColumn.jsx',
-      'src/components/Price.jsx',
       'src/components/LineChart.jsx',
       'src/components/ChainColumn.jsx',
       'src/components/Miners.jsx',
@@ -88,7 +87,6 @@ const GROUPS = [
       'src/components/Num.jsx',
       'src/components/StatusDot.jsx',
       'src/components/Rule.jsx',
-      'src/components/ItalicDeck.jsx',
       'src/components/ProofOfRead.jsx',
     ],
   },
@@ -131,8 +129,8 @@ const GROUPS = [
     ],
   },
   {
-    key: 'tests',
-    label: 'Test Suite (utils / hooks / components)',
+    key: 'tests-utils-hooks',
+    label: 'Test Suite — Utilities & Hooks',
     files: [
       'tests/unit/alertThresholds.test.js',
       'tests/unit/autoTheme.test.js',
@@ -148,10 +146,21 @@ const GROUPS = [
       'tests/unit/useChain.test.js',
       'tests/unit/useFeedHealth.test.js',
       'tests/unit/useHistory.test.js',
+      'tests/unit/useResettableInterval.test.js',
       'tests/unit/useRSS.test.js',
       'tests/unit/useViewportMode.test.js',
       'tests/unit/useWeather.test.js',
+    ],
+  },
+  {
+    key: 'tests-components',
+    label: 'Test Suite — Desktop & Mobile Components',
+    files: [
+      'tests/unit/App.test.jsx',
+      'tests/unit/CommandCenter.test.jsx',
       'tests/unit/ErrorBoundary.test.jsx',
+      'tests/unit/FleetSummary.test.jsx',
+      'tests/unit/OnThisDay.test.jsx',
       'tests/unit/SettingsPanel.test.jsx',
       'tests/unit/mobile/BitcoinPanel.test.jsx',
       'tests/unit/mobile/HomePanel.test.jsx',
@@ -159,6 +168,41 @@ const GROUPS = [
       'tests/unit/mobile/MobileApp.test.jsx',
       'tests/unit/mobile/MobileTabBar.test.jsx',
       'tests/unit/mobile/NewsPanel.test.jsx',
+    ],
+  },
+  {
+    key: 'tests-harness',
+    label: 'Test Harness (vitest setup / shared fixture / fixture contract)',
+    files: [
+      'tests/setup.js',
+      'tests/fixtures/dashboardProps.js',
+      'tests/unit/fixtureContract.test.js',
+    ],
+  },
+  {
+    key: 'tests-python',
+    label: 'Python Test Suite (bitaxe API / setup / CORS / mempool proxy / history daemon)',
+    // The shared prompt below briefs the agent on React, hooks and inline styling.
+    // None of that applies here, and a group reviewed under the wrong frame is
+    // counted as covered while getting no useful review. `context` overrides the
+    // frame per group; set it on any group the React brief does not describe.
+    context: `These are Python files, not React. Ignore the React, hook, styling and
+localStorage guidance above — none of it applies. Review them as a stdlib
+unittest suite exercising the local BitAxe HTTP API (bitaxe_api.py) and the
+history daemon (history_daemon.py): the miner polling endpoints, the CORS
+origin allowlist, and the mempool proxy's outbound host allowlist (which
+exists to close an SSRF hole — CodeQL alert 190). Look for tests that
+assert on mocks rather than behaviour, tests that pass when the code under
+test is broken, unclosed sockets or servers leaking between cases, ordering
+dependencies between tests, and allowlist/validation cases the suite claims
+to cover but does not actually exercise.`,
+    files: [
+      'test_bitaxe_api.py',
+      'tests/test_bitaxe_setup.py',
+      'tests/test_cors_errors.py',
+      'tests/test_history_daemon.py',
+      'tests/test_mempool_proxy.py',
+      'tests/unit/origin_allowlist_test.py',
     ],
   },
 ];
@@ -206,6 +250,9 @@ const reviewResults = await pipeline(
       .map(f => `  - ${PROJECT_ROOT}/${f}`)
       .join('\n');
 
+    // Optional per-group override for groups the shared React brief does not fit.
+    const groupContext = group.context ? `${group.context}\n\n` : '';
+
     const result = await agent(
       `You are reviewing source files from The Daily Node — a single-page React dashboard for Bitcoin and mining monitoring.
 The project is a static HTML file (built by esbuild from JSX source) that aggregates:
@@ -228,7 +275,7 @@ Review these files for:
 2. **Security issues** — unvalidated external API data rendered as HTML (XSS), unsafe URL construction, IP/hostname injection via user prefs, localStorage data read without validation
 3. **Simplification opportunities** — dead code, redundant logic, overly complex constructs that meaningfully obscure intent or introduce maintenance risk
 
-Files to review (read each file completely before forming findings):
+${groupContext}Files to review (read each file completely before forming findings):
 ${fileList}
 
 Instructions:
