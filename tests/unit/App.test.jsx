@@ -16,50 +16,114 @@ import { PREFS_KEY } from '../../src/utils/v2prefs.js';
  * Every hook fetches on mount. The stub rejects, so each lands in its error
  * state and the dashboard renders degraded — deterministic, and it exercises
  * the null-data paths through both layouts.
+ *
+ * NOTE: the act() flush works because vi.resetModules() does NOT reset
+ * node_modules/react — it stays externalized, so RTL's act and App's renderer
+ * share one React instance. If React were ever inlined via server.deps.inline,
+ * act would silently stop flushing. expectNoActWarnings() is the guard.
  */
+
+let rootRef = null;
+let consoleErrors = [];
+
+// Hooks log fetch failures through utils/log.js -> console.error, which would
+// drown the output. Swallow only those; let everything else through so a React
+// "not wrapped in act(...)" warning cannot pass unnoticed.
+function silenceExpectedLogs() {
+  consoleErrors = [];
+  const real = console.error;
+  vi.spyOn(console, 'error').mockImplementation((...args) => {
+    consoleErrors.push(args.map(String).join(' '));
+    if (String(args[0] ?? '').startsWith('[DN]')) return;
+    real(...args);
+  });
+}
+
+function expectNoActWarnings() {
+  expect(consoleErrors.filter((m) => /not wrapped in act/i.test(m))).toEqual([]);
+}
+
 async function bootApp() {
   vi.resetModules();
   document.body.innerHTML = '<div id="stage"><div id="canvas"></div></div>';
+  // Capture the root App creates for itself so it can be unmounted afterwards.
+  // RTL's cleanup() only knows about roots IT created, so without this every
+  // boot leaves a mounted tree with live intervals against detached DOM.
+  // doMock, not spyOn: an ESM module namespace is not configurable. App.jsx
+  // uses the DEFAULT import (ReactDOM.createRoot), so wrap that too.
+  vi.doMock('react-dom/client', async (importOriginal) => {
+    const actual = await importOriginal();
+    const base = actual.default ?? actual;
+    const wrapped = (el) => { rootRef = base.createRoot(el); return rootRef; };
+    return { ...actual, createRoot: wrapped, default: { ...base, createRoot: wrapped } };
+  });
   await act(async () => {
     await import('../../src/App.jsx');
   });
+}
+
+// jsdom normalizes an inline style color to rgb(), while theme tokens are hex.
+// Custom properties (--paper) are stored verbatim, so only body.style needs this.
+function toRgb(hex) {
+  const h = hex.replace('#', '');
+  const n = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16);
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
 }
 
 function setViewport(width) {
   Object.defineProperty(window, 'innerWidth', { value: width, configurable: true, writable: true });
 }
 
-describe('App — bootstrap and layout routing', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    setViewport(1440);
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline in tests')));
-    // Hooks log fetch failures through utils/log.js, which calls console.error.
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-  });
-  afterEach(() => {
-    cleanup();
-    document.body.innerHTML = '';
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-    vi.resetModules();
-  });
+beforeEach(() => {
+  localStorage.clear();
+  setViewport(1440);
+  rootRef = null;
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline in tests')));
+  silenceExpectedLogs();
+});
 
-  it('mounts into #canvas and renders the desktop layout above the breakpoint', async () => {
+afterEach(async () => {
+  if (rootRef) {
+    await act(async () => rootRef.unmount());
+    rootRef = null;
+  }
+  cleanup();
+  document.body.innerHTML = '';
+  document.body.style.background = '';
+  document.documentElement.style.removeProperty('--paper');
+  vi.doUnmock('react-dom/client');
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  vi.resetModules();
+});
+
+describe('App — bootstrap and layout routing', () => {
+  it('mounts into #canvas and renders the DESKTOP tree above the breakpoint', async () => {
     await bootApp();
     expect(document.getElementById('canvas').children.length).toBeGreaterThan(0);
-    // Masthead is desktop-only chrome.
-    expect(screen.getByText(/The Daily Node/i)).toBeDefined();
-    // The App-level boundary did not swallow the tree.
+    // "The Daily Node" is NOT a discriminator — mobile/MobileHeader renders it
+    // too, so asserting on it would pass even if routing were inverted. The
+    // masthead settings button is desktop-only chrome.
+    expect(screen.getByRole('button', { name: /settings/i })).toBeDefined();
+    // ...and the mobile tab bar must be absent.
+    expect(screen.queryByRole('button', { name: /^miners$/i })).toBeNull();
     expect(screen.queryByText('Dashboard unavailable')).toBeNull();
+    expectNoActWarnings();
   });
 
-  it('renders the mobile layout at or below the 900px breakpoint', async () => {
-    setViewport(375);
+  it('renders the MOBILE tree at exactly the 900px breakpoint', async () => {
+    // useViewportMode compares with <=, so 900 is the boundary worth pinning.
+    setViewport(900);
     await bootApp();
-    // Tab bar is mobile-only; the desktop tree has no such buttons.
     expect(screen.getByRole('button', { name: /^miners$/i })).toBeDefined();
     expect(screen.queryByText('Dashboard unavailable')).toBeNull();
+    expectNoActWarnings();
+  });
+
+  it('stays on the desktop tree one pixel above the breakpoint', async () => {
+    setViewport(901);
+    await bootApp();
+    expect(screen.queryByRole('button', { name: /^miners$/i })).toBeNull();
   });
 
   it('survives every data source failing — the whole point of the boundary', async () => {
@@ -71,20 +135,6 @@ describe('App — bootstrap and layout routing', () => {
 });
 
 describe('App — localStorage wiring', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    setViewport(1440);
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline in tests')));
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-  });
-  afterEach(() => {
-    cleanup();
-    document.body.innerHTML = '';
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-    vi.resetModules();
-  });
-
   it('runs the one-time bitaxe migration and marks it done', async () => {
     localStorage.setItem('dailynode-bitaxe', '["10.0.0.9"]');
     await bootApp();
@@ -125,29 +175,16 @@ describe('App — localStorage wiring', () => {
 });
 
 describe('App — theme on mount', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    setViewport(1440);
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline in tests')));
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-  });
-  afterEach(() => {
-    cleanup();
-    document.body.innerHTML = '';
-    document.body.style.background = '';
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-    vi.resetModules();
-  });
-
-  it('starts light by default and paints the light background', async () => {
+  it('starts light by default', async () => {
     await bootApp();
     expect(document.documentElement.style.getPropertyValue('--paper')).toBe(LIGHT.paper);
+    expect(document.body.style.background).toBe(toRgb(LIGHT.paper));
   });
 
   it('starts dark when v2prefs.theme is dark', async () => {
     localStorage.setItem(PREFS_KEY, JSON.stringify({ version: 2, theme: 'dark' }));
     await bootApp();
     expect(document.documentElement.style.getPropertyValue('--paper')).toBe(DARK.paper);
+    expect(document.body.style.background).toBe(toRgb(DARK.paper));
   });
 });

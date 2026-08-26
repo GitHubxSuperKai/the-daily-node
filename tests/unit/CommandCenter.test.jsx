@@ -45,12 +45,20 @@ describe('CommandCenter — desktop smoke render', () => {
     expectNoBoundaryFallback();
   });
 
+  it('renders real values from the fixture, not blanks or NaN', () => {
+    // Pins two fields a fixture audit caught rendering wrong: clock.dayStr was
+    // absent (the date line rendered empty) and btc.data.cap was a string, so
+    // `cap / 1e12` produced "$NaNT". Without these assertions both regress silently.
+    const { container } = renderCC();
+    expect(screen.getByText('Wednesday, August 26')).toBeDefined();
+    expect(container.textContent).toContain('$1.56T');
+    expect(container.textContent).not.toContain('NaN');
+  });
+
   it('survives a fully degraded feed set — every source null or erroring', () => {
     // The all-APIs-down path, exercising the derived-value block (halvings,
     // blockReward, mempoolMB, the sys array) with nothing to derive from.
-    expect(() => render(
-      <ThemeCtx.Provider value={LIGHT}><CommandCenter {...makeDownProps()} /></ThemeCtx.Provider>,
-    )).not.toThrow();
+    expect(() => renderCC(makeDownProps())).not.toThrow();
     expectNoBoundaryFallback();
   });
 

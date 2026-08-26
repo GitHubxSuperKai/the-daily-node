@@ -5,11 +5,18 @@ import { PREFS_DEFAULTS } from '../../src/utils/v2prefs.js';
  * Shared dashboard prop fixtures for CommandCenter (desktop) and MobileApp.
  *
  * Both trees consume the same hook outputs from App.jsx, so they must model the
- * same shapes. Keeping two hand-rolled copies let them drift: the mobile suite
- * carried `feedHealth: { sources: [] }`, `btc.data.changePct`, and
- * `chain.data.fastFee` — none of which any hook produces. An invented shape
- * lets a test pass while production breaks, so every field here is
- * cross-checked against src/hooks/ and noted where it is easy to get wrong.
+ * same shapes. Keeping two hand-rolled copies let them drift, and an invented
+ * shape lets a test pass while production breaks — a wrong TYPE as readily as a
+ * wrong name (a `cap` string renders "$NaNT" through `cap / 1e12`).
+ *
+ * Every field below is transcribed from the hook that produces it:
+ *   btc     — src/hooks/useBTC.js + api.js fetchBTCPrice
+ *   chain   — src/hooks/useChain.js + api.js fetchChainStats
+ *   bitaxe  — src/hooks/useBitaxe.js
+ *   weather — src/hooks/useWeather.js
+ *   rss     — src/hooks/useRSS.js
+ *   clock   — src/hooks/useClock.js
+ * When a hook changes, change this file — not a copy in one suite.
  */
 
 // useWeather builds exactly 8 slots of { hr, t, code, pop, precip }.
@@ -21,16 +28,48 @@ export const NOW_SEC = Math.floor(Date.now() / 1000);
 
 // useRSS sets leadStory = all[0] and items = all.slice(1, 15) — items EXCLUDES
 // the lead. Overlapping them renders the same headline twice, which production
-// never does.
+// never does. Item shape: { hed, src, pubDate, t, link, img, snippet }.
 export const LEAD_STORY = {
-  hed: 'Lead story', link: 'https://example.com/lead', src: 'src', t: 'just now',
-  topic: '', cat: 'BTC', snippet: 'Lead story snippet.',
+  hed: 'Lead story', src: 'CoinDesk', pubDate: '2026-08-26T09:00:00Z', t: 'just now',
+  link: 'https://example.com/lead', img: 'https://example.com/lead.jpg',
+  snippet: 'Lead story snippet.', topic: '', cat: 'BTC',
 };
 
 export const NEWS_ITEMS = [
-  { hed: 'Top story', link: 'https://example.com', src: 'src', t: '5m ago', topic: '', cat: 'BTC' },
-  { hed: 'Second story', link: 'https://example.com/2', src: 'src', t: '9m ago', topic: '', cat: 'BTC' },
+  {
+    hed: 'Top story', src: 'CoinDesk', pubDate: '2026-08-26T08:55:00Z', t: '5m ago',
+    link: 'https://example.com', img: null, snippet: 'Top story snippet.', topic: '', cat: 'BTC',
+  },
+  {
+    hed: 'Second story', src: 'Bitcoin Magazine', pubDate: '2026-08-26T08:51:00Z', t: '9m ago',
+    link: 'https://example.com/2', img: null, snippet: 'Second story snippet.', topic: '', cat: 'BTC',
+  },
 ];
+
+/** One online miner. `temp` is near-universal; `vrTemp` is optional — supply both. */
+export function makeMiner(overrides = {}) {
+  return {
+    ip: '10.0.0.2',
+    online: true,
+    data: {
+      hostname: 'bitaxe-01',
+      hashRate: 500,        // GH/s; MinerRow divides by 1000
+      power: 15,
+      temp: 52,
+      vrTemp: 55,
+      uptimeSeconds: 86_400,
+      sharesAccepted: 1200,
+      sharesRejected: 3,
+      powerLimit: 25,
+    },
+    ...overrides,
+  };
+}
+
+/** The server emits offline entries with NO `data` key at all — see bitaxe_api.py. */
+export function makeOfflineMiner(overrides = {}) {
+  return { ip: '10.0.0.3', online: false, error: 'unreachable', ...overrides };
+}
 
 /**
  * Full prop set for a healthy dashboard. Extra keys are harmless for MobileApp,
@@ -51,39 +90,68 @@ export function makeProps(overrides = {}) {
     onOpenSettings: vi.fn(),
     onSaveSettings: vi.fn(),
     onCloseSettings: vi.fn(),
-    clock: { timeHM: '10:24', amPm: 'AM', dateLong: 'Wednesday, August 26', secs: '30' },
-    // useBTC returns chgPct — NOT changePct.
-    btc: {
-      data: { price: 78408, chgPct: -0.13, hi: 79923, lo: 77850, cap: '1.5T', vwap: 78000 },
-      chartPts: [], error: null, lastOk: Date.now(), refresh: vi.fn(),
+    // useClock returns timeSec and dayStr — NOT `secs`/`dateLong`. Sidebar reads
+    // clock.timeSec as the seconds unit and clock.dayStr as the date line.
+    clock: {
+      timeHM: '10:24', timeSec: ':30', amPm: 'AM',
+      dayStr: 'Wednesday, August 26', dateShort: '2026-08-26',
+      loading: false, error: false,
     },
-    // useChain returns feeFast / feeEco — NOT fastFee. `fastFee` exists only as a
-    // key of the triggers object CommandCenter hands to useAlerts.
+    btc: {
+      // fetchBTCPrice returns chgPct — NOT changePct. `cap`, `ath` and
+      // `circulatingSupply` are merged in by useBTC and are NUMBERS: consumers
+      // divide them (MarketsColumn does cap / 1e12).
+      data: {
+        price: 78408, chgAbs: -102.4, chgPct: -0.13,
+        hi: 79923, lo: 77850, vwap: 78000, volBtc: 14200,
+        cap: 1.56e12, ath: 109350, athDate: '2025-01-20',
+        circulatingSupply: 19_900_000,
+      },
+      chartPts: [], loading: false, error: false, lastOk: Date.now(),
+      refresh: vi.fn(), interval: 30000,
+    },
     chain: {
+      // fetchChainStats returns feeFast/feeMid/feeEco — NOT fastFee. useChain
+      // enriches with mempoolMB, nextHalvingDate and circulating, and always
+      // spreads the four extData arrays.
       data: {
         height: 900000, hashrate: 6e20, difficulty: 1.1e14,
-        mempoolBytes: 50_000_000, feeFast: 30, feeEco: 5, blockTimeMs: 600000,
+        mempoolBytes: 50_000_000, mempoolTx: 18_400,
+        feeFast: 30, feeMid: 18, feeEco: 5,
+        diffAdj: 1.8, previousDiffAdj: -0.9, previousRetargetDate: NOW_SEC - 900_000,
+        blockTimeMs: 600000, remainingBlocks: 812,
+        progressPercent: 59.7, estimatedRetargetDate: (NOW_SEC + 480_000) * 1000,
+        mempoolMB: '50.0', nextHalvingDate: '2028-04-20', circulating: 19_900_000,
       },
-      recentBlocks: [{ timestamp: NOW_SEC - 300 }],
-      error: null, lastOk: Date.now(), refresh: vi.fn(),
+      pools: [{ name: 'Foundry USA', blockCount: 42 }, { name: 'AntPool', blockCount: 31 }],
+      topPoolBlocks: 42,
+      recentBlocks: [{ timestamp: NOW_SEC - 300, height: 900000 }],
+      mempoolBlocks: [{ blockSize: 1_500_000, medianFee: 22, nTx: 3100 }],
+      stale: false, loading: false, error: false, lastOk: Date.now(),
+      refresh: vi.fn(), interval: 60000,
     },
     bitaxe: {
-      miners: [{ ip: '10.0.0.2', online: true, data: { hashRate: 500, power: 15, vrTemp: 55 } }],
-      err: null, loading: false, lastOk: Date.now(), interval: 30000, refresh: vi.fn(),
+      miners: [makeMiner()],
+      err: false, loading: false, lastOk: Date.now(), interval: 30000, refresh: vi.fn(),
     },
-    // wxHum and wxWind are preformatted strings from useWeather, not numbers.
     weather: {
+      // wxHum and wxWind are preformatted strings from useWeather, not numbers.
       data: {
         temp: 75, feels: 74, wxCond: 'Overcast', wxCode: 3,
-        wxHi: 79, wxLo: 61, wxWind: 'NW 8 mph', wxWindSpeed: 8, wxHum: '62%',
-        wxSunriseHr: 6, wxSunsetHr: 19, hourly: HOURLY,
+        wxWindSpeed: 8, wxWind: 'NW 8 mph', wxHum: '62%',
+        wxHi: 79, wxLo: 61,
+        wxSunriseHr: 6, wxSunsetHr: 19,
+        wxSunrise: '06:12', wxSunset: '19:44', wxSunriseTomorrow: '06:13',
+        wxPrecipTotal: '0.0', wxUVIndex: 6, wxUVIndexTomorrow: 7,
+        wxDailyWindMax: 14, wxGusts: 18, wxPressure: 1013, wxDewPoint: 55,
+        hourly: HOURLY,
       },
-      err: null, lastOk: Date.now(), interval: 900000, refresh: vi.fn(),
+      err: false, lastOk: Date.now(), interval: 900000, refresh: vi.fn(),
     },
     // leadStory is disjoint from items — see the LEAD_STORY note above.
     rss: {
       items: NEWS_ITEMS, leadStory: LEAD_STORY,
-      err: null, lastOk: Date.now(), interval: 300000, refresh: vi.fn(),
+      err: false, lastOk: Date.now(), interval: 300000, refresh: vi.fn(),
     },
     // useFeedHealth returns a STRING, which App passes straight through.
     // DesktopTicker compares it with ===, so an object silently disables its
@@ -93,14 +161,24 @@ export function makeProps(overrides = {}) {
   };
 }
 
-/** Every source null or erroring — the state the dashboard reaches when the APIs are down. */
+/**
+ * Every source failing — the state the dashboard reaches when the APIs are down.
+ * Hooks store errors as BOOLEANS and never null out the extData arrays.
+ */
 export function makeDownProps(overrides = {}) {
   return makeProps({
-    btc:     { data: null, chartPts: [], error: 'down', lastOk: null, refresh: vi.fn() },
-    chain:   { data: null, recentBlocks: null, error: 'down', lastOk: null, refresh: vi.fn() },
-    bitaxe:  { miners: [], err: 'down', loading: false, lastOk: null, interval: 30000, refresh: vi.fn() },
-    weather: { data: null, err: 'down', lastOk: null, interval: 900000, refresh: vi.fn() },
-    rss:     { items: [], leadStory: null, err: 'down', lastOk: null, interval: 300000, refresh: vi.fn() },
+    btc: {
+      data: null, chartPts: [], loading: false, error: true, lastOk: null,
+      refresh: vi.fn(), interval: 30000,
+    },
+    chain: {
+      data: null, pools: [], topPoolBlocks: [], recentBlocks: [], mempoolBlocks: [],
+      stale: false, loading: false, error: true, lastOk: null,
+      refresh: vi.fn(), interval: 60000,
+    },
+    bitaxe: { miners: [], err: true, loading: false, lastOk: null, interval: 30000, refresh: vi.fn() },
+    weather: { data: null, err: true, lastOk: null, interval: 900000, refresh: vi.fn() },
+    rss: { items: [], leadStory: null, err: true, lastOk: null, interval: 300000, refresh: vi.fn() },
     feedHealth: 'offline',
     ...overrides,
   });
