@@ -5,70 +5,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ThemeCtx, LIGHT, DARK } from '../../src/theme.js';
 import { PREFS_DEFAULTS } from '../../src/utils/v2prefs.js';
+import { makeProps, makeDownProps, NOW_SEC } from '../fixtures/dashboardProps.js';
 import { CommandCenter } from '../../src/components/CommandCenter.jsx';
 
 // CommandCenter mounts useHistory, which fetches on mount. Every test stubs it.
 function stubHistoryFetch(points = []) {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => points }));
-}
-
-const NOW_SEC = Math.floor(Date.now() / 1000);
-
-const HOURLY = Array.from({ length: 8 }, (_, i) => ({
-  hr: (10 + i) % 24, t: 70 + i, code: 3, pop: 0, precip: 0,
-}));
-
-// Every field below is cross-checked against what the hooks in src/hooks/ actually
-// return — an invented shape lets a test pass while production breaks.
-function baseProps(overrides = {}) {
-  const items = [{ hed: 'Top story', link: 'https://example.com', src: 'src', t: 'just now', topic: '', cat: 'BTC' }];
-  return {
-    dark: false,
-    onToggleDark: vi.fn(),
-    prefs: { tempUnit: 'fahrenheit', timeFormat: '12h' },
-    // 'light' (not 'auto') keeps the auto-dark effect from firing onToggleDark
-    // mid-test. Domain is 'auto' | 'light' | 'dark' — see v2prefs.js and App.jsx.
-    v2prefs: { ...PREFS_DEFAULTS, theme: 'light' },
-    onSaveV2: vi.fn(),
-    settingsOpen: false,
-    onOpenSettings: vi.fn(),
-    onSaveSettings: vi.fn(),
-    onCloseSettings: vi.fn(),
-    clock: { timeHM: '10:24', amPm: 'AM', dateLong: 'Wednesday, August 26', secs: '30' },
-    btc: {
-      data: { price: 78408, chgPct: -0.13, hi: 79923, lo: 77850, cap: '1.5T', vwap: 78000 },
-      chartPts: [], error: null, lastOk: Date.now(),
-    },
-    chain: {
-      data: {
-        height: 900000, hashrate: 6e20, difficulty: 1.1e14,
-        mempoolBytes: 50_000_000, feeFast: 30, feeEco: 5, blockTimeMs: 600000,
-      },
-      recentBlocks: [{ timestamp: NOW_SEC - 300 }],
-      error: null, lastOk: Date.now(),
-    },
-    bitaxe: {
-      miners: [{ ip: '10.0.0.2', online: true, data: { hashRate: 500, power: 15, vrTemp: 55 } }],
-      err: null, loading: false, lastOk: Date.now(), interval: 30000, refresh: vi.fn(),
-    },
-    weather: {
-      // Mirrors useWeather: 8 hourly slots of { hr, t, code, pop, precip };
-      // wxHum and wxWind are preformatted strings, not numbers.
-      data: {
-        temp: 75, feels: 74, wxCond: 'Overcast', wxCode: 3,
-        wxHi: 79, wxLo: 61, wxWind: 'NW 8 mph', wxWindSpeed: 8, wxHum: '62%',
-        wxSunriseHr: 6, wxSunsetHr: 19, hourly: HOURLY,
-      },
-      err: null, lastOk: Date.now(), interval: 900000,
-    },
-    // useRSS always sets leadStory = all[0] when items exist; null-with-items never occurs.
-    rss: { items, leadStory: items[0], err: null, lastOk: Date.now(), interval: 300000 },
-    // useFeedHealth returns a STRING ('loading' | 'live' | 'degraded' | 'offline'),
-    // which App passes straight through. An object here would silently disable
-    // DesktopTicker's live-pulse branch.
-    feedHealth: 'live',
-    ...overrides,
-  };
 }
 
 const BOUNDARIES = ['Ticker', 'Sidebar', 'Markets', 'News', 'Network'];
@@ -82,7 +24,7 @@ function expectNoBoundaryFallback() {
 }
 
 function renderCC(overrides = {}, theme = LIGHT) {
-  const props = baseProps(overrides);
+  const props = makeProps(overrides);
   return {
     ...render(
       <ThemeCtx.Provider value={theme}>
@@ -106,14 +48,9 @@ describe('CommandCenter — desktop smoke render', () => {
   it('survives a fully degraded feed set — every source null or erroring', () => {
     // The all-APIs-down path, exercising the derived-value block (halvings,
     // blockReward, mempoolMB, the sys array) with nothing to derive from.
-    expect(() => renderCC({
-      btc:     { data: null, chartPts: [], error: 'down', lastOk: null },
-      chain:   { data: null, recentBlocks: null, error: 'down', lastOk: null },
-      bitaxe:  { miners: [], err: 'down', loading: false, lastOk: null, interval: 30000, refresh: vi.fn() },
-      weather: { data: null, err: 'down', lastOk: null, interval: 900000 },
-      rss:     { items: [], leadStory: null, err: 'down', lastOk: null, interval: 300000 },
-      feedHealth: 'offline',
-    })).not.toThrow();
+    expect(() => render(
+      <ThemeCtx.Provider value={LIGHT}><CommandCenter {...makeDownProps()} /></ThemeCtx.Provider>,
+    )).not.toThrow();
     expectNoBoundaryFallback();
   });
 
@@ -215,7 +152,7 @@ describe('CommandCenter — failure isolation', () => {
     const { CommandCenter: CC } = await import('../../src/components/CommandCenter.jsx');
     render(
       <Ctx.Provider value={L}>
-        <CC {...baseProps()} />
+        <CC {...makeProps()} />
       </Ctx.Provider>,
     );
     // The News boundary caught it...
@@ -244,7 +181,7 @@ describe('CommandCenter — failure isolation', () => {
     const { CommandCenter: CC } = await import('../../src/components/CommandCenter.jsx');
     expect(() => render(
       <Ctx.Provider value={L}>
-        <CC {...baseProps()} />
+        <CC {...makeProps()} />
       </Ctx.Provider>,
     )).toThrow(/masthead exploded/);
   });
