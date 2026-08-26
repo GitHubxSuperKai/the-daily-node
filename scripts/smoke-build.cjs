@@ -108,6 +108,23 @@ for (const host of REQUIRED_CSP_HOSTS) {
 assert.ok(html.includes('frame-ancestors'),
   'CSP missing frame-ancestors directive');
 
+// 11. The 900px mobile breakpoint must stay in sync across all three checks.
+// The inline updateScale() script is copied into the output verbatim (only the
+// bundle is minified), so both sides are assertable against the built HTML.
+// The third check, useViewportMode(900) in App.jsx, survives as `An(900)` or similar —
+// the identifier is mangled by minification, so it cannot be reliably matched here. It
+// is pinned by tests/unit/App.test.jsx ("renders the MOBILE tree at exactly the 900px
+// breakpoint") instead.
+assert.ok(/isMobile\s*=\s*vw\s*<=\s*900/.test(html),
+  'updateScale() breakpoint drifted — must be `vw <= 900` to match @media (max-width: 900px)');
+// Anchored on an opening rule block, not the media text alone: the SYNC: comment inside
+// the inline script also reads "@media (max-width:900px)" and satisfies a looser match,
+// so a looser assertion passes even when the real rule has drifted. Requiring `{` right
+// after the `)` is what excludes the comment. Everything between there and `#canvas {`
+// is left loose so reordering rules or declarations inside the block does not trip this.
+assert.ok(/@media\s*\(max-width:\s*900px\)\s*\{[^@]*?#canvas\s*\{/.test(html),
+  'mobile media query breakpoint drifted — the #canvas rule must sit under `max-width: 900px` to match updateScale()');
+
 // Track A assertions
 if (!/feeds\.bitcoinMagazine/.test(html)) { console.error('FAIL: SettingsPanel missing from build'); process.exit(1); }
 if (!/minerOffline/.test(html))       { console.error('FAIL: useAlerts missing from build'); process.exit(1); }

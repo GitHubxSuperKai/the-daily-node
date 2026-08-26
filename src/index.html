@@ -124,7 +124,7 @@
 const CANVAS_W = 1920, CANVAS_H = 1080;
 function updateScale() {
   const vw = window.innerWidth, vh = window.innerHeight;
-  const isMobile = vw < 900; // SYNC: must match useViewportMode(900) in App.jsx and @media (max-width:900px)
+  const isMobile = vw <= 900; // SYNC: must match useViewportMode(900) in App.jsx and @media (max-width:900px)
   const s = isMobile ? 1 : Math.min(vw / CANVAS_W, vh / CANVAS_H);
   const r = document.documentElement;
   r.style.setProperty('--u', s + 'px');
