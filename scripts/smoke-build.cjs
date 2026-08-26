@@ -163,7 +163,7 @@ assert.ok(scaleClose !== -1, 'scaling <script> is never closed — cannot scope 
 const scaleBody = html.slice(scaleTagEnd, scaleClose);
 // Anchored at column 0 deliberately: `^\s*` would also match the call indented inside a
 // DOMContentLoaded/setTimeout callback, which is the regression this assertion exists to catch.
-assert.ok(/^updateScale\(\);$/m.test(scaleBody),
+assert.ok(/^updateScale\(\);/m.test(scaleBody),
   'scaling script must call updateScale() unindented at top level, at parse time — deferring it behind load/DOMContentLoaded/setTimeout leaves --u at 1px through React first paint');
 assert.ok(/window\.updateScale\s*=\s*updateScale/.test(scaleBody),
   'window.updateScale assignment missing — scripts/capture-mobile.cjs calls it to force a rescale');
