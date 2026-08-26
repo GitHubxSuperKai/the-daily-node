@@ -125,6 +125,29 @@ assert.ok(/isMobile\s*=\s*vw\s*<=\s*900/.test(html),
 assert.ok(/@media\s*\(max-width:\s*900px\)\s*\{[^@]*?#canvas\s*\{/.test(html),
   'mobile media query breakpoint drifted — the #canvas rule must sit under `max-width: 900px` to match updateScale()');
 
+// 12. Canvas scaling depends on SCRIPT ORDER and on the scaling script staying synchronous.
+//     The inline <script> in src/index.html defines updateScale(), which sets --u before
+//     React's first paint. src/index.html is copied verbatim apart from placeholder
+//     substitution, so this script is NOT minified and its identifiers survive by name
+//     (unlike the esbuild bundle — see the note on markers in step 4).
+//     If it were moved after the bundle, given defer/async, or made type="module", --u would
+//     stay at the :root default of 1px and the canvas would render unscaled with no error
+//     and no console warning.
+const scaleIdx = html.indexOf('function updateScale');
+// build.js replaces the /* MODULES CONCATENATED BY build.js */ placeholder with requireShim +
+// bundle; `var __dn_modules` is the first line of that shim, so it marks the bundle script.
+const bundleIdx = html.indexOf('var __dn_modules');
+assert.ok(scaleIdx !== -1, 'inline updateScale() scaling script missing from build');
+assert.ok(bundleIdx !== -1, 'require shim missing from build — cannot locate the bundle script');
+assert.ok(scaleIdx < bundleIdx,
+  'inline scaling script must come BEFORE the bundle script — otherwise --u is unset at React first paint and the canvas renders at 1px unscaled');
+assert.ok(/window\.updateScale\s*=\s*updateScale/.test(html),
+  'window.updateScale assignment missing — the rescale entry point did not survive the build');
+const scaleTagStart = html.lastIndexOf('<script', scaleIdx);
+const scaleTag = html.slice(scaleTagStart, html.indexOf('>', scaleTagStart) + 1);
+assert.ok(!/\bdefer\b|\basync\b|type\s*=\s*["']module["']/.test(scaleTag),
+  `inline scaling <script> must stay synchronous (no defer/async/type="module"): ${scaleTag}`);
+
 // Track A assertions
 if (!/feeds\.bitcoinMagazine/.test(html)) { console.error('FAIL: SettingsPanel missing from build'); process.exit(1); }
 if (!/minerOffline/.test(html))       { console.error('FAIL: useAlerts missing from build'); process.exit(1); }
