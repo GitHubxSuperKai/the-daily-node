@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RSS item links and image sources are sanitized through `safeUrl()`, blocking the `javascript:` scheme.
 - Prototype-pollution guard applied at each traversal step in `setV2Path`.
 - CRLF stripped from CORS origin headers.
-- Bumped undici 7.25.0 → 7.28.0, clearing six Dependabot alerts (#94).
+- Bumped undici 7.25.0 → 7.28.0, clearing six Dependabot alerts (#94). Dev-scope transitive dependency (via jsdom, used by the test runner) — never present in the shipped bundle.
 - Local environment details scrubbed from the public repository, with a pre-commit secrets guard to prevent recurrence.
 
 ## [1.3.0] — 2026-05-27
