@@ -1,0 +1,12 @@
+#!/bin/sh
+# Blocks commits containing banned patterns (private IPs, etc.) in staged files.
+# This repo is PUBLIC — see CLAUDE.md "never commit environment details".
+#
+# Enable in a fresh clone (git does not install hooks automatically):
+#   git config core.hooksPath .githooks
+#
+# NOTE: check:secrets scans STAGED files only. It is not a CI check and cannot
+# be one as written — a CI checkout has nothing staged, so it would report
+# "checked 0 staged files" and pass unconditionally. This hook is currently the
+# only place the scan actually runs.
+npm run check:secrets || exit 1

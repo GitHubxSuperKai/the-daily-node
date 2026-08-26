@@ -27,13 +27,19 @@ Before getting started, ensure you have the following installed:
    ```
    This installs esbuild, the build tool used to minify the release bundle.
 
-3. **Build and start the development server:**
+3. **Enable the pre-commit hook:**
+   ```bash
+   git config core.hooksPath .githooks
+   ```
+   Git never installs hooks automatically, so this is required once per clone. The hook runs `npm run check:secrets`, which blocks commits containing banned patterns (private IPs and similar) in staged files. This repository is public — see `CLAUDE.md` for what must never be committed. The scan is not enforced in CI, so skipping this step leaves your clone with no secret checking at all.
+
+4. **Build and start the development server:**
    ```bash
    npm run serve
    ```
    This runs `npm run build` and then launches Python's built-in HTTP server on `http://localhost:3000`.
 
-4. **Open the dashboard:**
+5. **Open the dashboard:**
    Navigate to `http://localhost:3000/` in your browser.
 
 ### Development Notes
