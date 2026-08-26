@@ -104,7 +104,7 @@ export function makeProps(overrides = {}) {
       data: {
         price: 78408, chgAbs: -102.4, chgPct: -0.13,
         hi: 79923, lo: 77850, vwap: 78000, volBtc: 14200,
-        cap: 1.56e12, ath: 109350, athDate: '2025-01-20',
+        cap: 1.56e12, ath: 109350, athDate: '2025-01-20T09:14:32.000Z',
         circulatingSupply: 19_900_000,
       },
       chartPts: [], loading: false, error: false, lastOk: Date.now(),
@@ -121,12 +121,27 @@ export function makeProps(overrides = {}) {
         diffAdj: 1.8, previousDiffAdj: -0.9, previousRetargetDate: NOW_SEC - 900_000,
         blockTimeMs: 600000, remainingBlocks: 812,
         progressPercent: 59.7, estimatedRetargetDate: (NOW_SEC + 480_000) * 1000,
-        mempoolMB: '50.0', nextHalvingDate: '2028-04-20', circulating: 19_900_000,
+        // useChain's three derived fields. All STRINGS, and all computed from
+        // height 900000 by the real formatters — circulating renders verbatim in
+        // the ticker, so a raw number here shows as "SUPPLY19900000".
+        mempoolMB: '50.0 MB', nextHalvingDate: '2029-07-03', circulating: '19.88M BTC',
       },
-      pools: [{ name: 'Foundry USA', blockCount: 42 }, { name: 'AntPool', blockCount: 31 }],
-      topPoolBlocks: 42,
-      recentBlocks: [{ timestamp: NOW_SEC - 300, height: 900000 }],
-      mempoolBlocks: [{ blockSize: 1_500_000, medianFee: 22, nTx: 3100 }],
+      // fetchMiningPools: { name, slug, blockCount, sharePct } — sharePct is a
+      // STRING from .toFixed(1).
+      pools: [
+        { name: 'Foundry USA', slug: 'foundryusa', blockCount: 42, sharePct: '28.8' },
+        { name: 'AntPool', slug: 'antpool', blockCount: 31, sharePct: '21.2' },
+      ],
+      // fetchPoolBlocks returns an ARRAY of { height, timestamp, txCount }.
+      topPoolBlocks: [{ height: 899_998, timestamp: NOW_SEC - 1800, txCount: 3100 }],
+      // fetchRecentBlocks maps nine fields onto every entry.
+      recentBlocks: [{
+        height: 900000, timestamp: NOW_SEC - 300, txCount: 3421,
+        size: 1_480_000, weight: 3_992_000, medianFee: 21.4,
+        totalFees: 12_400_000, feeRange: [1, 84], poolName: 'Foundry USA',
+      }],
+      // fetchMempoolBlocks returns exactly { nTx, medianFee, feeRange }.
+      mempoolBlocks: [{ nTx: 3100, medianFee: 22, feeRange: [2, 91] }],
       stale: false, loading: false, error: false, lastOk: Date.now(),
       refresh: vi.fn(), interval: 60000,
     },

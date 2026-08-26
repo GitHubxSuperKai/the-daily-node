@@ -60,6 +60,9 @@ async function bootApp() {
   await act(async () => {
     await import('../../src/App.jsx');
   });
+  // If doMock ever stopped intercepting, rootRef would stay null and afterEach
+  // would silently skip the unmount — failing loudly beats a rotting safety net.
+  expect(rootRef).not.toBeNull();
 }
 
 // jsdom normalizes an inline style color to rgb(), while theme tokens are hex.
@@ -78,6 +81,7 @@ beforeEach(() => {
   localStorage.clear();
   setViewport(1440);
   rootRef = null;
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline in tests')));
   silenceExpectedLogs();
 });
@@ -87,6 +91,7 @@ afterEach(async () => {
     await act(async () => rootRef.unmount());
     rootRef = null;
   }
+  globalThis.IS_REACT_ACT_ENVIRONMENT = false;
   cleanup();
   document.body.innerHTML = '';
   document.body.style.background = '';

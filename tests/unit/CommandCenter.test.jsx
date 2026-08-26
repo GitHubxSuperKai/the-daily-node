@@ -52,7 +52,11 @@ describe('CommandCenter — desktop smoke render', () => {
     const { container } = renderCC();
     expect(screen.getByText('Wednesday, August 26')).toBeDefined();
     expect(container.textContent).toContain('$1.56T');
+    // circulating is a preformatted STRING that renders verbatim. A raw number
+    // shows as "19900000" — wrong, but not NaN, so the check below misses it.
+    expect(container.textContent).toContain('19.88M BTC');
     expect(container.textContent).not.toContain('NaN');
+    expect(container.textContent).not.toContain('undefined');
   });
 
   it('survives a fully degraded feed set — every source null or erroring', () => {
