@@ -14,6 +14,7 @@ import { useClock } from '../../src/hooks/useClock.js';
 import { useFeedHealth } from '../../src/hooks/useFeedHealth.js';
 import { fmtMempoolMB, nextHalving, circulatingBTC, wmoDesc } from '../../src/utils/formatting.js';
 import CONFIG from '../../src/config.js';
+import { PREFS_DEFAULTS } from '../../src/utils/v2prefs.js';
 
 /**
  * Contract check for tests/fixtures/dashboardProps.js.
@@ -34,6 +35,10 @@ import CONFIG from '../../src/config.js';
  * Two slots have no JS producer to drive and are handled separately at the bottom:
  * `bitaxe.miners[]`, whose shape comes from bitaxe_api.py plus the BitAxe firmware,
  * and `feedHealth`, which is derived from the fixture's own lastOk/interval values.
+ *
+ * NOT covered, so do not read a green run as covering them: `dark`, `settingsOpen`
+ * and the callback props, and `prefs`, whose producer is App.jsx's localStorage
+ * read rather than a hook. `v2prefs` gets a key-set check only.
  */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -45,8 +50,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
  * onto one `path[]` entry, so a field present on only the second element still
  * registers. A path carried by some but not all elements is tagged
  * `partial:<type>` — a plain union would let one element's missing `slug` hide
- * behind its sibling's. On a type clash the non-null wins, so one nullable element
- * cannot erase the real type of the rest.
+ * behind its sibling's. Where elements disagree on type, a null yields to a real
+ * type (one nullable element must not erase the rest) but two real types produce a
+ * `clash:` tag rather than silently picking the first.
  */
 function shapeOf(value, prefix = '', out = new Map()) {
   if (value === null) {
@@ -57,8 +63,15 @@ function shapeOf(value, prefix = '', out = new Map()) {
     for (const el of value) {
       for (const [p, type] of shapeOf(el, `${prefix}[]`)) {
         const prev = seen.get(p);
-        if (!prev) seen.set(p, { type, count: 1 });
-        else seen.set(p, { type: prev.type === 'null' ? type : prev.type, count: prev.count + 1 });
+        if (!prev) { seen.set(p, { type, count: 1 }); continue; }
+        // Keeping the first non-null type would make a wrong type on any later
+        // element invisible, and order-dependent at that. Tag the disagreement
+        // instead: a `clash:` tag can never equal the other side's single type,
+        // so it always surfaces.
+        const merged = prev.type === 'null' ? type
+          : (type === 'null' || type === prev.type) ? prev.type
+            : `clash:${[prev.type, type].sort().join('|')}`;
+        seen.set(p, { type: merged, count: prev.count + 1 });
       }
     }
     for (const [p, { type, count }] of seen) {
@@ -84,10 +97,12 @@ function shapeOf(value, prefix = '', out = new Map()) {
  *    other. `strict: true` closes this, and every down-state comparison uses it —
  *    with all sources failing, each field has exactly one correct value.
  *  - An EMPTY array suppresses the element comparison for that ONE path; array-ness
- *    itself is still compared. The stem is the immediate parent array, so an empty
- *    inner array does not suppress its siblings. `chartPts: []` is real production
- *    state, so its element shape cannot be checked here; every other fixture array
- *    is asserted non-empty below so this hole stays where it is documented.
+ *    itself is still compared. You cannot compare the elements of an array that has
+ *    none, and `chartPts: []` is real production state. The stem is the immediate
+ *    parent array, which means an empty INNER array stops being checked through its
+ *    non-empty outer array — looser, not tighter, than taking the outermost stem.
+ *    The non-empty assertions below are the backstop, and they reach `feeRange`
+ *    only at element [0].
  */
 function diffShapes(actual, expected, { actualLabel, expectedLabel, strict = false }) {
   const a = shapeOf(actual);
@@ -396,6 +411,12 @@ describe('fixture contract — healthy dashboard (makeProps)', () => {
     }
   });
 
+  it('v2prefs carries the full PREFS_DEFAULTS key set App.jsx merges over', () => {
+    // Only a key-set check: v2prefs has a real producer in v2prefs.js, but the
+    // fixture deliberately overrides `theme`, so values cannot be compared.
+    expect(Object.keys(makeProps().v2prefs).sort()).toEqual(Object.keys(PREFS_DEFAULTS).sort());
+  });
+
   it('interval values match CONFIG, which feedHealth staleness is measured against', () => {
     const p = makeProps();
     expect(p.btc.interval).toBe(CONFIG.REFRESH_INTERVALS.price);
@@ -446,6 +467,25 @@ describe('fixture contract — every source down (makeDownProps)', () => {
     expectSameShape(result.current, makeDownProps().bitaxe, 'bitaxe (down)', strict);
   });
 
+  it('every down-state array is empty, as the hooks leave them', () => {
+    // The empty-array suppression fires from the HOOK side here, so without this
+    // mirror of the makeProps assertion the down fixture could claim any element
+    // shape it liked and nothing would compare it. strict mode does not help:
+    // suppression is independent of it.
+    const d = makeDownProps();
+    const arrays = {
+      'chain.pools': d.chain.pools,
+      'chain.topPoolBlocks': d.chain.topPoolBlocks,
+      'chain.recentBlocks': d.chain.recentBlocks,
+      'chain.mempoolBlocks': d.chain.mempoolBlocks,
+      'rss.items': d.rss.items,
+      'bitaxe.miners': d.bitaxe.miners,
+    };
+    for (const [name, arr] of Object.entries(arrays)) {
+      expect(arr, `${name} should be empty when every source is down`).toEqual([]);
+    }
+  });
+
   it('down props keep the error flags hooks actually set — booleans, not strings', () => {
     const down = makeDownProps();
     expect(down.btc.error).toBe(true);
@@ -491,12 +531,13 @@ describe('fixture contract — miner shape', () => {
     };
     walk(path.join(ROOT, 'src/components'));
 
-    // `md` is MinerRow's local alias for miner.data; anchoring on the receiver
-    // keeps chain.data/btc.data reads in the same files out of the set.
-    const patterns = [
-      /\b(?:m|miner)\.data\??\.([A-Za-z_$][\w$]*)/g,
-      /\bmd\??\.([A-Za-z_$][\w$]*)/g,
-    ];
+    // Anchoring on the receiver keeps chain.data/btc.data reads in these files out
+    // of the set. `md` is MinerRow's local alias for miner.data, but the name is
+    // generic — api.js already uses `md` for CoinGecko market_data — so it is only
+    // honoured in a file that actually binds `md` from something's `.data`.
+    const RECEIVER = /\b(?:m|miner)\.data\??\.([A-Za-z_$][\w$]*)/g;
+    const MD_ALIAS = /\bmd\??\.([A-Za-z_$][\w$]*)/g;
+    const BINDS_MD = /\bconst\s+md\s*=[^;\n]*\.data\b/;
     // Firmware alternates production tolerates but the fixture need not model:
     // MinerRow/FleetSummary fall back to `temperature` when `temp` is absent.
     const ALTERNATES = new Set(['temperature']);
@@ -504,8 +545,9 @@ describe('fixture contract — miner shape', () => {
     const read = new Set();
     for (const file of components) {
       const src = fs.readFileSync(file, 'utf8');
-      for (const re of patterns) {
-        for (const m of src.matchAll(re)) read.add(m[1]);
+      for (const m of src.matchAll(RECEIVER)) read.add(m[1]);
+      if (BINDS_MD.test(src)) {
+        for (const m of src.matchAll(MD_ALIAS)) read.add(m[1]);
       }
     }
     expect(read.size, 'no miner.data reads found — did the components move?').toBeGreaterThan(5);
@@ -520,6 +562,30 @@ describe('fixture contract — miner shape', () => {
     const miner = makeProps().bitaxe.miners[0];
     expect(miner).toBeDefined();
     expectSameShape(miner, makeMiner(), 'bitaxe.miners[0]', { strict: true, actualLabel: 'makeProps' });
+  });
+
+  it('miner fields carry the types the firmware sends, not just the right names', () => {
+    // Every other miner check compares NAMES: the two above against bitaxe_api.py
+    // and the component read-set, and makeProps().bitaxe.miners[0] against
+    // makeMiner() — which cannot catch a type error, since one function builds both
+    // sides. No JS producer exists to derive types from, so this table is
+    // hand-written on purpose, for the same reason ALTERNATES is. It is paired with
+    // the name assertion above so the two cannot drift apart: add a field there
+    // without adding it here and this test fails.
+    const miner = makeMiner();
+    expect(typeof miner.ip).toBe('string');
+    expect(typeof miner.online).toBe('boolean');
+    expect(typeof makeOfflineMiner().error).toBe('string');
+
+    const TYPES = {
+      hostname: 'string', hashRate: 'number', power: 'number', temp: 'number',
+      vrTemp: 'number', uptimeSeconds: 'number', sharesAccepted: 'number',
+      sharesRejected: 'number', powerLimit: 'number',
+    };
+    expect(Object.keys(TYPES).sort()).toEqual(Object.keys(miner.data).sort());
+    for (const [field, type] of Object.entries(TYPES)) {
+      expect(typeof miner.data[field], `miner.data.${field}`).toBe(type);
+    }
   });
 
   it('makeMiner merges data overrides instead of discarding the defaults', () => {
