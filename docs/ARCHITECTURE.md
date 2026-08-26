@@ -165,7 +165,7 @@ Simple time formatter that updates every 1 second. Accepts `timeFormat` string (
 
 **localStorage persistence:** User preferences (weather location, time format, temp unit) are saved to localStorage on change. App initializes from localStorage on mount, falling back to `config.js` defaults. Miner IPs are managed server-side via `bitaxe_api.py` and persisted to `bitaxe_config.json` — not localStorage.
 
-**Canvas scaling:** The 1920×1080 canvas is rendered at native size in the DOM but scaled to fit the browser window via CSS `transform`. The `applyScale()` function calculates the required scale factor and applies it to `#canvas`.
+**Canvas scaling:** The dashboard is authored against a 1920×1080 design grid. The inline `updateScale()` function in `src/index.html` computes `min(vw/1920, vh/1080)` and writes it to the `--u` (px) and `--u-scale` (unitless) custom properties on `:root`. `#canvas` is then sized as `calc(var(--u) * 1920)` by `calc(var(--u) * 1080)`, and components derive design-px values through `u()` in `src/utils/scale.js`. Below the 900px breakpoint the scale is pinned to 1 and the mobile layout takes over. `updateScale()` runs at parse time and on `load` and `resize`, so no React code needs to trigger a rescale.
 
 **Error handling:** All API calls include try/catch and timeouts. Hooks return `{ data, loading, error, lastOk }` so components can display fallbacks or stale data gracefully. `useFeedHealth()` monitors all sources and colors status lights red when feeds are stale.
 
