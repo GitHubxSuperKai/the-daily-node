@@ -273,14 +273,22 @@ function mempoolRouter(url) {
 }
 
 function routeAll(url) {
-  const u = String(url);
-  if (u.includes('api.kraken.com')) return KRAKEN;
-  if (u.includes('/market_chart')) return CG_CHART;
-  if (u.includes('api.coingecko.com/api/v3/coins/bitcoin')) return CG_META;
-  if (u.includes('api.open-meteo.com')) return OPEN_METEO;
-  if (u.includes('api.rss2json.com')) return rss2json(u);
-  if (u.includes('/api/miners')) return ok({ miners: [] });
-  return mempoolRouter(u);
+  // Route on the PARSED hostname rather than a substring of the raw URL, the way
+  // useBTC.test.js does. Substring matching routes on a host that merely appears
+  // somewhere in the string — the mempool proxy carries a whole URL in a query
+  // param — and it trips CodeQL's incomplete-URL-sanitization rule. useBitaxe
+  // fetches the relative '/api/miners', hence the base argument.
+  const parsed = new URL(String(url), 'http://localhost');
+  switch (parsed.hostname) {
+    case 'api.kraken.com': return KRAKEN;
+    case 'api.coingecko.com':
+      return parsed.pathname.endsWith('/market_chart') ? CG_CHART : CG_META;
+    case 'api.open-meteo.com': return OPEN_METEO;
+    case 'api.rss2json.com': return rss2json(url);
+    default: break;
+  }
+  if (parsed.pathname === '/api/miners') return ok({ miners: [] });
+  return mempoolRouter(url);
 }
 
 // `vi.restoreAllMocks` does not undo a bare `global.fetch = …` assignment, so stub
