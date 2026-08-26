@@ -18,6 +18,18 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
 };
 
+// jsdom does not implement the CSS Font Loading API; Miners.jsx calls
+// document.fonts.load() to measure its hero type before sizing it. Guard on the
+// method, not the object — a future jsdom shipping a partial FontFaceSet would
+// skip an object-only check and break at the call site. defineProperty because
+// plain assignment throws if jsdom later exposes it as a read-only getter.
+if (!document.fonts?.load) {
+  Object.defineProperty(document, 'fonts', {
+    value: { load: () => Promise.resolve([]), ready: Promise.resolve() },
+    configurable: true,
+  });
+}
+
 // useT is a build-time global (defined in theme.js, stripped of imports/exports during concat).
 // In tests, provide it as a global that returns the LIGHT theme.
 // eslint-disable-next-line react-hooks/rules-of-hooks -- test shim: assigning to global, not declaring a component
