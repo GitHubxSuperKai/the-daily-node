@@ -21,6 +21,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Check review workflow paths
+        run: npm run check:review-paths
+
       - name: Build bundle
         run: npm run build
 

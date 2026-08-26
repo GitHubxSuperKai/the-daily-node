@@ -189,12 +189,15 @@ the-daily-node/
 │   ├── components/               # Presentational React components
 │   │   ├── CommandCenter.jsx     # Main layout container (4-column grid)
 │   │   ├── Masthead.jsx          # Top chrome with settings toggle
-│   │   ├── Ticker.jsx            # Scrolling chain vitals banner
-│   │   ├── Price.jsx             # BTC price card with change %
+│   │   ├── DesktopTicker.jsx     # Scrolling chain vitals banner
+│   │   ├── MarketsColumn.jsx     # BTC price, change %, lead story
 │   │   ├── LineChart.jsx         # 24-hour price chart (SVG)
-│   │   ├── News.jsx              # Scrollable news ticker
+│   │   ├── NewsColumn.jsx        # Headline feed column
 │   │   ├── Weather.jsx           # Weather card
+│   │   ├── ChainColumn.jsx       # Mining + network stats column
 │   │   ├── Miners.jsx            # BitAxe fleet status
+│   │   ├── mobile/               # Separate mobile tree (900px breakpoint)
+│   │   ├── settings/             # SettingsPanel sections
 │   │   └── ...                   # Status lights, icons, utilities
 │   ├── hooks/                    # Custom data-fetching hooks
 │   │   ├── useBTC.js             # Kraken price + CoinGecko chart

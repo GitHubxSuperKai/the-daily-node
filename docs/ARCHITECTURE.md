@@ -9,23 +9,27 @@ App (root)
 ├── ThemeCtx.Provider
     └── CommandCenter
         ├── Masthead (top chrome with settings toggle)
-        ├── Ticker (scrolling chain vitals)
-        └── 4-Column Grid (main content)
-            ├── Column 0: Sidebar
-            │   ├── Logo & Clock
-            │   ├── Weather
-            │   └── System Status Lights
-            ├── Column 1: Price & News
-            │   ├── Price (BTC/USD with chart)
-            │   ├── LineChart (24h price history)
-            │   └── Lead Story (top news)
-            ├── Column 2: Headlines Feed
-            │   └── News (scrollable ticker)
-            └── Column 3: Mining & Chain Stats
-                ├── Miners (BitAxe fleet stats)
-                ├── Chain (difficulty, hashrate)
-                └── Kicker & metrics
+        ├── DesktopTicker (scrolling chain vitals)
+        ├── 4-Column Grid (main content, each column wrapped in an ErrorBoundary)
+        │   ├── Column 0: Sidebar
+        │   │   ├── Logo & Clock
+        │   │   ├── Weather -> WxGlyph
+        │   │   ├── OnThisDay
+        │   │   └── StatusDot (system status lights)
+        │   ├── Column 1: MarketsColumn
+        │   │   ├── BTC/USD price & change (rendered inline)
+        │   │   ├── LineChart (24h price history)
+        │   │   ├── LeadImage (top story art)
+        │   │   └── ProofOfRead
+        │   ├── Column 2: NewsColumn (headline feed)
+        │   └── Column 3: ChainColumn
+        │       ├── Miners (BitAxe fleet) -> FleetSummary, MinerRow
+        │       └── NetworkStatusWidget (difficulty, hashrate, fees)
+        └── SettingsPanel (overlay)
 ```
+
+Shared leaf components — `Kicker`, `Num`, `Rule` — are used across several columns and are
+omitted above. `src/components/mobile/` holds a separate tree, gated by a 900px breakpoint.
 
 Each component is memoized (`React.memo`) to prevent unnecessary re-renders and optimized with `useCallback` for stable function references.
 
@@ -134,7 +138,7 @@ Simple time formatter that updates every 1 second. Accepts `timeFormat` string (
 - **Semantic colors:** orange (accent), red (down/negative), green (up/positive)
 - **Typography:** serif, body, sans, mono font stacks
 
-**Responsive design:** The dashboard is locked to 1920×1080px canvas mounted in a centered `#stage` div. Browser window can be any size; CSS `transform` scale handles fit-to-screen. See `index.html` for `#canvas` element and `applyScale()` function in `Command Center.jsx`.
+**Responsive design:** The dashboard is locked to 1920×1080px canvas mounted in a centered `#stage` div. Browser window can be any size; CSS `transform` scale handles fit-to-screen. See `src/index.html` for the `#stage`/`#canvas` elements and the inline `updateScale()` function that sets the `--u` scale factor.
 
 **Key pattern:** Components never hardcode colors. They pull from `const T = useT()` hook and reference `T.ink`, `T.paper`, `T.green`, etc. This decouples styling from component logic and makes theme switching trivial.
 
