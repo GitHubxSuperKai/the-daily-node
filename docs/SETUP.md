@@ -194,7 +194,6 @@ the-daily-node/
 │   │   ├── LineChart.jsx         # 24-hour price chart (SVG)
 │   │   ├── News.jsx              # Scrollable news ticker
 │   │   ├── Weather.jsx           # Weather card
-│   │   ├── Chain.jsx             # Network stats (difficulty, hashrate, fees)
 │   │   ├── Miners.jsx            # BitAxe fleet status
 │   │   └── ...                   # Status lights, icons, utilities
 │   ├── hooks/                    # Custom data-fetching hooks

@@ -75,7 +75,6 @@ const GROUPS = [
       'src/NewsColumn.jsx',
       'src/Price.jsx',
       'src/LineChart.jsx',
-      'src/Chain.jsx',
       'src/ChainColumn.jsx',
       'src/Miners.jsx',
       'src/MinerRow.jsx',
