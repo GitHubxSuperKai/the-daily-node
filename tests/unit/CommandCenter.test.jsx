@@ -141,11 +141,20 @@ describe('CommandCenter — desktop smoke render', () => {
     expectNoBoundaryFallback();
   });
 
-  it('renders against the DARK theme without tripping a boundary', () => {
-    // Catches a token missing from the DARK object, which LIGHT-only tests miss.
+  it('smoke-renders the second theme path against DARK', () => {
+    // Note what this does NOT do: theme tokens are only ever consumed as inline
+    // style values (there are no nested T.x.y derefs anywhere in src/), so a
+    // token missing from DARK yields undefined, which React silently drops —
+    // no throw, no boundary. This covers the render path only.
     renderCC({ dark: true, v2prefs: { ...PREFS_DEFAULTS, theme: 'dark' } }, DARK);
     expect(screen.getByText(/The Daily Node/i)).toBeDefined();
     expectNoBoundaryFallback();
+  });
+
+  it('keeps LIGHT and DARK at identical key sets', () => {
+    // THIS is the check that actually catches a token missing from one theme,
+    // which the render test above cannot.
+    expect(Object.keys(DARK).sort()).toEqual(Object.keys(LIGHT).sort());
   });
 
   it("renders a fee-spike toast from CommandCenter's own render body", () => {
@@ -158,12 +167,14 @@ describe('CommandCenter — desktop smoke render', () => {
       },
     });
     expect(screen.getByText(/Fee spike: 80 sat\/vB \(threshold: 50\)/)).toBeDefined();
+    expectNoBoundaryFallback();
   });
 
   it('does not mount SettingsPanel when settingsOpen is false', () => {
     renderCC({ settingsOpen: false });
     // 'vtest' is the version label, rendered only inside the overlay.
     expect(screen.queryByText('vtest')).toBeNull();
+    expectNoBoundaryFallback();
   });
 
   it('mounts SettingsPanel and surfaces the build version when settingsOpen is true', () => {
@@ -171,6 +182,7 @@ describe('CommandCenter — desktop smoke render', () => {
     // check of the built page cannot reach. vitest.config.js defines it as 'test'.
     renderCC({ settingsOpen: true });
     expect(screen.getByText('vtest')).toBeDefined();
+    expectNoBoundaryFallback();
   });
 });
 
