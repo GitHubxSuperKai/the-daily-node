@@ -27,24 +27,24 @@ Before getting started, ensure you have the following installed:
    ```
    This installs esbuild, the build tool used to minify the release bundle.
 
-3. **Start the development server:**
+3. **Build and start the development server:**
    ```bash
-   npm run dev
+   npm run serve
    ```
-   This launches Python's built-in HTTP server on `http://localhost:3000`.
+   This runs `npm run build` and then launches Python's built-in HTTP server on `http://localhost:3000`.
 
 4. **Open the dashboard:**
-   Navigate to `http://localhost:3000/src/index.html` in your browser.
+   Navigate to `http://localhost:3000/` in your browser.
 
 ### Development Notes
 
-- **Unbuilt source:** The dev server serves the original source files directly (no bundling step). This allows you to edit JSX and see changes immediately after a browser refresh.
+- **A build step is required.** `src/index.html` is a template containing `<!-- VENDOR -->` and `/* MODULES CONCATENATED BY build.js */` placeholders — opening it directly renders a blank page. JSX is transformed at build time by esbuild, so every source change needs `npm run build` (or `npm run serve`) before it appears in the browser.
+- **Iterating:** Re-run `npm run build` after editing, then refresh. Leave `npm run dev` running in a second terminal to avoid restarting the server on each rebuild.
 - **Debugging:** Use your browser's DevTools (F12) to inspect React components, network requests, and console logs. All API calls can be monitored in the Network tab.
-- **Manual rebuild:** After making changes, you can run `npm run build` at any time to test the minified production bundle locally (output: `index.html`).
 
 ## Building for Release
 
-The release build process concatenates all modules into a single, minified HTML file.
+The release build process bundles all modules into a single, minified HTML file.
 
 ### Build Command
 
@@ -54,14 +54,13 @@ npm run build
 
 This executes `build.js`, which:
 
-1. Reads all source files in dependency order (config → theme → utils → components → hooks → App)
-2. Removes all `import`/`export` statements via file concatenation
-3. Concatenates all modules into a single JavaScript block
-4. Injects the concatenated code into `src/index.html` template
-5. Minifies the entire HTML file with esbuild
-6. Writes the output to `index.html`
+1. Runs `esbuild.build({ entryPoints: ['src/App.jsx'], bundle: true, format: 'iife', minify: true })`, which resolves the full module graph from `src/App.jsx`, transforms JSX, and minifies the result
+2. Inlines the vendored React and ReactDOM UMD builds from `src/vendor/` at the `<!-- VENDOR -->` placeholder in `src/index.html`
+3. Prepends a small `require()` shim mapping the `react` and `react-dom/client` specifiers to the global `React` / `ReactDOM`
+4. Injects the bundled IIFE at the `/* MODULES CONCATENATED BY build.js */` placeholder
+5. Writes the output to `index.html`
 
-**Output:** A single self-contained `index.html` file (~100KB) with all React, Babel, and application code bundled inline. No external dependencies except the React/Babel CDN.
+**Output:** A single self-contained `index.html` file with the application code and React inlined. No CDN, no runtime transpiler, and no external dependencies at runtime.
 
 ### Verifying the Build
 
@@ -71,7 +70,13 @@ After building, test the minified version:
 npm run serve
 ```
 
-This runs `npm run build` followed by `npm run dev`. Visit `http://localhost:3000/Command%20Center.html` to verify the production bundle works correctly.
+This runs `npm run build` followed by `npm run dev`. Visit `http://localhost:3000/` to verify the production bundle works correctly.
+
+You can also run the automated checks:
+
+```bash
+npm test
+```
 
 ## Running the BitAxe Proxy (Required for Miner Monitoring)
 
@@ -134,7 +139,7 @@ npm run build
 python -m http.server 8080
 ```
 
-Visit `http://localhost:8080/Command%20Center.html`.
+Visit `http://localhost:8080/`.
 
 #### Option B: nginx
 
@@ -145,7 +150,7 @@ npm run build
 sudo cp index.html /var/www/html/
 ```
 
-Access at `http://yourdomain.com/Command%20Center.html`.
+Access at `http://yourdomain.com/`.
 
 #### Option C: Apache
 
@@ -177,7 +182,7 @@ The repository is organized as follows:
 ```
 the-daily-node/
 ├── src/                          # Source files
-│   ├── index.html                # HTML template (CDN links to React/Babel)
+│   ├── index.html                # HTML template (vendor + bundle placeholders)
 │   ├── App.jsx                   # Root React component
 │   ├── config.js                 # Centralized configuration (API URLs, intervals)
 │   ├── theme.js                  # Color themes and ThemeCtx
@@ -205,7 +210,7 @@ the-daily-node/
 │       ├── formatting.js         # Display formatting (price, hashrate, etc.)
 │       └── svg.js                # SVG component factory (icons, charts)
 ├── index.html           # BUILT OUTPUT (single-file dashboard)
-├── build.js                      # Build script (concatenates modules)
+├── build.js                      # Build script (esbuild bundle + inline)
 ├── bitaxe_api.py                 # Python proxy: serves dashboard + aggregates BitAxe miners
 ├── package.json                  # npm configuration
 ├── package-lock.json             # Dependency lock file
@@ -217,8 +222,8 @@ the-daily-node/
 
 ### Key Files Explained
 
-- **`index.html`** — The release artifact. Everything needed to run the dashboard is bundled here: React, Babel, all component code, styling, and data-fetching logic.
-- **`build.js`** — The build script. Reads source modules, strips import/export, concatenates, and minifies.
+- **`index.html`** — The release artifact. Everything needed to run the dashboard is bundled here: React, all component code, styling, and data-fetching logic.
+- **`build.js`** — The build script. Bundles the module graph from `src/App.jsx` with esbuild, inlines the vendored React, and writes the single-file output.
 - **`src/config.js`** — Centralized configuration. Update API endpoints, polling intervals, and defaults here.
 - **`src/theme.js`** — Color theme definitions. Edit to customize the light/dark color schemes.
 - **`bitaxe_api.py`** — Python proxy server. Serves the dashboard at `/`, aggregates one or more BitAxe miners into `/api/miners`, and persists miner config to `bitaxe_config.json`. Required for miner monitoring (BitAxe firmware lacks CORS headers, so direct browser polling is impossible).

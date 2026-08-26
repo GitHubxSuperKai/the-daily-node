@@ -145,7 +145,7 @@ Simple time formatter that updates every 1 second. Accepts `timeFormat` string (
 - **ReactDOM 18.3.1** — DOM rendering and root creation
 
 **Development (npm devDependencies):**
-- **esbuild 0.20.0** — Full bundler: resolves module graph, transforms JSX, minifies output (dev-only, not shipped)
+- **esbuild 0.28.2** — Full bundler: resolves module graph, transforms JSX, minifies output (dev-only, not shipped)
 
 **No external UI libraries, CSS frameworks, or state managers.** React hooks (`useState`, `useEffect`, `useCallback`, `useContext`, `useRef`) handle all state. Browser `localStorage` persists user preferences. `fetch()` API handles all HTTP requests.
 
