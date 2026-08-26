@@ -5,15 +5,21 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ThemeCtx, LIGHT } from '../../../src/theme.js';
 import { MinersPanel } from '../../../src/components/mobile/MinersPanel.jsx';
+import { makeMiner, makeOfflineMiner } from '../../fixtures/dashboardProps.js';
 
 function wrap(ui) {
   return render(<ThemeCtx.Provider value={LIGHT}>{ui}</ThemeCtx.Provider>);
 }
 
+// Miners come from the shared fixture so this suite cannot drift from the shape
+// bitaxe_api.py actually serves; tests/unit/fixtureContract.test.js pins that shape
+// to the fields production reads. Note makeOfflineMiner() carries NO `data` key at
+// all — the hand-rolled `data: null` these tests used to pass is a shape the server
+// never emits.
 const twoMiners = {
   miners: [
-    { ip: '10.0.0.1', online: true,  data: { hostname: 'bitaxe-01', hashRate: 1200000, temp: 62 } },
-    { ip: '10.0.0.2', online: false, data: null },
+    makeMiner({ ip: '10.0.0.1', data: { hashRate: 1200000, temp: 62 } }),
+    makeOfflineMiner({ ip: '10.0.0.2' }),
   ],
 };
 
@@ -25,7 +31,7 @@ describe('MinersPanel', () => {
 
   it('shows per-miner hostname for online miner', () => {
     wrap(<MinersPanel bitaxe={twoMiners} />);
-    expect(screen.getByText('bitaxe-01')).toBeDefined();
+    expect(screen.getByText(makeMiner().data.hostname)).toBeDefined();
   });
 
   it('shows hashrate in TH/s and temp for online miner', () => {
@@ -51,8 +57,8 @@ const chainWithHashrate = {
 
 const minersWithPower = {
   miners: [
-    { ip: '10.0.0.1', online: true,  data: { hostname: 'bitaxe-01', hashRate: 5000, temp: 62, power: 200 } },
-    { ip: '10.0.0.2', online: false, data: null },
+    makeMiner({ ip: '10.0.0.1', data: { hashRate: 5000, temp: 62, power: 200 } }),
+    makeOfflineMiner({ ip: '10.0.0.2' }),
   ],
 };
 
@@ -73,7 +79,7 @@ describe('MinersPanel — efficiency and solo stats', () => {
   });
 
   it('efficiency section hidden when no miners online', () => {
-    const noOnline = { miners: [{ ip: '10.0.0.1', online: false, data: null }] };
+    const noOnline = { miners: [makeOfflineMiner({ ip: '10.0.0.1' })] };
     wrap(<MinersPanel bitaxe={noOnline} chain={chainWithHashrate} />);
     expect(screen.queryByText(/J\/TH/)).toBeNull();
   });
@@ -94,19 +100,13 @@ describe('MinersPanel — efficiency and solo stats', () => {
 describe('MinersPanel — per-miner secondary stats row', () => {
   const minerWithStats = {
     miners: [
-      {
+      makeMiner({
         ip: '10.0.0.1',
-        online: true,
         data: {
-          hostname: 'bitaxe-01',
-          hashRate: 1200000,
-          temp: 62,
-          power: 200,
-          uptimeSeconds: 72000,
-          sharesAccepted: 500,
-          sharesRejected: 2,
+          hashRate: 1200000, temp: 62, power: 200,
+          uptimeSeconds: 72000, sharesAccepted: 500, sharesRejected: 2,
         },
-      },
+      }),
     ],
   };
 
@@ -119,11 +119,10 @@ describe('MinersPanel — per-miner secondary stats row', () => {
 
   it('renders multi-day uptime as a duration, never as a >100% figure', () => {
     const fourDays = {
-      miners: [{
+      miners: [makeMiner({
         ip: '10.0.0.2',
-        online: true,
         data: { hostname: 'bitaxe-02', hashRate: 1200000, temp: 62, uptimeSeconds: 354600 },
-      }],
+      })],
     };
     wrap(<MinersPanel bitaxe={fourDays} />);
     expect(screen.getByText('4d 2h up')).toBeDefined();
