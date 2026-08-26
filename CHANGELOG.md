@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-08-26
+
+### Added
+
+- Mobile feature parity with the desktop dashboard — Epoch & Halving section and eco fee and blocks-to-clear vitals on the Bitcoin tab, fleet efficiency and solo-mining odds on the Miners tab, lead-story image and snippet on the News tab, and per-miner power, uptime, and share counts in the fleet rows.
+- CI gate that fails the build when the committed `index.html` differs from a fresh rebuild, so a build-affecting dependency bump can no longer merge with a stale artifact.
+- CI now runs the JS smoke, unit, and vendor-integrity checks in the build job, with a 250KB byte floor on the bundle.
+- Declared `engines.node` (`^22.22.2 || ^24.15.0 || >=26.0.0`) to pin the range the toolchain actually requires.
+
+### Changed
+
+- Mobile Bitcoin tab information architecture — removed the duplicate Chain Vitals block and retargeted the progress indicator.
+- All numeric displays standardized on the monospace face with tabular numerals.
+- Miner uptime renders as a duration rather than a percentage of 24h, and VR temperature averages only over miners that actually report it.
+- CodeQL scanning excludes the generated build artifact; ESLint excludes `.claude/**`; `index.html` is marked generated for language statistics.
+- Dependencies: ESLint 9 → 10, `eslint-plugin-react-hooks` 5 → 7, globals 15 → 17, jsdom 29 → 30, esbuild 0.28.0 → 0.28.2, vitest 4.1.7 → 4.1.11, playwright 1.60 → 1.62, plus GitHub Actions and Docker action bumps.
+- Documentation corrected against the actual build: `docs/SETUP.md` no longer describes the pre-esbuild concatenation pipeline, Babel, or a CDN dependency, and the Node version requirement and `useViewportMode` hook reference are accurate.
+
+### Fixed
+
+- Feed health used hardcoded thresholds because `useBTC` and `useChain` did not return their intervals; they now do, so staleness is judged against the real refresh rate.
+- `useResettableInterval` and `applyV2ToConfig` guard against `0`, negative, and `NaN` intervals from corrupted preferences — previously a `0ms` `setInterval` could spin the CPU.
+- Dark theme persists across reloads, and the body background follows the theme.
+- Hourly forecast slots are anchored to timestamps instead of wrapping on hour-of-day, fixing truncation around midnight.
+- `NetworkStatusWidget` halving and reward values are gated on a `chain.data` null check; the mempool Clear badge no longer renders a stray border.
+- The Masthead quote index is taken modulo the array length, so a changed quote list cannot index out of bounds.
+- News components use `rss.leadStory` rather than `items[0]`; `OnThisDay` matches exactly.
+- `HISTORY_BASE` derives from `window.location.hostname`, so the price-history daemon resolves for remote viewers.
+- Python servers return CORS headers on error responses, not just success responses.
+- Removed dead `fetchRSSFeeds` from `src/utils/api.js`.
+
+### Security
+
+- Mempool proxy hardened against SSRF across several vectors: gated behind a server-side outbound allowlist, constrained to an endpoint path allowlist, refusing 3xx redirects, rejecting hostname-based URLs not in `ALLOWED_PROXY_HOSTS`, and blocking link-local, IPv4-mapped IPv6, and unspecified addresses. Closes CodeQL alerts #190 (`py/full-ssrf`) and #191 (`py/partial-ssrf`).
+- RSS item links and image sources are sanitized through `safeUrl()`, blocking the `javascript:` scheme.
+- Prototype-pollution guard applied at each traversal step in `setV2Path`.
+- CRLF stripped from CORS origin headers.
+- Local environment details scrubbed from the public repository, with a pre-commit secrets guard to prevent recurrence.
+
 ## [1.3.0] — 2026-05-27
 
 ### Added
@@ -70,7 +109,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI: build verification + Pages auto-deploy.
 - Issue templates and PR template for structured triage.
 
-[Unreleased]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.0.0...v1.2.0
 [1.0.0]: https://github.com/GitHubxSuperKai/the-daily-node/releases/tag/v1.0.0
