@@ -89,6 +89,8 @@ function App() {
   usePageRefresh([btc.refresh, chain.refresh, rss.refresh, weather.refresh, bitaxe.refresh]);
 
   // ─── Viewport Mode ────────────────────────────────────────
+  // SYNC: 900 must match the isMobile check in updateScale() and
+  // @media (max-width:900px), both in src/index.html
   const mode = useViewportMode(900);
 
   // ─── Theme Selection ──────────────────────────────────────
