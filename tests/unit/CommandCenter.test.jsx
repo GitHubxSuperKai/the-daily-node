@@ -3,13 +3,13 @@ globalThis.React = React;
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { ThemeCtx, LIGHT } from '../../src/theme.js';
+import { ThemeCtx, LIGHT, DARK } from '../../src/theme.js';
 import { PREFS_DEFAULTS } from '../../src/utils/v2prefs.js';
 import { CommandCenter } from '../../src/components/CommandCenter.jsx';
 
 // CommandCenter mounts useHistory, which fetches on mount. Every test stubs it.
-function stubHistoryFetch() {
-  global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
+function stubHistoryFetch(points = []) {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => points }));
 }
 
 const NOW_SEC = Math.floor(Date.now() / 1000);
@@ -18,14 +18,17 @@ const HOURLY = Array.from({ length: 8 }, (_, i) => ({
   hr: (10 + i) % 24, t: 70 + i, code: 3, pop: 0, precip: 0,
 }));
 
-// A fully-populated prop set — the "everything is working" path.
+// Every field below is cross-checked against what the hooks in src/hooks/ actually
+// return — an invented shape lets a test pass while production breaks.
 function baseProps(overrides = {}) {
+  const items = [{ hed: 'Top story', link: 'https://example.com', src: 'src', t: 'just now', topic: '', cat: 'BTC' }];
   return {
     dark: false,
     onToggleDark: vi.fn(),
     prefs: { tempUnit: 'fahrenheit', timeFormat: '12h' },
-    // theme 'manual' keeps the auto-dark effect from firing onToggleDark mid-test
-    v2prefs: { ...PREFS_DEFAULTS, theme: 'manual' },
+    // 'light' (not 'auto') keeps the auto-dark effect from firing onToggleDark
+    // mid-test. Domain is 'auto' | 'light' | 'dark' — see v2prefs.js and App.jsx.
+    v2prefs: { ...PREFS_DEFAULTS, theme: 'light' },
     onSaveV2: vi.fn(),
     settingsOpen: false,
     onOpenSettings: vi.fn(),
@@ -39,7 +42,7 @@ function baseProps(overrides = {}) {
     chain: {
       data: {
         height: 900000, hashrate: 6e20, difficulty: 1.1e14,
-        mempoolBytes: 50_000_000, feeFast: 30, fastFee: 30, blockTimeMs: 600000,
+        mempoolBytes: 50_000_000, feeFast: 30, feeEco: 5, blockTimeMs: 600000,
       },
       recentBlocks: [{ timestamp: NOW_SEC - 300 }],
       error: null, lastOk: Date.now(),
@@ -49,29 +52,40 @@ function baseProps(overrides = {}) {
       err: null, loading: false, lastOk: Date.now(), interval: 30000, refresh: vi.fn(),
     },
     weather: {
-      // Shape mirrors useWeather's output: 8 hourly slots of { hr, t, code, pop, precip }.
+      // Mirrors useWeather: 8 hourly slots of { hr, t, code, pop, precip };
+      // wxHum and wxWind are preformatted strings, not numbers.
       data: {
         temp: 75, feels: 74, wxCond: 'Overcast', wxCode: 3,
-        wxHi: 79, wxLo: 61, wxWind: 'NW', wxWindSpeed: 8, wxHum: 62,
-        wxSunriseHr: 6, wxSunsetHr: 19,
-        hourly: HOURLY,
+        wxHi: 79, wxLo: 61, wxWind: 'NW 8 mph', wxWindSpeed: 8, wxHum: '62%',
+        wxSunriseHr: 6, wxSunsetHr: 19, hourly: HOURLY,
       },
       err: null, lastOk: Date.now(), interval: 900000,
     },
-    rss: {
-      items: [{ hed: 'Top story', link: 'https://example.com', src: 'src', t: 'just now', topic: '', cat: 'BTC' }],
-      leadStory: null, err: null, lastOk: Date.now(), interval: 300000,
-    },
-    feedHealth: { sources: [] },
+    // useRSS always sets leadStory = all[0] when items exist; null-with-items never occurs.
+    rss: { items, leadStory: items[0], err: null, lastOk: Date.now(), interval: 300000 },
+    // useFeedHealth returns a STRING ('loading' | 'live' | 'degraded' | 'offline'),
+    // which App passes straight through. An object here would silently disable
+    // DesktopTicker's live-pulse branch.
+    feedHealth: 'live',
     ...overrides,
   };
 }
 
-function renderCC(overrides = {}) {
+const BOUNDARIES = ['Ticker', 'Sidebar', 'Markets', 'News', 'Network'];
+
+// A child throwing is CAUGHT by its column's ErrorBoundary, so it never propagates
+// out of render() — .not.toThrow() alone would not notice. Assert on fallback text.
+function expectNoBoundaryFallback() {
+  for (const label of BOUNDARIES) {
+    expect(screen.queryByText(`${label} unavailable`)).toBeNull();
+  }
+}
+
+function renderCC(overrides = {}, theme = LIGHT) {
   const props = baseProps(overrides);
   return {
     ...render(
-      <ThemeCtx.Provider value={LIGHT}>
+      <ThemeCtx.Provider value={theme}>
         <CommandCenter {...props} />
       </ThemeCtx.Provider>,
     ),
@@ -81,44 +95,40 @@ function renderCC(overrides = {}) {
 
 describe('CommandCenter — desktop smoke render', () => {
   beforeEach(() => { stubHistoryFetch(); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-  it('mounts and renders the masthead and all four columns', () => {
-    const { container } = renderCC();
-    // Masthead
-    expect(screen.getByText(/The Daily Node/i)).toBeDefined();
-    // No column fell back to its ErrorBoundary
-    expect(screen.queryByText(/unavailable$/)).toBeNull();
-    expect(container.firstChild).not.toBeNull();
-  });
-
-  it('renders every column without tripping an ErrorBoundary', () => {
+  it('mounts the masthead and every column with no boundary tripped', () => {
     renderCC();
-    for (const label of ['Ticker', 'Sidebar', 'Markets', 'News', 'Network']) {
-      expect(screen.queryByText(`${label} unavailable`)).toBeNull();
-    }
+    expect(screen.getByText(/The Daily Node/i)).toBeDefined();
+    expectNoBoundaryFallback();
   });
 
-  it('survives a fully degraded feed set — every source null or empty', () => {
-    // The all-APIs-down path. A throw here blanks the whole dashboard, because
-    // CommandCenter's own render body sits outside every per-column boundary.
+  it('survives a fully degraded feed set — every source null or erroring', () => {
+    // The all-APIs-down path, exercising the derived-value block (halvings,
+    // blockReward, mempoolMB, the sys array) with nothing to derive from.
     expect(() => renderCC({
       btc:     { data: null, chartPts: [], error: 'down', lastOk: null },
       chain:   { data: null, recentBlocks: null, error: 'down', lastOk: null },
       bitaxe:  { miners: [], err: 'down', loading: false, lastOk: null, interval: 30000, refresh: vi.fn() },
       weather: { data: null, err: 'down', lastOk: null, interval: 900000 },
       rss:     { items: [], leadStory: null, err: 'down', lastOk: null, interval: 300000 },
+      feedHealth: 'offline',
     })).not.toThrow();
+    expectNoBoundaryFallback();
   });
 
   it('survives a chain payload with no recentBlocks', () => {
-    // msSinceLastBlock derives from chain.recentBlocks[0].timestamp via optional chaining.
+    // msSinceLastBlock derives from chain.recentBlocks[0].timestamp.
     expect(() => renderCC({
-      chain: { data: { height: 900000, mempoolBytes: 1, feeFast: 1 }, recentBlocks: [], error: null, lastOk: Date.now() },
+      chain: {
+        data: { height: 900000, mempoolBytes: 1, feeFast: 1, feeEco: 1 },
+        recentBlocks: [], error: null, lastOk: Date.now(),
+      },
     })).not.toThrow();
+    expectNoBoundaryFallback();
   });
 
-  it('renders miners that report no vrTemp without throwing', () => {
+  it('renders miners reporting no vrTemp, and an offline miner', () => {
     expect(() => renderCC({
       bitaxe: {
         miners: [
@@ -128,6 +138,26 @@ describe('CommandCenter — desktop smoke render', () => {
         err: null, loading: false, lastOk: Date.now(), interval: 30000, refresh: vi.fn(),
       },
     })).not.toThrow();
+    expectNoBoundaryFallback();
+  });
+
+  it('renders against the DARK theme without tripping a boundary', () => {
+    // Catches a token missing from the DARK object, which LIGHT-only tests miss.
+    renderCC({ dark: true, v2prefs: { ...PREFS_DEFAULTS, theme: 'dark' } }, DARK);
+    expect(screen.getByText(/The Daily Node/i)).toBeDefined();
+    expectNoBoundaryFallback();
+  });
+
+  it("renders a fee-spike toast from CommandCenter's own render body", () => {
+    // The toast block sits in the unguarded region this suite exists to protect,
+    // and is the only conditional there. Default fee threshold is 50 (v2prefs).
+    renderCC({
+      chain: {
+        data: { height: 900000, hashrate: 6e20, difficulty: 1.1e14, mempoolBytes: 1, feeFast: 80, feeEco: 5 },
+        recentBlocks: [{ timestamp: NOW_SEC - 300 }], error: null, lastOk: Date.now(),
+      },
+    });
+    expect(screen.getByText(/Fee spike: 80 sat\/vB \(threshold: 50\)/)).toBeDefined();
   });
 
   it('does not mount SettingsPanel when settingsOpen is false', () => {
@@ -137,9 +167,8 @@ describe('CommandCenter — desktop smoke render', () => {
   });
 
   it('mounts SettingsPanel and surfaces the build version when settingsOpen is true', () => {
-    // The version label is the only render of __VERSION__ in the app, and it lives
-    // behind this overlay — which is why a headless check of the built page misses it.
-    // vitest.config.js defines __VERSION__ as 'test'.
+    // The only render of __VERSION__ in the app, behind an overlay a headless
+    // check of the built page cannot reach. vitest.config.js defines it as 'test'.
     renderCC({ settingsOpen: true });
     expect(screen.getByText('vtest')).toBeDefined();
   });
@@ -152,7 +181,15 @@ describe('CommandCenter — failure isolation', () => {
     // React logs caught errors to console.error; silence so output stays readable.
     errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
-  afterEach(() => { vi.restoreAllMocks(); });
+  // Unmock here, not at the end of each test body — a failing assertion would
+  // otherwise leave the mock registry dirty for anything appended after it.
+  afterEach(() => {
+    vi.doUnmock('../../src/components/NewsColumn');
+    vi.doUnmock('../../src/components/Masthead');
+    vi.resetModules();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
 
   it('contains a throwing column in its own boundary, leaving siblings rendered', async () => {
     vi.resetModules();
@@ -173,10 +210,12 @@ describe('CommandCenter — failure isolation', () => {
     expect(screen.getByText('News unavailable')).toBeDefined();
     // ...and nothing else did.
     expect(screen.getByText(/The Daily Node/i)).toBeDefined();
-    for (const label of ['Ticker', 'Sidebar', 'Markets', 'Network']) {
+    for (const label of BOUNDARIES.filter((l) => l !== 'News')) {
       expect(screen.queryByText(`${label} unavailable`)).toBeNull();
     }
-    vi.doUnmock('../../src/components/NewsColumn');
+    // The boundary logged the failure against its own label.
+    const tagged = errSpy.mock.calls.some((args) => args.some((a) => String(a).includes('[ErrorBoundary · News]')));
+    expect(tagged).toBe(true);
   });
 
   it('does NOT contain a throwing Masthead — it is outside every boundary', async () => {
@@ -196,6 +235,5 @@ describe('CommandCenter — failure isolation', () => {
         <CC {...baseProps()} />
       </Ctx.Provider>,
     )).toThrow(/masthead exploded/);
-    vi.doUnmock('../../src/components/Masthead');
   });
 });
