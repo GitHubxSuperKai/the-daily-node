@@ -96,10 +96,6 @@ function App() {
 
   // ─── Effects ──────────────────────────────────────────────
   React.useEffect(() => {
-    if (window.applyScale) window.applyScale();
-  }, []);
-
-  React.useEffect(() => {
     document.documentElement.style.setProperty('--paper', dark ? DARK.paper : LIGHT.paper);
     document.body.style.background = dark ? DARK.paper : LIGHT.paper;
   }, [dark]);

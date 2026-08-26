@@ -17,8 +17,6 @@ const concatGlobals = {
   useContext: 'readonly',
   // utils/scale.js
   u: 'readonly',
-  applyScale: 'readonly',
-  updateScale: 'readonly',
   // theme.js
   ThemeCtx: 'readonly',
   useT: 'readonly',
