@@ -14,16 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mobile feature parity with the desktop dashboard — Epoch & Halving section and eco fee and blocks-to-clear vitals on the Bitcoin tab, fleet efficiency and solo-mining odds on the Miners tab, lead-story image and snippet on the News tab, and per-miner power, uptime, and share counts in the fleet rows.
 - CI gate that fails the build when the committed `index.html` differs from a fresh rebuild, so a build-affecting dependency bump can no longer merge with a stale artifact.
 - CI now runs the JS smoke, unit, and vendor-integrity checks in the build job, with a 250KB byte floor on the bundle.
-- Declared `engines.node` (`^22.22.2 || ^24.15.0 || >=26.0.0`) to pin the range the toolchain actually requires.
+- Declared `engines.node` (`^22.22.2 || ^24.15.0 || >=26.0.0`) to pin the range the toolchain actually requires. This raises the floor for building from source — Node 20 is no longer supported. The published `index.html` is unaffected; it has no runtime Node dependency.
 
 ### Changed
 
 - Mobile Bitcoin tab information architecture — removed the duplicate Chain Vitals block and retargeted the progress indicator.
 - All numeric displays standardized on the monospace face with tabular numerals.
-- Miner uptime renders as a duration rather than a percentage of 24h, and VR temperature averages only over miners that actually report it.
+- Miner uptime renders as a duration rather than a percentage of 24h.
 - CodeQL scanning excludes the generated build artifact; ESLint excludes `.claude/**`; `index.html` is marked generated for language statistics.
 - Dependencies: ESLint 9 → 10, `eslint-plugin-react-hooks` 5 → 7, globals 15 → 17, jsdom 29 → 30, esbuild 0.28.0 → 0.28.2, vitest 4.1.7 → 4.1.11, playwright 1.60 → 1.62, plus GitHub Actions and Docker action bumps.
-- Documentation corrected against the actual build: `docs/SETUP.md` no longer describes the pre-esbuild concatenation pipeline, Babel, or a CDN dependency, and the Node version requirement and `useViewportMode` hook reference are accurate.
+- Documentation corrected against the actual build: `docs/SETUP.md` no longer describes the pre-esbuild concatenation pipeline, Babel, or a CDN dependency, and its Node version requirement now matches `engines`. The agent instructions' hook reference was corrected from `useLayoutSize` to `useViewportMode`.
 
 ### Fixed
 
@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - News components use `rss.leadStory` rather than `items[0]`; `OnThisDay` matches exactly.
 - `HISTORY_BASE` derives from `window.location.hostname`, so the price-history daemon resolves for remote viewers.
 - Python servers return CORS headers on error responses, not just success responses.
+- VR temperature averages only over miners that actually report `vrTemp`, instead of counting non-reporting miners as zero.
 - Removed dead `fetchRSSFeeds` from `src/utils/api.js`.
 
 ### Security
@@ -44,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RSS item links and image sources are sanitized through `safeUrl()`, blocking the `javascript:` scheme.
 - Prototype-pollution guard applied at each traversal step in `setV2Path`.
 - CRLF stripped from CORS origin headers.
+- Bumped undici 7.25.0 → 7.28.0, clearing six Dependabot alerts (#94).
 - Local environment details scrubbed from the public repository, with a pre-commit secrets guard to prevent recurrence.
 
 ## [1.3.0] — 2026-05-27

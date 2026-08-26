@@ -8,7 +8,7 @@ A comprehensive guide to setting up the project locally, building for release, a
 
 Before getting started, ensure you have the following installed:
 
-- **Node.js 20+** — JavaScript runtime for build tooling
+- **Node.js 22.22+, 24.15+, or 26+** — JavaScript runtime for build tooling (see `engines` in `package.json`)
 - **Python 3** — For running the local HTTP server and the BitAxe proxy (`bitaxe_api.py`)
 - **Modern browser** — Chrome, Firefox, Safari, or Edge (latest versions)
 - **Git** — For cloning and version control
@@ -301,7 +301,7 @@ the-daily-node/
 **Symptom:** Running `npm run build` produces an error.
 
 **Solutions:**
-1. **Check Node.js version:** Ensure you're running Node.js 20 or higher:
+1. **Check Node.js version:** Ensure you're running Node.js 22.22+, 24.15+, or 26+:
    ```bash
    node --version
    ```
