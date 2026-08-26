@@ -125,6 +125,49 @@ assert.ok(/isMobile\s*=\s*vw\s*<=\s*900/.test(html),
 assert.ok(/@media\s*\(max-width:\s*900px\)\s*\{[^@]*?#canvas\s*\{/.test(html),
   'mobile media query breakpoint drifted — the #canvas rule must sit under `max-width: 900px` to match updateScale()');
 
+// 12. Canvas scaling depends on SCRIPT ORDER and on the scaling script staying synchronous.
+//     The inline <script> in src/index.html defines updateScale(), which sets --u before
+//     React's first paint. src/index.html is copied verbatim apart from placeholder
+//     substitution, so this script is NOT minified and its identifiers survive by name
+//     (unlike the esbuild bundle — see the note on markers in step 4).
+//     If it were moved after the bundle, given defer/async, or made type="module", --u would
+//     stay at the :root default of 1px and the canvas would render unscaled with no error
+//     and no console warning.
+const scaleIdx = html.indexOf('function updateScale');
+// build.js replaces the /* MODULES CONCATENATED BY build.js */ placeholder with requireShim +
+// bundle; `var __dn_modules` is the first line of that shim, so it marks the bundle script.
+const bundleIdx = html.indexOf('var __dn_modules');
+assert.ok(scaleIdx !== -1, 'inline updateScale() scaling script missing from build');
+assert.ok(bundleIdx !== -1,
+  'require shim missing from build — cannot locate the bundle script (if you renamed __dn_modules in build.js, update this anchor)');
+assert.ok(scaleIdx < bundleIdx,
+  'inline scaling script must come BEFORE the bundle script — otherwise --u is unset at React first paint and the canvas renders at 1px unscaled');
+
+// Locate the enclosing <script> tag, then prove it is a real tag and not one quoted inside
+// markup. src/index.html carries a literal "<script" in the CSP explainer comment in <head>,
+// and the first real "</script" is ~16KB further on, so "no closing tag in between" does NOT
+// on its own rule that decoy out — the comment-exclusion test below is what does.
+const scaleTagStart = html.lastIndexOf('<script', scaleIdx);
+assert.ok(scaleTagStart !== -1 && !html.slice(scaleTagStart, scaleIdx).includes('</script'),
+  'could not locate the opening <script> tag of the scaling block — the "function updateScale" anchor matched outside a script element');
+assert.ok(html.lastIndexOf('<!--', scaleTagStart) <= html.lastIndexOf('-->', scaleTagStart),
+  'the <script> tag located for the scaling block sits inside an HTML comment — the "function updateScale" anchor has drifted (a comment mentioning it?)');
+const scaleTagEnd = html.indexOf('>', scaleTagStart) + 1;
+const scaleTag = html.slice(scaleTagStart, scaleTagEnd);
+assert.ok(!/\bdefer\b|\basync\b|type\s*=\s*["']?module\b/.test(scaleTag),
+  `inline scaling <script> must stay synchronous (no defer/async/type="module"): ${scaleTag}`);
+
+// Scope the body checks to this script so another block cannot satisfy them by accident.
+const scaleClose = html.indexOf('</script', scaleTagEnd);
+assert.ok(scaleClose !== -1, 'scaling <script> is never closed — cannot scope the body assertions');
+const scaleBody = html.slice(scaleTagEnd, scaleClose);
+// Anchored at column 0 deliberately: `^\s*` would also match the call indented inside a
+// DOMContentLoaded/setTimeout callback, which is the regression this assertion exists to catch.
+assert.ok(/^updateScale\(\);/m.test(scaleBody),
+  'scaling script must call updateScale() unindented at top level, at parse time — deferring it behind load/DOMContentLoaded/setTimeout leaves --u at 1px through React first paint');
+assert.ok(/window\.updateScale\s*=\s*updateScale/.test(scaleBody),
+  'window.updateScale assignment missing — scripts/capture-mobile.cjs calls it to force a rescale');
+
 // Track A assertions
 if (!/feeds\.bitcoinMagazine/.test(html)) { console.error('FAIL: SettingsPanel missing from build'); process.exit(1); }
 if (!/minerOffline/.test(html))       { console.error('FAIL: useAlerts missing from build'); process.exit(1); }
