@@ -180,6 +180,27 @@ const GROUPS = [
     ],
   },
   {
+    key: 'tests-repo-tooling',
+    label: 'Test Suite — Repo Tooling (secrets scanner)',
+    files: [
+      'tests/unit/checkSecrets.test.js',
+    ],
+    // Its own group rather than a line in tests-harness: this reviews repo tooling,
+    // not the dashboard, so the shared React brief would frame it wrongly — and a
+    // group reviewed under the wrong frame still counts as covered.
+    context: `This file tests scripts/check-secrets.cjs, the pre-commit and CI secrets
+gate. It is not React and touches no dashboard code — ignore the React,
+hook, styling and localStorage guidance above. Each case builds a throwaway
+git repo, stages fixture files into it, runs the scanner as a subprocess and
+asserts on exit code and stderr. Review it as an adversarial test of a
+security gate: cases that would pass against a scanner that accepts
+everything, missing controls proving the scanner does not simply reject
+everything, banned literals spelled out in the file itself (they must be
+assembled at runtime so the file stays clean under its own scanner), and
+assertions pinned to a hardcoded file count that will rot on the next
+commit rather than derived from the tree.`,
+  },
+  {
     key: 'tests-python',
     label: 'Python Test Suite (bitaxe API / setup / CORS / mempool proxy / history daemon)',
     // The shared prompt below briefs the agent on React, hooks and inline styling.
