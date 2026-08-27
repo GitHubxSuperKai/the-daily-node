@@ -220,6 +220,14 @@ jobs:
       #     the way, and that is incidental, not an assertion. Hence the
       #     explicit non-blank check before anything is written or run --
       #     whitespace-only is a no-op script for the same reason empty is.
+      #     The check is deliberately syntactic: it rejects a BLANK probe,
+      #     not every no-op one. A probe of `pass` is green here and should
+      #     be -- the contract is "the shipped probe exits 0", and it does.
+      # Assumes the healthcheck keeps the ["CMD","python3","-c",...] form,
+      # so test[-1] is Python source. A CMD-SHELL healthcheck (including the
+      # YAML string form, which Compose normalizes to CMD-SHELL) puts a SHELL
+      # command there and `python3 -` would reject it -- loudly, not silently,
+      # but it would need a different runner here.
       # Do NOT collapse this back into a single pipeline.
       - name: Verify the shipped healthcheck probe exits 0
         run: |
