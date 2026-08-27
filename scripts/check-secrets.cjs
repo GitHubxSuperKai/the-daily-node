@@ -30,7 +30,11 @@ const SKIP = [/node_modules\//, /\.git\//, /package-lock\.json$/, /scripts\/chec
 // reserved value — still fails, in tests/ as everywhere else. Keep this list short;
 // every entry is a value the scanner is permanently blind to under docs/ and tests/.
 // All entries confirmed dead (not live infrastructure) by the repo owner, 2026-08-26.
-const FIXTURE_PATH = /^(docs|tests)\//;
+// Test surface the carve-out applies to. The trailing alternative covers
+// test_bitaxe_api.py, a python test that sits at the repo root rather than under
+// tests/ — same fixture role, same round-tripped literals, just misfiled. It was
+// invisible until the blanket test_*.py skip came off.
+const FIXTURE_PATH = /^(docs|tests)\/|^test_[^/]*\.py$/;
 const RESERVED = [
   '10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.5', '10.0.0.9',
   '172.16.5.5',
