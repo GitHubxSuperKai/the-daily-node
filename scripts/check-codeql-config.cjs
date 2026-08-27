@@ -62,11 +62,16 @@ const ALLOWED_TOP_LEVEL_KEYS = ['name', 'paths-ignore'];
 // Files CodeQL is allowed to skip. Order-sensitive on purpose: deepStrictEqual on the
 // array is what makes a reorder-plus-insert impossible to slip through.
 //
-// index.html is the built artifact build.js writes -- scanning it means scanning
-// minified vendor React, which reports findings nobody can act on in source.
-// setup.html is here only until PR #141 lands; that PR removes it, and removing it
-// from this list is the edit that PR must make.
-const PATHS_IGNORE_ALLOWED = ['index.html', 'setup.html'];
+// index.html only -- the built artifact build.js writes. Scanning it means scanning
+// minified vendor React, which reports findings nobody can act on in source. The
+// pattern is a repo-root-relative path rather than a basename, so src/index.html is
+// still scanned; the config carries a comment saying so.
+//
+// setup.html was the second entry until #141 removed it. This list was updated in the
+// same breath, because the guard failed the build until it was -- which is the whole
+// design: the forced edit is the review gate. Every other tracked .html is
+// hand-written and analysed.
+const PATHS_IGNORE_ALLOWED = ['index.html'];
 
 // The workflow must keep pointing at the config, or every assertion above guards a
 // file that nothing reads.

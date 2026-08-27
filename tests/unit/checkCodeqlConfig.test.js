@@ -39,12 +39,12 @@ const CONFIG_PATH = path.join(REPO_ROOT, '.github', 'codeql', 'codeql-config.yml
 const WORKFLOW_PATH = path.join(REPO_ROOT, '.github', 'workflows', 'codeql.yml');
 
 // Read as-is, then normalise to LF for the string surgery below. On Windows these
-// files check out with CRLF (core.autocrlf=true), and a mutation written as
-// `.replace('  - setup.html\n', '')` then matches nothing at all -- the case asserts
+// files check out with CRLF (core.autocrlf=true), so a mutation written as
+// `.replace('  - index.html\n', '')` matches nothing at all -- the case then asserts
 // against a pristine config and "fails to reject" for a reason that has nothing to do
 // with the guard. That is not hypothetical: it is what the first run of this file did.
 // The LF/CRLF pair below keeps both endings under test regardless of how git checked
-// the files out here.
+// the files out here, and every mutation case re-asserts that it changed something.
 const asLF = s => s.replace(/\r\n/g, '\n');
 const GOOD_CONFIG = asLF(fs.readFileSync(CONFIG_PATH, 'utf8'));
 const GOOD_WORKFLOW = asLF(fs.readFileSync(WORKFLOW_PATH, 'utf8'));
@@ -67,8 +67,13 @@ describe('check-codeql-config: the real repo', () => {
 
   // The allowlist is the gate. Reading it back off the file it guards would make the
   // assertion self-fulfilling -- it would agree with any edit. This pins the value.
-  it('pins paths-ignore to the two files that are deliberately skipped', () => {
-    expect(PATHS_IGNORE_ALLOWED).toEqual(['index.html', 'setup.html']);
+  //
+  // It is one entry, the built artifact. #141 removed setup.html from the config while
+  // this branch was open; the guard failed the build until this list was updated, which
+  // is exactly what it is for. The pattern is a repo-root-relative path, so src/index.html
+  // -- hand-written source -- is still analysed.
+  it('pins paths-ignore to the one file that is deliberately skipped', () => {
+    expect(PATHS_IGNORE_ALLOWED).toEqual(['index.html']);
   });
 });
 
@@ -81,27 +86,30 @@ describe('check-codeql-config: config mutations that silently shrink coverage', 
       config: `${GOOD_CONFIG}  - src/config.js\n`,
     },
     {
-      name: 'an entry is widened to a glob over every HTML file',
-      config: GOOD_CONFIG.replace('  - setup.html', "  - '**/*.html'"),
+      name: 'the entry is widened to a glob over every HTML file',
+      config: GOOD_CONFIG.replace('  - index.html', "  - '**/*.html'"),
     },
     {
-      name: 'an entry is widened to the whole tree',
+      name: 'the entry is widened to the whole tree',
       config: GOOD_CONFIG.replace('  - index.html', "  - '**'"),
     },
     {
-      name: 'an entry is widened to a source directory',
-      config: GOOD_CONFIG.replace('  - setup.html', '  - src'),
+      name: 'the entry is widened to a source directory',
+      config: GOOD_CONFIG.replace('  - index.html', '  - src'),
     },
     {
-      name: 'entries are reordered',
-      config: 'name: CodeQL config\n\npaths-ignore:\n  - setup.html\n  - index.html\n',
+      // The exact-path pattern is load-bearing: unanchored basename matching is what
+      // let src/index.html go unscanned by check:secrets for as long as it did (#138).
+      name: 'the entry is swapped for a hand-written source file',
+      config: GOOD_CONFIG.replace('  - index.html', '  - src/index.html'),
     },
     {
       // Narrowing is caught too. Not because narrowing is dangerous -- it is the safe
       // direction -- but because an exact assertion is the only kind that forces the
-      // edit here. PR #141 removes setup.html and must update the allowlist to match.
-      name: 'an entry is removed',
-      config: GOOD_CONFIG.replace('  - setup.html\n', ''),
+      // edit here, and that forced edit is the review gate. #141 exercised this for
+      // real: it removed setup.html and the build stayed red until the allowlist moved.
+      name: 'the entry is removed, leaving nothing skipped',
+      config: GOOD_CONFIG.replace('  - index.html\n', ''),
     },
     {
       name: 'a paths: key restricts analysis to a subset of the tree',
@@ -187,15 +195,22 @@ describe('check-codeql-config: benign reformats must still pass', () => {
   const CASES = [
     {
       name: 'a zero-indent block sequence',
-      config: 'name: CodeQL config\n\npaths-ignore:\n- index.html\n- setup.html\n',
+      config: 'name: CodeQL config\n\npaths-ignore:\n- index.html\n',
     },
     {
-      name: 'quoted entries, both quote styles',
-      config: 'name: CodeQL config\n\npaths-ignore:\n  - \'index.html\'\n  - "setup.html"\n',
+      name: 'a single-quoted entry',
+      config: 'name: CodeQL config\n\npaths-ignore:\n  - \'index.html\'\n',
     },
     {
-      name: 'a comment line and extra blank lines',
-      config: '# what CodeQL skips\nname: CodeQL config\n\n\npaths-ignore:\n  - index.html\n  - setup.html\n',
+      name: 'a double-quoted entry',
+      config: 'name: CodeQL config\n\npaths-ignore:\n  - "index.html"\n',
+    },
+    {
+      // The committed config carries a six-line comment block explaining why the
+      // pattern is a path and not a basename. If comment handling regressed, the real
+      // file would stop parsing -- so this is not a hypothetical shape.
+      name: 'comment lines and extra blank lines',
+      config: '# what CodeQL skips\nname: CodeQL config\n\n\n# why:\npaths-ignore:\n  - index.html\n',
     },
     {
       name: 'CRLF line endings',
@@ -211,7 +226,7 @@ describe('check-codeql-config: benign reformats must still pass', () => {
     },
     {
       name: 'the keys in the other order',
-      config: 'paths-ignore:\n  - index.html\n  - setup.html\n\nname: CodeQL config\n',
+      config: 'paths-ignore:\n  - index.html\n\nname: CodeQL config\n',
     },
   ];
 
@@ -227,7 +242,7 @@ describe('check-codeql-config: shapes the parser refuses rather than guesses at'
   // fail LOUDLY on them, never quietly return something plausible -- a guard that
   // guesses wrong about its input is a guard that passes for the wrong reason.
   const CASES = [
-    { name: 'flow-style sequence', config: 'name: CodeQL config\npaths-ignore: [index.html, setup.html]\n' },
+    { name: 'flow-style sequence', config: 'name: CodeQL config\npaths-ignore: [index.html]\n' },
     { name: 'flow-style mapping', config: 'name: CodeQL config\npaths-ignore: {a: b}\n' },
     { name: 'an anchor', config: 'name: &n CodeQL config\npaths-ignore:\n  - index.html\n' },
     { name: 'a block scalar', config: 'name: |\n  CodeQL config\npaths-ignore:\n  - index.html\n' },
@@ -262,7 +277,7 @@ describe('check-codeql-config: the parser itself', () => {
   it('reads the committed config into the expected structure', () => {
     expect(parseSimpleYaml(GOOD_CONFIG)).toEqual({
       name: 'CodeQL config',
-      'paths-ignore': ['index.html', 'setup.html'],
+      'paths-ignore': ['index.html'],
     });
   });
 
