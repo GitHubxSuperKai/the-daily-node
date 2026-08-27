@@ -32,22 +32,30 @@ on:
   # .dockerignored, so it cannot reach the image at all.
   # The paths: filter above gates the branches: trigger ONLY -- it does not
   # gate tags:. GitHub does not evaluate path filters for tag pushes ("Path
-  # filters are not evaluated for pushes of tags" -- workflow-syntax docs, the
-  # on.<push>.<paths|paths-ignore> section), so a release tag publishes
-  # :v<x.y.z>, :major.minor and :latest even when the tagged commit touches
-  # nothing in the list above. Verified against this repo rather than read off
-  # the docs: the v1.2.0 tag (e5a97c9) is a docs-only merge -- README.md plus
-  # two files under docs/ -- which matches zero entries above, and its push
-  # still ran this workflow through to a successful publish (Actions run
-  # 29601122112). Two reviewers reached opposite conclusions on this during
-  # PR #140, hence the citation.
-  # So do NOT "fix" it by splitting tags: into a second, unfiltered trigger:
-  # there is no gap to close, a single on.push mapping cannot carry two path
-  # policies anyway, and the split would buy a whole extra workflow for zero
-  # behaviour change. Equally, do not defend it with "the release commit
-  # always bumps package.json" -- ship-it tags whatever HEAD is (there is no
-  # `npm version` step), v1.2.0 is a live counterexample, and that is not the
-  # reason tag releases publish.
+  # filters are not evaluated for pushes of tags" -- workflow-syntax docs,
+  # on.<push|pull_request|pull_request_target>.<paths|paths-ignore>), so a
+  # release tag still publishes the full metadata-action set -- :v<x.y.z>,
+  # :<x.y.z>, :major.minor and :latest -- even when the tagged commit touches
+  # nothing listed above.
+  # Verified here rather than read off the docs, via a same-commit A/B.
+  # 92b5b30 is a docs-only merge (README.md plus two files under docs/)
+  # matching zero entries above. It was pushed to main, then tagged v1.2.0
+  # seventy seconds later:
+  #   - main push, 2026-05-09T02:20:28Z -> Build and Deploy ran; Docker did
+  #     NOT. The filter demonstrably bites on a branch push.
+  #   - tag push,  2026-05-09T02:21:38Z -> Docker ran through to a successful
+  #     publish (Actions run 25588998556).
+  # Same SHA, same files, same docker.yml -- the filter was already present at
+  # that commit -- so the ref is the only variable. v1.2.0 was later re-pushed
+  # at e5a97c9 and published again (run 29601122112) off the same zero-match
+  # file set.
+  # So do NOT "fix" this by splitting tags: into its own unfiltered trigger:
+  # there is no gap to close, and one on.push mapping cannot hold two path
+  # policies (duplicate YAML key), so it would cost a second workflow file for
+  # zero behaviour change. Equally, do not defend the current shape with "the
+  # release commit always bumps package.json" -- ship-it tags whatever HEAD is
+  # and this repo has no `npm version` step, so that never held; 92b5b30
+  # bumped nothing.
   pull_request:
     paths:
       - 'Dockerfile'
