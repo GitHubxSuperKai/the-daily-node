@@ -202,6 +202,27 @@ try {
   // Not a git checkout — nothing to assert.
 }
 
+// 14. The CI secrets job must stay wired up.
+// It is the only enforcement that survives a contributor who never sets
+// core.hooksPath, and deleting it would fail nothing else in this suite.
+const WORKFLOW = path.join(ROOT, '.github', 'workflows', 'build.yml');
+const wf = fs.readFileSync(WORKFLOW, 'utf8');
+const secretsJobIdx = wf.search(/^ {2}secrets:/m);
+assert.ok(secretsJobIdx !== -1,
+  'the `secrets` job is gone from build.yml — nothing scans a PR diff for secrets any more');
+// Scope every assertion below to that job's own block, so a matching line in the
+// build job cannot satisfy them by accident. (An unanchored match on the whole
+// file is how the hook assertion above was silently disarmed once already.)
+const secretsJob = wf.slice(secretsJobIdx);
+assert.ok(/^\s*run:\s*npm run check:secrets\s*$/m.test(secretsJob),
+  'build.yml no longer runs check:secrets — the secrets job exists but scans nothing');
+// The staging step is what makes the scan non-vacuous: without it the scanner
+// sees an empty index, reports "checked 0 staged files" and passes forever.
+assert.ok(/git reset --soft/.test(secretsJob),
+  'build.yml secrets job no longer stages the diff — check:secrets would scan an empty index and pass unconditionally');
+assert.ok(/fetch-depth:\s*0/.test(secretsJob),
+  'build.yml secrets job lost fetch-depth: 0 — the base commit would be missing from the clone and the staging step would fall back or fail');
+
 // Track A assertions
 if (!/feeds\.bitcoinMagazine/.test(html)) { console.error('FAIL: SettingsPanel missing from build'); process.exit(1); }
 if (!/minerOffline/.test(html))       { console.error('FAIL: useAlerts missing from build'); process.exit(1); }

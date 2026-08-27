@@ -20,11 +20,13 @@
 # So a green hook is not proof a commit is clean. It catches the one mistake
 # that has actually happened here before; the rest is still on the author.
 #
-# Not wired into CI. check:secrets reads the STAGED set, and a CI checkout has
-# nothing staged, so a bare `npm run check:secrets` step would report
-# "checked 0 staged files" and pass unconditionally. It CAN be made to work by
-# staging the diff first (`git reset --soft $(git merge-base origin/main HEAD)`),
-# which also resolves limit 3 above, since index and worktree then agree. That
-# is a separate change and should land with the docs/ exemption fix — CI
-# coverage that inherits these blind spots is worth little.
+# CI runs the same scan (the `secrets` job in .github/workflows/build.yml), so
+# a commit that dodges this hook is still caught at PR time. That job stages the
+# diff under review first — a bare `npm run check:secrets` step would find
+# nothing staged, report "checked 0 staged files" and pass unconditionally.
+# Because it stages from a clean checkout, index and worktree agree there, so
+# limit 3 above does not apply to the CI run.
+#
+# CI does NOT rescue limits 1 and 2: it runs the same scanner, so it inherits
+# the docs/ and tests/ exemptions and the RFC1918-only pattern.
 npm run check:secrets || exit 1

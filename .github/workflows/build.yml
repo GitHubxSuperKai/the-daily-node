@@ -65,3 +65,53 @@ jobs:
 
       - name: Run python tests
         run: npm run test:py
+
+  # check:secrets reads the STAGED set, which is empty in a normal CI checkout —
+  # a bare `npm run check:secrets` step would report "checked 0 staged files" and
+  # pass unconditionally. Staging the diff under review first gives it something
+  # real to scan, and makes index and worktree agree, which also closes the
+  # stage-then-edit gap the hook has locally.
+  #
+  # Runs as its own job: `git reset --soft` moves HEAD, and the build job must
+  # not observe a rewritten HEAD partway through.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0   # BASE below must be present in the clone
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      # No `npm ci` on purpose — check:secrets has no dependencies, and skipping
+      # the install keeps this job fast enough to not slow the merge queue.
+
+      - name: Stage the diff under review
+        env:
+          # Via env, never inlined into the script: ${{ }} interpolation directly
+          # into `run:` is a command-injection surface.
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BASE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "pull_request" ]; then
+            BASE="$PR_BASE"
+          else
+            BASE="$PUSH_BASE"
+          fi
+          # A first push, a force-push, or a squashed base can yield an all-zero
+          # or absent SHA. Fall back to the parent rather than scanning nothing.
+          if [ -z "${BASE:-}" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            echo "Base '$BASE' unusable; falling back to HEAD~1"
+            BASE=$(git rev-parse HEAD~1)
+          fi
+          echo "Scanning ${BASE}..HEAD"
+          git reset --soft "$BASE"
+          echo "Staged for scan:"
+          git diff --cached --name-only
+
+      - name: Secrets scan
+        run: npm run check:secrets
