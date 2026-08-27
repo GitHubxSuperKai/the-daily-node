@@ -14,20 +14,20 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/docker.yml'
-  # NOTE: the push filter must list every path that alters image bytes, and
-  # only those. Both directions have bitten:
+  # NOTE: the push filter lists every path that alters image bytes, plus this
+  # workflow file itself so that edits to it are self-testing -- and nothing
+  # else. Both directions of that rule have bitten:
   #   - docker-compose.yml is deliberately absent from the push filter above.
   #     The publish job has no path guard of its own, so listing it here would
   #     republish :latest for a change that alters zero image bytes. It appears
   #     only under pull_request, where it gates the smoke job.
-  #   - setup.html WAS missing from both lists, yet the runtime stage COPYs it
-  #     (Dockerfile). A change to it altered the image and published no new
-  #     :latest, leaving the tag stale until an unrelated commit touched a
-  #     listed path.
+  #   - setup.html is COPY'd by the runtime stage (Dockerfile). It was once
+  #     missing from both lists, which left :latest stale until an unrelated
+  #     commit happened to touch a listed path.
   # index.html needs no entry of its own: the runtime stage COPYs it
-  # --from=build and the repo-root copy is .dockerignored, so it is covered
-  # transitively by src/** + build.js. Rule of thumb: every COPY source in the
-  # Dockerfile must be reachable from the push list.
+  # --from=build, so it is covered transitively by the build stage's inputs
+  # (src/** + build.js + the package files). Separately, the repo-root copy is
+  # .dockerignored, so it cannot reach the image at all.
   pull_request:
     paths:
       - 'Dockerfile'
