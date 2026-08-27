@@ -7,9 +7,9 @@
 #
 # THIS IS A NARROW GUARD. All three limits verified by black-box probe:
 #
-#   1. Everything is scanned except build artifacts (index.html,
-#      package-lock.json) and the scanner itself. docs/, tests/ and the
-#      hand-written setup.html ARE scanned.
+#   1. Everything is scanned except the built root index.html,
+#      package-lock.json, and the scanner itself. docs/, tests/, the
+#      hand-written setup.html and the src/index.html template ARE scanned.
 #      The one carve-out is a short RESERVED list in scripts/check-secrets.cjs:
 #      13 exact literals allowed under tests/ and root-level test_*.py ONLY,
 #      because they are the subject of the tests asserting on them (isValidLanIp)
