@@ -24,6 +24,11 @@
 #      blob. Stage a secret, then edit it out of the file without re-staging,
 #      and the secret commits unscanned.
 #
+# A staged file the scanner cannot READ is a hard failure, named in the output,
+# not a silent skip: a run that opens nothing can no longer print the success
+# line. Staged deletions are excluded before that check, so a plain `git rm`
+# does not trip it.
+#
 # So a green hook is not proof a commit is clean. It catches the one mistake
 # that has actually happened here before; the rest is still on the author.
 #
