@@ -750,6 +750,30 @@ describe('layer A keeps biting after the pin has been updated to match', () => {
     expect(stillCaught(mutated, step)).toMatch(/no longer runs "docker exec/);
   });
 
+  // Failure mode 5 from this repo's catalogue: a marker that matches both the state under
+  // test and its opposite. The ordering anchor was a substring scan, so a line that merely
+  // MENTIONED the condition moved it, and the real guard could then sit after the exec
+  // while the guard read the decoy's position as "first". The anchor is the guard's own
+  // `if ...; then` line now.
+  it('rejects a decoy line moving the ordering anchor, even with the pin updated', () => {
+    const step = 'Verify the shipped healthcheck probe exits 0';
+    const guard =
+      '          if [ -z "${probe//[[:space:]]/}" ]; then\n' +
+      '            echo "Extracted healthcheck probe is empty or blank -- nothing to execute"\n' +
+      '            exit 1\n' +
+      '          fi\n';
+    const mutated = sub(
+      sub(
+        sub(GOOD, guard, ''),
+        '          printf \'%s\\n\' "$probe" > /tmp/probe.py\n',
+        '          echo \'about to check [ -z "${probe//[[:space:]]/}" ]\'\n          printf \'%s\\n\' "$probe" > /tmp/probe.py\n',
+      ),
+      '          docker exec -i dn-smoke python3 - < /tmp/probe.py\n',
+      `          docker exec -i dn-smoke python3 - < /tmp/probe.py\n${guard}`,
+    );
+    expect(stillCaught(mutated, step)).toMatch(/BEFORE the/);
+  });
+
   it('rejects the blank-probe check moved after the exec even with the pin updated', () => {
     const step = 'Verify the shipped healthcheck probe exits 0';
     const guard =
@@ -822,10 +846,27 @@ describe('layer A keeps biting after the pin has been updated to match', () => {
   // and re-review turned it into a working bypass: `body=$SETUP_MARK` lets a page step
   // synthesise the very marker it then greps for, which is #144's vacuity restored in
   // full with the guard green.
+  // Three review rounds landed on this list. Rounds one and two each matched the spellings
+  // their author imagined -- first `NAME=$(`, then `NAME=` plus `^read ... NAME` -- and
+  // review broke each in turn. The check is now inverted to allowlist READS (`$NAME` /
+  // `${NAME}`), so every one of these is caught by one rule rather than by thirteen. Keep
+  // the whole list: it is the evidence the inversion actually generalises, and shrinking it
+  // to "a few representative cases" is how the enumeration crept back twice.
   for (const [label, shadow] of [
     ['a command substitution', 'body=$(cat /tmp/cached-response.json)'],
     ['a plain variable expansion', 'body=$SETUP_MARK'],
     ['a read redirect', 'read -r body < /tmp/stale-response.json'],
+    ['IFS= read, the shellcheck-recommended spelling', 'IFS= read -r body < /tmp/stale-response.json'],
+    ['printf -v', 'printf -v body "%s" "$SETUP_MARK"'],
+    ['mapfile', 'mapfile -t body < /tmp/stale-response.json'],
+    ['readarray', 'readarray body < /tmp/stale-response.json'],
+    ['read -d with the name last', "read -r -d '' body < /tmp/stale-response.json"],
+    ['append assignment', 'body+="$SETUP_MARK"'],
+    ['a while-read loop', 'while read -r body; do :; done < /tmp/stale-response.json'],
+    ['a for-loop variable', 'for body in "$SETUP_MARK"; do :; done'],
+    ['eval', 'eval body=1'],
+    ['declare -g', 'declare -g body=1'],
+    ['an arithmetic assignment', '((body=1))'],
   ]) {
     it(`rejects ${label} shadowing the capture even with the pin updated`, () => {
       const step = 'Verify API endpoint responds';
@@ -837,6 +878,15 @@ describe('layer A keeps biting after the pin has been updated to match', () => {
       expect(stillCaught(mutated, step)).toMatch(/assigns \$body 2 times/);
     });
   }
+
+  // The negative control for the whole list above. Allowlisting reads only works if reads
+  // are actually recognised: `"$body"`, `"${probe//[[:space:]]/}"`, `"$config"`, the path
+  // `/tmp/probe.py` and the bare word `probe` inside `echo "--- probe under test ---"` all
+  // appear in the real bodies, and every one of them must read as a mention, not a write.
+  // Without this, a check that called everything a write would pass every case above.
+  it('does not mistake reads, paths or prose for writes', () => {
+    expect(checkRepo()).toEqual([]);
+  });
 
   // The reviewer's full working bypass, reproduced end to end: BOTH page steps rewritten
   // so each synthesises its own `body` from its own marker. Every other assertion in the
@@ -926,6 +976,11 @@ describe('the parser fails loudly rather than quietly', () => {
     expect(parseYaml('a:\n  b: x # comment\n')).toEqual({ a: { b: 'x' } });
     expect(parseYaml('a:\n  b: a#b\n')).toEqual({ a: { b: 'a#b' } });
     expect(parseYaml("a:\n  b: 'x' # note\n")).toEqual({ a: { b: 'x' } });
+    // Two spaces is what yamllint's own default requires
+    // (`comments.min-spaces-from-content: 2`). Accepting exactly one made that spelling
+    // fail the build — a benign reformat rejected, which is the churn this guard must not
+    // create.
+    expect(parseYaml("a:\n  b: 'x'  # note\n")).toEqual({ a: { b: 'x' } });
     expect(parseYaml("a:\n  b: it's fine\n")).toEqual({ a: { b: "it's fine" } });
     expect(parseYaml("a:\n  b: ''\n")).toEqual({ a: { b: '' } });
     expect(() => parseYaml("a:\n  b: 'oops\n")).toThrow(YamlShapeError);

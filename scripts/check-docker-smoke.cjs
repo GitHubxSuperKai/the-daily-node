@@ -66,12 +66,28 @@
 // ABSENT from the other. That is the one property the whole both-directions design
 // rests on, and it is a property of the bytes, not of the workflow text.
 //
-// KNOWN LIMIT, stated up front. This is a STRUCTURAL guard over the workflow file plus
-// two static assertions over the HTML. It proves the smoke job still says what it
-// should. It cannot prove GitHub ran it, that the runner's default shell is still
-// `bash -e {0}`, or that the container behaved. tests/unit/checkDockerSmoke.test.js is
-// the behaviour half: it executes this checker against mutated fixtures, so a hollowed
-// -out version of THIS file gets caught. Nothing local can catch a hollowed-out runner.
+// KNOWN LIMITS, stated up front rather than discovered later.
+//
+// This is a STRUCTURAL guard over the workflow file plus two static assertions over the
+// HTML. It proves the smoke job still says what it should. It cannot prove GitHub ran it,
+// that the runner's default shell is still `bash -e {0}`, or that the container behaved.
+// tests/unit/checkDockerSmoke.test.js is the behaviour half: it executes this checker
+// against mutated fixtures, so a hollowed-out version of THIS file gets caught. Nothing
+// local can catch a hollowed-out runner.
+//
+// Layer A reads shell line by line; it does not model REACHABILITY, and three shapes get
+// past it that a bash parser would catch. An `exit 1` inside a never-entered loop
+// (`while false; do ... done`) is credited to the guard containing it. Wrapping the real
+// assertions in a dead outer block (`if false; then ... fi`, or the plausible-looking
+// `if [ -n "$body" ]; then ... fi`, which silently skips both assertions when the server
+// returns an empty 200) leaves them unexecuted. And `elif` matched as `\b` versus `\s+`
+// cannot be told apart by any valid-bash input.
+//
+// These are named rather than chased. Each needs a real bash parser to decide, each is
+// caught by layer B in production, and each additionally requires somebody to have updated
+// the pin by hand. Reaching for another regex here is how the shadow-assignment check
+// burned three review rounds before being inverted into an allowlist -- which is the shape
+// that actually closes a class, and the reason the remaining three are documented instead.
 //
 // Zero-dependency on purpose, like check-secrets.cjs and check-codeql-config.cjs.
 // Reaching for a YAML library would make a CI guard's integrity depend on a third-party
@@ -488,7 +504,11 @@ function stripInlineComment(value) {
     // Both THREW before this function was rewritten, and rule 2 says a shape this cannot
     // read must fail loudly rather than be guessed at. Handing the whole thing back lets
     // parseScalar report it as the unbalanced or nested-quote value it is.
-    if (rest !== '' && !/^\s#/.test(rest)) return trimmed;
+    // `\s+`, not `\s`. Accepting exactly one space before the `#` rejected the spelling
+    // yamllint's own default requires (`comments.min-spaces-from-content: 2`), so a
+    // reformat this guard should not care about failed the build -- a regression the
+    // rewrite introduced while fixing a real bug, and the repo's churn signal.
+    if (rest !== '' && !/^\s+#/.test(rest)) return trimmed;
     return trimmed.slice(0, end + 1);
   }
   const m = trimmed.match(/\s#.*$/);
@@ -1049,17 +1069,36 @@ function checkDockerSmoke({
     const lines = bodies.get(name);
     if (!lines) continue;
     for (const cap of captures) {
-      // EVERY line that writes this variable, not only the command substitutions.
-      // Restricting the count to lines containing `$(` was a denylist inside an allowlist
-      // -- design rule 1, broken in the check that enforces it -- and re-review turned it
-      // into a working bypass: `body=$SETUP_MARK` and `read -r body < /tmp/stale` both
-      // shadow the pinned capture, are invisible to a `$(`-only filter, and let each page
-      // step synthesise the very marker it then greps for. That is #144's vacuity restored
-      // in full, with the guard green and layer B silenced by an updated pin.
-      const writes = new RegExp(
-        `(?:(^|\\s)${cap.name}=)|(?:^read\\s+(?:-\\S+\\s+)*${cap.name}\\b)`,
-      );
-      const assignments = lines.filter(l => writes.test(l));
+      // Every line that WRITES this variable, found by allowlisting reads rather than by
+      // enumerating writes.
+      //
+      // Three review rounds went into this one expression, and the first two both got it
+      // wrong the same way. Round one matched only `NAME=$(`; round two widened it to
+      // `NAME=` plus `^read ... NAME`. Each time, review found the next spelling: first
+      // `body=$SETUP_MARK`, then `IFS= read -r body`, `printf -v body`, `mapfile`,
+      // `readarray`, `body+=`, `for body in`, `while read -r body`. A fourth round would
+      // have added `IFS=` and a fifth `printf -v`. That is a denylist -- design rule 1 at
+      // the top of this file, broken inside the check that enforces it -- and widening it
+      // does not converge, because the set of ways bash can name a variable on the left is
+      // open.
+      //
+      // Inverted, the rule is one line and closes the class: OUTSIDE the pinned capture,
+      // every mention of the identifier must be a READ, i.e. preceded by `$` or `${`.
+      // Anything else standing as its own shell word is a write, whatever the surrounding
+      // command is called.
+      //
+      // Quoted spans are blanked first, so prose inside a message is not mistaken for a
+      // word -- `echo "--- probe under test ---"` mentions `probe` and writes nothing.
+      // Double quotes go first because the inner command substitutions in this job contain
+      // single quotes. `/tmp/probe.py` is untouched by design: `probe` there is preceded by
+      // `/`, so it is part of a larger word rather than a shell word of its own.
+      //
+      // KNOWN LIMIT: an assignment hidden inside a quoted string handed to `eval` is
+      // blanked with everything else and would not be seen. Layer B pins the line, so it
+      // costs an updated pin AND an `eval` nobody in this job uses.
+      const unquoted = l => l.replace(/"[^"]*"/g, '""').replace(/'[^']*'/g, "''");
+      const writes = new RegExp(`(?:^|[\\s;&(])${cap.name}\\b`);
+      const assignments = lines.filter(l => writes.test(unquoted(l)));
       // `$(` still classifies the capture itself -- a bare command substitution is the
       // shape that aborts under errexit -- it just no longer decides what counts as a write.
       const bare = assignments.filter(l => l.startsWith(`${cap.name}=$(`));
@@ -1197,7 +1236,7 @@ function checkDockerSmoke({
             '  non-zero, so a blank probe is reported and then executed anyway.',
           );
         } else {
-          const guardIdx = lines.findIndex(l => l.includes(PROBE_GUARD.condition));
+          const guardIdx = lines.indexOf(`if ${PROBE_GUARD.condition}; then`);
           for (const later of PROBE_GUARD.mustPrecede) {
             const idx = lines.indexOf(later);
             if (idx === -1) {
