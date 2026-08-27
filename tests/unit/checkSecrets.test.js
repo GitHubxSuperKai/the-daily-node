@@ -76,21 +76,46 @@ function git(args, cwd) {
   execFileSync('git', args, { cwd, encoding: 'utf8', stdio: 'pipe' });
 }
 
-// Builds a throwaway repo holding `files` ({ 'rel/path': contents }), stages all of
-// it, and runs the scanner there. -f on the add so a stray global excludesFile cannot
-// silently drop a file from the staged set and turn a would-be failure into a pass.
-function scanFiles(files) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dn-secrets-'));
-  tmpDirs.push(dir);
+function gitOut(args, cwd) {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: 'pipe' });
+}
+
+function write(dir, files) {
   for (const [rel, contents] of Object.entries(files)) {
     const abs = path.join(dir, rel);
     fs.mkdirSync(path.dirname(abs), { recursive: true });
     fs.writeFileSync(abs, contents);
   }
+}
+
+// Builds a throwaway repo holding `files` ({ 'rel/path': contents }) and stages all of
+// it. -f on the add so a stray global excludesFile cannot silently drop a file from the
+// staged set and turn a would-be failure into a pass.
+function makeRepo(files) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dn-secrets-'));
+  tmpDirs.push(dir);
+  write(dir, files);
   git(['init', '-q', '.'], dir);
+  // Pinned, not inherited: core.quotepath is on by default, and the C-quoting case below
+  // is only mutation-sensitive while it is on. Under an ambient core.quotepath=false the
+  // case would still pass -- correctly, -z is unaffected -- but it would silently stop
+  // testing the property it is named for.
+  git(['config', 'core.quotepath', 'true'], dir);
   git(['add', '-A', '-f', '.'], dir);
-  const r = spawnSync(process.execPath, [SCANNER], { cwd: dir, encoding: 'utf8' });
+  return dir;
+}
+
+// `cwd` is a real argument, not a detail: the scanner resolves the repo-root-relative
+// paths git hands it against its own working directory, so which directory it runs from
+// decides whether it reads anything at all. The fail-closed cases below run it from a
+// subdirectory for exactly that reason.
+function runScanner(cwd) {
+  const r = spawnSync(process.execPath, [SCANNER], { cwd, encoding: 'utf8' });
   return { code: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+}
+
+function scanFiles(files) {
+  return runScanner(makeRepo(files));
 }
 
 // Asserting on the message, not just the exit code: a scanner that exits 1 for the
@@ -268,6 +293,143 @@ describe('check-secrets: controls', () => {
     const result = scanFiles({ 'docs/ARCHITECTURE.md': 'The node answers on `<lan-host>` in the lab.\n' });
     expectAccepted(result);
     expect(scannedCount(result)).toBe(1);
+  });
+});
+
+describe('check-secrets: an unread file is a failure, not a clean scan', () => {
+  // The gate's whole value is that a green run means something. The read used to be
+  // wrapped in a bare catch-and-continue, so a run that opened NOTHING printed the same
+  // success line and the same exit 0 as a clean full-repo scan -- a totally broken run
+  // and a passing run were indistinguishable. Every case here asserts on the absence of
+  // that success line, because the exit code alone cannot tell them apart either: a
+  // scanner that crashes on startup also exits 1.
+
+  it('refuses to report a clean scan when run from a subdirectory', () => {
+    // Git emits repo-root-relative paths, so from a subdirectory every single read
+    // throws. Not reachable through the two supported entry points -- git runs hooks
+    // from the top level, npm runs scripts from the package root -- so this pins
+    // hardening rather than a live leak.
+    const dir = makeRepo({
+      'src/config.js': 'export const HOST = "<lan-host>";\n',
+      'setup.html': `<p>Example: ${PLAIN_192}</p>\n`,
+    });
+    const result = runScanner(path.join(dir, 'src'));
+
+    expect(result.code, `expected a fail-closed exit, scanner said: ${result.stdout.trim()}`).toBe(1);
+    expect(result.stdout, 'reported a clean scan over files it never opened').not.toMatch(/checked \d+ staged files/);
+    expect(result.stderr).toContain('could not read');
+
+    // The planted address is the point of the case, not decoration: this run cannot see
+    // it, and must therefore refuse to pass rather than pass silently. The positive
+    // control below proves the same bytes DO fail from the root, so a green result here
+    // could only ever have meant the scan did not happen.
+    expect(result.stderr, 'the subdir run cannot have seen this -- it read nothing').not.toContain(`matches ${P_192}`);
+    expectRejected(runScanner(dir), 'setup.html', P_192);
+  });
+
+  it('names every file it could not read, and the count matches the list', () => {
+    // A bare count is not actionable, and the list is what distinguishes one broken
+    // symlink from the whole staged set (the wrong-cwd shape). Both halves are asserted
+    // together so a header that drifts from the enumeration cannot pass.
+    const dir = makeRepo({
+      'src/a.js': 'export const a = 1;\n',
+      'src/b.js': 'export const b = 2;\n',
+      'docs/c.md': 'clean\n',
+    });
+    const result = runScanner(path.join(dir, 'src'));
+
+    expect(result.code).toBe(1);
+    expect(result.stdout).not.toMatch(/checked \d+ staged files/);
+    const header = result.stderr.match(/could not read (\d+) of (\d+) staged file\(s\)/);
+    expect(header, `no unreadable-file report in: ${result.stderr}`).not.toBeNull();
+    expect(Number(header[1])).toBe(3);
+    expect(Number(header[2])).toBe(3);
+    for (const rel of ['src/a.js', 'src/b.js', 'docs/c.md']) {
+      expect(result.stderr, `${rel} went unread but was not named`).toContain(rel);
+    }
+  });
+
+  it('reads a staged path whose name git would C-quote', () => {
+    // `git diff --cached --name-only` C-quotes any path with non-ASCII bytes under
+    // core.quotepath, handing back a name no filesystem has. That file was never
+    // scanned before the fail-closed change either -- it was skipped in silence -- so
+    // the -z listing closes a real coverage hole rather than only making it loud.
+    // Asserted as a REJECT, not an accept: an accept here is also what a scanner that
+    // skipped the file entirely would print.
+    const accented = `src/caf${String.fromCharCode(0xe9)}.js`;
+    expectRejected(
+      scanFiles({ [accented]: `const host = '${PLAIN_192}';\n` }),
+      accented, P_192,
+    );
+  });
+
+  it('blames the working directory only when the run really is outside the repo root', () => {
+    // The cwd advice is right for the wrong-cwd run and wrong for every other cause, so
+    // it is gated on `git rev-parse --show-prefix` -- the condition itself. An earlier
+    // revision gated it on "every target went unread", which is only a proxy: it holds
+    // for ANY single-file commit, which is the hook's commonest invocation, so a lone
+    // file removed from the worktree got told to re-run from a different directory.
+    const CWD_ADVICE = 'not at the repository root';
+
+    const partial = makeRepo({ 'docs/here.md': 'clean\n', 'docs/gone.md': 'clean\n' });
+    fs.rmSync(path.join(partial, 'docs/gone.md'));
+    const partialResult = runScanner(partial);
+    expect(partialResult.code).toBe(1);
+    expect(partialResult.stderr).toContain('docs/gone.md');
+    expect(partialResult.stderr, 'blamed the cwd for a partial failure').not.toContain(CWD_ADVICE);
+
+    // The proxy's blind spot, pinned: one staged file, unreadable, run from the root.
+    // "every target unreadable" is trivially true here, so this is the case that told a
+    // developer to change directory when the directory was never the problem.
+    const single = makeRepo({ 'docs/only.md': 'clean\n' });
+    fs.rmSync(path.join(single, 'docs/only.md'));
+    const singleResult = runScanner(single);
+    expect(singleResult.code).toBe(1);
+    expect(singleResult.stderr).toContain('docs/only.md');
+    expect(singleResult.stderr, 'blamed the cwd on a single-file commit at the root')
+      .not.toContain(CWD_ADVICE);
+
+    // Positive control: the advice MUST appear for the run it describes, or every
+    // assertion above is satisfied by a scanner that simply never prints it.
+    const all = makeRepo({ 'src/a.js': 'export const a = 1;\n', 'docs/b.md': 'clean\n' });
+    const allResult = runScanner(path.join(all, 'src'));
+    expect(allResult.code).toBe(1);
+    expect(allResult.stderr).toContain(CWD_ADVICE);
+  });
+
+  it('does not trip on a staged deletion, where the file is legitimately gone', () => {
+    // The one case the old silent skip was right about, and the reason this is a
+    // --diff-filter=d exclusion rather than a blanket "any missing file fails". A staged
+    // deletion is routine -- `git rm` before a local commit, and any PR that removes a
+    // file, once CI stages base..HEAD -- and there is nothing left to scan.
+    const dir = makeRepo({ 'docs/keep.md': 'clean\n', 'docs/drop.md': 'clean\n' });
+    git(['-c', 'user.email=t@example.invalid', '-c', 'user.name=tester', 'commit', '-qm', 'base'], dir);
+    fs.appendFileSync(path.join(dir, 'docs/keep.md'), 'edited\n');
+    git(['add', 'docs/keep.md'], dir);
+    git(['rm', '-q', 'docs/drop.md'], dir);
+
+    // Pins that the deletion really is staged. Without this the case passes on a repo
+    // where nothing was removed at all, which is the vacuity mode a false-failure test
+    // is most likely to rot into.
+    const staged = gitOut(['diff', '--cached', '--name-status'], dir);
+    expect(staged, 'no staged deletion -- this case is not testing anything').toMatch(/^D\s+docs\/drop\.md$/m);
+
+    const result = runScanner(dir);
+    expectAccepted(result);
+    expect(scannedCount(result), 'the deleted path must be excluded, not scanned').toBe(1);
+  });
+
+  it('still fails when a staged path vanishes from the worktree without being deleted in git', () => {
+    // The deletion exclusion must not become a blanket amnesty. Here the index still
+    // carries content the commit will include, and the scanner reads working-copy bytes,
+    // so this run genuinely did not see what is about to be committed.
+    const dir = makeRepo({ 'docs/gone.md': 'clean\n' });
+    fs.rmSync(path.join(dir, 'docs/gone.md'));
+
+    const result = runScanner(dir);
+    expect(result.code).toBe(1);
+    expect(result.stdout).not.toMatch(/checked \d+ staged files/);
+    expect(result.stderr).toContain('docs/gone.md');
   });
 });
 
