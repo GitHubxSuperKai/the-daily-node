@@ -181,9 +181,10 @@ const GROUPS = [
   },
   {
     key: 'tests-repo-tooling',
-    label: 'Test Suite — Repo Tooling (secrets scanner)',
+    label: 'Test Suite — Repo Tooling (secrets scanner, CodeQL config guard)',
     files: [
       'tests/unit/checkSecrets.test.js',
+      'tests/unit/checkCodeqlConfig.test.js',
     ],
     // Its own group rather than a line in tests-harness: this reviews repo tooling,
     // not the dashboard, so the shared React brief would frame it wrongly — and a
@@ -198,7 +199,15 @@ everything, missing controls proving the scanner does not simply reject
 everything, banned literals spelled out in the file itself (they must be
 assembled at runtime so the file stays clean under its own scanner), and
 assertions pinned to a hardcoded file count that will rot on the next
-commit rather than derived from the tree.`,
+commit rather than derived from the tree.
+
+checkCodeqlConfig.test.js tests scripts/check-codeql-config.cjs, the guard on
+CodeQL's scope. Same frame. Its allowlists are compared with deepStrictEqual on
+purpose, so judge them as gates rather than as style: a case that would pass
+against a checker returning [] for everything, a negative control missing so the
+suite would also accept one returning a problem for everything, a mutation whose
+replace() no longer matches and therefore asserts against a pristine fixture, and
+branches of the hand-written YAML parser that no case reaches.`,
   },
   {
     key: 'tests-python',
