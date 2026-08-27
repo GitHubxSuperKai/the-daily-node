@@ -159,9 +159,11 @@ jobs:
       # A second container rather than flipping dn-smoke in place. POST /api/setup
       # would also work -- do_POST assigns the CONFIGURED global at runtime, so it
       # is NOT fixed at startup -- but it would mutate the very container the two
-      # steps below still assert against, and it exercises a path neither the
-      # Dockerfile nor docker-compose.yml documents. BITAXE_IPS is the documented
-      # deployment mechanism, so it is the one worth smoke-testing. 127.0.0.1 is
+      # steps below still assert against, twice over: the global AND the config
+      # file it saves to /data. BITAXE_IPS reaches the same state without touching
+      # dn-smoke at all. (Both routes are documented: compose and the Dockerfile
+      # describe the env var AND the first-launch setup page. The reason to prefer
+      # the env var here is the isolation, not the documentation.) 127.0.0.1 is
       # loopback, which validate_ips accepts, so CONFIGURED flips True. Nothing
       # dials it -- /api/miners is not asserted against this container.
       - name: Verify dashboard HTML served when configured
