@@ -19,7 +19,12 @@ const BANNED = [
 // build.js or package.json produces it, it has no counterpart under src/, and it
 // carries its own feature commits. Skipping it left the one tracked file that
 // nothing scanned; its example addresses are now generic placeholder text.
-const SKIP = [/node_modules\//, /\.git\//, /package-lock\.json$/, /scripts\/check-secrets\.cjs$/, /index\.html$/];
+//
+// The index.html entry is ^-anchored so it covers only the built root artifact.
+// Unanchored it also matched src/index.html, the hand-written page template that
+// build.js reads — genuine source, and unscanned for as long as the entry read
+// /index\.html$/. It scans clean today; the anchor is what keeps it scanned.
+const SKIP = [/node_modules\//, /\.git\//, /package-lock\.json$/, /scripts\/check-secrets\.cjs$/, /^index\.html$/];
 
 // Test surface the carve-out below applies to. Deliberately NOT docs/: only one
 // tracked doc needed a private-looking literal and it was prose, so it was scrubbed
