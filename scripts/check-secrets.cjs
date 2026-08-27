@@ -59,7 +59,14 @@ const RESERVED = new Set([
 // pass on the fixture surface, because every window the patterns find in it is itself
 // reserved. That conceals nothing — a non-reserved address cannot be spelled out of
 // reserved ones — so it is a curiosity, not a bypass.
-const isReserved = m => RESERVED.has(m.replace(/\s+/g, ' ').trim());
+// Normalising whitespace is not enough on its own: collapsing runs cannot insert a
+// space that was never typed, so `lat:34.05` would never equal the reserved
+// `lat: 34.05`. It fails closed, but with a fix ("add a space after the colon") that is
+// not discoverable from the error. Re-space the key instead, so all of `lat:34.05`,
+// `lat:   34.05` and `lat:\n34.05` normalise to the one reserved spelling.
+const isReserved = m => RESERVED.has(
+  m.replace(/\s+/g, ' ').trim().replace(/^(lat|lng):\s*/, '$1: ')
+);
 
 const stagedRaw = execSync('git diff --cached --name-only', { encoding: 'utf8' }).trim();
 const staged = stagedRaw ? stagedRaw.split('\n') : [];

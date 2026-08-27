@@ -256,13 +256,22 @@ assert.ok(fs.existsSync(SCANNER), 'scripts/check-secrets.cjs is missing — noth
 const scannerSrc = fs.readFileSync(SCANNER, 'utf8')
   .split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
 
+// Both of the checks below are strict ALLOWLISTS, not denylists. A denylist only ever
+// blocks the mutation its author happened to imagine: an earlier version of this step
+// rejected `docs`/`tests` appearing in SKIP, and sailed straight past `/\.md$/`, which
+// re-blinds the whole docs/ tree just as completely. check-review-paths.cjs:81 uses a
+// strict allowlist (GROUP_KEYS) for exactly this reason. Widening either list is meant
+// to require editing this assertion — that edit IS the review gate.
 const skipLine = scannerSrc.match(/^const SKIP = \[.*$/m);
 assert.ok(skipLine,
   'check-secrets.cjs no longer declares SKIP as a single line — step 15 can no longer verify it, so re-anchor this assertion rather than deleting it');
-assert.ok(!/\bdocs\b/.test(skipLine[0]) && !/\btests\b/.test(skipLine[0]),
-  'check-secrets.cjs put docs/ or tests/ back in SKIP — those trees would go unscanned again, which is the exact gap this scanner was fixed to close');
-assert.ok(!/test_/.test(skipLine[0]),
-  'check-secrets.cjs put a test_*.py skip back in SKIP — python tests would go unscanned again');
+const SKIP_ALLOWED = [
+  '/node_modules\\//', '/\\.git\\//', '/package-lock\\.json$/',
+  '/scripts\\/check-secrets\\.cjs$/', '/index\\.html$/', '/setup\\.html$/',
+];
+const skipEntries = skipLine[0].match(/\/(?:\\.|[^/\\])+\/[gimsuy]*/g) || [];
+assert.deepStrictEqual(skipEntries, SKIP_ALLOWED,
+  `check-secrets.cjs changed SKIP to ${JSON.stringify(skipEntries)} — every entry here is a file the scanner never reads, so adding one silently drops coverage (a bare /\\.md$/ would re-blind the entire docs/ tree). If the change is deliberate, update SKIP_ALLOWED in this assertion too.`);
 
 const fixtureLine = scannerSrc.match(/^const FIXTURE_PATH = .*$/m);
 assert.ok(fixtureLine,
@@ -270,21 +279,25 @@ assert.ok(fixtureLine,
 const fixtureRx = fixtureLine[0].match(/=\s*\/(.+)\/[gimsuy]*;\s*$/);
 assert.ok(fixtureRx,
   'FIXTURE_PATH is no longer a plain regex literal — step 15 cannot verify its anchoring');
-// Naive split on | is deliberate: a grouped alternation like ^(tests|spec)/ trips this
-// too. Erring toward a forced, deliberate update is the point — the failure mode being
-// guarded is someone quietly widening the carve-out.
+// Allowlist again, and for a sharper reason than SKIP: anchoring is NOT the property
+// that bounds this carve-out. `^.*` and `^` are both ^-anchored and both match every
+// file in the repo, and `^tests\/|^src\/` would hand all 13 reserved literals back to
+// source while passing any "starts with ^" test. Only an exact set bounds it.
+// Naive split on | means a grouped alternation like ^(tests|spec)/ also trips this;
+// that is intended — a deliberate edit here is the gate.
+const FIXTURE_ALLOWED = ['^tests\\/', '^test_[^/]*\\.py$'];
 const fixtureAlts = fixtureRx[1].split('|');
-assert.ok(fixtureAlts.every(a => a.startsWith('^')),
-  'FIXTURE_PATH gained an un-anchored alternative — reserved values would be exempt at any depth of the tree, not just on the fixture surface');
-assert.ok(!fixtureAlts.some(a => /^\^\(?docs/.test(a)),
-  'FIXTURE_PATH now covers docs/ — CLAUDE.md names docs/superpowers/ as this repo\'s historical leak vector, so it must not get the fixture carve-out');
+assert.deepStrictEqual(fixtureAlts, FIXTURE_ALLOWED,
+  `FIXTURE_PATH changed to ${JSON.stringify(fixtureAlts)} — this is the set of paths where the reserved literals are exempt. Widening it (^src/ especially, but also ^docs/ or a universal ^.*) reintroduces the blindness this scanner was fixed to remove. If the change is deliberate, update FIXTURE_ALLOWED in this assertion too.`);
 assert.ok(/FIXTURE_PATH\.test\(/.test(scannerSrc),
   'check-secrets.cjs no longer gates the carve-out on FIXTURE_PATH — the reserved values would be exempt in every file, including src/');
 
 const reservedBlock = scannerSrc.match(/^const RESERVED = new Set\(\[([\s\S]*?)\]\);/m);
 assert.ok(reservedBlock,
   'check-secrets.cjs no longer declares RESERVED as a Set literal — step 15 cannot bound the size of the allowlist');
-const reservedCount = (reservedBlock[1].match(/'/g) || []).length / 2;
+// Count quoted strings, not apostrophes: counting ' characters and halving reported 0
+// for a double-quoted list, and let a mixed-quote list evade the cap entirely.
+const reservedCount = (reservedBlock[1].match(/(['"])(?:(?!\1)[\s\S])*\1/g) || []).length;
 assert.ok(reservedCount > 0 && reservedCount <= 15,
   `check-secrets.cjs RESERVED holds ${reservedCount} entries (expected 1-15) — every entry is a value the scanner is permanently blind to on the fixture surface, so growing this list needs a deliberate cap bump here`);
 
