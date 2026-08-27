@@ -152,16 +152,29 @@ describe('check-codeql-config: the real repo', () => {
   // what they read is under test in "checkRepo reads from disk" above.
   it('never reads a file to decide what to expect', () => {
     const src = fs.readFileSync(path.join(REPO_ROOT, 'scripts', 'check-codeql-config.cjs'), 'utf8');
-    const start = src.indexOf('// ── The guarded values');
-    const end = src.indexOf('function readOrNull(');
-    expect(start).toBeGreaterThan(-1);
-    expect(end).toBeGreaterThan(start);
-    const pureRegion = src.slice(start, end);
-    // Comment lines are excluded: this region's prose legitimately discusses reading
-    // files, and an assertion satisfied -- or in this case broken -- by the comment
-    // explaining it is the repeat failure this repo keeps re-learning.
-    const code = pureRegion.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
-    expect(code).not.toMatch(/readFileSync|readdirSync|existsSync|require\s*\(/);
+    // Comment lines are excluded: the guard's prose legitimately discusses reading
+    // files, and an assertion broken by the comment explaining it is the repeat
+    // failure this repo keeps re-learning.
+    const code = src.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+
+    // Scanned over the WHOLE file, not a window between two markers. The window
+    // version was evaded by hoisting the read above the opening marker and referring
+    // to it from inside -- the region then held no banned token and all cases stayed
+    // green, which is the same self-agreeing gate it was written to prevent.
+    //
+    // Matched as `fs.` / `fs[` rather than a list of method names, because a denylist
+    // of four names is walked past by `fs['read' + 'FileSync']`. Every filesystem
+    // access in the guard must live in readOrNull, the one function whose reads are
+    // themselves under test in "checkRepo reads from disk" above.
+    const accesses = [...code.matchAll(/\bfs\s*[.[]/g)];
+    expect(accesses).toHaveLength(1);
+
+    const readOrNullBody = code.slice(code.indexOf('function readOrNull('));
+    expect(readOrNullBody).toMatch(/\bfs\s*\.\s*readFileSync\b/);
+
+    // And the constants stay literals rather than anything computed at load time.
+    expect(code).toMatch(/^const ALLOWED_TOP_LEVEL_KEYS = \['name', 'paths-ignore'\];$/m);
+    expect(code).toMatch(/^const EXPECTED_MATRIX_KEYS = \['language'\];$/m);
   });
 });
 
@@ -350,6 +363,53 @@ describe('check-codeql-config: workflow mutations that unhook the config', () =>
         .replace('          config-file: .github/codeql/codeql-config.yml', '          config-file: evil.yml')
         .replace('      - uses: actions/checkout@v6', '      - run: |\n          config-file: .github/codeql/codeql-config.yml\n      - uses: actions/checkout@v6'),
     },
+    // Round three: QUOTED keys. Ordinary YAML, honoured by GitHub Actions, and every
+    // assertion that matched only the bare spelling was walked past by two characters.
+    // The block reader was worse than walked past -- it silently DROPPED lines it could
+    // not read, so a quoted input never entered the key set being compared at all.
+    {
+      name: 'upload: never is added with a quoted key',
+      workflow: GOOD_WORKFLOW.replace('          category:', '          "upload": never\n          category:'),
+    },
+    {
+      name: 'packs: is added to init with a quoted key',
+      workflow: GOOD_WORKFLOW.replace('          config-file:', "          'packs': my/pack\n          config-file:"),
+    },
+    {
+      name: 'matrix exclude: is added with a quoted key',
+      workflow: GOOD_WORKFLOW.replace(
+        '        language: [javascript-typescript, python]',
+        "        language: [javascript-typescript, python]\n        'exclude': [{language: python}]",
+      ),
+    },
+    {
+      name: 'config-file: is repointed using a quoted key',
+      workflow: GOOD_WORKFLOW.replace('          config-file: .github/codeql/codeql-config.yml', '          "config-file": evil.yml'),
+    },
+    {
+      name: 'a step is inserted with a quoted uses: key',
+      workflow: GOOD_WORKFLOW.replace('      - uses: actions/checkout@v6', '      - uses: actions/checkout@v6\n      - "uses": evil/exfil@v1'),
+    },
+    {
+      name: 'if: is set with a quoted key',
+      workflow: GOOD_WORKFLOW.replace('    runs-on: ubuntu-latest', '    "if": false\n    runs-on: ubuntu-latest'),
+    },
+    {
+      name: 'continue-on-error: is set with a quoted key',
+      workflow: GOOD_WORKFLOW.replace('    runs-on: ubuntu-latest', '    "continue-on-error": true\n    runs-on: ubuntu-latest'),
+    },
+    {
+      // Explicit-key syntax. The block reader cannot model it, and the point is that it
+      // says so with a sentinel no allowlist matches rather than skipping the line.
+      name: 'an input is added in explicit-key form',
+      workflow: GOOD_WORKFLOW.replace('          category:', '          ? upload\n          : never\n          category:'),
+    },
+    {
+      // A comment at column 0 read as an outdent and ended the block early, hiding
+      // everything after it from the key set.
+      name: 'a column-0 comment precedes an added input',
+      workflow: GOOD_WORKFLOW.replace('          category:', '# note\n          upload: never\n          category:'),
+    },
   ];
 
   for (const { name, workflow } of CASES) {
@@ -367,7 +427,9 @@ describe('check-codeql-config: workflow mutations that unhook the config', () =>
 
 describe('check-codeql-config: benign reformats must still pass', () => {
   // The negative controls. Without these the suite is satisfied by `return ['nope']`,
-  // which rejects all 18 mutations above and is worth nothing.
+  // which rejects every mutation above and is worth nothing. (Deliberately not stated
+  // as a count: the count moved from 18 to 41 across two review rounds and a stale
+  // number in a comment is the same defect as a stale claim in one.)
   const CASES = [
     {
       name: 'a zero-indent block sequence',
@@ -498,4 +560,42 @@ describe('check-codeql-config: workflow assertions must not be satisfied by pros
     expect(workflow).not.toEqual(GOOD_WORKFLOW);
     expect(check(GOOD_CONFIG, workflow)).toEqual([]);
   });
+
+  // These two are the controls that discriminate the block reader's comment handling.
+  // Asserting only that an ADDED input is rejected does not test it: without the
+  // comment skip, a `#` at column 0 reads as an outdent, the block ends early, and the
+  // key set comes back short -- so the added-input cases still go red, for the wrong
+  // reason, and the bug stays invisible. What breaks without the skip is the LEGITIMATE
+  // comment: the guard rejects a workflow that is entirely fine.
+  it('accepts a comment at column 0 inside a with: block', () => {
+    const workflow = GOOD_WORKFLOW.replace('          queries:', '# why these queries\n          queries:');
+    expect(workflow).not.toEqual(GOOD_WORKFLOW);
+    expect(check(GOOD_CONFIG, workflow)).toEqual([]);
+  });
+
+  it('accepts an indented comment inside a with: block', () => {
+    const workflow = GOOD_WORKFLOW.replace('          queries:', '          # why these queries\n          queries:');
+    expect(workflow).not.toEqual(GOOD_WORKFLOW);
+    expect(check(GOOD_CONFIG, workflow)).toEqual([]);
+  });
+
+  // The controls that discriminate quoted-key tolerance, for the same reason the two
+  // above discriminate the comment skip. The rejection cases elsewhere in this file
+  // quote a key AND change its value, so they go red either way -- without tolerance
+  // the assertion simply finds no occurrence and reports the key missing. What breaks
+  // without it is the workflow that is entirely correct and merely quoted: the guard
+  // rejects it, or worse, reads it as absent.
+  const QUOTED = [
+    ['config-file', '          config-file: .github/codeql/codeql-config.yml'],
+    ['queries', '          queries: security-extended,security-and-quality'],
+    ['uses', '      - uses: actions/checkout@v6'],
+  ];
+  for (const [key, line] of QUOTED) {
+    it(`accepts a quoted ${key}: key carrying the correct value`, () => {
+      const quoted = line.replace(`${key}:`, `"${key}":`);
+      const workflow = GOOD_WORKFLOW.replace(line, quoted);
+      expect(workflow).not.toEqual(GOOD_WORKFLOW);
+      expect(check(GOOD_CONFIG, workflow)).toEqual([]);
+    });
+  }
 });

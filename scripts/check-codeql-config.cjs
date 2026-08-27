@@ -352,6 +352,17 @@ function checkCodeqlConfig({ configText, workflowText }) {
   // pinned keys were a denylist of four, and `upload: never` on the analyze step (a
   // real codeql-action input that suppresses the results upload entirely) sailed
   // through with the job green and zero alerts ever reaching the security tab.
+  // Two rules here, both learned by this helper shipping without them and handing back
+  // the two escapes it had just been written to close:
+  //
+  //   - A comment must not END a block. Comments were not skipped, so a `#` written at
+  //     column 0 read as an outdent and everything after it went unseen.
+  //   - A line this cannot read must be REPORTED, not skipped. Dropping unparseable
+  //     lines silently is how `"upload": never` -- a quoted key, ordinary YAML that
+  //     GitHub Actions honours, suppressing the results upload entirely -- passed with
+  //     the job green. Quoted keys are read properly now, and anything still unreadable
+  //     comes back as a sentinel that no allowlist can match, so it fails loudly. That
+  //     is the posture parseSimpleYaml already takes; this helper was the exception.
   const blockKeys = (text, header) => {
     const lines = text.split('\n');
     const i = lines.findIndex(l => header.test(l));
@@ -360,11 +371,11 @@ function checkCodeqlConfig({ configText, workflowText }) {
     const keys = [];
     for (let j = i + 1; j < lines.length; j++) {
       const line = lines[j];
-      if (line.trim() === '') continue;
+      if (line.trim() === '' || /^\s*#/.test(line)) continue;
       const lead = line.match(/^\s*/)[0].length;
       if (lead <= indent) break;
-      const kv = line.match(/^\s*-?\s*([A-Za-z0-9_-]+)\s*:/);
-      if (kv) keys.push(kv[1]);
+      const kv = line.match(/^\s*-?\s*(?:(['"])([^'"]+)\1|([A-Za-z0-9_-]+))\s*:/);
+      keys.push(kv ? (kv[2] || kv[3]) : `<unreadable: ${line.trim()}>`);
     }
     return keys;
   };
@@ -372,7 +383,10 @@ function checkCodeqlConfig({ configText, workflowText }) {
   // One occurrence, exact value. `\s*:` not `:` -- `key : value` is a valid YAML
   // mapping key, and a single space was enough to walk past an anchored `key:` test.
   const pinOne = (key, expected, why) => {
-    const rx = new RegExp(`^\\s*${key}\\s*:\\s*(.+?)\\s*(?:#.*)?$`, 'gm');
+    // `['"]?` around the key: quoting a key is ordinary YAML and GitHub Actions honours
+    // it, so an assertion that only matches the bare spelling is walked past by two
+    // characters. Same reason `\s*:` is there rather than `:`.
+    const rx = new RegExp(`^\\s*['"]?${key}['"]?\\s*:\\s*(.+?)\\s*(?:#.*)?$`, 'gm');
     const hits = [...wf.matchAll(rx)].map(m => m[1]);
     if (hits.length === 0) {
       problems.push(`${WORKFLOW_REL} no longer sets ${key}: -- ${why}`);
@@ -434,7 +448,7 @@ function checkCodeqlConfig({ configText, workflowText }) {
   // matters for the same reason: `- uses: evil/x@v1 # pinned` was invisible to the
   // earlier pattern, so an INSERTED step escaped an allowlist whose whole job is to
   // notice insertions.
-  const uses = [...wf.matchAll(/^\s*(?:-\s+)?uses\s*:\s*(\S+)\s*(?:#.*)?$/gm)].map(m => m[1]);
+  const uses = [...wf.matchAll(/^\s*(?:-\s+)?['"]?uses['"]?\s*:\s*(\S+)\s*(?:#.*)?$/gm)].map(m => m[1]);
   if (!deepEqual(uses, EXPECTED_USES)) {
     problems.push(
       `${WORKFLOW_REL} runs ${JSON.stringify(uses)}, expected exactly ${JSON.stringify(EXPECTED_USES)}.`,
@@ -467,14 +481,14 @@ function checkCodeqlConfig({ configText, workflowText }) {
   // deleting it: the check still reports, so nobody notices it stopped meaning anything.
   // `\s*:` because `if : false` is valid YAML and a single space walked past `if:`.
   // GitHub counts a skipped required check as satisfied, so this is a silent bypass.
-  if (/^\s*if\s*:/m.test(wf)) {
+  if (/^\s*['"]?if['"]?\s*:/m.test(wf)) {
     problems.push(
       `${WORKFLOW_REL} gained an \`if:\` condition -- a job that skips reports success and enforces nothing.`,
     );
   }
   // Anchored as a key, not a substring: unanchored, an inline comment that merely
   // mentions the setting ("# deliberately no continue-on-error") failed the build.
-  if (/^\s*continue-on-error\s*:/m.test(wf)) {
+  if (/^\s*['"]?continue-on-error['"]?\s*:/m.test(wf)) {
     problems.push(
       `${WORKFLOW_REL} gained continue-on-error -- the analysis could fail and the job would still report green.`,
     );
