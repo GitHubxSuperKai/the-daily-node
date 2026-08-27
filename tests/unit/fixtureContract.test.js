@@ -633,23 +633,31 @@ describe('fixture contract — derived values inside the right type', () => {
   // date advances a day per day while the literal does not, so this assertion
   // held only until 2026-08-27T08:00Z and failed every run after it, drifting one
   // further day daily. The offset is 150000/144 = 1041d16h EXACTLY, which is why
-  // the rollover lands on 08:00Z and not midnight -- and why the failure looked
-  // like a flake for the eight hours either side of it rather than a hard break.
+  // the rollover lands on 08:00Z and not midnight -- and why the last eight hours
+  // before it read as a flake: same commit, pass or fail by time of day. The
+  // asymmetry is the part worth keeping though. The passing window was 24h wide,
+  // it closed, and it does not come back.
   //
-  // FIXTURE_CLOCK is the instant the fixture literal was authored (commit
-  // 3bc0874, 2026-08-26T11:07:12Z), so the fixture value is unchanged and the pin
-  // records how that value was derived rather than re-guessing it. Date.now() is
-  // the only clock nextHalving reads, so spying on it is enough -- no fake timers
-  // needed. Removing the pin does not silently re-arm this: the literal matches
-  // only a clock near FIXTURE_CLOCK, so an unpinned run fails immediately.
+  // Any instant in [2026-08-26T08:00Z, 2026-08-27T08:00Z) yields '2029-07-03' and
+  // would pin this test equally well. FIXTURE_CLOCK is the one inside that window
+  // the literal actually came from -- the authoring instant of commit 3bc0874 --
+  // so the fixture value is unchanged and the pin records that provenance rather
+  // than re-guessing the value. Date.now() is the only clock nextHalving reads,
+  // so spying on it is enough; no fake timers. Removing the pin does not silently
+  // re-arm this: the literal matches only a clock inside that window, so an
+  // unpinned run fails immediately.
   const FIXTURE_CLOCK = Date.UTC(2026, 7, 26, 11, 7, 12);
 
   it('chain.data.nextHalvingDate is nextHalving of its own height', () => {
-    vi.spyOn(Date, 'now').mockReturnValue(FIXTURE_CLOCK);
+    // mockRestore(), not restoreAllMocks(): this runs inside a test body, where
+    // restoreAllMocks() would also tear down any spy a future beforeEach in this
+    // describe installs -- and that surfaces as a failure in a LATER test, well
+    // away from the cause. Restore exactly what this test mocked.
+    const spy = vi.spyOn(Date, 'now').mockReturnValue(FIXTURE_CLOCK);
     try {
       expect(data.nextHalvingDate).toBe(nextHalving(data.height));
     } finally {
-      vi.restoreAllMocks();
+      spy.mockRestore();
     }
   });
 
