@@ -37,11 +37,18 @@ import { fileURLToPath } from 'node:url';
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SCANNER = path.join(REPO_ROOT, 'scripts', 'check-secrets.cjs');
 
-// Not one private-looking literal is spelled out in this file. Every address and
-// coordinate below is assembled at runtime from parts that match nothing on their own,
-// so this file stays clean under its own scanner instead of depending on the tests/
-// carve-out it exists to test -- otherwise narrowing FIXTURE_PATH later would break
-// the commit that narrows it, and the reserved values would be pinned in two places.
+// Nothing the scanner's patterns match is spelled out in this file, in code OR in a
+// comment. Every address and coordinate below is assembled at runtime from parts that
+// match nothing on their own, so this file stays clean under its own scanner instead of
+// depending on the tests/ carve-out it exists to test -- otherwise narrowing
+// FIXTURE_PATH later would break the commit that narrows it, and a reserved value would
+// end up pinned in a second place that nothing greps.
+//
+// That invariant is enforced by the self-scan case at the bottom, not by this comment.
+// A structural claim nobody executes is the exact failure this whole file is about:
+// the first draft asserted it here and then broke it two comments later, and passed
+// only because the value it named happened to be reserved AND this file happens to sit
+// on the fixture surface -- the masking case the scanner was rewritten to kill.
 const dotted = (...parts) => parts.join('.');
 const geo = (key, value, gap = ' ') => `${key}:${gap}${value}`;
 
@@ -58,8 +65,8 @@ const PLAIN_10 = dotted(10, 1, 2, 3);
 const PLAIN_172 = dotted(172, 20, 1, 1);              // the reserved one is 172.16.x
 const PLAIN_192 = dotted(192, 168, 77, 8);
 // Malformed dotted runs. These were real bypasses of an earlier implementation that
-// blanked reserved values out of the content before matching: masking the reserved
-// 10.0.0.2 inside the first string destroyed the leading hit the 10.x pattern had.
+// blanked reserved values out of the content before matching: blanking the reserved
+// tail of SPLICE_10 destroyed the leading, non-reserved hit the 10.x pattern had.
 const SPLICE_10 = dotted(10, 0, 0, 10, 0, 0, 2);
 const SPLICE_192 = dotted(192, 168, 10, 0, 0, 1);
 
@@ -96,10 +103,21 @@ function expectAccepted(result) {
   expect(result.stdout).toMatch(/checked \d+ staged files/);
 }
 
-function expectRejected(result, offendingPath) {
+// patternName is required, not optional: a rejection is only the right rejection if it
+// came from the pattern the case is about. Without it a coordinate case is satisfied by
+// an address hit, and the splice cases -- which produce one reserved and one
+// non-reserved hit each -- cannot tell which of the two survived the filter.
+function expectRejected(result, offendingPath, patternName) {
   expect(result.code, `expected a rejection, scanner said: ${result.stdout.trim()}`).toBe(1);
-  expect(result.stderr).toContain(`${offendingPath}: matches`);
+  expect(result.stderr).toContain(`${offendingPath}: matches ${patternName}`);
 }
+
+// Spelled as the scanner spells them. None of these strings is itself a match: the
+// address ones stop before a fourth numeric octet.
+const P_192 = 'private RFC1918 IP (192.168.x.x)';
+const P_10 = 'private RFC1918 IP (10.x.x.x)';
+const P_172 = 'private RFC1918 IP (172.16-31)';
+const P_LAT = 'non-zero latitude';
 
 function scannedCount(result) {
   const m = result.stdout.match(/checked (\d+) staged files/);
@@ -149,14 +167,14 @@ describe('check-secrets: the carve-out is path-scoped', () => {
   it('rejects a private address planted under docs/', () => {
     expectRejected(
       scanFiles({ 'docs/ARCHITECTURE.md': `The node answers on ${PLAIN_192} in the lab.\n` }),
-      'docs/ARCHITECTURE.md',
+      'docs/ARCHITECTURE.md', P_192,
     );
   });
 
   it('rejects a non-reserved private address under tests/', () => {
     expectRejected(
       scanFiles({ 'tests/unit/thing.test.js': `const host = '${PLAIN_10}';\n` }),
-      'tests/unit/thing.test.js',
+      'tests/unit/thing.test.js', P_10,
     );
   });
 
@@ -166,14 +184,14 @@ describe('check-secrets: the carve-out is path-scoped', () => {
     // reads correctly.
     expectRejected(
       scanFiles({ 'src/config.js': `export const HOST = '${RESERVED_IP_192}';\n` }),
-      'src/config.js',
+      'src/config.js', P_192,
     );
   });
 
   it('rejects a planted address in a python test under tests/', () => {
     expectRejected(
       scanFiles({ 'tests/test_miner.py': `HOST = "${PLAIN_172}"\n` }),
-      'tests/test_miner.py',
+      'tests/test_miner.py', P_172,
     );
   });
 
@@ -188,14 +206,14 @@ describe('check-secrets: reserved values match whole, never by prefix', () => {
   it('rejects a value one digit off a reserved one', () => {
     expectRejected(
       scanFiles({ 'tests/unit/thing.test.js': `const host = '${OFF_BY_ONE_IP}';\n` }),
-      'tests/unit/thing.test.js',
+      'tests/unit/thing.test.js', P_192,
     );
   });
 
   it('rejects a longer address that starts with a reserved one', () => {
     expectRejected(
       scanFiles({ 'tests/unit/thing.test.js': `const host = '${LONGER_IP}';\n` }),
-      'tests/unit/thing.test.js',
+      'tests/unit/thing.test.js', P_10,
     );
   });
 
@@ -203,11 +221,11 @@ describe('check-secrets: reserved values match whole, never by prefix', () => {
     // Regression cases for the masking implementation that these bypassed.
     expectRejected(
       scanFiles({ 'tests/unit/splice10.test.js': `const s = '${SPLICE_10}';\n` }),
-      'tests/unit/splice10.test.js',
+      'tests/unit/splice10.test.js', P_10,
     );
     expectRejected(
       scanFiles({ 'tests/unit/splice192.test.js': `const s = '${SPLICE_192}';\n` }),
-      'tests/unit/splice192.test.js',
+      'tests/unit/splice192.test.js', P_192,
     );
   });
 });
@@ -216,7 +234,7 @@ describe('check-secrets: coordinates', () => {
   it('rejects a non-reserved coordinate under tests/', () => {
     expectRejected(
       scanFiles({ 'tests/unit/where.test.js': `const p = { ${geo('lat', 48.85)} };\n` }),
-      'tests/unit/where.test.js',
+      'tests/unit/where.test.js', P_LAT,
     );
   });
 
@@ -232,7 +250,7 @@ describe('check-secrets: coordinates', () => {
   it('rejects a non-reserved coordinate written without the space', () => {
     expectRejected(
       scanFiles({ 'tests/unit/where.test.js': `const p = { ${geo('lat', 34.06, '')} };\n` }),
-      'tests/unit/where.test.js',
+      'tests/unit/where.test.js', P_LAT,
     );
   });
 });
@@ -250,5 +268,21 @@ describe('check-secrets: controls', () => {
     const result = scanFiles({ 'docs/ARCHITECTURE.md': 'The node answers on `<lan-host>` in the lab.\n' });
     expectAccepted(result);
     expect(scannedCount(result)).toBe(1);
+  });
+});
+
+describe('check-secrets: this file passes its own scanner off the fixture surface', () => {
+  it('accepts this test file when it is staged as src/', () => {
+    // The invariant at the top of this file, executed. Staging it under src/ strips
+    // both concessions at once -- no FIXTURE_PATH match, so no reserved value is exempt
+    // -- which means the only way to pass is to genuinely spell out nothing the
+    // scanner matches. Asserted in a comment, this claim survived being false through
+    // a full draft: a reserved address was written out in prose two comments below it
+    // and passed on the carve-out. This case fails on the next one.
+    //
+    // Reads the file off disk rather than trusting the transformed module, so a
+    // literal in a comment -- which is where the last one hid -- still counts.
+    const self = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8');
+    expectAccepted(scanFiles({ 'src/utils/selfScanFixture.js': self }));
   });
 });
