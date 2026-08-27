@@ -193,10 +193,21 @@ jobs:
           fi
           echo "OK: configured container serves the built dashboard"
 
+      # The job shell is `/usr/bin/bash -e {0}` -- errexit, but NOT pipefail --
+      # so a pipeline exits with its LAST command's status and a failing curl on
+      # the left of a pipe is discarded. This step used to pipe curl straight
+      # into python3 and was saved only incidentally, by json.load raising on
+      # empty stdin: a curl that failed AFTER emitting parseable bytes would have
+      # passed green. Capturing first makes the request its own command, so under
+      # errexit a failed command substitution aborts the step before python3 runs.
+      # Same shape as the two page assertions above, which already capture $body.
+      # Do NOT collapse this back into a single pipeline.
       - name: Verify API endpoint responds
         run: |
           # No miners configured, but endpoint should still return valid JSON
-          curl -fsS http://localhost:3001/api/miners | python3 -c "import sys, json; d = json.load(sys.stdin); assert 'miners' in d and 'count' in d"
+          body=$(curl -fsS http://localhost:3001/api/miners)
+          printf '%s' "$body" | python3 -c "import sys, json; d = json.load(sys.stdin); assert 'miners' in d and 'count' in d"
+          echo "OK: /api/miners returned valid JSON"
 
       # Runs the EXACT probe string the compose healthcheck ships, inside the
       # image it ships against. A probe with a syntax error, a wrong path or a
