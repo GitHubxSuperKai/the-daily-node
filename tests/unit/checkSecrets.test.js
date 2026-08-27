@@ -135,7 +135,7 @@ describe('check-secrets: the real repo', () => {
   // rather than as coverage quietly shrinking.
   const SKIP = [
     /node_modules\//, /\.git\//, /package-lock\.json$/,
-    /scripts\/check-secrets\.cjs$/, /index\.html$/, /setup\.html$/,
+    /scripts\/check-secrets\.cjs$/, /^index\.html$/,
   ];
 
   it('passes over every file it would actually see in this repo', () => {
