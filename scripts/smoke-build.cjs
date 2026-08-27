@@ -301,6 +301,21 @@ const reservedCount = (reservedBlock[1].match(/(['"])(?:(?!\1)[\s\S])*\1/g) || [
 assert.ok(reservedCount > 0 && reservedCount <= 15,
   `check-secrets.cjs RESERVED holds ${reservedCount} entries (expected 1-15) — every entry is a value the scanner is permanently blind to on the fixture surface, so growing this list needs a deliberate cap bump here`);
 
+// 16. The CodeQL config must keep CodeQL pointed at the whole tree.
+// Steps 13-15 guard the secrets scanner. Its direct sibling -- the paths-ignore list in
+// .github/codeql/codeql-config.yml -- had no assertion on it at all: re-adding a file, or
+// widening an entry to a glob, drops that code out of every CodeQL run while this suite
+// and every CI job stay green.
+//
+// Delegated to a module rather than inlined here so the mutations can be EXECUTED against
+// it in vitest (tests/unit/checkCodeqlConfig.test.js). A guard that is only ever run
+// against the one input it passes on is the likeliest of all to be vacuous -- and a
+// structural assertion cannot catch a hollowed-out gate, only a behaviour test can.
+const { checkRepo: checkCodeqlRepo } = require('./check-codeql-config.cjs');
+const codeqlProblems = checkCodeqlRepo();
+assert.deepStrictEqual(codeqlProblems, [],
+  `CodeQL config guard failed: ${codeqlProblems.join(' | ')}`);
+
 // Track A assertions
 if (!/feeds\.bitcoinMagazine/.test(html)) { console.error('FAIL: SettingsPanel missing from build'); process.exit(1); }
 if (!/minerOffline/.test(html))       { console.error('FAIL: useAlerts missing from build'); process.exit(1); }
