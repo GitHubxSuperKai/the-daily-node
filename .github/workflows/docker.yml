@@ -15,8 +15,10 @@ on:
       - 'package-lock.json'
       - '.github/workflows/docker.yml'
   # NOTE: the push filter lists every path that alters image bytes, plus this
-  # workflow file itself so that edits to it are self-testing -- and nothing
-  # else. Both directions of that rule have bitten:
+  # workflow file itself -- and nothing else. Listing this file buys coverage
+  # of the publish path when the workflow is edited, at the price of one
+  # redundant :latest republish; that trade is deliberate. Both directions of
+  # the rule have bitten:
   #   - docker-compose.yml is deliberately absent from the push filter above.
   #     The publish job has no path guard of its own, so listing it here would
   #     republish :latest for a change that alters zero image bytes. It appears

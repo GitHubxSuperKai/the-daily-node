@@ -30,9 +30,9 @@ ENV CONFIG_PATH=/data/bitaxe_config.json
 VOLUME /data
 
 # Copy only the artifacts needed at runtime — proxy uses Python stdlib only.
-# Adding a COPY source below? Add it to the push `paths:` filter in
-# .github/workflows/docker.yml too, or a change to it will alter the image
-# without publishing a new :latest.
+# Adding a COPY from the build context (not --from=build) below? Add it to
+# the push `paths:` filter in .github/workflows/docker.yml too, or a change
+# to it will alter the image without publishing a new :latest.
 COPY --chown=app:app bitaxe_api.py ./
 COPY --from=build --chown=app:app /app/index.html ./
 # setup.html is served on first launch when BITAXE_IPS is not configured
