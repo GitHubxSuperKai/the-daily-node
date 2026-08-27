@@ -30,6 +30,34 @@ on:
   # --from=build, so it is covered transitively by the build stage's inputs
   # (src/** + build.js + the package files). Separately, the repo-root copy is
   # .dockerignored, so it cannot reach the image at all.
+  # The paths: filter above gates the branches: trigger ONLY -- it does not
+  # gate tags:. GitHub does not evaluate path filters for tag pushes ("Path
+  # filters are not evaluated for pushes of tags" -- workflow-syntax docs,
+  # on.<push|pull_request|pull_request_target>.<paths|paths-ignore>), so a
+  # release tag still publishes the full metadata-action set -- :v<x.y.z>,
+  # :<x.y.z>, :major.minor and :latest -- even when the tagged commit touches
+  # nothing listed above.
+  # Verified here rather than read off the docs, via a same-commit A/B.
+  # 92b5b30 is a docs-only merge (README.md plus two files under docs/)
+  # matching zero entries above. It was pushed to main, then tagged v1.2.0
+  # seventy seconds later. (History was rewritten since, so 92b5b30 is an
+  # orphaned pre-rewrite commit -- reachable on the remote by SHA, but a
+  # plain clone lacks the object until `git fetch origin 92b5b30`.)
+  #   - main push, 2026-05-09T02:20:28Z -> Build and Deploy ran; Docker did
+  #     NOT. The filter demonstrably bites on a branch push.
+  #   - tag push,  2026-05-09T02:21:38Z -> Docker ran through to a successful
+  #     publish (Actions run 25588998556).
+  # Same SHA, same files, same docker.yml -- the filter was already present at
+  # that commit -- so the ref is the only variable. v1.2.0 was later re-pushed
+  # at e5a97c9 and published again (run 29601122112) off the same zero-match
+  # file set.
+  # So do NOT "fix" this by splitting tags: into its own unfiltered trigger:
+  # there is no gap to close, and one on.push mapping cannot hold two path
+  # policies (duplicate YAML key), so it would cost a second workflow file for
+  # zero behaviour change. Equally, do not defend the current shape with "the
+  # release commit always bumps package.json" -- ship-it tags whatever HEAD is
+  # and this repo has no `npm version` step, so that never held; 92b5b30
+  # bumped nothing.
   pull_request:
     paths:
       - 'Dockerfile'
@@ -92,11 +120,78 @@ jobs:
           docker logs dn-smoke
           exit 1
 
-      - name: Verify dashboard HTML served
+      # dn-smoke runs with no BITAXE_IPS and an empty /data, so CONFIGURED is
+      # False and GET / serves setup.html, NOT the dashboard. Both pages open
+      # "<!doctype html>", so the grep this step used to run passed on the setup
+      # page while claiming to have verified the dashboard.
+      #
+      # Each page assertion below is made in BOTH directions -- expected marker
+      # present, other page's marker absent. That is what keeps the pair honest:
+      # if a marker ever appears in both pages, the "absent" half fails here
+      # rather than silently going vacuous again. Neither marker is shared today
+      # ('dailynode-prefs' looked like a good dashboard marker and is NOT -- it
+      # appears in setup.html too).
+      #
+      # DASH_MARK must survive esbuild minification, so it is an object-property
+      # key, never a mangled function/var name. It is also in REQUIRED_MARKERS in
+      # scripts/smoke-build.cjs, so renaming it fails `npm run test:smoke` first
+      # with a clearer message than a curl grep can give.
+      - name: Verify setup page served when unconfigured
+        env:
+          DASH_MARK: fetchBTCPrice
+          SETUP_MARK: 'id="ips-msg"'
         run: |
           body=$(curl -fsS http://localhost:3001/)
-          echo "$body" | head -c 200
-          echo "$body" | grep -q "<!doctype html>" || (echo "Dashboard HTML not served" && exit 1)
+          printf '%.200s' "$body"; echo
+          if ! echo "$body" | grep -q "$SETUP_MARK"; then
+            echo "Setup page not served when unconfigured (marker $SETUP_MARK absent)"
+            exit 1
+          fi
+          if echo "$body" | grep -q "$DASH_MARK"; then
+            echo "Dashboard served when unconfigured -- setup gate is broken"
+            exit 1
+          fi
+          echo "OK: unconfigured container serves setup.html"
+
+      # The assertion the step above cannot make: that the image actually serves
+      # the built dashboard.
+      #
+      # A second container rather than flipping dn-smoke in place. POST /api/setup
+      # would also work -- do_POST assigns the CONFIGURED global at runtime, so it
+      # is NOT fixed at startup -- but it would mutate the very container the two
+      # steps below still assert against, twice over: the global AND the config
+      # file it saves to /data. BITAXE_IPS reaches the same state without touching
+      # dn-smoke at all. (Both routes are documented: compose and the Dockerfile
+      # describe the env var AND the first-launch setup page. The reason to prefer
+      # the env var here is the isolation, not the documentation.) 127.0.0.1 is
+      # loopback, which validate_ips accepts, so CONFIGURED flips True. Nothing
+      # dials it -- /api/miners is not asserted against this container.
+      - name: Verify dashboard HTML served when configured
+        env:
+          DASH_MARK: fetchBTCPrice
+          SETUP_MARK: 'id="ips-msg"'
+        run: |
+          docker run -d --name dn-smoke-cfg -p 3002:3001 -e BITAXE_IPS=127.0.0.1 daily-node:smoke
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:3002/ -o /dev/null && break
+            if [ "$i" -eq 30 ]; then
+              echo "Configured container did not respond within 30s"
+              docker logs dn-smoke-cfg
+              exit 1
+            fi
+            sleep 1
+          done
+          body=$(curl -fsS http://localhost:3002/)
+          printf '%.200s' "$body"; echo
+          if ! echo "$body" | grep -q "$DASH_MARK"; then
+            echo "Dashboard HTML not served when configured (marker $DASH_MARK absent)"
+            exit 1
+          fi
+          if echo "$body" | grep -q "$SETUP_MARK"; then
+            echo "Setup page served when configured -- BITAXE_IPS was not honoured"
+            exit 1
+          fi
+          echo "OK: configured container serves the built dashboard"
 
       - name: Verify API endpoint responds
         run: |
@@ -117,11 +212,12 @@ jobs:
           echo "--- probe under test ---"; cat /tmp/probe.py
           docker exec -i dn-smoke python3 - < /tmp/probe.py
 
-      - name: Stop container
+      - name: Stop containers
         if: always()
-        run: docker rm -f dn-smoke || true
+        run: docker rm -f dn-smoke dn-smoke-cfg || true
 
-  # main push → :latest; tag push → :v<version>, :major.minor, :latest
+  # main push -> :latest; tag push -> :v<version>, :<version>, :major.minor,
+  # :latest (four flavors -- see the metadata-action tags: block below)
   publish:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
