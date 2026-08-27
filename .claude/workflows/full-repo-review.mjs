@@ -181,10 +181,11 @@ const GROUPS = [
   },
   {
     key: 'tests-repo-tooling',
-    label: 'Test Suite — Repo Tooling (secrets scanner, CodeQL config guard)',
+    label: 'Test Suite — Repo Tooling (secrets scanner, CodeQL config guard, docker smoke guard)',
     files: [
       'tests/unit/checkSecrets.test.js',
       'tests/unit/checkCodeqlConfig.test.js',
+      'tests/unit/checkDockerSmoke.test.js',
     ],
     // Its own group rather than a line in tests-harness: this reviews repo tooling,
     // not the dashboard, so the shared React brief would frame it wrongly — and a
@@ -207,7 +208,20 @@ purpose, so judge them as gates rather than as style: a case that would pass
 against a checker returning [] for everything, a negative control missing so the
 suite would also accept one returning a problem for everything, a mutation whose
 replace() no longer matches and therefore asserts against a pristine fixture, and
-branches of the hand-written YAML parser that no case reaches.`,
+branches of the hand-written YAML parser that no case reaches.
+
+checkDockerSmoke.test.js tests scripts/check-docker-smoke.cjs, the guard on the
+smoke job in .github/workflows/docker.yml — the only thing that asserts the
+shipped image works. Same frame again. That guard has two layers: PINNED_RUN_LINES
+is a verbatim allowlist of every executing line, and a set of semantic checks
+(bare capture assignments, both-directions page assertions, the blank-probe guard
+and its ordering, marker discrimination against the real HTML). Judge whether the
+semantic layer is genuinely independent of the pin — a case that would still pass
+if the semantic half were deleted proves nothing, because the pin catches
+everything on its own. Also look for: mutation cases whose replace() silently
+matches nothing (each one must assert it changed the text), marker assertions with
+no negative control, and cases that assert only "not empty" where the specific
+problem message is what distinguishes one guard from another.`,
   },
   {
     key: 'tests-python',

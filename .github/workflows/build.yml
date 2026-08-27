@@ -24,6 +24,17 @@ jobs:
       - name: Check review workflow paths
         run: npm run check:review-paths
 
+      # Its own step on purpose. This workflow enumerates its steps individually and
+      # never runs `npm test`, so a check wired only into that chain gets zero CI
+      # coverage — which is exactly what bit PR #128. It is in the `npm test` chain too,
+      # so a local run is not weaker, but this line is what makes it a gate.
+      #
+      # Runs before the build because it is a static check: the workflow half needs only
+      # docker.yml, and the marker half reads the committed index.html, which the
+      # artifact-drift step below separately proves matches a fresh rebuild.
+      - name: Check docker.yml smoke job
+        run: npm run check:docker-smoke
+
       - name: Build bundle
         run: npm run build
 
