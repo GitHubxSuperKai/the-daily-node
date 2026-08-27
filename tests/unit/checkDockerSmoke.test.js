@@ -774,6 +774,41 @@ describe('layer A keeps biting after the pin has been updated to match', () => {
     expect(stillCaught(mutated, step)).toMatch(/BEFORE the/);
   });
 
+  // The ordering anchor failed OPEN for these two spellings: `extractIfGuards` accepted
+  // them, the exact-string anchor did not find them, and every ordering comparison then
+  // evaluated against -1 and silently passed. Both directions are asserted — misordered
+  // must be caught, and correctly ordered must still be ACCEPTED, or "caught" would only
+  // mean the guard rejects the spelling itself and would prove nothing about ordering.
+  for (const [label, cond] of [
+    ['a space before the semicolon', 'if [ -z "${probe//[[:space:]]/}" ] ; then'],
+    ['two spaces after if', 'if  [ -z "${probe//[[:space:]]/}" ]; then'],
+  ]) {
+    const guardBlock = c =>
+      `          ${c}\n` +
+      '            echo "Extracted healthcheck probe is empty or blank -- nothing to execute"\n' +
+      '            exit 1\n' +
+      '          fi\n';
+    const ORIGINAL_GUARD = guardBlock('if [ -z "${probe//[[:space:]]/}" ]; then');
+    const EXEC_LINE = '          docker exec -i dn-smoke python3 - < /tmp/probe.py\n';
+
+    it(`still catches a misordered blank-probe check written with ${label}`, () => {
+      const step = 'Verify the shipped healthcheck probe exits 0';
+      const moved = sub(sub(GOOD, ORIGINAL_GUARD, ''), EXEC_LINE, `${EXEC_LINE}${guardBlock(cond)}`);
+      expect(stillCaught(moved, step)).toMatch(/BEFORE the/);
+    });
+
+    it(`accepts a correctly ordered blank-probe check written with ${label}`, () => {
+      const step = 'Verify the shipped healthcheck probe exits 0';
+      const reformatted = sub(GOOD, ORIGINAL_GUARD, guardBlock(cond));
+      expect(checkDockerSmoke({
+        workflowText: reformatted,
+        dashboardHtml: MINI_DASH,
+        setupHtml: MINI_SETUP,
+        pinnedRunLines: pinsFor(reformatted, step),
+      })).toEqual([]);
+    });
+  }
+
   it('rejects the blank-probe check moved after the exec even with the pin updated', () => {
     const step = 'Verify the shipped healthcheck probe exits 0';
     const guard =
@@ -1065,16 +1100,30 @@ describe('the shell helpers', () => {
 
   it('reads negation, condition and block off an if guard', () => {
     const guards = extractIfGuards(['if ! grep -q x; then', 'exit 1', 'fi']);
-    expect(guards).toEqual([{ negated: true, condition: 'grep -q x', block: ['exit 1'] }]);
+    expect(guards).toEqual([{ at: 0, negated: true, condition: 'grep -q x', block: ['exit 1'] }]);
   });
 
   // `block` is the THEN branch only. Counting else-branch lines is what let an inverted
   // assertion satisfy guardExits.
   it('stops the block at else, so an else-branch exit does not count', () => {
     expect(extractIfGuards(['if grep -q x; then', 'echo hi', 'else', 'exit 1', 'fi']))
-      .toEqual([{ negated: false, condition: 'grep -q x', block: ['echo hi'] }]);
+      .toEqual([{ at: 0, negated: false, condition: 'grep -q x', block: ['echo hi'] }]);
     expect(extractIfGuards(['if grep -q x; then', 'echo hi', 'elif grep -q y; then', 'exit 1', 'fi']))
-      .toEqual([{ negated: false, condition: 'grep -q x', block: ['echo hi'] }]);
+      .toEqual([{ at: 0, negated: false, condition: 'grep -q x', block: ['echo hi'] }]);
+    // `elif((1)); then` is valid bash with no space after `elif`, and it is what
+    // distinguishes matching on `\b` from matching on `\s+`. The header used to claim no
+    // input could tell those apart; this case is why that claim was wrong and is now gone.
+    expect(extractIfGuards(['if grep -q x; then', 'echo hi', 'elif((1)); then', 'exit 1', 'fi']))
+      .toEqual([{ at: 0, negated: false, condition: 'grep -q x', block: ['echo hi'] }]);
+  });
+
+  // `at` is the guard's own index. Two text-based anchors preceded it and both were wrong:
+  // a substring scan a decoy line could move, then an exact-string match that returned -1
+  // for spellings this same regex accepts — which silently disabled the ordering check.
+  it('reports each guard own line index, whatever the if spacing', () => {
+    expect(extractIfGuards(['echo a', 'if  [ -z "$x" ] ; then', 'exit 1', 'fi'])).toEqual([
+      { at: 1, negated: false, condition: '[ -z "$x" ]', block: ['exit 1'] },
+    ]);
   });
 
   it('returns null on a stray else rather than guessing', () => {

@@ -75,19 +75,32 @@
 // against mutated fixtures, so a hollowed-out version of THIS file gets caught. Nothing
 // local can catch a hollowed-out runner.
 //
-// Layer A reads shell line by line; it does not model REACHABILITY, and three shapes get
-// past it that a bash parser would catch. An `exit 1` inside a never-entered loop
-// (`while false; do ... done`) is credited to the guard containing it. Wrapping the real
-// assertions in a dead outer block (`if false; then ... fi`, or the plausible-looking
-// `if [ -n "$body" ]; then ... fi`, which silently skips both assertions when the server
-// returns an empty 200) leaves them unexecuted. And `elif` matched as `\b` versus `\s+`
-// cannot be told apart by any valid-bash input.
+// Layer A reads shell line by line, and two classes get past it that a real bash parser
+// would catch.
 //
-// These are named rather than chased. Each needs a real bash parser to decide, each is
+//   REACHABILITY. An `exit 1` inside a never-entered loop (`while false; do ... done`) is
+//   credited to the guard containing it, and wrapping the real assertions in a dead outer
+//   block leaves them unexecuted -- `if false; then ... fi`, or the plausible-looking
+//   `if [ -n "$body" ]; then ... fi`, which silently skips both assertions when the server
+//   answers 200 with an empty body.
+//
+//   INDIRECT NAMING. The shadow-assignment check below allowlists reads, so it sees every
+//   way bash can write a variable BY NAME. It cannot see the ways that carry the name as
+//   data on the right-hand side: `declare -n ref=body; ref=x`, `printf -v "$tgt"`,
+//   `declare -g "${ref}=x"`, `read -r "$tgt"`, `eval "body=x"` (the quoted span is blanked
+//   before scanning), and `source` of a file that assigns. Each of those really does
+//   shadow the capture.
+//
+// Both are named rather than chased. Each needs a real bash parser to decide, each is
 // caught by layer B in production, and each additionally requires somebody to have updated
 // the pin by hand. Reaching for another regex here is how the shadow-assignment check
 // burned three review rounds before being inverted into an allowlist -- which is the shape
-// that actually closes a class, and the reason the remaining three are documented instead.
+// that actually closes a class, and the reason these are documented instead.
+//
+// Not on this list, though an earlier version of it claimed to be: `elif` matched as `\b`
+// versus `\s+`. `elif((1)); then` is valid bash, tells them apart, and is a test case --
+// so that was a missing case rather than a limit, and a limits paragraph that overstates
+// itself is the same failure class as an assertion that does.
 //
 // Zero-dependency on purpose, like check-secrets.cjs and check-codeql-config.cjs.
 // Reaching for a YAML library would make a CI guard's integrity depend on a third-party
@@ -772,11 +785,19 @@ function extractIfGuards(lines) {
     const g = open[open.length - 1];
     if (g && !g.closed) g.block.push(line);
   };
-  for (const line of lines) {
+  for (const [i, line] of lines.entries()) {
     const m = line.match(/^if\s+(!\s+)?(.+?)\s*;\s*then$/);
     if (m) {
       record(line);
-      const guard = { negated: Boolean(m[1]), condition: m[2].trim(), block: [], closed: false };
+      // `at` is the guard's own index in `lines`. The ordering check used to locate the
+      // blank-probe guard by scanning the text instead, which went wrong twice in opposite
+      // directions: a substring scan let a decoy line that merely MENTIONED the condition
+      // move the anchor, and the exact-string match that replaced it returned -1 for
+      // spellings this very regex accepts (`if [ x ] ; then`, `if  [ x ]; then`), which
+      // made every ordering comparison silently false -- a fail-open in the assertion, with
+      // no diagnostic. Reading the index off the guard that was already matched cannot
+      // disagree with the guard that was already matched.
+      const guard = { at: i, negated: Boolean(m[1]), condition: m[2].trim(), block: [], closed: false };
       open.push(guard);
       guards.push(guard);
       continue;
@@ -799,7 +820,7 @@ function extractIfGuards(lines) {
     record(line);
   }
   if (open.length > 0) return null;
-  for (const g of guards) delete g.closed;
+  for (const g of guards) delete g.closed;   // `at` stays: the ordering check reads it.
   return guards;
 }
 
@@ -1093,9 +1114,19 @@ function checkDockerSmoke({
       // single quotes. `/tmp/probe.py` is untouched by design: `probe` there is preceded by
       // `/`, so it is part of a larger word rather than a shell word of its own.
       //
-      // KNOWN LIMIT: an assignment hidden inside a quoted string handed to `eval` is
-      // blanked with everything else and would not be seen. Layer B pins the line, so it
-      // costs an updated pin AND an `eval` nobody in this job uses.
+      // KNOWN LIMITS, both of them the price of reading text rather than parsing bash, and
+      // both covered by the header's INDIRECT NAMING note:
+      //
+      //   - A write whose target is named as DATA rather than as a word is invisible here:
+      //     `declare -n ref=body; ref=x`, `printf -v "$tgt"`, `declare -g "${ref}=x"`,
+      //     `eval "body=x"` (blanked with the other quoted spans), `source` of a file.
+      //
+      //   - The mirror, and the cost of the inversion: a bare word that happens to match a
+      //     capture name reads as a write even when it is an argument. `docker compose ...
+      //     config -q` in a step capturing `$config` would be reported as a second write.
+      //     That fails CLOSED -- it rejects a good workflow rather than accepting a bad one
+      //     -- and the message names the line, so the fix is an updated pin or a rename.
+      //     Tightening it further is how this check got broken twice; it stays as it is.
       const unquoted = l => l.replace(/"[^"]*"/g, '""').replace(/'[^']*'/g, "''");
       const writes = new RegExp(`(?:^|[\\s;&(])${cap.name}\\b`);
       const assignments = lines.filter(l => writes.test(unquoted(l)));
@@ -1236,7 +1267,20 @@ function checkDockerSmoke({
             '  non-zero, so a blank probe is reported and then executed anyway.',
           );
         } else {
-          const guardIdx = lines.indexOf(`if ${PROBE_GUARD.condition}; then`);
+          // Taken from the guard that was already matched, not found again by text. Both
+          // text-based anchors were wrong in opposite directions -- a substring scan a
+          // decoy could move, then an exact match that returned -1 for `if [ x ] ; then`
+          // and silently disabled every comparison below. This cannot disagree with the
+          // guard it came from, and it cannot be -1.
+          const guardIdx = matching[0].at;
+          if (typeof guardIdx !== 'number' || guardIdx < 0) {
+            // Unreachable by construction; reported rather than assumed, because the last
+            // two spellings of this line both failed OPEN and said nothing while doing it.
+            fail(
+              `${WORKFLOW_REL} step ${JSON.stringify(PROBE_GUARD.step)}: cannot locate the blank-probe guard's`,
+              '  own line, so the ordering assertion cannot run. It fails rather than passing silently.',
+            );
+          }
           for (const later of PROBE_GUARD.mustPrecede) {
             const idx = lines.indexOf(later);
             if (idx === -1) {
