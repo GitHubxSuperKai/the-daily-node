@@ -628,8 +628,29 @@ describe('fixture contract — derived values inside the right type', () => {
     expect(data.circulating).toBe(circulatingBTC(data.height));
   });
 
+  // nextHalving() projects forward from Date.now(), so comparing its result to a
+  // literal is only meaningful against a pinned clock. Unpinned, the projected
+  // date advances a day per day while the literal does not, so this assertion
+  // held only until 2026-08-27T08:00Z and failed every run after it, drifting one
+  // further day daily. The offset is 150000/144 = 1041d16h EXACTLY, which is why
+  // the rollover lands on 08:00Z and not midnight -- and why the failure looked
+  // like a flake for the eight hours either side of it rather than a hard break.
+  //
+  // FIXTURE_CLOCK is the instant the fixture literal was authored (commit
+  // 3bc0874, 2026-08-26T11:07:12Z), so the fixture value is unchanged and the pin
+  // records how that value was derived rather than re-guessing it. Date.now() is
+  // the only clock nextHalving reads, so spying on it is enough -- no fake timers
+  // needed. Removing the pin does not silently re-arm this: the literal matches
+  // only a clock near FIXTURE_CLOCK, so an unpinned run fails immediately.
+  const FIXTURE_CLOCK = Date.UTC(2026, 7, 26, 11, 7, 12);
+
   it('chain.data.nextHalvingDate is nextHalving of its own height', () => {
-    expect(data.nextHalvingDate).toBe(nextHalving(data.height));
+    vi.spyOn(Date, 'now').mockReturnValue(FIXTURE_CLOCK);
+    try {
+      expect(data.nextHalvingDate).toBe(nextHalving(data.height));
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 
   it('weather.data.wxCond is wmoDesc of its own wxCode', () => {
