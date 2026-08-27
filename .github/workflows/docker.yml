@@ -8,20 +8,34 @@ on:
       - 'Dockerfile'
       - '.dockerignore'
       - 'bitaxe_api.py'
+      - 'setup.html'
       - 'src/**'
       - 'build.js'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/docker.yml'
-  # NOTE: docker-compose.yml is deliberately absent from the push filter above.
-  # The publish job has no path guard of its own, so listing it here would
-  # republish :latest for a change that alters zero image bytes. It appears
-  # only under pull_request, where it gates the smoke job.
+  # NOTE: the push filter lists every path that alters image bytes, plus this
+  # workflow file itself -- and nothing else. Listing this file buys coverage
+  # of the publish path when the workflow is edited, at the price of one
+  # redundant :latest republish; that trade is deliberate. Both directions of
+  # the rule have bitten:
+  #   - docker-compose.yml is deliberately absent from the push filter above.
+  #     The publish job has no path guard of its own, so listing it here would
+  #     republish :latest for a change that alters zero image bytes. It appears
+  #     only under pull_request, where it gates the smoke job.
+  #   - setup.html is COPY'd by the runtime stage (Dockerfile). It was once
+  #     missing from both lists, which left :latest stale until an unrelated
+  #     commit happened to touch a listed path.
+  # index.html needs no entry of its own: the runtime stage COPYs it
+  # --from=build, so it is covered transitively by the build stage's inputs
+  # (src/** + build.js + the package files). Separately, the repo-root copy is
+  # .dockerignored, so it cannot reach the image at all.
   pull_request:
     paths:
       - 'Dockerfile'
       - '.dockerignore'
       - 'bitaxe_api.py'
+      - 'setup.html'
       - 'src/**'
       - 'build.js'
       - 'package.json'
