@@ -12,6 +12,7 @@
     "test:unit": "vitest run",
     "test:py": "python -m unittest discover -s tests -p \"test_*.py\" -v",
     "check:review-paths": "node scripts/check-review-paths.cjs",
+    "check:codeql": "node scripts/check-codeql-config.cjs",
     "check:secrets": "node scripts/check-secrets.cjs",
     "verify:vendor": "node scripts/verify-vendor.cjs"
   },
