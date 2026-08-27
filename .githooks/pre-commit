@@ -7,9 +7,15 @@
 #
 # THIS IS A NARROW GUARD. All three limits verified by black-box probe:
 #
-#   1. Everything is scanned EXCEPT docs/ and tests/. docs/ being exempt
-#      matters — CLAUDE.md names docs/superpowers/ as this repo's historical
-#      leak vector, and nothing scans it.
+#   1. Everything is scanned except build artifacts (index.html, setup.html,
+#      package-lock.json) and the scanner itself. docs/ and tests/ ARE scanned.
+#      The one carve-out is a short RESERVED list in scripts/check-secrets.cjs:
+#      13 exact literals allowed under tests/ and root-level test_*.py ONLY,
+#      because they are the subject of the tests asserting on them (isValidLanIp)
+#      rather than real addresses. docs/ gets NO exemption — placeholders are the
+#      only thing that passes there. Whole-match comparison, so a neighbouring
+#      value one digit off still fails, and in src/ the reserved literals fail
+#      like any other. smoke-build.cjs step 15 stops this carve-out widening.
 #   2. Only literal RFC1918 addresses match (10.x, 172.16-31.x, 192.168.x).
 #      NOT caught: 127.0.0.1, CGNAT/Tailscale 100.64.x, link-local, IPv6,
 #      hostnames, usernames, absolute local paths, SSH keys, API tokens.
@@ -32,6 +38,6 @@
 # refs/pull/N/head even after a squash merge. Stopping that is this hook's job,
 # not CI's.
 #
-# CI does NOT rescue limits 1 and 2: it runs the same scanner, so it inherits
-# the docs/ and tests/ exemptions and the RFC1918-only pattern.
+# CI does NOT rescue limits 1 and 2: it runs the same scanner, so it inherits the
+# reserved-fixture carve-out and the RFC1918-only pattern.
 npm run check:secrets || exit 1

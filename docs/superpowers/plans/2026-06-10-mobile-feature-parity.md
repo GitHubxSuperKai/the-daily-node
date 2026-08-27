@@ -351,8 +351,8 @@ const chainWithHashrate = {
 
 const minersWithPower = {
   miners: [
-    { ip: '10.0.0.1', online: true,  data: { hostname: 'bitaxe-01', hashRate: 5000, temp: 62, power: 200 } },
-    { ip: '10.0.0.2', online: false, data: null },
+    { ip: '<miner-ip-1>', online: true,  data: { hostname: 'bitaxe-01', hashRate: 5000, temp: 62, power: 200 } },
+    { ip: '<miner-ip-2>', online: false, data: null },
   ],
 };
 
@@ -373,7 +373,7 @@ describe('MinersPanel — efficiency and solo stats', () => {
   });
 
   it('efficiency section hidden when no miners online', () => {
-    const noOnline = { miners: [{ ip: '10.0.0.1', online: false, data: null }] };
+    const noOnline = { miners: [{ ip: '<miner-ip-1>', online: false, data: null }] };
     wrap(<MinersPanel bitaxe={noOnline} chain={chainWithHashrate} />);
     expect(screen.queryByText(/J\/TH/)).toBeNull();
   });
