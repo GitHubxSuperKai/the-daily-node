@@ -30,6 +30,24 @@ on:
   # --from=build, so it is covered transitively by the build stage's inputs
   # (src/** + build.js + the package files). Separately, the repo-root copy is
   # .dockerignored, so it cannot reach the image at all.
+  # The paths: filter above gates the branches: trigger ONLY -- it does not
+  # gate tags:. GitHub does not evaluate path filters for tag pushes ("Path
+  # filters are not evaluated for pushes of tags" -- workflow-syntax docs, the
+  # on.<push>.<paths|paths-ignore> section), so a release tag publishes
+  # :v<x.y.z>, :major.minor and :latest even when the tagged commit touches
+  # nothing in the list above. Verified against this repo rather than read off
+  # the docs: the v1.2.0 tag (e5a97c9) is a docs-only merge -- README.md plus
+  # two files under docs/ -- which matches zero entries above, and its push
+  # still ran this workflow through to a successful publish (Actions run
+  # 29601122112). Two reviewers reached opposite conclusions on this during
+  # PR #140, hence the citation.
+  # So do NOT "fix" it by splitting tags: into a second, unfiltered trigger:
+  # there is no gap to close, a single on.push mapping cannot carry two path
+  # policies anyway, and the split would buy a whole extra workflow for zero
+  # behaviour change. Equally, do not defend it with "the release commit
+  # always bumps package.json" -- ship-it tags whatever HEAD is (there is no
+  # `npm version` step), v1.2.0 is a live counterexample, and that is not the
+  # reason tag releases publish.
   pull_request:
     paths:
       - 'Dockerfile'
