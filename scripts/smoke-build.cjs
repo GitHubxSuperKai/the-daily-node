@@ -267,7 +267,7 @@ assert.ok(skipLine,
   'check-secrets.cjs no longer declares SKIP as a single line — step 15 can no longer verify it, so re-anchor this assertion rather than deleting it');
 const SKIP_ALLOWED = [
   '/node_modules\\//', '/\\.git\\//', '/package-lock\\.json$/',
-  '/scripts\\/check-secrets\\.cjs$/', '/index\\.html$/', '/setup\\.html$/',
+  '/scripts\\/check-secrets\\.cjs$/', '/index\\.html$/',
 ];
 const skipEntries = skipLine[0].match(/\/(?:\\.|[^/\\])+\/[gimsuy]*/g) || [];
 assert.deepStrictEqual(skipEntries, SKIP_ALLOWED,

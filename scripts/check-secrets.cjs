@@ -13,7 +13,13 @@ const BANNED = [
 // Files to skip (build artifacts are excluded — source files are the real gate).
 // docs/ and tests/ are deliberately NOT here: they are scanned like everything
 // else, with the reserved-fixture carve-out below as the only concession.
-const SKIP = [/node_modules\//, /\.git\//, /package-lock\.json$/, /scripts\/check-secrets\.cjs$/, /index\.html$/, /setup\.html$/];
+//
+// setup.html is NOT here either, despite once sitting in this list under the
+// "build artifacts" heading. It is hand-written and hand-committed — nothing in
+// build.js or package.json produces it, it has no counterpart under src/, and it
+// carries its own feature commits. Skipping it left the one tracked file that
+// nothing scanned; its example addresses are now generic placeholder text.
+const SKIP = [/node_modules\//, /\.git\//, /package-lock\.json$/, /scripts\/check-secrets\.cjs$/, /index\.html$/];
 
 // Test surface the carve-out below applies to. Deliberately NOT docs/: only one
 // tracked doc needed a private-looking literal and it was prose, so it was scrubbed
