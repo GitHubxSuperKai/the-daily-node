@@ -204,13 +204,35 @@ jobs:
       # Note the container is started by `docker run` without --health-cmd, so
       # it has no health status to inspect; executing the probe is the
       # equivalent assertion.
+      #
+      # Two vacuity paths this shape closes -- the job shell is
+      # `/usr/bin/bash -e {0}`: errexit, but NOT pipefail.
+      #  1. A pipeline exits with its LAST command's status, so piping
+      #     `docker compose config` into python3 discarded a compose failure.
+      #     `config=$(...)` makes it its own simple command, which errexit
+      #     aborts on. It must stay a BARE assignment -- `local x=$(cmd)` and
+      #     `export x=$(cmd)` do NOT abort, the declaration builtin's own
+      #     status wins (verified in PR #146's review).
+      #  2. `> /tmp/probe.py` truncated the file BEFORE the pipeline ran, and
+      #     `python3 - < empty-file` exits 0 -- an empty script is a successful
+      #     no-op. So an extraction that yielded nothing reported green having
+      #     executed nothing; only json.load raising on empty stdin stood in
+      #     the way, and that is incidental, not an assertion. Hence the
+      #     explicit non-blank check before anything is written or run --
+      #     whitespace-only is a no-op script for the same reason empty is.
+      # Do NOT collapse this back into a single pipeline.
       - name: Verify the shipped healthcheck probe exits 0
         run: |
-          docker compose -f docker-compose.yml config --format json \
-            | python3 -c "import sys,json; print(json.load(sys.stdin)['services']['daily-node']['healthcheck']['test'][-1])" \
-            > /tmp/probe.py
+          config=$(docker compose -f docker-compose.yml config --format json)
+          probe=$(printf '%s' "$config" | python3 -c "import sys,json; print(json.load(sys.stdin)['services']['daily-node']['healthcheck']['test'][-1])")
+          if [ -z "${probe//[[:space:]]/}" ]; then
+            echo "Extracted healthcheck probe is empty or blank -- nothing to execute"
+            exit 1
+          fi
+          printf '%s\n' "$probe" > /tmp/probe.py
           echo "--- probe under test ---"; cat /tmp/probe.py
           docker exec -i dn-smoke python3 - < /tmp/probe.py
+          echo "OK: the shipped healthcheck probe exits 0 inside the image"
 
       - name: Stop containers
         if: always()
