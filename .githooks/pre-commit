@@ -1,0 +1,30 @@
+#!/bin/sh
+# Blocks commits containing banned patterns in staged files.
+# This repo is PUBLIC — see CLAUDE.md "never commit environment details".
+#
+# Enable in a fresh clone (git does not install hooks automatically):
+#   git config core.hooksPath .githooks
+#
+# THIS IS A NARROW GUARD. All three limits verified by black-box probe:
+#
+#   1. Everything is scanned EXCEPT docs/ and tests/. docs/ being exempt
+#      matters — CLAUDE.md names docs/superpowers/ as this repo's historical
+#      leak vector, and nothing scans it.
+#   2. Only literal RFC1918 addresses match (10.x, 172.16-31.x, 192.168.x).
+#      NOT caught: 127.0.0.1, CGNAT/Tailscale 100.64.x, link-local, IPv6,
+#      hostnames, usernames, absolute local paths, SSH keys, API tokens.
+#   3. It reads the WORKING-COPY content of each staged file, not the staged
+#      blob. Stage a secret, then edit it out of the file without re-staging,
+#      and the secret commits unscanned.
+#
+# So a green hook is not proof a commit is clean. It catches the one mistake
+# that has actually happened here before; the rest is still on the author.
+#
+# Not wired into CI. check:secrets reads the STAGED set, and a CI checkout has
+# nothing staged, so a bare `npm run check:secrets` step would report
+# "checked 0 staged files" and pass unconditionally. It CAN be made to work by
+# staging the diff first (`git reset --soft $(git merge-base origin/main HEAD)`),
+# which also resolves limit 3 above, since index and worktree then agree. That
+# is a separate change and should land with the docs/ exemption fix — CI
+# coverage that inherits these blind spots is worth little.
+npm run check:secrets || exit 1

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The secrets pre-commit hook is now tracked at `.githooks/pre-commit` instead of living untracked in `.git/hooks/`, so a fresh clone can actually get it. Enable per clone with `git config core.hooksPath .githooks` — documented as a required step in `docs/SETUP.md` and in the `CONTRIBUTING.md` PR checklist. `.gitattributes` pins LF for `.githooks/**` so the shebang survives checkout on Linux/macOS.
+- The smoke suite now asserts the hook exists, keeps its shebang, stays CRLF-free, and still invokes `check:secrets` — the first CI-enforced check on this file.
+
+### Security
+
+- Documented three previously unstated limits of `check:secrets`, each verified by probe. The scan skips `docs/` and `tests/` — and `CLAUDE.md` names `docs/superpowers/` as this repo's historical leak vector. It matches only literal RFC1918 addresses, so `127.0.0.1`, CGNAT `100.64.x`, hostnames, usernames, absolute local paths, and key material all pass. And it reads the working-copy content of each staged file rather than the staged blob, so a secret staged and then edited out without re-staging commits unscanned. None of these are new behavior; none were written down before.
+- `check:secrets` still has no CI enforcement — it reads the staged set, which is empty in a CI checkout. Staging the diff first (`git reset --soft $(git merge-base origin/main HEAD)`) would make a real CI step possible and would close the working-copy gap at the same time.
+
 ## [1.4.0] — 2026-08-26
 
 ### Added

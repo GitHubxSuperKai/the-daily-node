@@ -27,13 +27,27 @@ Before getting started, ensure you have the following installed:
    ```
    This installs esbuild, the build tool used to minify the release bundle.
 
-3. **Build and start the development server:**
+3. **Enable the pre-commit hook:**
+   ```bash
+   git config core.hooksPath .githooks
+   ```
+   Git never installs hooks automatically, so this is required once per clone. The hook runs `npm run check:secrets`, which blocks commits containing banned patterns (private IPs and similar) in staged files. This repository is public — see `CLAUDE.md` for what must never be committed. The scan is not enforced in CI, so skipping this step leaves your clone with no secret checking at all.
+
+   This is a narrow guard, and a green hook is not proof a commit is clean. Five things to know before relying on it — the first three are limits of the scan itself, all verified by probe:
+
+   - **`docs/` and `tests/` are exempt.** Everything else is scanned. A private IP staged under `docs/` commits without complaint — which matters, because `CLAUDE.md` names `docs/superpowers/` as this repo's historical leak vector. Review docs changes by eye.
+   - **Only literal RFC1918 addresses match** — `10.x`, `172.16–31.x`, `192.168.x`. Confirmed *not* caught: `127.0.0.1`, CGNAT/Tailscale `100.64.x`, link-local, IPv6, hostnames, usernames, absolute local paths, SSH keys, API tokens. `CLAUDE.md` bans all of those; the hook enforces one of them.
+   - **It reads the working-copy content of staged files, not the staged blob.** Stage a secret, then edit it out of the file without re-staging, and the secret commits unscanned.
+   - **This replaces `.git/hooks/` entirely.** `core.hooksPath` is a redirect, not an overlay. Any hook installed into `.git/hooks/` by another tool (husky, an IDE, an editor plugin) will silently stop running once this is set.
+   - **It only runs on branches that contain `.githooks/`.** Git skips a missing hook without any message, so a branch created before this directory existed gets no scanning even with the setting enabled. Rebase in-flight branches onto `main` after enabling. This applies to `git worktree` checkouts too — they share `.git/config`, and so inherit the setting regardless of which branch they hold.
+
+4. **Build and start the development server:**
    ```bash
    npm run serve
    ```
    This runs `npm run build` and then launches Python's built-in HTTP server on `http://localhost:3000`.
 
-4. **Open the dashboard:**
+5. **Open the dashboard:**
    Navigate to `http://localhost:3000/` in your browser.
 
 ### Development Notes
@@ -368,4 +382,4 @@ For issues, feature requests, or contributions, see the main repository README o
 
 ---
 
-**Last updated:** May 2026
+**Last updated:** August 2026
