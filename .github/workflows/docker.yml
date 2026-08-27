@@ -40,7 +40,9 @@ on:
   # Verified here rather than read off the docs, via a same-commit A/B.
   # 92b5b30 is a docs-only merge (README.md plus two files under docs/)
   # matching zero entries above. It was pushed to main, then tagged v1.2.0
-  # seventy seconds later:
+  # seventy seconds later. (History was rewritten since, so 92b5b30 is an
+  # orphaned pre-rewrite commit -- reachable on the remote by SHA, but a
+  # plain clone lacks the object until `git fetch origin 92b5b30`.)
   #   - main push, 2026-05-09T02:20:28Z -> Build and Deploy ran; Docker did
   #     NOT. The filter demonstrably bites on a branch push.
   #   - tag push,  2026-05-09T02:21:38Z -> Docker ran through to a successful
@@ -147,7 +149,8 @@ jobs:
         if: always()
         run: docker rm -f dn-smoke || true
 
-  # main push → :latest; tag push → :v<version>, :major.minor, :latest
+  # main push -> :latest; tag push -> :v<version>, :<version>, :major.minor,
+  # :latest (four flavors -- see the metadata-action tags: block below)
   publish:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
