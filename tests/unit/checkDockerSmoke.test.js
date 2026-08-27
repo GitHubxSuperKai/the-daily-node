@@ -25,6 +25,7 @@
 // file for that pragma, so even naming it in a comment switches the environment -- which
 // is why it is described here rather than spelled.
 import { describe, it, expect, afterAll } from 'vitest';
+import assert from 'node:assert';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -112,7 +113,10 @@ describe('check-docker-smoke: the real repo', () => {
     expect(dash.includes(EXPECTED_PAGE_ENV.SETUP_MARK)).toBe(false);
     // The negative control for the two `false` assertions above: a marker that is NOT
     // discriminating must actually be found in both, or those assertions prove nothing
-    // about the method, only about these two strings.
+    // about the method, only about these two strings. It does pin an incidental property
+    // of two unrelated files: if setup.html ever stops storing prefs this goes red for a
+    // reason that has nothing to do with the guard. Pick another string both pages
+    // genuinely share at that point — do not delete the control.
     expect(dash.includes('dailynode-prefs')).toBe(true);
     expect(setup.includes('dailynode-prefs')).toBe(true);
   });
@@ -221,8 +225,113 @@ describe('the smoke job’s own shape', () => {
   });
 
   it('rejects a changed runner image', () => {
-    expect(rejects(sub(GOOD, '  smoke:\n    if: github', '  smoke:\n    if: github').replace('    runs-on: ubuntu-latest\n    steps:', '    runs-on: self-hosted\n    steps:')))
+    expect(rejects(sub(GOOD, '    runs-on: ubuntu-latest\n    steps:', '    runs-on: self-hosted\n    steps:')))
       .toMatch(/runs-on:/);
+  });
+});
+
+// Everything in this block was found by review, and every case here passed GREEN against
+// the guard before it was written. They are all the same shape: a threat the guard names
+// in a comment, pinned one level lower than the place it can actually be exercised.
+describe('the workflow one level above the job', () => {
+  // The sharpest of the set. The job key-set pin exists (and says so) to stop
+  // `defaults: {run: {shell: ...}}` replacing the errexit-no-pipefail shell -- and the
+  // workflow-level spelling, with identical effect, walked straight past it. The second
+  // case is #146 and #148 restored in three lines.
+  it('rejects a workflow-level defaults block that swaps the shell', () => {
+    expect(rejects(sub(GOOD, 'permissions:\n', 'defaults:\n  run:\n    shell: sh\n\npermissions:\n')))
+      .toMatch(/top-level keys are/);
+  });
+
+  it('rejects a workflow-level shell with no errexit at all', () => {
+    expect(rejects(sub(GOOD, 'permissions:\n', 'defaults:\n  run:\n    shell: bash --noprofile --norc {0}\n\npermissions:\n')))
+      .toMatch(/top-level keys are/);
+  });
+
+  it('rejects a workflow-level env block, which can redefine the page markers', () => {
+    expect(rejects(sub(GOOD, 'permissions:\n', 'env:\n  DASH_MARK: anything\n\npermissions:\n')))
+      .toMatch(/top-level keys are/);
+  });
+
+  // `paths:` still matches its pin exactly in both of these. The trigger is neutered
+  // anyway, and a required check that is never created reads as satisfied.
+  it('rejects on.pull_request.branches narrowing the trigger', () => {
+    expect(rejects(sub(GOOD, '  pull_request:\n    paths:', '  pull_request:\n    branches: [never-a-branch]\n    paths:')))
+      .toMatch(/on\.pull_request declares/);
+  });
+
+  it('rejects on.pull_request.types narrowing the trigger', () => {
+    expect(rejects(sub(GOOD, '  pull_request:\n    paths:', '  pull_request:\n    types: [labeled]\n    paths:')))
+      .toMatch(/on\.pull_request declares/);
+  });
+
+  it('rejects the pull_request trigger being removed outright', () => {
+    expect(rejects(sub(GOOD, '  pull_request:\n    paths:\n', '  pull_request_target:\n    paths:\n')))
+      .toMatch(/on: declares/);
+  });
+
+  // A named step's id is its NAME, so the id list never compares its action. This one was
+  // green until the `uses` field was added to EXPECTED_STEPS.
+  it('rejects the build step being repointed at a fork', () => {
+    expect(rejects(sub(GOOD, '        uses: docker/build-push-action@v7', '        uses: attacker/build-push-action@main')))
+      .toMatch(/runs "attacker\/build-push-action@main"/);
+  });
+
+  it('rejects a bare step being repointed at a fork', () => {
+    expect(rejects(sub(GOOD, '      - uses: docker/setup-buildx-action@v4', '      - uses: attacker/setup-buildx@main')))
+      .toMatch(/smoke job runs/);
+  });
+});
+
+// The fail-CLOSED returns. Each turns an unreadable block into a reported problem rather
+// than a green []. check-secrets.cjs shipped exactly this bug (fixed in #142), and all
+// three of these hollowed out with the suite still green until these cases existed.
+// Each of these asserts the SPECIFIC message, not an alternation. An alternation lets the
+// case pass because some other check fired, which is how the first three drafts of this
+// block passed while the returns they were written for hollowed out green.
+describe('an unreadable workflow is reported, never passed over', () => {
+  it('reports an on: block that is a scalar rather than a mapping', () => {
+    // Valid GitHub Actions, and it removes the pull_request trigger entirely.
+    const mutated = sub(GOOD, '\non:\n  push:', '\non: workflow_dispatch\nunused:\n  push:');
+    expect(rejects(mutated)).toMatch(/has no readable on: block/);
+  });
+
+  it('reports a jobs: block that is a scalar rather than a mapping', () => {
+    const mutated = sub(GOOD, '\njobs:\n', '\njobs: none\nunused:\n');
+    expect(rejects(mutated)).toMatch(/has no readable jobs: block/);
+  });
+
+  it('reports a smoke job that is a scalar rather than a mapping', () => {
+    const mutated = sub(
+      GOOD,
+      "  smoke:\n    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'",
+      "  smoke: disabled\n  unused:\n    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'",
+    );
+    expect(rejects(mutated)).toMatch(/has no readable smoke: job/);
+  });
+
+  it('reports a steps: value that is not a list', () => {
+    const mutated = sub(GOOD, '    steps:\n      - uses: actions/checkout@v6', '    steps: none\n    unused:\n      - uses: actions/checkout@v6');
+    expect(rejects(mutated)).toMatch(/has no readable steps: list/);
+  });
+
+  it('reports a paths: value that is not a list', () => {
+    const mutated = sub(GOOD, "  pull_request:\n    paths:\n      - 'Dockerfile'", "  pull_request:\n    paths: everything\n    unused:\n      - 'Dockerfile'");
+    expect(rejects(mutated)).toMatch(/no longer declares on\.pull_request\.paths as a list/);
+  });
+
+  it('reports a run: value that is not a string', () => {
+    const mutated = sub(
+      GOOD,
+      '      - name: Start container\n        run: docker run -d --name dn-smoke -p 3001:3001 daily-node:smoke',
+      '      - name: Start container\n        run:\n          nested: value',
+    );
+    expect(rejects(mutated)).toMatch(/has no readable run: body/);
+  });
+
+  it('reports a step carrying neither name: nor uses:', () => {
+    const mutated = sub(GOOD, '      - name: Start container\n        run: docker run', '      - run: docker run');
+    expect(rejects(mutated)).toMatch(/step with neither name: nor uses:/);
   });
 });
 
@@ -620,6 +729,14 @@ describe('layer A keeps biting after the pin has been updated to match', () => {
     expect(stillCaught(mutated, step)).toMatch(/no negation, expected a negation/);
   });
 
+  // The ordering check has two branches: the line moved (below) and the line GONE. Only
+  // the first had a case, so the `idx === -1` report hollowed out green.
+  it('rejects the probe exec disappearing entirely even with the pin updated', () => {
+    const step = 'Verify the shipped healthcheck probe exits 0';
+    const mutated = sub(GOOD, '          docker exec -i dn-smoke python3 - < /tmp/probe.py\n', '');
+    expect(stillCaught(mutated, step)).toMatch(/no longer runs "docker exec/);
+  });
+
   it('rejects the blank-probe check moved after the exec even with the pin updated', () => {
     const step = 'Verify the shipped healthcheck probe exits 0';
     const guard =
@@ -633,6 +750,45 @@ describe('layer A keeps biting after the pin has been updated to match', () => {
       `          docker exec -i dn-smoke python3 - < /tmp/probe.py\n${guard}`,
     );
     expect(stillCaught(moved, step)).toMatch(/BEFORE the/);
+  });
+
+  // `exit 0` in a failure branch IS "reports the failure and then passes the step anyway",
+  // and it is what the `[1-9]` in guardExits rejects. Both cases above delete the exit line
+  // entirely, which relaxing that character class survives -- so this is the case that pins
+  // the character.
+  it('rejects `exit 0` in a failure branch even with the pin updated', () => {
+    const step = 'Verify setup page served when unconfigured';
+    const mutated = sub(
+      GOOD,
+      '            echo "Dashboard served when unconfigured -- setup gate is broken"\n            exit 1',
+      '            echo "Dashboard served when unconfigured -- setup gate is broken"\n            exit 0',
+    );
+    expect(stillCaught(mutated, step)).toMatch(/no longer exits non-zero/);
+  });
+
+  // The assertion inverted rather than removed: the failure branch prints and falls
+  // through, and the SUCCESS branch aborts. `exit 1` is still present in the step, so a
+  // check that merely looked for it anywhere would be satisfied.
+  it('rejects an assertion inverted through an else-branch even with the pin updated', () => {
+    const step = 'Verify setup page served when unconfigured';
+    const mutated = sub(
+      GOOD,
+      '          if echo "$body" | grep -q "$DASH_MARK"; then\n            echo "Dashboard served when unconfigured -- setup gate is broken"\n            exit 1\n          fi',
+      '          if echo "$body" | grep -q "$DASH_MARK"; then\n            echo "Dashboard served when unconfigured -- setup gate is broken"\n          else\n            exit 1\n          fi',
+    );
+    expect(stillCaught(mutated, step)).toMatch(/no longer exits non-zero/);
+  });
+
+  // A shadow assignment: the pinned capture is untouched and still bare, and the
+  // assertions below it read a completely different value.
+  it('rejects a second assignment shadowing the capture even with the pin updated', () => {
+    const step = 'Verify API endpoint responds';
+    const mutated = sub(
+      GOOD,
+      '          body=$(curl -fsS http://localhost:3001/api/miners)\n',
+      '          body=$(curl -fsS http://localhost:3001/api/miners)\n          body=$(cat /tmp/cached-response.json)\n',
+    );
+    expect(stillCaught(mutated, step)).toMatch(/assigns \$body 2 times/);
   });
 
   // The negative control for this whole block. If `pinnedRunLines` silenced layer A as
@@ -699,6 +855,66 @@ describe('the parser fails loudly rather than quietly', () => {
     shapeRejected(sub(GOOD, '      - name: Wait for server\n        run: |', '      - name: Wait for server\n        run: |2'));
   });
 
+  // A `#` inside a quoted scalar is not a comment. The first version stripped before
+  // checking for quotes and rejected `'Start container #1'` -- a legitimate reformat -- as
+  // an unbalanced quote. Loud rather than wrong, but the function's comment claimed YAML
+  // semantics it did not implement.
+  it('keeps a # inside a quoted scalar, and still strips one after a plain scalar', () => {
+    expect(parseYaml("a:\n  b: 'Start container #1'\n")).toEqual({ a: { b: 'Start container #1' } });
+    expect(parseYaml('a:\n  b: "c #1"\n')).toEqual({ a: { b: 'c #1' } });
+    expect(parseYaml('a:\n  b: x # comment\n')).toEqual({ a: { b: 'x' } });
+    expect(parseYaml('a:\n  b: a#b\n')).toEqual({ a: { b: 'a#b' } });
+    expect(() => parseYaml("a:\n  b: 'oops\n")).toThrow(YamlShapeError);
+  });
+
+  // Advertised as a supported benign reformat in this parser's own comment, so it needs a
+  // case rather than a claim.
+  it('strips a UTF-8 BOM instead of reading it as indentation', () => {
+    expect(parseYaml('\uFEFFa:\n  b: 1\n')).toEqual({ a: { b: '1' } });
+    expect(check(`\uFEFF${GOOD}`)).toEqual([]);
+  });
+
+  // The remaining fail-loud branches, each reached directly. Review pointed out that this
+  // file deleted the document-marker branch for having no reachable case, and then left a
+  // dozen siblings in the same state — so each one now gets a case or goes. The positive
+  // control in each pair is what stops these passing against a parser that throws on
+  // everything.
+  it('throws on shapes it deliberately refuses to interpret', () => {
+    // Escape sequences and nested quotes: it will not guess at their semantics.
+    expect(() => parseYaml("a:\n  b: 'x\\y'\n")).toThrow(YamlShapeError);
+    expect(parseYaml("a:\n  b: 'x/y'\n")).toEqual({ a: { b: 'x/y' } });
+    // Nested flow collections. `[x[y]` is the case the explicit check earns its keep on:
+    // its inner text does not start with a `[`, so parseScalar's indicator check does not
+    // see it, and without this branch a ragged flow sequence parses to the scalar `x[y]`
+    // instead of failing.
+    expect(() => parseYaml('a:\n  b: [[x]]\n')).toThrow(YamlShapeError);
+    expect(() => parseYaml('a:\n  b: [x[y]\n')).toThrow(YamlShapeError);
+    expect(parseYaml('a:\n  b: [x, y]\n')).toEqual({ a: { b: ['x', 'y'] } });
+    // Nested inline sequences and block scalars as sequence items.
+    expect(() => parseYaml('a:\n  - - x\n')).toThrow(YamlShapeError);
+    expect(parseYaml('a:\n  - x\n')).toEqual({ a: ['x'] });
+    // Content after the document body. Only reachable when the document is a top-level
+    // sequence, because a top-level mapping consumes to EOF.
+    expect(() => parseYaml('- a\nb: 1\n')).toThrow(YamlShapeError);
+    // A block scalar body that dedents below its own indentation.
+    expect(() => parseYaml('a:\n  b: |\n      x\n    y\n')).toThrow(YamlShapeError);
+    expect(parseYaml('a:\n  b: |\n    x\n    y\n')).toEqual({ a: { b: 'x\ny\n' } });
+    // A tab on a SEQUENCE-item line. parseMapping's checkNoTabs call site is covered by
+    // the case further up; this is parseSequence's, which was not.
+    expect(() => parseYaml('a:\n  - x\ty\n')).toThrow(YamlShapeError);
+    expect(parseYaml('a:\n  - x y\n')).toEqual({ a: ['x y'] });
+  });
+
+  // toPlain drops the null prototype the parser builds with. Without it every
+  // deepStrictEqual expectation in the guard fails against a perfectly good workflow,
+  // because assert compares prototypes — so this is what makes the whole file work.
+  it('returns plain objects, so deepStrictEqual can compare them', () => {
+    const doc = parseYaml('a:\n  b: 1\n');
+    expect(Object.getPrototypeOf(doc)).toBe(Object.prototype);
+    expect(Object.getPrototypeOf(doc.a)).toBe(Object.prototype);
+    expect(() => assert.deepStrictEqual(doc, { a: { b: '1' } })).not.toThrow();
+  });
+
   it('throws YamlShapeError, not a generic error, on a shape it cannot read', () => {
     expect(() => parseYaml('a:\n\tb: 1\n')).toThrow(YamlShapeError);
   });
@@ -725,6 +941,19 @@ describe('the shell helpers', () => {
   it('reads negation, condition and block off an if guard', () => {
     const guards = extractIfGuards(['if ! grep -q x; then', 'exit 1', 'fi']);
     expect(guards).toEqual([{ negated: true, condition: 'grep -q x', block: ['exit 1'] }]);
+  });
+
+  // `block` is the THEN branch only. Counting else-branch lines is what let an inverted
+  // assertion satisfy guardExits.
+  it('stops the block at else, so an else-branch exit does not count', () => {
+    expect(extractIfGuards(['if grep -q x; then', 'echo hi', 'else', 'exit 1', 'fi']))
+      .toEqual([{ negated: false, condition: 'grep -q x', block: ['echo hi'] }]);
+    expect(extractIfGuards(['if grep -q x; then', 'echo hi', 'elif grep -q y; then', 'exit 1', 'fi']))
+      .toEqual([{ negated: false, condition: 'grep -q x', block: ['echo hi'] }]);
+  });
+
+  it('returns null on a stray else rather than guessing', () => {
+    expect(extractIfGuards(['else', 'exit 1'])).toBeNull();
   });
 
   it('returns null on unbalanced if/fi rather than guessing', () => {

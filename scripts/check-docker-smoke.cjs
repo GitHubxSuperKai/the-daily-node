@@ -90,16 +90,42 @@ const SETUP_REL = 'setup.html';
 //
 // Every constant below is an exact expectation, not a floor and not a pattern.
 
+// The workflow's complete top-level key set.
+//
+// This exists because the job-level key pin below was ONE LEVEL TOO LOW, which is the
+// #145 shape repeating: `defaults: {run: {shell: ...}}` is legal at workflow level with
+// identical effect, and a review of this file demonstrated both `shell: sh` and
+// `shell: bash --noprofile --norc {0}` (no errexit at all) passing the guard green --
+// which is #146 and #148 restored in three lines. A workflow-level `env:` is the same
+// story for the two page markers. Pinning the whole key set is what closes the class
+// rather than the two spellings somebody thought of.
+const EXPECTED_TOP_LEVEL_KEYS = ['name', 'on', 'permissions', 'jobs'];
+
+// The trigger key sets, for the same reason and found the same way. Pinning
+// `on.pull_request.paths` alone left two siblings that neuter the trigger just as
+// completely while `paths:` still matches its pin exactly: `branches: [never-a-branch]`
+// and `types: [labeled]` both mean the smoke job never runs on an ordinary PR push, and
+// both passed green. `push` is not decomposed here -- it gates the publish job, which is
+// outside this guard's scope -- but its presence in this list is, so it cannot be dropped.
+const EXPECTED_TRIGGER_KEYS = ['push', 'pull_request', 'workflow_dispatch'];
+const EXPECTED_PULL_REQUEST_KEYS = ['paths'];
+
 // The workflow's complete job list. A job added here runs with `packages: write` and is
 // gated by nothing in this file; a job removed is a check that silently stops existing.
 const EXPECTED_JOBS = ['smoke', 'publish'];
 
-// The smoke job's complete key set. This is the sharpest assertion in the file and it
-// catches the mutations nobody would think to enumerate: `continue-on-error: true` makes
-// the entire job advisory while still reporting green, and `defaults: {run: {shell: sh}}`
-// swaps out the very shell whose errexit-but-not-pipefail semantics every capture
-// assertion below depends on. Enumerating those two would be a denylist. Pinning the
-// whole key set means any key at all has to come through here.
+// The smoke job's complete key list, IN ORDER. Order-sensitive because deepStrictEqual on
+// an array is, and that is left as-is rather than sorted: reordering is a reformat this
+// guard will reject, which is churn, but sorting would also accept a reordering that
+// changed meaning. Named honestly here so the failure message is not mistaken for a
+// security finding when someone simply moved a line.
+//
+// This is one of the sharpest assertions in the file and it catches the mutations nobody
+// would think to enumerate: `continue-on-error: true` makes the entire job advisory while
+// still reporting green, and a job-level `defaults: {run: {shell: sh}}` swaps out the very
+// shell whose errexit-but-not-pipefail semantics every capture assertion below depends on.
+// Enumerating those two would be a denylist. EXPECTED_TOP_LEVEL_KEYS above closes the same
+// hole one level up.
 const EXPECTED_JOB_KEYS = ['if', 'runs-on', 'steps'];
 
 // Narrowing this silently stops the job running on the event it exists for. GitHub
@@ -131,12 +157,19 @@ const EXPECTED_PULL_REQUEST_PATHS = [
   '.github/workflows/docker.yml',
 ];
 
-// Every step in the smoke job, in order, with its complete ordered key set.
+// Every step in the smoke job, in order, with its complete key list (ordered -- see the
+// note on EXPECTED_JOB_KEYS) and, where it runs one, the exact action it runs.
 //
 // `id` is `name:<name>` for a named step and `uses:<action>` for a bare one. The ordered
 // list catches a step deleted, inserted, renamed or reordered -- deleting `Verify
 // dashboard HTML served when configured` leaves the job named, required, green, and
 // asserting nothing about the dashboard, which is precisely the state #144 found.
+//
+// `uses` is pinned SEPARATELY because `id` only carries the action for a bare step. A
+// named step's id is its name, so `uses: docker/build-push-action@v7` was compared to
+// nothing at all and could be repointed at a fork with the guard green -- verified in
+// review. That asymmetry was invisible from this constant, which is why the field is
+// explicit rather than inferred from the id.
 //
 // `keys` catches the additions that disable a step without touching anything else:
 // `if: false` (a skipped step reports success), `continue-on-error: true` (a failed step
@@ -145,10 +178,14 @@ const EXPECTED_PULL_REQUEST_PATHS = [
 // everything -- the presence half passes on any page and the absence half fails, so it
 // is loud, but only by luck).
 const EXPECTED_STEPS = [
-  { id: 'uses:actions/checkout@v6', keys: ['uses'] },
+  { id: 'uses:actions/checkout@v6', keys: ['uses'], uses: 'actions/checkout@v6' },
   { id: 'name:Validate compose file', keys: ['name', 'run'] },
-  { id: 'uses:docker/setup-buildx-action@v4', keys: ['uses'] },
-  { id: 'name:Build image (amd64 only, load locally)', keys: ['name', 'uses', 'with'] },
+  { id: 'uses:docker/setup-buildx-action@v4', keys: ['uses'], uses: 'docker/setup-buildx-action@v4' },
+  {
+    id: 'name:Build image (amd64 only, load locally)',
+    keys: ['name', 'uses', 'with'],
+    uses: 'docker/build-push-action@v7',
+  },
   { id: 'name:Start container', keys: ['name', 'run'] },
   { id: 'name:Wait for server', keys: ['name', 'run'] },
   { id: 'name:Verify setup page served when unconfigured', keys: ['name', 'env', 'run'] },
@@ -421,9 +458,25 @@ function checkNoTabs(line, lineNo) {
 
 // Strips an inline comment the way YAML does: `#` only starts a comment when preceded by
 // whitespace, so `a#b` is the scalar `a#b` and `a #b` is the scalar `a`.
+//
+// And NOT inside a quoted scalar, which the first version got wrong. `name: 'Start
+// container #1'` is ordinary YAML that GitHub honours; stripping first turned it into the
+// unterminated `'Start container` and rejected the whole file. That failed loudly rather
+// than mis-reading, so it was churn rather than a hole -- but the comment above claimed
+// YAML semantics the code did not implement, which is the failure class this file exists
+// to close, one level up. A quoted scalar is now handed back whole and its own reader
+// decides; only plain scalars are stripped.
 function stripInlineComment(value) {
-  const m = value.match(/\s#.*$/);
-  return (m ? value.slice(0, m.index) : value).trim();
+  const trimmed = value.trim();
+  const quote = trimmed[0];
+  if (quote === '"' || quote === "'") {
+    const end = trimmed.indexOf(quote, 1);
+    // Unbalanced: hand it back untouched so parseScalar reports it, rather than guessing.
+    if (end === -1) return trimmed;
+    return trimmed.slice(0, end + 1);
+  }
+  const m = trimmed.match(/\s#.*$/);
+  return (m ? trimmed.slice(0, m.index) : trimmed).trim();
 }
 
 // Unquotes a scalar, refusing anything with escape sequences rather than guessing at
@@ -545,9 +598,14 @@ function parseMapping(st, indent) {
         `${JSON.stringify(line.trim())}`,
       );
     }
-    if (SEQ_RE.test(line)) {
-      throw new YamlShapeError(`line ${lineNo}: sequence item where a mapping key was expected`);
-    }
+    // No explicit "sequence item where a mapping key belongs" branch here, and none for a
+    // document that does not start at column 0 further down. Both were written, both were
+    // then found to fire on no input KEY_RE does not already reject ("cannot parse …" and
+    // "unexpected indentation" respectively), and both went the way of the document-marker
+    // branch: a check that cannot be made to matter is claiming a protection the anchoring
+    // already provides. Message quality is the only thing lost, and this file's own
+    // standard says that does not buy a branch. Verified, not assumed -- the parser cases
+    // in the behaviour test still assert both inputs are rejected.
     const m = line.match(KEY_RE);
     if (!m) {
       throw new YamlShapeError(
@@ -631,10 +689,9 @@ function parseYaml(text) {
   const st = { lines, i: 0 };
   skipTrivia(st);
   if (st.i >= lines.length) return {};
-  const ind = indentOf(lines[st.i]);
-  if (ind !== 0) {
-    throw new YamlShapeError(`line ${st.i + 1}: document does not begin at column 0`);
-  }
+  // An indented first line needs no check of its own: parseMapping and parseSequence both
+  // reject an indent that is not the one they were called with. See the note in
+  // parseMapping for why a redundant branch is deleted rather than kept.
   const doc = SEQ_RE.test(lines[st.i]) ? parseSequence(st, 0) : parseMapping(st, 0);
   skipTrivia(st);
   if (st.i < lines.length) {
@@ -661,14 +718,25 @@ function significantLines(body) {
 //
 // `for ... do`/`done` loops are transparent here: they contain the ifs in this job, and
 // nesting depth is irrelevant to the questions being asked.
+// `block` holds the THEN branch only. An `else`/`elif` closes it, and lines after that
+// point are recorded nowhere -- which matters because `guardExits` reads `block`. Counting
+// else-branch lines let `if COND; then echo ...; else exit 1; fi` satisfy the exit check
+// while asserting the exact opposite of what the step intends: the failure branch prints
+// and passes, and the success branch aborts. Found in review, seam-only (layer B pins the
+// body verbatim in production), and closed here because layer A must stand on its own.
 function extractIfGuards(lines) {
   const guards = [];
   const open = [];
+  const record = line => {
+    for (const g of open) {
+      if (!g.closed) g.block.push(line);
+    }
+  };
   for (const line of lines) {
     const m = line.match(/^if\s+(!\s+)?(.+?)\s*;\s*then$/);
     if (m) {
-      for (const g of open) g.block.push(line);
-      const guard = { negated: Boolean(m[1]), condition: m[2].trim(), block: [] };
+      record(line);
+      const guard = { negated: Boolean(m[1]), condition: m[2].trim(), block: [], closed: false };
       open.push(guard);
       guards.push(guard);
       continue;
@@ -678,9 +746,16 @@ function extractIfGuards(lines) {
       open.pop();
       continue;
     }
-    for (const g of open) g.block.push(line);
+    if (line === 'else' || /^elif\s+/.test(line)) {
+      if (open.length === 0) return null;
+      open[open.length - 1].closed = true;
+      continue;
+    }
+    record(line);
   }
-  return open.length === 0 ? guards : null;
+  if (open.length > 0) return null;
+  for (const g of guards) delete g.closed;
+  return guards;
 }
 
 const guardExits = guard => guard.block.some(l => /^exit\s+[1-9][0-9]*$/.test(l));
@@ -733,7 +808,52 @@ function checkDockerSmoke({
 
   // ── The trigger, the job list, and the job's own shape ──────────────────────
 
+  // The workflow's own key set, before anything below. A workflow-level `defaults:` block
+  // changes the shell for EVERY job -- `shell: sh`, or a bash invocation without `-e` --
+  // and every capture assertion further down silently stops aborting. Pinned as a whole
+  // key set rather than by name: the job-level pin was written first and named
+  // `defaults:` explicitly, which is precisely how the workflow-level spelling walked past.
+  const topKeys = Object.keys(doc);
+  if (!deepEqual(topKeys, EXPECTED_TOP_LEVEL_KEYS)) {
+    fail(
+      `${WORKFLOW_REL} top-level keys are ${JSON.stringify(topKeys)},`,
+      `  expected exactly ${JSON.stringify(EXPECTED_TOP_LEVEL_KEYS)} in this order.`,
+      '  A workflow-level `defaults: {run: {shell: ...}}` replaces the errexit-no-pipefail shell every',
+      '  capture assertion in the smoke job depends on, and a workflow-level `env:` can redefine the two',
+      '  page markers. Both leave every other assertion here green. Update EXPECTED_TOP_LEVEL_KEYS if',
+      '  the new key is deliberate.',
+    );
+  }
+
   const triggers = doc.on;
+  if (!triggers || typeof triggers !== 'object' || Array.isArray(triggers)) {
+    fail(`${WORKFLOW_REL} has no readable on: block -- nothing here can say when the smoke job runs.`);
+  } else {
+    const triggerKeys = Object.keys(triggers);
+    if (!deepEqual(triggerKeys, EXPECTED_TRIGGER_KEYS)) {
+      fail(
+        `${WORKFLOW_REL} on: declares ${JSON.stringify(triggerKeys)},`,
+        `  expected exactly ${JSON.stringify(EXPECTED_TRIGGER_KEYS)} in this order.`,
+        '  Dropping pull_request stops the smoke job existing on PRs at all, and a required check that is',
+        '  never created reads as satisfied rather than as missing.',
+      );
+    }
+    // `paths:` alone was not enough. `branches:` and `types:` neuter the trigger just as
+    // completely while `paths:` still matches its pin exactly -- `types: [labeled]` means
+    // the job only runs when somebody adds a label, never on an ordinary push to the PR.
+    // Both passed the guard green before this key-set pin existed.
+    const prKeys = triggers.pull_request ? Object.keys(triggers.pull_request) : [];
+    if (!deepEqual(prKeys, EXPECTED_PULL_REQUEST_KEYS)) {
+      fail(
+        `${WORKFLOW_REL} on.pull_request declares ${JSON.stringify(prKeys)},`,
+        `  expected exactly ${JSON.stringify(EXPECTED_PULL_REQUEST_KEYS)}.`,
+        '  `branches:` and `types:` each stop the smoke job running on an ordinary PR push while the',
+        '  paths list below still matches -- the PR stays green because no smoke check was ever created',
+        '  to be red. Update EXPECTED_PULL_REQUEST_KEYS if the narrowing is deliberate.',
+      );
+    }
+  }
+
   const prPaths = triggers && triggers.pull_request ? triggers.pull_request.paths : undefined;
   if (!Array.isArray(prPaths)) {
     fail(
@@ -818,9 +938,21 @@ function checkDockerSmoke({
       if (!deepEqual(keys, EXPECTED_STEPS[i].keys)) {
         fail(
           `${WORKFLOW_REL} step ${JSON.stringify(actualIds[i])} declares ${JSON.stringify(keys)},`,
-          `  expected exactly ${JSON.stringify(EXPECTED_STEPS[i].keys)}.`,
+          `  expected exactly ${JSON.stringify(EXPECTED_STEPS[i].keys)} in this order.`,
           '  `if:` makes the step skippable (a skipped step reports success), `continue-on-error: true`',
           '  makes a failing one report success, and `shell:` changes the errexit semantics underneath it.',
+        );
+      }
+      // A NAMED step's id is its name, so its `uses:` is not compared by the id list above
+      // and was compared to nothing at all until this ran -- `docker/build-push-action@v7`
+      // could be repointed at a fork with the whole guard green.
+      const expectedUses = EXPECTED_STEPS[i].uses;
+      if (expectedUses !== undefined && steps[i].uses !== expectedUses) {
+        fail(
+          `${WORKFLOW_REL} step ${JSON.stringify(actualIds[i])} runs ${JSON.stringify(steps[i].uses)},`,
+          `  expected ${JSON.stringify(expectedUses)}.`,
+          '  A repointed `uses:` runs somebody else\'s action under this step\'s name, with this job\'s',
+          '  token. If the action was deliberately bumped, update EXPECTED_STEPS too.',
         );
       }
     }
@@ -907,10 +1039,16 @@ function checkDockerSmoke({
           '  Capturing first is what makes the request its own simple command; piping it straight into the',
           '  consumer discards its exit status, because the job shell has errexit but NOT pipefail.',
         );
-      } else if (bare.filter(l => l === cap.line).length !== 1) {
+      } else if (assignments.length !== 1) {
+        // Counted over ALL assignments, not just exact duplicates of the pinned line. A
+        // SHADOW assignment is the dangerous shape and an exact duplicate is the harmless
+        // one: `body=$(cat /tmp/stale)` after the pinned capture leaves every other check
+        // here satisfied while the assertions below read something the step never fetched.
         fail(
-          `${WORKFLOW_REL} step ${JSON.stringify(name)} captures $${cap.name} more than once -- this guard`,
-          '  pins one occurrence and can no longer tell which one the assertions read.',
+          `${WORKFLOW_REL} step ${JSON.stringify(name)} assigns $${cap.name} ${assignments.length} times`,
+          `    ${JSON.stringify(assignments)}`,
+          '  -- this guard pins one capture and can no longer tell which value the assertions below read.',
+          '  A later assignment shadows the pinned one, so the step asserts on something it never fetched.',
         );
       }
     }
