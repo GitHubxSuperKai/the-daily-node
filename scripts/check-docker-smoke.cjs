@@ -101,6 +101,14 @@ const SETUP_REL = 'setup.html';
 // rather than the two spellings somebody thought of.
 const EXPECTED_TOP_LEVEL_KEYS = ['name', 'on', 'permissions', 'jobs'];
 
+// The token this workflow hands every job. Pinned by VALUE, not merely by the key's
+// presence in the list above: `permissions: write-all` is a one-word escalation in a
+// workflow that pushes to GHCR, and an added `id-token: write` is an OIDC credential
+// nothing here needs. The publish job is otherwise out of this guard's scope, but the
+// token it runs with is declared at the top of the file the smoke job lives in, so it
+// costs one assertion to pin rather than to write a note explaining why it is not pinned.
+const EXPECTED_PERMISSIONS = { contents: 'read', packages: 'write' };
+
 // The trigger key sets, for the same reason and found the same way. Pinning
 // `on.pull_request.paths` alone left two siblings that neuter the trigger just as
 // completely while `paths:` still matches its pin exactly: `branches: [never-a-branch]`
@@ -473,6 +481,14 @@ function stripInlineComment(value) {
     const end = trimmed.indexOf(quote, 1);
     // Unbalanced: hand it back untouched so parseScalar reports it, rather than guessing.
     if (end === -1) return trimmed;
+    const rest = trimmed.slice(end + 1);
+    // What follows the closing quote must be nothing, or a comment. Slicing at the first
+    // closing quote and discarding the remainder unread made `'don''t'` parse as `don`
+    // (YAML's escape doubling -- the real value is `don't`) and `'x' junk` parse as `x`.
+    // Both THREW before this function was rewritten, and rule 2 says a shape this cannot
+    // read must fail loudly rather than be guessed at. Handing the whole thing back lets
+    // parseScalar report it as the unbalanced or nested-quote value it is.
+    if (rest !== '' && !/^\s#/.test(rest)) return trimmed;
     return trimmed.slice(0, end + 1);
   }
   const m = trimmed.match(/\s#.*$/);
@@ -727,10 +743,14 @@ function significantLines(body) {
 function extractIfGuards(lines) {
   const guards = [];
   const open = [];
+  // Only the INNERMOST open guard records a line. Pushing into every open guard meant an
+  // `exit 1` under a dead inner `if false; then ... fi` satisfied the OUTER guard's exit
+  // check -- the same shape as the else-branch hole, one level in. The guards in this job
+  // are flat, so nothing legitimate is lost by attributing each line to the block it
+  // actually belongs to.
   const record = line => {
-    for (const g of open) {
-      if (!g.closed) g.block.push(line);
-    }
+    const g = open[open.length - 1];
+    if (g && !g.closed) g.block.push(line);
   };
   for (const line of lines) {
     const m = line.match(/^if\s+(!\s+)?(.+?)\s*;\s*then$/);
@@ -746,7 +766,12 @@ function extractIfGuards(lines) {
       open.pop();
       continue;
     }
-    if (line === 'else' || /^elif\s+/.test(line)) {
+    // `\b`, not an exact-string match. `else` and `elif` take trailing comments, and
+    // `significantLines` only drops a line whose FIRST character is `#` -- so an exact
+    // match on 'else' was defeated by `else # keep the happy path quiet`, which is valid
+    // bash and restores the inversion this branch was added to stop. Found in re-review:
+    // the fix was one token too narrow.
+    if (/^else\b/.test(line) || /^elif\b/.test(line)) {
       if (open.length === 0) return null;
       open[open.length - 1].closed = true;
       continue;
@@ -822,6 +847,15 @@ function checkDockerSmoke({
       '  capture assertion in the smoke job depends on, and a workflow-level `env:` can redefine the two',
       '  page markers. Both leave every other assertion here green. Update EXPECTED_TOP_LEVEL_KEYS if',
       '  the new key is deliberate.',
+    );
+  }
+
+  if (!deepEqual(doc.permissions, EXPECTED_PERMISSIONS)) {
+    fail(
+      `${WORKFLOW_REL} permissions: is ${JSON.stringify(doc.permissions)},`,
+      `  expected exactly ${JSON.stringify(EXPECTED_PERMISSIONS)}.`,
+      '  `write-all` is a one-word escalation of the token every job in this workflow runs with, in a',
+      '  workflow that pushes images to GHCR. Update EXPECTED_PERMISSIONS if the change is deliberate.',
     );
   }
 
@@ -1015,9 +1049,19 @@ function checkDockerSmoke({
     const lines = bodies.get(name);
     if (!lines) continue;
     for (const cap of captures) {
-      const assignments = lines.filter(l =>
-        new RegExp(`(^|\\s)${cap.name}=`).test(l) && l.includes('$('),
+      // EVERY line that writes this variable, not only the command substitutions.
+      // Restricting the count to lines containing `$(` was a denylist inside an allowlist
+      // -- design rule 1, broken in the check that enforces it -- and re-review turned it
+      // into a working bypass: `body=$SETUP_MARK` and `read -r body < /tmp/stale` both
+      // shadow the pinned capture, are invisible to a `$(`-only filter, and let each page
+      // step synthesise the very marker it then greps for. That is #144's vacuity restored
+      // in full, with the guard green and layer B silenced by an updated pin.
+      const writes = new RegExp(
+        `(?:(^|\\s)${cap.name}=)|(?:^read\\s+(?:-\\S+\\s+)*${cap.name}\\b)`,
       );
+      const assignments = lines.filter(l => writes.test(l));
+      // `$(` still classifies the capture itself -- a bare command substitution is the
+      // shape that aborts under errexit -- it just no longer decides what counts as a write.
       const bare = assignments.filter(l => l.startsWith(`${cap.name}=$(`));
       const prefixed = assignments.filter(l =>
         NON_ABORTING_PREFIXES.some(p => new RegExp(`^${p}\\s`).test(l)),

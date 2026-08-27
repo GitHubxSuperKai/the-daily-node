@@ -253,6 +253,19 @@ describe('the workflow one level above the job', () => {
       .toMatch(/top-level keys are/);
   });
 
+  // The top-level key list only pins that `permissions:` is PRESENT. Its value is a
+  // one-word escalation of the token every job here runs with, in a workflow that pushes
+  // to GHCR, so it is pinned too rather than noted as out of scope.
+  it('rejects a broadened permissions block', () => {
+    expect(rejects(sub(GOOD, 'permissions:\n  contents: read\n  packages: write', 'permissions: write-all')))
+      .toMatch(/permissions: is/);
+  });
+
+  it('rejects an added permission', () => {
+    expect(rejects(sub(GOOD, '  contents: read\n  packages: write', '  contents: read\n  packages: write\n  id-token: write')))
+      .toMatch(/permissions: is/);
+  });
+
   // `paths:` still matches its pin exactly in both of these. The trigger is neutered
   // anyway, and a required check that is never created reads as satisfied.
   it('rejects on.pull_request.branches narrowing the trigger', () => {
@@ -769,24 +782,72 @@ describe('layer A keeps biting after the pin has been updated to match', () => {
   // The assertion inverted rather than removed: the failure branch prints and falls
   // through, and the SUCCESS branch aborts. `exit 1` is still present in the step, so a
   // check that merely looked for it anywhere would be satisfied.
-  it('rejects an assertion inverted through an else-branch even with the pin updated', () => {
+  //
+  // The three spellings are the point. `else` matched exactly was the first fix, and
+  // re-review defeated it with a trailing comment -- `significantLines` only drops a line
+  // whose FIRST character is `#`, so `else # ...` survived as an ordinary block line.
+  for (const [label, elseLine] of [
+    ['a bare else', 'else'],
+    ['an else carrying a comment', 'else # the marker was there, so nothing to report'],
+    ['an elif', 'elif true; then'],
+  ]) {
+    it(`rejects an assertion inverted through ${label}, even with the pin updated`, () => {
+      const step = 'Verify setup page served when unconfigured';
+      const mutated = sub(
+        GOOD,
+        '          if echo "$body" | grep -q "$DASH_MARK"; then\n            echo "Dashboard served when unconfigured -- setup gate is broken"\n            exit 1\n          fi',
+        `          if echo "$body" | grep -q "$DASH_MARK"; then\n            echo "Dashboard served when unconfigured -- setup gate is broken"\n          ${elseLine}\n            exit 1\n          fi`,
+      );
+      expect(stillCaught(mutated, step)).toMatch(/no longer exits non-zero/);
+    });
+  }
+
+  // The same shape one level in: the `exit 1` is inside a dead inner `if`, so it never
+  // runs, but it sits textually inside the outer guard's block.
+  it('rejects an exit buried under a dead inner if, even with the pin updated', () => {
     const step = 'Verify setup page served when unconfigured';
     const mutated = sub(
       GOOD,
       '          if echo "$body" | grep -q "$DASH_MARK"; then\n            echo "Dashboard served when unconfigured -- setup gate is broken"\n            exit 1\n          fi',
-      '          if echo "$body" | grep -q "$DASH_MARK"; then\n            echo "Dashboard served when unconfigured -- setup gate is broken"\n          else\n            exit 1\n          fi',
+      '          if echo "$body" | grep -q "$DASH_MARK"; then\n            echo "Dashboard served when unconfigured -- setup gate is broken"\n            if false; then\n            exit 1\n            fi\n          fi',
     );
     expect(stillCaught(mutated, step)).toMatch(/no longer exits non-zero/);
   });
 
   // A shadow assignment: the pinned capture is untouched and still bare, and the
   // assertions below it read a completely different value.
-  it('rejects a second assignment shadowing the capture even with the pin updated', () => {
-    const step = 'Verify API endpoint responds';
+  //
+  // The three spellings matter, and the first version of this check only saw the first.
+  // Filtering candidate writes on `l.includes('$(')` was a denylist inside an allowlist,
+  // and re-review turned it into a working bypass: `body=$SETUP_MARK` lets a page step
+  // synthesise the very marker it then greps for, which is #144's vacuity restored in
+  // full with the guard green.
+  for (const [label, shadow] of [
+    ['a command substitution', 'body=$(cat /tmp/cached-response.json)'],
+    ['a plain variable expansion', 'body=$SETUP_MARK'],
+    ['a read redirect', 'read -r body < /tmp/stale-response.json'],
+  ]) {
+    it(`rejects ${label} shadowing the capture even with the pin updated`, () => {
+      const step = 'Verify API endpoint responds';
+      const mutated = sub(
+        GOOD,
+        '          body=$(curl -fsS http://localhost:3001/api/miners)\n',
+        `          body=$(curl -fsS http://localhost:3001/api/miners)\n          ${shadow}\n`,
+      );
+      expect(stillCaught(mutated, step)).toMatch(/assigns \$body 2 times/);
+    });
+  }
+
+  // The reviewer's full working bypass, reproduced end to end: BOTH page steps rewritten
+  // so each synthesises its own `body` from its own marker. Every other assertion in the
+  // file is satisfied -- both directions asserted, negations right, env pinned, captures
+  // bare -- and the steps pass whichever page the container actually serves.
+  it('rejects a page step synthesising the body it then greps, even with the pin updated', () => {
+    const step = 'Verify setup page served when unconfigured';
     const mutated = sub(
       GOOD,
-      '          body=$(curl -fsS http://localhost:3001/api/miners)\n',
-      '          body=$(curl -fsS http://localhost:3001/api/miners)\n          body=$(cat /tmp/cached-response.json)\n',
+      '          body=$(curl -fsS http://localhost:3001/)\n          printf',
+      '          body=$(curl -fsS http://localhost:3001/)\n          body="$SETUP_MARK"\n          printf',
     );
     expect(stillCaught(mutated, step)).toMatch(/assigns \$body 2 times/);
   });
@@ -864,7 +925,16 @@ describe('the parser fails loudly rather than quietly', () => {
     expect(parseYaml('a:\n  b: "c #1"\n')).toEqual({ a: { b: 'c #1' } });
     expect(parseYaml('a:\n  b: x # comment\n')).toEqual({ a: { b: 'x' } });
     expect(parseYaml('a:\n  b: a#b\n')).toEqual({ a: { b: 'a#b' } });
+    expect(parseYaml("a:\n  b: 'x' # note\n")).toEqual({ a: { b: 'x' } });
+    expect(parseYaml("a:\n  b: it's fine\n")).toEqual({ a: { b: "it's fine" } });
+    expect(parseYaml("a:\n  b: ''\n")).toEqual({ a: { b: '' } });
     expect(() => parseYaml("a:\n  b: 'oops\n")).toThrow(YamlShapeError);
+    // What follows the closing quote must be nothing or a comment. Slicing at the first
+    // closing quote and discarding the rest unread made YAML's escape doubling read as a
+    // truncation (`'don''t'` is the value `don't`, not `don`) and let trailing junk pass.
+    // Both threw before this function was rewritten, and must still.
+    expect(() => parseYaml("a:\n  b: 'don''t'\n")).toThrow(YamlShapeError);
+    expect(() => parseYaml("a:\n  b: 'x' junk\n")).toThrow(YamlShapeError);
   });
 
   // Advertised as a supported benign reformat in this parser's own comment, so it needs a
