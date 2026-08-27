@@ -283,6 +283,24 @@ describe('check-secrets: this file passes its own scanner off the fixture surfac
     // Reads the file off disk rather than trusting the transformed module, so a
     // literal in a comment -- which is where the last one hid -- still counts.
     const self = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8');
+    // Pins that `self` is this file and not an empty string: an empty fixture is
+    // trivially clean, so the ACCEPT below would pass while scanning nothing. The
+    // negative control further down does NOT cover this -- it appends its own literal,
+    // so it still rejects on empty `self`. Marker rather than length alone, so the
+    // assertion cannot be satisfied by some other file that happens to be long.
+    expect(self, 'read back the wrong file').toContain('passes its own scanner off the fixture surface');
+    expect(self.length).toBeGreaterThan(2000);
     expectAccepted(scanFiles({ 'src/utils/selfScanFixture.js': self }));
+
+    // Negative control, and the case does not earn its keep without it. An ACCEPT
+    // assertion alone passes on an empty `self` and -- the reachable one -- passes
+    // forever if this path ever drifts back onto the fixture surface, where the
+    // reserved values are exempt again. Staging the same bytes plus one reserved
+    // literal pins both: it can only fail here, so a green ACCEPT above means the
+    // path is genuinely off the fixture surface and `self` genuinely holds this file.
+    expectRejected(
+      scanFiles({ 'src/utils/selfScanFixture.js': `${self}\n// ${RESERVED_IP_10}\n` }),
+      'src/utils/selfScanFixture.js', P_10,
+    );
   });
 });
