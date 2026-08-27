@@ -97,6 +97,17 @@ describe('check-codeql-config: the real repo', () => {
       expect(checkRepo(makeRoot(widened, GOOD_WORKFLOW))).not.toEqual([]);
     });
 
+    // The mirror of the case above, for the WORKFLOW read. Without it, pointing the
+    // workflow read at REPO_ROOT while honouring `root` for the config -- or hardcoding
+    // it outright -- kept all cases green, which leaves the entire workflow half of the
+    // guard (the uses allowlist, the step inputs, the matrix, the binding) decorative
+    // in exactly the way this describe block exists to prevent.
+    it('rejects a gutted workflow that exists only on disk', () => {
+      const gutted = GOOD_WORKFLOW.replace(/\n {6}- name: Perform CodeQL Analysis[\s\S]*$/, '\n');
+      expect(gutted).not.toEqual(GOOD_WORKFLOW);
+      expect(checkRepo(makeRoot(GOOD_CONFIG, gutted))).not.toEqual([]);
+    });
+
     it('reports a missing config rather than passing over it', () => {
       const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dn-codeql-empty-'));
       tmpRoots.push(root);
@@ -126,6 +137,31 @@ describe('check-codeql-config: the real repo', () => {
   it('declares the allowlist as a literal, not derived from the file it guards', () => {
     const src = fs.readFileSync(path.join(REPO_ROOT, 'scripts', 'check-codeql-config.cjs'), 'utf8');
     expect(src).toMatch(/^const PATHS_IGNORE_ALLOWED = \['index\.html'\];$/m);
+  });
+
+  // The assertion above pins ONE constant's declaration, and review showed that is not
+  // the class. Five others -- ALLOWED_TOP_LEVEL_KEYS, EXPECTED_USES, and friends --
+  // could each be redefined to derive from the very file they guard with all cases
+  // still green, and so could the comparison at a call site while the declaration above
+  // stayed verbatim. Every one of those makes its gate agree with itself forever, and
+  // in production accepts any edit at all.
+  //
+  // Pinning six literals one by one would leave the seventh. This pins the PROPERTY
+  // instead: neither the constants nor the pure checker may touch the filesystem. Only
+  // readOrNull and checkRepo, below the divider, are allowed to read anything -- and
+  // what they read is under test in "checkRepo reads from disk" above.
+  it('never reads a file to decide what to expect', () => {
+    const src = fs.readFileSync(path.join(REPO_ROOT, 'scripts', 'check-codeql-config.cjs'), 'utf8');
+    const start = src.indexOf('// ── The guarded values');
+    const end = src.indexOf('function readOrNull(');
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const pureRegion = src.slice(start, end);
+    // Comment lines are excluded: this region's prose legitimately discusses reading
+    // files, and an assertion satisfied -- or in this case broken -- by the comment
+    // explaining it is the repeat failure this repo keeps re-learning.
+    const code = pureRegion.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+    expect(code).not.toMatch(/readFileSync|readdirSync|existsSync|require\s*\(/);
   });
 });
 
@@ -259,12 +295,60 @@ describe('check-codeql-config: workflow mutations that unhook the config', () =>
       workflow: GOOD_WORKFLOW.replace('      - uses: actions/checkout@v6\n', ''),
     },
     {
-      // Covers stripCommentLines, which had no test at all. Neutering it to
-      // `return text` kept every other case green, and it is the single branch here
-      // implementing this repo's most-repeated lesson: an unanchored assertion is
-      // satisfied by the prose that merely mentions the thing being asserted.
+      // Anchoring is what makes this fail: every workflow pattern requires the key at
+      // the start of the line, and a commented line starts with `#`, which is not
+      // whitespace. A comment-stripping helper was written for this job and deleted
+      // once it was shown to change no verdict; this case asserts the property that
+      // actually holds, rather than the one the helper claimed.
       name: 'config-file: is commented out but left visible in the text',
       workflow: GOOD_WORKFLOW.replace(/^(\s*)(config-file:.*)$/m, '$1# $2'),
+    },
+    // Round two of review found these six. The first two are the same shape as the
+    // escapes above, one level deeper: the step is present, the action is right, every
+    // pinned key is untouched, and coverage is gone anyway.
+    {
+      // A real codeql-action input. Results are never uploaded, so the job is green and
+      // no alert ever reaches the security tab.
+      name: 'upload: never is added to the analyze step',
+      workflow: GOOD_WORKFLOW.replace('          category:', '          upload: never\n          category:'),
+    },
+    {
+      name: 'packs: is added to the init step, swapping the query set',
+      workflow: GOOD_WORKFLOW.replace('          config-file:', '          packs: some/pack\n          config-file:'),
+    },
+    {
+      // language: still lists both, the binding still reads the matrix, every uses: is
+      // intact -- and python never runs.
+      name: 'matrix.exclude drops a language from the expansion',
+      workflow: GOOD_WORKFLOW.replace(
+        '        language: [javascript-typescript, python]',
+        '        language: [javascript-typescript, python]\n        exclude:\n          - language: python',
+      ),
+    },
+    {
+      // The uses: pattern could not see a line with a trailing comment, so the inserted
+      // step never entered the compared list -- an allowlist blind to insertions.
+      name: 'an inserted step carries a trailing comment',
+      workflow: GOOD_WORKFLOW.replace('      - uses: actions/checkout@v6', '      - uses: actions/checkout@v6\n      - uses: evil/exfil@v1 # pinned'),
+    },
+    {
+      // `if : false` is valid YAML. One space walked past an assertion anchored on
+      // `if:`, and GitHub counts a skipped required check as satisfied.
+      name: 'if : false, with a space before the colon',
+      workflow: GOOD_WORKFLOW.replace('    runs-on: ubuntu-latest', '    if : false\n    runs-on: ubuntu-latest'),
+    },
+    {
+      name: 'continue-on-error : true, with a space before the colon',
+      workflow: GOOD_WORKFLOW.replace('    runs-on: ubuntu-latest', '    continue-on-error : true\n    runs-on: ubuntu-latest'),
+    },
+    {
+      // A non-global /m regex takes the first match anywhere in the file, so an earlier
+      // run: block whose body lines start with a guarded key misdirects the assertion
+      // onto text that is not the setting, leaving the real one free to say anything.
+      name: 'an earlier run: block decoys the guarded keys',
+      workflow: GOOD_WORKFLOW
+        .replace('          config-file: .github/codeql/codeql-config.yml', '          config-file: evil.yml')
+        .replace('      - uses: actions/checkout@v6', '      - run: |\n          config-file: .github/codeql/codeql-config.yml\n      - uses: actions/checkout@v6'),
     },
   ];
 
@@ -402,10 +486,10 @@ describe('check-codeql-config: the parser itself', () => {
 });
 
 describe('check-codeql-config: workflow assertions must not be satisfied by prose', () => {
-  // The inverse control for stripCommentLines: it must drop comment lines, but the
-  // denylist assertions must not fire on a comment that merely NAMES the setting.
-  // Unanchored, /continue-on-error/ failed the build on a comment saying there wasn't
-  // one -- the same class of bug, pointing the other way.
+  // The inverse control for anchoring. A commented-out setting must not read as
+  // present (covered above), and a comment that merely NAMES a setting must not read
+  // as setting it. Unanchored, /continue-on-error/ failed the build on a comment
+  // saying there wasn't one -- the same class of bug, pointing the other way.
   it('accepts a comment that mentions continue-on-error without setting it', () => {
     const workflow = GOOD_WORKFLOW.replace(
       '    runs-on: ubuntu-latest',

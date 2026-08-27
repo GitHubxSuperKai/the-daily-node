@@ -15,18 +15,26 @@
 //      author imagined -- an earlier denylist elsewhere in this repo rejected the
 //      obvious cases and sailed straight past `^src/`, `/^.*/` and `/\.md$/`, each of
 //      which re-blinds an entire tree just as completely. ALLOWED_TOP_LEVEL_KEYS,
-//      PATHS_IGNORE_ALLOWED and EXPECTED_USES are each compared with deepStrictEqual,
-//      so ANY edit -- widening, narrowing, reordering, or adding something nobody here
-//      anticipated -- fails until this file is edited too. That forced edit IS the
-//      review gate.
+//      PATHS_IGNORE_ALLOWED, EXPECTED_USES, EXPECTED_MATRIX_KEYS and the per-step
+//      EXPECTED_STEP_INPUTS are each compared with deepStrictEqual, so ANY edit --
+//      widening, narrowing, reordering, or adding something nobody here anticipated --
+//      fails until this file is edited too. That forced edit IS the review gate.
 //
-//      Two residual DENYLIST assertions remain, on `if:` and `continue-on-error:` in
-//      the workflow, and they are named here rather than glossed because the first
-//      version of this file claimed a blanket allowlist it did not implement. They are
-//      a backstop on top of the allowlists above, not the primary defence: the four
-//      escapes that mattered (analyze step deleted or commented out, `languages:`
-//      hardcoded past the matrix, action repointed at a fork) are all caught by
-//      EXPECTED_USES and EXPECTED_LANGUAGES_BINDING instead.
+//      This took two review rounds to get right, and the misses are worth recording
+//      because they were all the same mistake at different depths. Round one guarded
+//      the workflow with a denylist of four keys: deleting the `Perform CodeQL
+//      Analysis` step, commenting it out, hardcoding `languages:` past the matrix, and
+//      repointing an action at a fork all passed. Round two pinned the actions and the
+//      matrix binding, and the same shape reappeared one level down -- `upload: never`
+//      added to the analyze step's `with:` (a real action input that suppresses the
+//      results upload entirely: green job, no alerts, ever) and `exclude:` added under
+//      `matrix:` (drops a language from the expansion while `language:` still lists it)
+//      both passed. Pinning whole KEY SETS rather than checking keys somebody thought
+//      of is what actually closed the class: an addition has to come through here.
+//
+//      Two residual DENYLIST assertions remain, on `if:` and `continue-on-error:`, and
+//      they are named rather than glossed because the first version claimed a blanket
+//      allowlist it did not implement. They are a backstop, not the primary defence.
 //
 //   2. PARSE, do not regex the file. A regex over the raw text is defeated by an
 //      innocent reformat: switch to flow style, requote an entry, change the indent,
@@ -110,6 +118,22 @@ const EXPECTED_USES = [
 // language here while leaving the matrix listing both passed every earlier assertion
 // and silently stopped scanning Python.
 const EXPECTED_LANGUAGES_BINDING = '${{ matrix.language }}';
+
+// The matrix's own key set. Listing both languages is not enough: `exclude:` under
+// `matrix:` removes one from the expansion while `language:` still names it and the
+// binding still reads it, so that language is silently never scanned again.
+const EXPECTED_MATRIX_KEYS = ['language'];
+
+// The complete ordered input set of each codeql-action step. Spot-checking
+// config-file/queries/languages left every other input unconstrained, and the
+// dangerous mutations are ADDITIONS rather than edits: `upload: never` on analyze is a
+// real action input that suppresses the results upload, so the job stays green and no
+// alert ever reaches the security tab; `packs:` on init swaps the query set out from
+// under the pinned `queries:` value.
+const EXPECTED_STEP_INPUTS = {
+  'github/codeql-action/init@v4': ['languages', 'queries', 'config-file'],
+  'github/codeql-action/analyze@v4': ['category'],
+};
 
 // ── A very small, very strict YAML block parser ───────────────────────────────
 //
@@ -315,39 +339,70 @@ function checkCodeqlConfig({ configText, workflowText }) {
   }
 
   // ── The config only matters if the workflow still reads it ──────────────────
+  //
+  // Everything here uses matchAll and asserts EXACTLY ONE occurrence rather than
+  // taking the first /m match. A non-global /m regex matches anywhere in the file, so
+  // an earlier step -- a `run: |` block whose body happens to start a line with one of
+  // these keys, or a second job -- silently misdirects the assertion onto text that is
+  // not the setting being guarded, while the real one is free to say anything.
   const wf = workflowText;
 
-  const configFile = wf.match(/^\s*config-file:\s*(\S+)\s*$/m);
-  if (!configFile) {
-    problems.push(
-      `${WORKFLOW_REL} no longer passes config-file: to codeql-action/init.`,
-      `  Without it CodeQL ignores ${CONFIG_REL} entirely and every assertion above guards a dead file.`,
-    );
-  } else if (configFile[1] !== EXPECTED_CONFIG_FILE) {
-    problems.push(
-      `${WORKFLOW_REL} points config-file: at ${JSON.stringify(configFile[1])}, expected ${JSON.stringify(EXPECTED_CONFIG_FILE)}.`,
-      '  This guard reads the file at the expected path; a workflow reading a different one means the two have drifted.',
-    );
-  }
+  // Reads the keys of an indented block, in order. Used to pin whole `with:` and
+  // `matrix:` blocks rather than spot-checking the keys somebody thought of: the four
+  // pinned keys were a denylist of four, and `upload: never` on the analyze step (a
+  // real codeql-action input that suppresses the results upload entirely) sailed
+  // through with the job green and zero alerts ever reaching the security tab.
+  const blockKeys = (text, header) => {
+    const lines = text.split('\n');
+    const i = lines.findIndex(l => header.test(l));
+    if (i === -1) return null;
+    const indent = lines[i].match(/^\s*/)[0].length;
+    const keys = [];
+    for (let j = i + 1; j < lines.length; j++) {
+      const line = lines[j];
+      if (line.trim() === '') continue;
+      const lead = line.match(/^\s*/)[0].length;
+      if (lead <= indent) break;
+      const kv = line.match(/^\s*-?\s*([A-Za-z0-9_-]+)\s*:/);
+      if (kv) keys.push(kv[1]);
+    }
+    return keys;
+  };
 
-  const queries = wf.match(/^\s*queries:\s*(\S+)\s*$/m);
-  if (!queries) {
-    problems.push(
-      `${WORKFLOW_REL} no longer sets queries: -- CodeQL falls back to its default suite, which is a`,
-      `  fraction of ${EXPECTED_QUERIES}. Fewer rules, same green check.`,
-    );
-  } else if (queries[1] !== EXPECTED_QUERIES) {
-    problems.push(
-      `${WORKFLOW_REL} sets queries: ${JSON.stringify(queries[1])}, expected ${JSON.stringify(EXPECTED_QUERIES)}.`,
-      '  Narrowing the suite drops rules silently. If deliberate, update EXPECTED_QUERIES.',
-    );
-  }
+  // One occurrence, exact value. `\s*:` not `:` -- `key : value` is a valid YAML
+  // mapping key, and a single space was enough to walk past an anchored `key:` test.
+  const pinOne = (key, expected, why) => {
+    const rx = new RegExp(`^\\s*${key}\\s*:\\s*(.+?)\\s*(?:#.*)?$`, 'gm');
+    const hits = [...wf.matchAll(rx)].map(m => m[1]);
+    if (hits.length === 0) {
+      problems.push(`${WORKFLOW_REL} no longer sets ${key}: -- ${why}`);
+    } else if (hits.length > 1) {
+      problems.push(
+        `${WORKFLOW_REL} sets ${key}: ${hits.length} times (${JSON.stringify(hits)}) -- this guard pins one`,
+        '  occurrence, and more than one means it can no longer tell which is the live setting.',
+      );
+    } else if (hits[0] !== expected) {
+      problems.push(
+        `${WORKFLOW_REL} sets ${key}: ${JSON.stringify(hits[0])}, expected ${JSON.stringify(expected)}.`,
+        `  ${why}`,
+      );
+    }
+  };
 
-  const languageLine = wf.match(/^\s*language:\s*\[(.*)\]\s*$/m);
+  pinOne('config-file', EXPECTED_CONFIG_FILE,
+    `Without it CodeQL ignores ${CONFIG_REL} entirely and every assertion above guards a dead file.`);
+  pinOne('queries', EXPECTED_QUERIES,
+    'Narrowing the suite drops the majority of the rules while the job still reports "CodeQL passed".');
+  // Asserting the matrix without asserting that anything READS it guards nothing:
+  // hardcoding one language here leaves the matrix listing both and Python unscanned.
+  pinOne('languages', EXPECTED_LANGUAGES_BINDING,
+    'Hardcoding a language here leaves the matrix listing both and silently stops scanning the other.');
+
+  const languageLine = wf.match(/^\s*language\s*:\s*\[(.*)\]\s*$/m);
   if (!languageLine) {
     problems.push(`${WORKFLOW_REL} no longer declares a language matrix this guard can read.`);
   } else {
-    const languages = languageLine[1].split(',').map(s => s.trim()).filter(Boolean);
+    const languages = languageLine[1].split(',').map(x => x.trim()).filter(Boolean);
     if (!deepEqual(languages, EXPECTED_LANGUAGES)) {
       problems.push(
         `${WORKFLOW_REL} analyses ${JSON.stringify(languages)}, expected exactly ${JSON.stringify(EXPECTED_LANGUAGES)}.`,
@@ -356,30 +411,30 @@ function checkCodeqlConfig({ configText, workflowText }) {
     }
   }
 
-  // Asserting the matrix without asserting that anything READS it guards nothing:
-  // hardcoding one language on the init step leaves the matrix listing both, every
-  // other assertion satisfied, and Python unscanned.
-  const languagesBinding = wf.match(/^\s*languages:\s*(.+?)\s*$/m);
-  if (!languagesBinding) {
+  // The matrix key set, pinned. Listing both languages is not enough: `exclude:` under
+  // `matrix:` removes one from the expansion while the `language:` line still names it,
+  // the binding is still `${{ matrix.language }}`, every `uses:` is intact -- and that
+  // language is never scanned again.
+  const matrixKeys = blockKeys(wf, /^\s*matrix\s*:\s*$/);
+  if (!deepEqual(matrixKeys, EXPECTED_MATRIX_KEYS)) {
     problems.push(
-      `${WORKFLOW_REL} no longer passes languages: to codeql-action/init -- the matrix is declared but nothing consumes it.`,
-    );
-  } else if (languagesBinding[1] !== EXPECTED_LANGUAGES_BINDING) {
-    problems.push(
-      `${WORKFLOW_REL} passes languages: ${JSON.stringify(languagesBinding[1])}, expected ${JSON.stringify(EXPECTED_LANGUAGES_BINDING)}.`,
-      '  Hardcoding a language here leaves the matrix listing both and silently stops scanning the other.',
+      `${WORKFLOW_REL} matrix declares ${JSON.stringify(matrixKeys)}, expected exactly ${JSON.stringify(EXPECTED_MATRIX_KEYS)}.`,
+      '  `include:`/`exclude:` here change which languages actually run without touching the language list.',
     );
   }
 
-  // Strict allowlist over every action the workflow runs, in order. Catches the step
-  // being deleted or commented out (the analyze step going missing leaves the job
-  // named, required, green and analysing nothing), a step being added, and the action
-  // being repointed at a fork.
-  // The `-?` matters: a step can be written `- uses: x` (the action IS the step) or
-  // `- name: …` then an indented `uses: x`. This workflow uses both forms, and a
-  // pattern that only matched the second silently dropped actions/checkout from the
-  // list -- an allowlist that cannot see an entry cannot guard it.
-  const uses = [...wf.matchAll(/^\s*(?:-\s+)?uses:\s*(\S+)\s*$/gm)].map(m => m[1]);
+  // Strict allowlist over every action the workflow runs, in order. Catches the
+  // analyze step being deleted or commented out (which leaves the job named, required,
+  // green and analysing nothing at all), a step being added, and an action repointed at
+  // a fork.
+  //
+  // The `-?` matters: a step can be `- uses: x` (the action IS the step) or `- name: …`
+  // then an indented `uses: x`. This workflow uses both, and a pattern matching only the
+  // second silently dropped actions/checkout from the list. The trailing-comment group
+  // matters for the same reason: `- uses: evil/x@v1 # pinned` was invisible to the
+  // earlier pattern, so an INSERTED step escaped an allowlist whose whole job is to
+  // notice insertions.
+  const uses = [...wf.matchAll(/^\s*(?:-\s+)?uses\s*:\s*(\S+)\s*(?:#.*)?$/gm)].map(m => m[1]);
   if (!deepEqual(uses, EXPECTED_USES)) {
     problems.push(
       `${WORKFLOW_REL} runs ${JSON.stringify(uses)}, expected exactly ${JSON.stringify(EXPECTED_USES)}.`,
@@ -389,21 +444,41 @@ function checkCodeqlConfig({ configText, workflowText }) {
     );
   }
 
+  // The inputs to each codeql-action step, pinned as complete ordered key sets. Spot-
+  // checking config-file/queries/languages leaves every OTHER input unconstrained, and
+  // the dangerous ones are additions rather than edits: `upload: never` on analyze
+  // suppresses the results upload (green job, no alerts, ever), and `packs:` on init
+  // swaps the query set out from under the pinned `queries:` value.
+  for (const [action, expected] of Object.entries(EXPECTED_STEP_INPUTS)) {
+    const escaped = action.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+    const stepIdx = wf.search(new RegExp(`^\\s*(?:-\\s+)?uses\\s*:\\s*${escaped}\\s*(?:#.*)?$`, 'm'));
+    if (stepIdx === -1) continue;   // the uses allowlist above already reported this
+    const keys = blockKeys(wf.slice(stepIdx), /^\s*with\s*:\s*$/);
+    if (!deepEqual(keys, expected)) {
+      problems.push(
+        `${WORKFLOW_REL} passes ${JSON.stringify(keys)} to ${action}, expected exactly ${JSON.stringify(expected)}.`,
+        '  An added input can disable the step without touching anything pinned above --',
+        '  `upload: never` uploads no results at all, and the job still reports success.',
+      );
+    }
+  }
+
   // Both of these leave the job present and permanently green, which is worse than
   // deleting it: the check still reports, so nobody notices it stopped meaning anything.
-  if (/^\s*if:/m.test(wf)) {
+  // `\s*:` because `if : false` is valid YAML and a single space walked past `if:`.
+  // GitHub counts a skipped required check as satisfied, so this is a silent bypass.
+  if (/^\s*if\s*:/m.test(wf)) {
     problems.push(
       `${WORKFLOW_REL} gained an \`if:\` condition -- a job that skips reports success and enforces nothing.`,
     );
   }
   // Anchored as a key, not a substring: unanchored, an inline comment that merely
   // mentions the setting ("# deliberately no continue-on-error") failed the build.
-  if (/^\s*continue-on-error:/m.test(wf)) {
+  if (/^\s*continue-on-error\s*:/m.test(wf)) {
     problems.push(
       `${WORKFLOW_REL} gained continue-on-error -- the analysis could fail and the job would still report green.`,
     );
   }
-
   return problems;
 }
 
@@ -448,13 +523,13 @@ if (require.main === module) {
   console.log(`✓ CodeQL config intact (paths-ignore: ${PATHS_IGNORE_ALLOWED.join(', ')})`);
 }
 
+// Only what the behaviour test and smoke step 16 actually consume. The other pinned
+// constants were exported too and nothing imported them; an export nobody reads is a
+// surface that has to keep working for no one.
 module.exports = {
   checkCodeqlConfig,
   checkRepo,
   parseSimpleYaml,
   YamlShapeError,
-  ALLOWED_TOP_LEVEL_KEYS,
   PATHS_IGNORE_ALLOWED,
-  EXPECTED_QUERIES,
-  EXPECTED_LANGUAGES,
 };
