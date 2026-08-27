@@ -333,6 +333,8 @@ describe('check-secrets: an unread file is a failure, not a clean scan', () => {
     });
     const result = runScanner(path.join(dir, 'src'));
 
+    expect(result.code).toBe(1);
+    expect(result.stdout).not.toMatch(/checked \d+ staged files/);
     const header = result.stderr.match(/could not read (\d+) of (\d+) staged file\(s\)/);
     expect(header, `no unreadable-file report in: ${result.stderr}`).not.toBeNull();
     expect(Number(header[1])).toBe(3);
@@ -340,6 +342,40 @@ describe('check-secrets: an unread file is a failure, not a clean scan', () => {
     for (const rel of ['src/a.js', 'src/b.js', 'docs/c.md']) {
       expect(result.stderr, `${rel} went unread but was not named`).toContain(rel);
     }
+  });
+
+  it('reads a staged path whose name git would C-quote', () => {
+    // `git diff --cached --name-only` C-quotes any path with non-ASCII bytes under
+    // core.quotepath, handing back a name no filesystem has. That file was never
+    // scanned before the fail-closed change either -- it was skipped in silence -- so
+    // the -z listing closes a real coverage hole rather than only making it loud.
+    // Asserted as a REJECT, not an accept: an accept here is also what a scanner that
+    // skipped the file entirely would print.
+    const accented = `src/caf${String.fromCharCode(0xe9)}.js`;
+    expectRejected(
+      scanFiles({ [accented]: `const host = '${PLAIN_192}';\n` }),
+      accented, P_192,
+    );
+  });
+
+  it('blames the working directory only when EVERY staged file went unread', () => {
+    // The cwd advice is right for the wrong-cwd shape and wrong for anything else, so
+    // it is gated on the shape rather than printed unconditionally. One file removed
+    // from the worktree after being staged is a different diagnosis entirely.
+    const partial = makeRepo({ 'docs/here.md': 'clean\n', 'docs/gone.md': 'clean\n' });
+    fs.rmSync(path.join(partial, 'docs/gone.md'));
+    const partialResult = runScanner(partial);
+    expect(partialResult.code).toBe(1);
+    expect(partialResult.stderr).toContain('docs/gone.md');
+    expect(partialResult.stderr, 'named the cwd as the cause of a partial failure')
+      .not.toContain('working directory is not the repo root');
+
+    // Positive control: the same message MUST appear for the shape it describes,
+    // otherwise this case passes on a scanner that simply never prints the advice.
+    const all = makeRepo({ 'src/a.js': 'export const a = 1;\n', 'docs/b.md': 'clean\n' });
+    const allResult = runScanner(path.join(all, 'src'));
+    expect(allResult.code).toBe(1);
+    expect(allResult.stderr).toContain('working directory is not the repo root');
   });
 
   it('does not trip on a staged deletion, where the file is legitimately gone', () => {

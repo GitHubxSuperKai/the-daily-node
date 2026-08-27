@@ -89,8 +89,17 @@ const isReserved = m => RESERVED.has(
 // A path staged as a modification whose working-copy file is then deleted survives this
 // filter and fails below, correctly: the scan reads working-copy content, so for that
 // path there is committed content this run did not see.
-const stagedRaw = execSync('git diff --cached --name-only --diff-filter=d', { encoding: 'utf8' }).trim();
-const staged = stagedRaw ? stagedRaw.split('\n') : [];
+//
+// -z because git C-quotes any path holding non-ASCII bytes, quotes, backslashes or
+// control characters (core.quotepath, on by default): the plain listing returns
+// "src/caf\303\251.js" for a file named with an accent, which is a path no
+// filesystem has. That file was never scanned before this change either -- it was
+// skipped in silence. Now that an unread file stops the run, the same quoting would
+// block a commit AND a required CI check while blaming the working directory. The
+// NUL-delimited listing is never quoted, so this closes the gap rather than only
+// making it loud. No .trim(): a NUL-delimited record may legitimately end in space.
+const stagedRaw = execSync('git diff --cached --name-only --diff-filter=d -z', { encoding: 'utf8' });
+const staged = stagedRaw.split('\0').filter(Boolean);
 const targets = staged.filter(f => !SKIP.some(rx => rx.test(f)));
 
 let matched = false;
@@ -129,10 +138,17 @@ if (unreadable.length) {
   // tells you whether this is one broken symlink or the entire staged set (the wrong-cwd shape).
   console.error(`\n✗ could not read ${unreadable.length} of ${targets.length} staged file(s):`);
   for (const u of unreadable) console.error(`    ${u}`);
-  console.error('These files were NOT scanned. Git reports paths relative to the repository root,');
-  console.error('so the usual cause is a scanner run whose working directory is not the repo root —');
-  console.error('re-run it as "npm run check:secrets" from there. Reporting this as a failure rather');
-  console.error('than as a clean scan is deliberate: a pass over files nobody opened proves nothing.');
+  console.error('These files were NOT scanned. Reporting that as a failure rather than as a clean');
+  console.error('scan is deliberate: a pass over files nobody opened proves nothing.');
+  // Every single target unreadable IS the wrong-cwd signature, because git emits
+  // repo-root-relative paths and nothing else fails uniformly. Naming that cause on a
+  // PARTIAL list would be actively wrong -- one file removed from the worktree after
+  // being staged is a different diagnosis, and the cwd advice would not fix it.
+  if (unreadable.length === targets.length) {
+    console.error('Every staged file was unreadable. Git reports paths relative to the repository');
+    console.error('root, so the usual cause is a run whose working directory is not the repo root —');
+    console.error('re-run it as "npm run check:secrets" from there.');
+  }
 }
 if (matched || unreadable.length) process.exit(1);
 console.log(`✓ checked ${targets.length} staged files, no banned patterns`);
