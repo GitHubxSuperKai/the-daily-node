@@ -1,5 +1,8 @@
 name: CodeQL config
 
+# Patterns are paths relative to the repo root (not basenames), so this skips
+# ONLY the built root index.html that build.js writes -- src/index.html and its
+# inline scaling script are still scanned. Nothing else belongs here: every
+# other tracked .html (setup.html, pitch-deck.html, docs/) is hand-written.
 paths-ignore:
   - index.html
-  - setup.html
