@@ -96,6 +96,11 @@ function makeRepo(files) {
   tmpDirs.push(dir);
   write(dir, files);
   git(['init', '-q', '.'], dir);
+  // Pinned, not inherited: core.quotepath is on by default, and the C-quoting case below
+  // is only mutation-sensitive while it is on. Under an ambient core.quotepath=false the
+  // case would still pass -- correctly, -z is unaffected -- but it would silently stop
+  // testing the property it is named for.
+  git(['config', 'core.quotepath', 'true'], dir);
   git(['add', '-A', '-f', '.'], dir);
   return dir;
 }
@@ -358,24 +363,38 @@ describe('check-secrets: an unread file is a failure, not a clean scan', () => {
     );
   });
 
-  it('blames the working directory only when EVERY staged file went unread', () => {
-    // The cwd advice is right for the wrong-cwd shape and wrong for anything else, so
-    // it is gated on the shape rather than printed unconditionally. One file removed
-    // from the worktree after being staged is a different diagnosis entirely.
+  it('blames the working directory only when the run really is outside the repo root', () => {
+    // The cwd advice is right for the wrong-cwd run and wrong for every other cause, so
+    // it is gated on `git rev-parse --show-prefix` -- the condition itself. An earlier
+    // revision gated it on "every target went unread", which is only a proxy: it holds
+    // for ANY single-file commit, which is the hook's commonest invocation, so a lone
+    // file removed from the worktree got told to re-run from a different directory.
+    const CWD_ADVICE = 'not at the repository root';
+
     const partial = makeRepo({ 'docs/here.md': 'clean\n', 'docs/gone.md': 'clean\n' });
     fs.rmSync(path.join(partial, 'docs/gone.md'));
     const partialResult = runScanner(partial);
     expect(partialResult.code).toBe(1);
     expect(partialResult.stderr).toContain('docs/gone.md');
-    expect(partialResult.stderr, 'named the cwd as the cause of a partial failure')
-      .not.toContain('working directory is not the repo root');
+    expect(partialResult.stderr, 'blamed the cwd for a partial failure').not.toContain(CWD_ADVICE);
 
-    // Positive control: the same message MUST appear for the shape it describes,
-    // otherwise this case passes on a scanner that simply never prints the advice.
+    // The proxy's blind spot, pinned: one staged file, unreadable, run from the root.
+    // "every target unreadable" is trivially true here, so this is the case that told a
+    // developer to change directory when the directory was never the problem.
+    const single = makeRepo({ 'docs/only.md': 'clean\n' });
+    fs.rmSync(path.join(single, 'docs/only.md'));
+    const singleResult = runScanner(single);
+    expect(singleResult.code).toBe(1);
+    expect(singleResult.stderr).toContain('docs/only.md');
+    expect(singleResult.stderr, 'blamed the cwd on a single-file commit at the root')
+      .not.toContain(CWD_ADVICE);
+
+    // Positive control: the advice MUST appear for the run it describes, or every
+    // assertion above is satisfied by a scanner that simply never prints it.
     const all = makeRepo({ 'src/a.js': 'export const a = 1;\n', 'docs/b.md': 'clean\n' });
     const allResult = runScanner(path.join(all, 'src'));
     expect(allResult.code).toBe(1);
-    expect(allResult.stderr).toContain('working directory is not the repo root');
+    expect(allResult.stderr).toContain(CWD_ADVICE);
   });
 
   it('does not trip on a staged deletion, where the file is legitimately gone', () => {

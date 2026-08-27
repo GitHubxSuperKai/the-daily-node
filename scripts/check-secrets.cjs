@@ -100,6 +100,14 @@ const isReserved = m => RESERVED.has(
 // making it loud. No .trim(): a NUL-delimited record may legitimately end in space.
 const stagedRaw = execSync('git diff --cached --name-only --diff-filter=d -z', { encoding: 'utf8' });
 const staged = stagedRaw.split('\0').filter(Boolean);
+
+// Empty at the repository root, the path of the cwd relative to it anywhere else.
+// This is the wrong-cwd condition itself rather than a proxy for it, which matters:
+// gating the advice on "every target was unreadable" misfires on the single-file
+// commit that is the hook's commonest invocation, and re-prints the misdiagnosis this
+// scanner was changed to stop printing. No path normalising either, so drive-letter
+// case and separator style cannot decide whether the advice appears.
+const cwdPrefix = execSync('git rev-parse --show-prefix', { encoding: 'utf8' }).trim();
 const targets = staged.filter(f => !SKIP.some(rx => rx.test(f)));
 
 let matched = false;
@@ -140,13 +148,12 @@ if (unreadable.length) {
   for (const u of unreadable) console.error(`    ${u}`);
   console.error('These files were NOT scanned. Reporting that as a failure rather than as a clean');
   console.error('scan is deliberate: a pass over files nobody opened proves nothing.');
-  // Every single target unreadable IS the wrong-cwd signature, because git emits
-  // repo-root-relative paths and nothing else fails uniformly. Naming that cause on a
-  // PARTIAL list would be actively wrong -- one file removed from the worktree after
-  // being staged is a different diagnosis, and the cwd advice would not fix it.
-  if (unreadable.length === targets.length) {
-    console.error('Every staged file was unreadable. Git reports paths relative to the repository');
-    console.error('root, so the usual cause is a run whose working directory is not the repo root —');
+  // Only when the cwd genuinely is not the repository root. Naming that cause anywhere
+  // else is actively wrong -- a file removed from the worktree after being staged is a
+  // different diagnosis, and re-running from somewhere else would not fix it.
+  if (cwdPrefix) {
+    console.error('This run was not at the repository root. Git reports paths relative to that root,');
+    console.error('so the paths above were resolved against the wrong directory —');
     console.error('re-run it as "npm run check:secrets" from there.');
   }
 }
