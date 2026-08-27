@@ -183,8 +183,24 @@ assert.ok(!hookSrc.includes('\r'),
   '.githooks/pre-commit contains CR bytes — CRLF breaks the shebang on Linux/macOS and the hook silently stops running');
 assert.ok(hookSrc.startsWith('#!'),
   '.githooks/pre-commit lost its shebang — git will not execute it');
-assert.ok(/npm run check:secrets/.test(hookSrc),
-  '.githooks/pre-commit no longer invokes check:secrets — the hook would pass everything');
+// Anchored to line-start deliberately, in the style of step 12's updateScale() check.
+// An unanchored /npm run check:secrets/ is satisfied by the comment above that mentions
+// the command, so deleting or commenting out the real invocation slipped through green.
+assert.ok(/^\s*npm run check:secrets/m.test(hookSrc),
+  '.githooks/pre-commit no longer invokes check:secrets at top level — the hook would pass everything');
+// A hook committed 100644 is skipped by git on Linux/macOS with no message — the same
+// silent death as the CRLF case. fs.statSync().mode is meaningless on Windows, so read
+// the mode git actually recorded. Skipped outside a git checkout (e.g. a source tarball).
+try {
+  const hookMode = execSync('git ls-files -s .githooks/pre-commit', { cwd: ROOT, encoding: 'utf8' }).trim();
+  if (hookMode) {
+    assert.ok(hookMode.startsWith('100755'),
+      `.githooks/pre-commit is not executable in the index (${hookMode.split(' ')[0]}) — git silently skips a non-executable hook on Linux/macOS`);
+  }
+} catch (e) {
+  if (e instanceof assert.AssertionError) throw e;
+  // Not a git checkout — nothing to assert.
+}
 
 // Track A assertions
 if (!/feeds\.bitcoinMagazine/.test(html)) { console.error('FAIL: SettingsPanel missing from build'); process.exit(1); }
