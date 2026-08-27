@@ -5,8 +5,17 @@
 # Enable in a fresh clone (git does not install hooks automatically):
 #   git config core.hooksPath .githooks
 #
-# NOTE: check:secrets scans STAGED files only. It is not a CI check and cannot
-# be one as written — a CI checkout has nothing staged, so it would report
-# "checked 0 staged files" and pass unconditionally. This hook is currently the
-# only place the scan actually runs.
+# COVERAGE IS PARTIAL. Verified by staging a private IP in each location:
+#   scanned  — src/, scripts/, .github/, files at the repo root
+#   EXEMPT   — docs/, tests/
+# docs/ being exempt matters: CLAUDE.md names docs/superpowers/ as this repo's
+# historical leak vector, and nothing scans it. Do not treat a passing commit
+# as proof that a docs/ change is clean.
+#
+# Not wired into CI. check:secrets reads the STAGED set, and a CI checkout has
+# nothing staged, so a bare `npm run check:secrets` step would report
+# "checked 0 staged files" and pass unconditionally. It CAN be made to work by
+# staging the diff first (`git reset --soft $(git merge-base origin/main HEAD)`),
+# which is a separate change — it should land together with the docs/ exemption
+# fix, since CI coverage that inherits this blind spot is worth little.
 npm run check:secrets || exit 1

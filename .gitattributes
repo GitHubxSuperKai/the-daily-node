@@ -2,4 +2,4 @@
 index.html linguist-generated=true
 
 # Shell hooks must keep LF endings — CRLF breaks the shebang on Linux/macOS
-.githooks/* text eol=lf
+.githooks/** text eol=lf

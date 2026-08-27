@@ -21,6 +21,7 @@ That means:
 4. **Read [CLAUDE.md](./CLAUDE.md)** — it documents two non-obvious build constraints (default-only imports, hook-dep-array variable ordering) that will silently break the build if you violate them.
 5. **Run `npm run build` and confirm `index.html` still loads** in a browser before pushing.
 6. **No formal linter.** Match the surrounding code style (inline `style` props, `React.useX` hook prefix, theme via `useT()`).
+7. **Enable the secrets hook** — `git config core.hooksPath .githooks`, once per clone. This repo is public and the check is not enforced in CI, so an unset hook means nothing stops a private IP from landing. See [docs/SETUP.md](./docs/SETUP.md) step 3 for what it does and does not cover.
 
 ## Architecture
 

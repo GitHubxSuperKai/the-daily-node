@@ -33,6 +33,12 @@ Before getting started, ensure you have the following installed:
    ```
    Git never installs hooks automatically, so this is required once per clone. The hook runs `npm run check:secrets`, which blocks commits containing banned patterns (private IPs and similar) in staged files. This repository is public — see `CLAUDE.md` for what must never be committed. The scan is not enforced in CI, so skipping this step leaves your clone with no secret checking at all.
 
+   Three things to know before you rely on it:
+
+   - **Coverage is partial.** `src/`, `scripts/`, `.github/`, and root-level files are scanned. **`docs/` and `tests/` are exempt** — a private IP staged under `docs/` commits without complaint. That gap matters, because `CLAUDE.md` names `docs/superpowers/` as this repo's historical leak vector. A passing commit is not evidence that a `docs/` change is clean; review those by eye.
+   - **This replaces `.git/hooks/` entirely.** `core.hooksPath` is a redirect, not an overlay. Any hook installed into `.git/hooks/` by another tool (husky, an IDE, an editor plugin) will silently stop running once this is set.
+   - **It only runs on branches that contain `.githooks/`.** Git skips a missing hook without any message, so a branch created before this directory existed gets no scanning even with the setting enabled. Rebase in-flight branches onto `main` after enabling. This applies to `git worktree` checkouts too — they share `.git/config`, and so inherit the setting regardless of which branch they hold.
+
 4. **Build and start the development server:**
    ```bash
    npm run serve
@@ -374,4 +380,4 @@ For issues, feature requests, or contributions, see the main repository README o
 
 ---
 
-**Last updated:** May 2026
+**Last updated:** August 2026

@@ -168,6 +168,24 @@ assert.ok(/^updateScale\(\);/m.test(scaleBody),
 assert.ok(/window\.updateScale\s*=\s*updateScale/.test(scaleBody),
   'window.updateScale assignment missing — scripts/capture-mobile.cjs calls it to force a rescale');
 
+// 13. The secrets pre-commit hook must stay intact and executable.
+// This repo is PUBLIC and check:secrets has no CI enforcement (it reads the STAGED
+// set, which is empty in a CI checkout), so the hook file is the only thing standing
+// between a private IP and a public commit. Assert its integrity here, where CI does
+// run: .github/workflows/build.yml invokes `npm run test:smoke` directly.
+const HOOK = path.join(ROOT, '.githooks', 'pre-commit');
+assert.ok(fs.existsSync(HOOK),
+  '.githooks/pre-commit is missing — a clone that sets core.hooksPath gets no secret scanning at all');
+const hookSrc = fs.readFileSync(HOOK, 'utf8');
+// CRLF here is silent death: Linux/macOS reports `bad interpreter: /bin/sh^M` and the
+// commit proceeds unscanned. .gitattributes pins eol=lf; this catches a bypass of it.
+assert.ok(!hookSrc.includes('\r'),
+  '.githooks/pre-commit contains CR bytes — CRLF breaks the shebang on Linux/macOS and the hook silently stops running');
+assert.ok(hookSrc.startsWith('#!'),
+  '.githooks/pre-commit lost its shebang — git will not execute it');
+assert.ok(/npm run check:secrets/.test(hookSrc),
+  '.githooks/pre-commit no longer invokes check:secrets — the hook would pass everything');
+
 // Track A assertions
 if (!/feeds\.bitcoinMagazine/.test(html)) { console.error('FAIL: SettingsPanel missing from build'); process.exit(1); }
 if (!/minerOffline/.test(html))       { console.error('FAIL: useAlerts missing from build'); process.exit(1); }
