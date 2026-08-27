@@ -20,12 +20,17 @@
 # So a green hook is not proof a commit is clean. It catches the one mistake
 # that has actually happened here before; the rest is still on the author.
 #
-# CI runs the same scan (the `secrets` job in .github/workflows/build.yml), so
-# a commit that dodges this hook is still caught at PR time. That job stages the
-# diff under review first — a bare `npm run check:secrets` step would find
-# nothing staged, report "checked 0 staged files" and pass unconditionally.
-# Because it stages from a clean checkout, index and worktree agree there, so
-# limit 3 above does not apply to the CI run.
+# CI runs the same scan (the `secrets` job in .github/workflows/build.yml). That
+# job stages the diff under review first — a bare `npm run check:secrets` step
+# would find nothing staged, report "checked 0 staged files" and pass
+# unconditionally. Because it stages from a clean checkout, index and worktree
+# agree there, so limit 3 above does not apply to the CI run.
+#
+# But CI sees only the NET base..HEAD diff. A secret added in one commit and
+# removed in a later one stages as nothing and scans clean — while still sitting
+# in the pushed branch's history, which on a public repo stays fetchable via
+# refs/pull/N/head even after a squash merge. Stopping that is this hook's job,
+# not CI's.
 #
 # CI does NOT rescue limits 1 and 2: it runs the same scanner, so it inherits
 # the docs/ and tests/ exemptions and the RFC1918-only pattern.

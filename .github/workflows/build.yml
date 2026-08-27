@@ -75,6 +75,8 @@ jobs:
   # Runs as its own job: `git reset --soft` moves HEAD, and the build job must
   # not observe a rewritten HEAD partway through.
   secrets:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -105,7 +107,10 @@ jobs:
           # or absent SHA. Fall back to the parent rather than scanning nothing.
           if [ -z "${BASE:-}" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] \
              || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
-            echo "Base '$BASE' unusable; falling back to HEAD~1"
+            # ::warning:: so this surfaces in the run summary. The fallback scans
+            # only the last commit, so a multi-commit push is UNDER-scanned, not
+            # unscanned — that must be visible, not buried in the log.
+            echo "::warning::Base '$BASE' unreachable; falling back to HEAD~1 — only the last commit of this push is scanned"
             BASE=$(git rev-parse HEAD~1)
           fi
           echo "Scanning ${BASE}..HEAD"
