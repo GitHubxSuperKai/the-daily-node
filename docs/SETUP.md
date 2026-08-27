@@ -31,7 +31,7 @@ Before getting started, ensure you have the following installed:
    ```bash
    git config core.hooksPath .githooks
    ```
-   Git never installs hooks automatically, so this is required once per clone. The hook runs `npm run check:secrets`, which blocks commits containing banned patterns (private IPs and similar) in staged files. This repository is public — see `CLAUDE.md` for what must never be committed. The scan is not enforced in CI, so skipping this step leaves your clone with no secret checking at all.
+   Git never installs hooks automatically, so this is required once per clone. The hook runs `npm run check:secrets`, which blocks commits containing banned patterns (private IPs and similar) in staged files. This repository is public — see `CLAUDE.md` for what must never be committed. CI runs the same scan over your PR's net diff (the `secrets` job in `.github/workflows/build.yml`). The hook is still worth enabling: it catches a leak *before* it is committed, and it catches the case CI structurally cannot — a secret added in one commit and removed in a later one nets out to nothing in the diff, yet stays in the pushed branch's history, which on a public repo remains fetchable even after a squash merge.
 
    This is a narrow guard, and a green hook is not proof a commit is clean. Five things to know before relying on it — the first three are limits of the scan itself, all verified by probe:
 

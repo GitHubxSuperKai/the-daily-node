@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - Documented three previously unstated limits of `check:secrets`, each verified by probe. The scan skips `docs/` and `tests/` — and `CLAUDE.md` names `docs/superpowers/` as this repo's historical leak vector. It matches only literal RFC1918 addresses, so `127.0.0.1`, CGNAT `100.64.x`, hostnames, usernames, absolute local paths, and key material all pass. And it reads the working-copy content of each staged file rather than the staged blob, so a secret staged and then edited out without re-staging commits unscanned. None of these are new behavior; none were written down before.
-- `check:secrets` still has no CI enforcement — it reads the staged set, which is empty in a CI checkout. Staging the diff first (`git reset --soft $(git merge-base origin/main HEAD)`) would make a real CI step possible and would close the working-copy gap at the same time.
+- `check:secrets` now runs in CI, as the `secrets` job in `.github/workflows/build.yml`. It stages the diff under review (`git reset --soft <base>`) before scanning, because the scan reads the staged set and a normal CI checkout has nothing staged — a bare step would report "checked 0 staged files" and pass unconditionally. Verified failure-capable against a planted RFC1918 address, and verified green on a clean diff. Because CI stages from a clean checkout, the working-copy gap above does not apply there.
+- CI does **not** close the other two gaps: it runs the same scanner, so the `docs/` and `tests/` exemptions and the RFC1918-only pattern apply to the CI run exactly as they do locally.
 
 ## [1.4.0] — 2026-08-26
 

@@ -169,10 +169,11 @@ assert.ok(/window\.updateScale\s*=\s*updateScale/.test(scaleBody),
   'window.updateScale assignment missing — scripts/capture-mobile.cjs calls it to force a rescale');
 
 // 13. The secrets pre-commit hook must stay intact and executable.
-// This repo is PUBLIC and check:secrets has no CI enforcement (it reads the STAGED
-// set, which is empty in a CI checkout), so the hook file is the only thing standing
-// between a private IP and a public commit. Assert its integrity here, where CI does
-// run: .github/workflows/build.yml invokes `npm run test:smoke` directly.
+// This repo is PUBLIC. The hook is the fast local guard — it stops a secret before it
+// is ever committed; the `secrets` job in build.yml (step 14 below) is the CI-side one,
+// and it can only see the NET diff, so it cannot catch a secret that one commit adds
+// and a later commit removes. Assert the hook's integrity here, where CI does run:
+// .github/workflows/build.yml invokes `npm run test:smoke` directly.
 const HOOK = path.join(ROOT, '.githooks', 'pre-commit');
 assert.ok(fs.existsSync(HOOK),
   '.githooks/pre-commit is missing — a clone that sets core.hooksPath gets no secret scanning at all');
@@ -201,6 +202,47 @@ try {
   if (e instanceof assert.AssertionError) throw e;
   // Not a git checkout — nothing to assert.
 }
+
+// 14. The CI secrets job must stay wired up AND stay armed.
+// A contributor who never sets core.hooksPath has no local hook, so this job is their
+// only coverage — and deleting or disarming it would fail nothing else in this suite.
+// Guarding against deletion is the easy half; the mutations that matter are the ones
+// that leave the job present but toothless.
+const WORKFLOW = path.join(ROOT, '.github', 'workflows', 'build.yml');
+assert.ok(fs.existsSync(WORKFLOW), '.github/workflows/build.yml is missing — CI is gone');
+const wf = fs.readFileSync(WORKFLOW, 'utf8');
+const secretsJobIdx = wf.search(/^ {2}secrets:/m);
+assert.ok(secretsJobIdx !== -1,
+  'the `secrets` job is gone from build.yml — nothing scans a PR diff for secrets any more');
+// Bound the slice at the NEXT top-level job key. Slicing to EOF only works while
+// `secrets` happens to be the last job; reorder it, or append a job after it, and the
+// assertions silently widen back into whole-file matches.
+const afterKey = wf.slice(secretsJobIdx + 1);
+const nextJobIdx = afterKey.search(/^ {2}\S[^\n]*:\s*$/m);
+const secretsJobRaw = nextJobIdx === -1 ? afterKey : afterKey.slice(0, nextJobIdx);
+// Strip comment lines before matching. Step 13 above documents why: an unanchored
+// match is satisfied by prose that merely mentions the command, and this block's own
+// preamble contains the literal `git reset --soft`. Commenting out the real line while
+// leaving the comment was a green pass before this filter existed.
+const secretsJob = secretsJobRaw.split('\n').filter(l => !/^\s*#/.test(l)).join('\n');
+
+assert.ok(/^\s*run:\s*npm run check:secrets\s*$/m.test(secretsJob),
+  'build.yml no longer runs check:secrets — the secrets job exists but scans nothing');
+// The staging step is what makes the scan non-vacuous: without it the scanner
+// sees an empty index, reports "checked 0 staged files" and passes forever.
+assert.ok(/^\s*git reset --soft /m.test(secretsJob),
+  'build.yml secrets job no longer stages the diff — check:secrets would scan an empty index and pass unconditionally');
+// Order matters as much as presence: scanning before staging is the same empty index.
+assert.ok(secretsJob.search(/^\s*git reset --soft /m) < secretsJob.search(/^\s*run:\s*npm run check:secrets\s*$/m),
+  'build.yml secrets job stages the diff AFTER running the scan — the scan would see an empty index');
+assert.ok(/fetch-depth:\s*0/.test(secretsJob),
+  'build.yml secrets job lost fetch-depth: 0 — the base commit would be missing from the clone and the staging step would fall back or fail');
+// Both of these leave the job in place and green forever, which is worse than deletion:
+// the check still reports, so nobody notices it stopped meaning anything.
+assert.ok(!/^\s*if:/m.test(secretsJob),
+  'build.yml secrets job gained an `if:` condition — a job that skips reports success and enforces nothing');
+assert.ok(!/continue-on-error/.test(secretsJob),
+  'build.yml secrets job gained continue-on-error — the scan could fail and the job would still report green');
 
 // Track A assertions
 if (!/feeds\.bitcoinMagazine/.test(html)) { console.error('FAIL: SettingsPanel missing from build'); process.exit(1); }
