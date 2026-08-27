@@ -18,8 +18,9 @@
 // import time and runs for every file, so the suite fails at load. Vitest scans the whole
 // file for that pragma, so even naming it in a comment switches the environment -- which
 // is why it is described here rather than spelled.
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -65,6 +66,46 @@ describe('check-codeql-config: the real repo', () => {
     expect(smoke).toMatch(/^assert\.deepStrictEqual\(codeqlProblems, \[\],$/m);
   });
 
+  // checkRepo used to have exactly one case, asserting exactly []. Replacing its file
+  // read with a hardcoded good string -- which makes `npm run check:codeql` and smoke
+  // step 16 decorative, reporting the config intact whatever the real file says -- kept
+  // the whole suite green. These two drive it against a temp root instead, so the read
+  // itself is under test: the first proves it reports a clean tree clean, the second
+  // proves it actually reads what is on disk rather than something it already knew.
+  describe('checkRepo reads from disk', () => {
+    const tmpRoots = [];
+    const makeRoot = (configText, workflowText) => {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dn-codeql-'));
+      tmpRoots.push(root);
+      fs.mkdirSync(path.join(root, '.github', 'codeql'), { recursive: true });
+      fs.mkdirSync(path.join(root, '.github', 'workflows'), { recursive: true });
+      fs.writeFileSync(path.join(root, '.github', 'codeql', 'codeql-config.yml'), configText);
+      fs.writeFileSync(path.join(root, '.github', 'workflows', 'codeql.yml'), workflowText);
+      return root;
+    };
+    afterAll(() => {
+      for (const d of tmpRoots) fs.rmSync(d, { recursive: true, force: true });
+    });
+
+    it('passes on a faithful copy of the committed files', () => {
+      expect(checkRepo(makeRoot(GOOD_CONFIG, GOOD_WORKFLOW))).toEqual([]);
+    });
+
+    it('rejects a widened config that exists only on disk', () => {
+      const widened = GOOD_CONFIG.replace('  - index.html', "  - '**'");
+      expect(widened).not.toEqual(GOOD_CONFIG);
+      expect(checkRepo(makeRoot(widened, GOOD_WORKFLOW))).not.toEqual([]);
+    });
+
+    it('reports a missing config rather than passing over it', () => {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dn-codeql-empty-'));
+      tmpRoots.push(root);
+      const problems = checkRepo(root);
+      expect(problems).not.toEqual([]);
+      expect(problems.join(' ')).toMatch(/missing or unreadable/);
+    });
+  });
+
   // The allowlist is the gate. Reading it back off the file it guards would make the
   // assertion self-fulfilling -- it would agree with any edit. This pins the value.
   //
@@ -74,6 +115,17 @@ describe('check-codeql-config: the real repo', () => {
   // -- hand-written source -- is still analysed.
   it('pins paths-ignore to the one file that is deliberately skipped', () => {
     expect(PATHS_IGNORE_ALLOWED).toEqual(['index.html']);
+  });
+
+  // The assertion above pins the imported VALUE, which is not the same as pinning the
+  // literal. Replacing the constant's definition with one that reads paths-ignore back
+  // out of the config at load time keeps every case green -- the derived value agrees
+  // with the file, and the mutation cases all drive checkCodeqlConfig with mutated TEXT
+  // against that constant. In production the guard would then accept any widening at
+  // all. So assert the source says what it is supposed to say.
+  it('declares the allowlist as a literal, not derived from the file it guards', () => {
+    const src = fs.readFileSync(path.join(REPO_ROOT, 'scripts', 'check-codeql-config.cjs'), 'utf8');
+    expect(src).toMatch(/^const PATHS_IGNORE_ALLOWED = \['index\.html'\];$/m);
   });
 });
 
@@ -173,6 +225,46 @@ describe('check-codeql-config: workflow mutations that unhook the config', () =>
     {
       name: 'the job gains continue-on-error and fails green',
       workflow: GOOD_WORKFLOW.replace('    runs-on: ubuntu-latest', '    continue-on-error: true\n    runs-on: ubuntu-latest'),
+    },
+    // The five below all passed the first version of this guard, which defended the
+    // workflow with a denylist -- the one thing the brief forbade. The first two are
+    // the worst kind of green: the job keeps its name, stays a required check, reports
+    // success, and analyses nothing at all.
+    {
+      name: 'the analyze step is deleted, leaving a job that analyses nothing',
+      workflow: GOOD_WORKFLOW.replace(/\n {6}- name: Perform CodeQL Analysis[\s\S]*$/, '\n'),
+    },
+    {
+      name: 'the analyze step is commented out, so the comment strip erases the evidence',
+      workflow: GOOD_WORKFLOW.split('\n')
+        .map(l => (/Perform CodeQL Analysis|codeql-action\/analyze|category:/.test(l) ? `#${l}` : l))
+        .join('\n'),
+    },
+    {
+      // The matrix still lists both languages, so the matrix assertion passes. Nothing
+      // consumes it, and Python is silently never scanned.
+      name: 'languages: is hardcoded past the matrix',
+      workflow: GOOD_WORKFLOW.replace('languages: ${{ matrix.language }}', 'languages: javascript-typescript'),
+    },
+    {
+      name: 'an action is repointed at a fork',
+      workflow: GOOD_WORKFLOW.replace('github/codeql-action/analyze@v4', 'evil/codeql-action/analyze@v4'),
+    },
+    {
+      name: 'an extra action is inserted into the job',
+      workflow: GOOD_WORKFLOW.replace('      - uses: actions/checkout@v6', '      - uses: actions/checkout@v6\n      - uses: evil/exfil@v1'),
+    },
+    {
+      name: 'the checkout step is dropped',
+      workflow: GOOD_WORKFLOW.replace('      - uses: actions/checkout@v6\n', ''),
+    },
+    {
+      // Covers stripCommentLines, which had no test at all. Neutering it to
+      // `return text` kept every other case green, and it is the single branch here
+      // implementing this repo's most-repeated lesson: an unanchored assertion is
+      // satisfied by the prose that merely mentions the thing being asserted.
+      name: 'config-file: is commented out but left visible in the text',
+      workflow: GOOD_WORKFLOW.replace(/^(\s*)(config-file:.*)$/m, '$1# $2'),
     },
   ];
 
@@ -290,5 +382,36 @@ describe('check-codeql-config: the parser itself', () => {
   it('does not silently return an empty object for unreadable input', () => {
     // The failure mode that would make every subset-style assertion pass vacuously.
     expect(() => parseSimpleYaml('\t\n')).toThrow(YamlShapeError);
+  });
+
+  it('reads `key:` followed only by a comment as an empty value, not a scalar', () => {
+    // Idiomatic YAML. Before the fix the kv regex ate the space before the `#`, so the
+    // value became the string "# why" and the next line threw "already given a scalar
+    // value" -- fail-loud, but naming entirely the wrong problem.
+    expect(parseSimpleYaml('name: a\npaths-ignore: # why\n  - index.html\n')).toEqual({
+      name: 'a',
+      'paths-ignore': ['index.html'],
+    });
+  });
+
+  it('tolerates a UTF-8 BOM', () => {
+    // JS \s matches U+FEFF, so an unstripped BOM made line 1 look like indented
+    // content and reported a nested-mapping error.
+    expect(parseSimpleYaml(`\uFEFF${GOOD_CONFIG}`)).toEqual(parseSimpleYaml(GOOD_CONFIG));
+  });
+});
+
+describe('check-codeql-config: workflow assertions must not be satisfied by prose', () => {
+  // The inverse control for stripCommentLines: it must drop comment lines, but the
+  // denylist assertions must not fire on a comment that merely NAMES the setting.
+  // Unanchored, /continue-on-error/ failed the build on a comment saying there wasn't
+  // one -- the same class of bug, pointing the other way.
+  it('accepts a comment that mentions continue-on-error without setting it', () => {
+    const workflow = GOOD_WORKFLOW.replace(
+      '    runs-on: ubuntu-latest',
+      '    runs-on: ubuntu-latest  # deliberately no continue-on-error here',
+    );
+    expect(workflow).not.toEqual(GOOD_WORKFLOW);
+    expect(check(GOOD_CONFIG, workflow)).toEqual([]);
   });
 });

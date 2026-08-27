@@ -14,10 +14,19 @@
 //   1. STRICT ALLOWLISTS, never denylists. A denylist only blocks the mutation its
 //      author imagined -- an earlier denylist elsewhere in this repo rejected the
 //      obvious cases and sailed straight past `^src/`, `/^.*/` and `/\.md$/`, each of
-//      which re-blinds an entire tree just as completely. Every list below is compared
-//      with deepStrictEqual, so ANY edit to the guarded config -- widening, narrowing,
-//      reordering, or adding a key nobody here anticipated -- fails until this file is
-//      edited too. That forced edit IS the review gate.
+//      which re-blinds an entire tree just as completely. ALLOWED_TOP_LEVEL_KEYS,
+//      PATHS_IGNORE_ALLOWED and EXPECTED_USES are each compared with deepStrictEqual,
+//      so ANY edit -- widening, narrowing, reordering, or adding something nobody here
+//      anticipated -- fails until this file is edited too. That forced edit IS the
+//      review gate.
+//
+//      Two residual DENYLIST assertions remain, on `if:` and `continue-on-error:` in
+//      the workflow, and they are named here rather than glossed because the first
+//      version of this file claimed a blanket allowlist it did not implement. They are
+//      a backstop on top of the allowlists above, not the primary defence: the four
+//      escapes that mattered (analyze step deleted or commented out, `languages:`
+//      hardcoded past the matrix, action repointed at a fork) are all caught by
+//      EXPECTED_USES and EXPECTED_LANGUAGES_BINDING instead.
 //
 //   2. PARSE, do not regex the file. A regex over the raw text is defeated by an
 //      innocent reformat: switch to flow style, requote an entry, change the indent,
@@ -41,6 +50,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const assert = require('assert');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const CONFIG_REL = '.github/codeql/codeql-config.yml';
@@ -80,6 +90,26 @@ const EXPECTED_CONFIG_FILE = '.github/codeql/codeql-config.yml';
 // the workflow stays green and still reports "CodeQL passed".
 const EXPECTED_QUERIES = 'security-extended,security-and-quality';
 const EXPECTED_LANGUAGES = ['javascript-typescript', 'python'];
+
+// Every `uses:` in the workflow, in order, as a strict allowlist. This is the workflow
+// half's equivalent of ALLOWED_TOP_LEVEL_KEYS, and it exists because the first version
+// of this file guarded the workflow with a DENYLIST -- which is the one thing the brief
+// forbade, and it showed: deleting the `Perform CodeQL Analysis` step entirely left the
+// job named, required, green, and analysing nothing, and the guard passed. So did
+// repointing the action at a fork. Both are caught here now.
+//
+// Pinning the versions means an action bump needs an edit here. That is deliberate and
+// not merely tolerated: `@v3`/`@v4` bumps are exactly what ship-it's release step asks
+// about, so the forced edit puts a human on that decision.
+const EXPECTED_USES = [
+  'actions/checkout@v6',
+  'github/codeql-action/init@v4',
+  'github/codeql-action/analyze@v4',
+];
+// The matrix is only worth asserting if something consumes it. Hardcoding a single
+// language here while leaving the matrix listing both passed every earlier assertion
+// and silently stopped scanning Python.
+const EXPECTED_LANGUAGES_BINDING = '${{ matrix.language }}';
 
 // ── A very small, very strict YAML block parser ───────────────────────────────
 //
@@ -128,7 +158,9 @@ function parseSimpleYaml(text) {
   const out = Object.create(null);
   let currentKey = null;
 
-  const lines = text.split('\n');
+  // Strip a UTF-8 BOM. JS \s matches U+FEFF, so a BOM otherwise makes line 1 look like
+  // indented content and reports a nested-mapping error, which is true but useless.
+  const lines = text.replace(/^\uFEFF/, '').split('\n');
   for (let i = 0; i < lines.length; i++) {
     const lineNo = i + 1;
     const line = lines[i].replace(/\r$/, '');
@@ -179,7 +211,12 @@ function parseSimpleYaml(text) {
     if (key in out) {
       throw new YamlShapeError(`line ${lineNo}: duplicate top-level key '${key}'`);
     }
-    const value = rawValue === undefined ? '' : stripInlineComment(rawValue);
+    // `key: # comment` is idiomatic YAML for "key, with the block below". The kv regex
+    // has already eaten the whitespace before the `#`, so stripInlineComment can no
+    // longer tell it is a comment and would hand back the literal string "# comment" --
+    // making the following `- item` throw "already given a scalar value", which is
+    // fail-loud but names the wrong problem.
+    const value = rawValue === undefined || /^#/.test(rawValue) ? '' : stripInlineComment(rawValue);
     if (value === '') {
       // Empty value: a block sequence is expected to follow. If none does it stays [],
       // and the deepStrictEqual against the allowlist below is what reports that.
@@ -196,18 +233,35 @@ function parseSimpleYaml(text) {
 
 // ── The checks ────────────────────────────────────────────────────────────────
 
-// Drops whole-line comments before matching workflow text. Repo precedent, and it has
-// bitten here three times: an unanchored match is satisfied by prose that merely
-// mentions the thing being asserted, so a commented-out line plus its explanatory
-// comment reads as present. This file's own header names `paths-ignore`, `paths:` and
-// `query-filters:` for exactly that reason -- it is never scanned by these regexes,
-// but the habit is the point.
-function stripCommentLines(text) {
-  return text.split('\n').filter(l => !/^\s*#/.test(l)).join('\n');
-}
+// NOTE ON COMMENTS IN THE WORKFLOW.
+//
+// The repo's most-repeated lesson (PRs #133/#134/#135) is that an unanchored assertion
+// is satisfied by prose that merely mentions the thing being asserted -- comment out the
+// real line, leave the comment explaining it, and the check reads it as present. Step 14
+// of smoke-build.cjs handles that by stripping `#` lines before matching.
+//
+// This file did the same, and it was dead weight: every workflow regex below anchors the
+// key to the start of the line (`^\s*config-file:`, `^\s*(?:-\s+)?uses:`, `^\s*if:`), and
+// a commented line begins with `#`, which is not whitespace. No `#`-prefixed line can
+// satisfy any of them, so stripping comments never changed a single verdict -- neutering
+// the strip to `return text` left all 56 cases green, which is how it was found.
+//
+// It is deleted rather than kept-and-tested, because a helper whose comment claims a
+// protection it does not provide is the same failure class one level up. ANCHORING is
+// the defence here. The "config-file: is commented out" case in the behaviour test
+// asserts that directly.
 
+// The real thing, not a JSON.stringify comparison. Serialised equality happens to be
+// exact for the arrays of plain strings used here, but the header and the CHANGELOG
+// both say deepStrictEqual, and a guard whose documentation overstates it is how the
+// workflow denylist above got shipped claiming to be an allowlist.
 function deepEqual(a, b) {
-  return JSON.stringify(a) === JSON.stringify(b);
+  try {
+    assert.deepStrictEqual(a, b);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // Returns an array of human-readable problems. Empty array means the gate is intact.
@@ -261,7 +315,7 @@ function checkCodeqlConfig({ configText, workflowText }) {
   }
 
   // ── The config only matters if the workflow still reads it ──────────────────
-  const wf = stripCommentLines(workflowText);
+  const wf = workflowText;
 
   const configFile = wf.match(/^\s*config-file:\s*(\S+)\s*$/m);
   if (!configFile) {
@@ -302,6 +356,39 @@ function checkCodeqlConfig({ configText, workflowText }) {
     }
   }
 
+  // Asserting the matrix without asserting that anything READS it guards nothing:
+  // hardcoding one language on the init step leaves the matrix listing both, every
+  // other assertion satisfied, and Python unscanned.
+  const languagesBinding = wf.match(/^\s*languages:\s*(.+?)\s*$/m);
+  if (!languagesBinding) {
+    problems.push(
+      `${WORKFLOW_REL} no longer passes languages: to codeql-action/init -- the matrix is declared but nothing consumes it.`,
+    );
+  } else if (languagesBinding[1] !== EXPECTED_LANGUAGES_BINDING) {
+    problems.push(
+      `${WORKFLOW_REL} passes languages: ${JSON.stringify(languagesBinding[1])}, expected ${JSON.stringify(EXPECTED_LANGUAGES_BINDING)}.`,
+      '  Hardcoding a language here leaves the matrix listing both and silently stops scanning the other.',
+    );
+  }
+
+  // Strict allowlist over every action the workflow runs, in order. Catches the step
+  // being deleted or commented out (the analyze step going missing leaves the job
+  // named, required, green and analysing nothing), a step being added, and the action
+  // being repointed at a fork.
+  // The `-?` matters: a step can be written `- uses: x` (the action IS the step) or
+  // `- name: …` then an indented `uses: x`. This workflow uses both forms, and a
+  // pattern that only matched the second silently dropped actions/checkout from the
+  // list -- an allowlist that cannot see an entry cannot guard it.
+  const uses = [...wf.matchAll(/^\s*(?:-\s+)?uses:\s*(\S+)\s*$/gm)].map(m => m[1]);
+  if (!deepEqual(uses, EXPECTED_USES)) {
+    problems.push(
+      `${WORKFLOW_REL} runs ${JSON.stringify(uses)}, expected exactly ${JSON.stringify(EXPECTED_USES)}.`,
+      '  A missing github/codeql-action/analyze step leaves the job named, required and green while',
+      '  analysing nothing at all; a repointed `uses:` runs somebody else\'s action under this name.',
+      '  If an action was deliberately bumped or added, update EXPECTED_USES too.',
+    );
+  }
+
   // Both of these leave the job present and permanently green, which is worse than
   // deleting it: the check still reports, so nobody notices it stopped meaning anything.
   if (/^\s*if:/m.test(wf)) {
@@ -309,7 +396,9 @@ function checkCodeqlConfig({ configText, workflowText }) {
       `${WORKFLOW_REL} gained an \`if:\` condition -- a job that skips reports success and enforces nothing.`,
     );
   }
-  if (/continue-on-error/.test(wf)) {
+  // Anchored as a key, not a substring: unanchored, an inline comment that merely
+  // mentions the setting ("# deliberately no continue-on-error") failed the build.
+  if (/^\s*continue-on-error:/m.test(wf)) {
     problems.push(
       `${WORKFLOW_REL} gained continue-on-error -- the analysis could fail and the job would still report green.`,
     );
@@ -318,20 +407,26 @@ function checkCodeqlConfig({ configText, workflowText }) {
   return problems;
 }
 
-function readOrNull(rel) {
+function readOrNull(rel, root) {
   try {
-    return fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+    return fs.readFileSync(path.join(root, rel), 'utf8');
   } catch {
     return null;
   }
 }
 
-// Reads the real files and returns problems. Missing files are a problem, not a crash,
-// and emphatically not a pass -- check-secrets.cjs shipped a bug where an unreadable
-// file made a broken run indistinguishable from a clean one.
-function checkRepo() {
-  const configText = readOrNull(CONFIG_REL);
-  const workflowText = readOrNull(WORKFLOW_REL);
+// Reads the files under `root` and returns problems. Missing files are a problem, not a
+// crash, and emphatically not a pass -- check-secrets.cjs shipped a bug where an
+// unreadable file made a broken run indistinguishable from a clean one.
+//
+// `root` is a parameter purely so the behaviour test can drive this end-to-end against
+// a temp directory holding a mutated config. Without that, checkRepo had exactly one
+// test asserting exactly `[]`, and replacing the file read with a hardcoded good string
+// -- which makes `npm run check:codeql` and smoke step 16 decorative, reporting the
+// config intact no matter what it says -- kept the whole suite green.
+function checkRepo(root = REPO_ROOT) {
+  const configText = readOrNull(CONFIG_REL, root);
+  const workflowText = readOrNull(WORKFLOW_REL, root);
   const problems = [];
   if (configText === null) {
     problems.push(`${CONFIG_REL} is missing or unreadable -- CodeQL's scope is no longer pinned by anything.`);
