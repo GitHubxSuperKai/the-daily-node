@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The secrets pre-commit hook is now tracked at `.githooks/pre-commit` instead of living untracked in `.git/hooks/`, so a fresh clone can actually get it. Enable per clone with `git config core.hooksPath .githooks` — documented as a required step in `docs/SETUP.md` and in the `CONTRIBUTING.md` PR checklist. `.gitattributes` pins LF for `.githooks/**` so the shebang survives checkout on Linux/macOS.
 - The smoke suite now asserts the hook exists, keeps its shebang, stays CRLF-free, and still invokes `check:secrets` — the first CI-enforced check on this file.
+- Dependencies: `docker/metadata-action` v5 → v6 and `docker/setup-qemu-action` v3 → v4, the last two actions anywhere in the repo still declaring `using: node20`. The runner was already force-running them on Node 24 and warning about it on every publish run; both majors are Node 24 plus an ESM migration. Neither touches the input surface this workflow uses, checked per-ref rather than assumed: metadata-action keeps the same eleven inputs and ten outputs between v5 and v6, and its one behavioural change — preserving `#` inside list-input values — cannot reach a `tags:` block whose four patterns contain no `#`. setup-qemu-action's added `reset` input arrived in v4.1.0, defaults to the prior behaviour, and is not passed here: the step takes no `with:` at all. Dependabot proposed both bumps in June (#86, #87) and they were closed unmerged in a bulk dismissal on 2026-07-17.
 
 ### Fixed
 
