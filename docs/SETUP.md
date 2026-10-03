@@ -33,6 +33,8 @@ Before getting started, ensure you have the following installed:
    ```
    Git never installs hooks automatically, so this is required once per clone. The hook runs `npm run check:secrets`, which blocks commits containing banned patterns (private IPs and similar) in staged files. This repository is public — see `CLAUDE.md` for what must never be committed. CI runs the same scan over your PR's net diff (the `secrets` job in `.github/workflows/build.yml`). The hook is still worth enabling: it catches a leak *before* it is committed, and it catches the case CI structurally cannot — a secret added in one commit and removed in a later one nets out to nothing in the diff, yet stays in the pushed branch's history, which on a public repo remains fetchable even after a squash merge.
 
+   **Claude Code sets this for you.** The tracked `.claude/settings.json` runs `git config core.hooksPath .githooks` at every Claude Code session start, overriding any local or global `core.hooksPath` you had set. Outside Claude Code (a plain `git clone` and commit) the step is still manual. Read the `.git/hooks/` caveat below before opening the repo in Claude Code if you rely on hooks from other tools.
+
    This is a narrow guard, and a green hook is not proof a commit is clean. Five things to know before relying on it — the first three are limits of the scan itself, all verified by probe:
 
    - **`docs/` and `tests/` are exempt.** Everything else is scanned. A private IP staged under `docs/` commits without complaint — which matters, because `CLAUDE.md` names `docs/superpowers/` as this repo's historical leak vector. Review docs changes by eye.
