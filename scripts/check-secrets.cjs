@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 
 // Patterns we never want committed
 const BANNED = [
@@ -81,49 +81,53 @@ const isReserved = m => RESERVED.has(
 
 // --diff-filter=d (lower case excludes) drops staged DELETIONS from the list. That is a
 // real and routine case, not a hypothetical: a git rm before a local commit, and any PR
-// that removes a file, once CI stages base..HEAD. The working-copy file genuinely no
-// longer exists, so there is nothing to read and nothing that could leak. Excluding it
+// that removes a file, once CI stages base..HEAD. The index holds no stage-0 blob for
+// it any more, so there is nothing to read and nothing that could leak. Excluding it
 // here — rather than letting the read throw and be swallowed — is what makes every
 // remaining read failure mean that something is actually wrong.
 //
 // A path staged as a modification whose working-copy file is then deleted survives this
-// filter and fails below, correctly: the scan reads working-copy content, so for that
-// path there is committed content this run did not see.
+// filter and is scanned normally: the scan reads the staged blob, which still exists.
 //
 // -z because git C-quotes any path holding non-ASCII bytes, quotes, backslashes or
 // control characters (core.quotepath, on by default): the plain listing returns
 // "src/caf\303\251.js" for a file named with an accent, which is a path no
 // filesystem has. That file was never scanned before this change either -- it was
 // skipped in silence. Now that an unread file stops the run, the same quoting would
-// block a commit AND a required CI check while blaming the working directory. The
+// block a commit AND a required CI check over a path that does not exist. The
 // NUL-delimited listing is never quoted, so this closes the gap rather than only
 // making it loud. No .trim(): a NUL-delimited record may legitimately end in space.
 const stagedRaw = execSync('git diff --cached --name-only --diff-filter=d -z', { encoding: 'utf8' });
 const staged = stagedRaw.split('\0').filter(Boolean);
 
-// Empty at the repository root, the path of the cwd relative to it anywhere else.
-// This is the wrong-cwd condition itself rather than a proxy for it, which matters:
-// gating the advice on "every target was unreadable" misfires on the single-file
-// commit that is the hook's commonest invocation, and re-prints the misdiagnosis this
-// scanner was changed to stop printing. No path normalising either, so drive-letter
-// case and separator style cannot decide whether the advice appears.
-const cwdPrefix = execSync('git rev-parse --show-prefix', { encoding: 'utf8' }).trim();
 const targets = staged.filter(f => !SKIP.some(rx => rx.test(f)));
 
+// Reads the STAGED blob, never the working copy: the index is what gets committed, so it
+// is what must be scanned. Reading the working copy let a secret be staged, edited out of
+// the file without re-staging, and committed unscanned. `:0:<path>` names the stage-0
+// index entry and resolves from the repository root whatever the cwd, so a run from a
+// subdirectory scans the same bytes as one from the root. The explicit stage number stops
+// a file named like `1:x` being read as a stage. execFileSync with no shell: the path is
+// one argv entry, so nothing in a filename is interpreted.
+const readStaged = f => execFileSync('git', ['cat-file', 'blob', `:0:${f}`], {
+  encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024,
+});
+
 let matched = false;
-// Fail CLOSED on unreadable files. Git emits repo-root-relative paths, so a scanner run
-// from any other working directory makes every single read throw; the previous bare
-// catch-and-continue swallowed all of them and printed the same success line a clean
-// full-repo scan prints. A totally broken run and a green run were indistinguishable,
-// which is the one thing a gate may never be. Not reachable through the two supported
-// entry points — git runs hooks from the top level, npm runs scripts from the package
-// root — so this is hardening; but the success line must not be printable when files
-// went unread, whatever the cause (wrong cwd, permissions, a race, a broken symlink).
+// Fail CLOSED on unreadable entries. The previous bare catch-and-continue printed the
+// same success line for a run that opened nothing as for a clean full-repo scan, which is
+// the one thing a gate may never do. With blob reads a failure means the index entry is
+// not a readable stage-0 blob -- a gitlink (submodule) or an unmerged path. Rare, but the
+// success line must not be printable while anything staged went unscanned.
 const unreadable = [];
 for (const f of targets) {
   let content;
-  try { content = require('fs').readFileSync(f, 'utf8'); }
-  catch (e) { unreadable.push(`${f}: ${e.code || e.message}`); continue; }
+  try { content = readStaged(f); }
+  catch (e) {
+    const why = String(e.stderr || '').trim().split('\n').pop() || e.code || e.message;
+    unreadable.push(`${f}: ${why}`);
+    continue;
+  }
   const exempt = FIXTURE_PATH.test(f);
   for (const { name, regex } of BANNED) {
     // Fresh /g regex per file so no lastIndex state carries between iterations.
@@ -143,19 +147,11 @@ if (matched) {
 }
 if (unreadable.length) {
   // Named, not merely counted: "3 files unreadable" is not actionable, and the list is what
-  // tells you whether this is one broken symlink or the entire staged set (the wrong-cwd shape).
+  // tells you which index entries (a submodule, an unmerged path) went unscanned.
   console.error(`\n✗ could not read ${unreadable.length} of ${targets.length} staged file(s):`);
   for (const u of unreadable) console.error(`    ${u}`);
   console.error('These files were NOT scanned. Reporting that as a failure rather than as a clean');
   console.error('scan is deliberate: a pass over files nobody opened proves nothing.');
-  // Only when the cwd genuinely is not the repository root. Naming that cause anywhere
-  // else is actively wrong -- a file removed from the worktree after being staged is a
-  // different diagnosis, and re-running from somewhere else would not fix it.
-  if (cwdPrefix) {
-    console.error('This run was not at the repository root. Git reports paths relative to that root,');
-    console.error('so the paths above were resolved against the wrong directory —');
-    console.error('re-run it as "npm run check:secrets" from there.');
-  }
 }
 if (matched || unreadable.length) process.exit(1);
 console.log(`✓ checked ${targets.length} staged files, no banned patterns`);
