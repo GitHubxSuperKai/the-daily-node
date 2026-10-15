@@ -460,3 +460,54 @@ describe('check-secrets: this file passes its own scanner off the fixture surfac
     );
   });
 });
+
+describe('check-secrets: patterns beyond RFC1918', () => {
+  // Every value is assembled at runtime, so nothing here is itself a match. Each banned
+  // shape has a reject case naming the pattern that fired, and each has a benign
+  // neighbour that must PASS, so a pattern that over-matches fails as loudly as one that
+  // under-matches. The benign side includes what this repo actually contains: loopback
+  // binds, `config.local.js`-style filenames, and `<user>` placeholders.
+  const BS = String.fromCharCode(92);
+  const cases = [
+    { name: 'CGNAT / Tailscale IP (100.64/10)',
+      bad: dotted(100, 101, 7, 9),
+      good: dotted(100, 128, 7, 9) },                 // just above 100.127, public space
+    { name: 'IPv6 unique-local address (fc00::/7)',
+      bad: ['fd7a', '115c', 'a1e0', '', '1'].join(':'),
+      good: 'feed: fdfd stays a word' },
+    { name: 'LAN hostname (.local / .lan / .home.arpa / .internal)',
+      bad: `miner.${'lo'}cal`,
+      good: `see src/config.${'lo'}cal.js and settings.${'lo'}cal.json` },
+    { name: 'Windows user-profile path',
+      bad: ['C:', 'Users', 'someone', 'repo'].join(BS),
+      good: ['C:', 'Users', '<user>', 'repo'].join(BS) },
+    { name: 'Unix home-directory path',
+      bad: `/${'home'}/someone/repo`,
+      good: `/${'home'}/<user>/repo` },
+    { name: 'private key block',
+      bad: `-----BEGIN OPENSSH ${'PRIVATE'} KEY-----`,
+      good: '-----BEGIN PUBLIC KEY-----' },
+    { name: 'API token',
+      bad: `${'gh'}p_${'a1B2'.repeat(9)}`,
+      good: `${'gh'}p_short` },
+  ];
+
+  for (const { name, bad, good } of cases) {
+    it(`rejects: ${name}`, () => {
+      expectRejected(scanFiles({ 'src/config.js': `const x = '${bad}';\n` }), 'src/config.js', name);
+    });
+    it(`accepts the benign neighbour of: ${name}`, () => {
+      const result = scanFiles({ 'src/config.js': `const x = '${good}';\n` });
+      expectAccepted(result);
+    });
+  }
+
+  it('still accepts loopback, which is deliberately not banned', () => {
+    expectAccepted(scanFiles({ 'server.js': `listen(3000, '${dotted(127, 0, 0, 1)}');\n` }));
+  });
+
+  it('honours no RESERVED exemption for the new patterns, even under tests/', () => {
+    const { name, bad } = cases[0];
+    expectRejected(scanFiles({ 'tests/unit/x.test.js': `'${bad}'\n` }), 'tests/unit/x.test.js', name);
+  });
+});
