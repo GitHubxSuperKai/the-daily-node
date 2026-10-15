@@ -472,7 +472,7 @@ describe('check-secrets: patterns beyond RFC1918', () => {
     { name: 'CGNAT / Tailscale IP (100.64/10)',
       bad: dotted(100, 101, 7, 9),
       good: dotted(100, 128, 7, 9) },                 // just above 100.127, public space
-    { name: 'IPv6 unique-local address (fc00::/7)',
+    { name: 'IPv6 unique-local host address',
       bad: ['fd7a', '115c', 'a1e0', '', '1'].join(':'),
       good: 'feed: fdfd stays a word' },
     { name: 'LAN hostname (.local / .lan / .home.arpa / .internal)',
@@ -501,6 +501,37 @@ describe('check-secrets: patterns beyond RFC1918', () => {
       expectAccepted(result);
     });
   }
+
+  it('rejects every alternative inside a pattern, not just the first', () => {
+    // One file per alternative, so each rejection is attributable. Removing any single
+    // alternative from the scanner fails exactly its line here.
+    const HOST = 'LAN hostname (.local / .lan / .home.arpa / .internal)';
+    const TOKEN = 'API token';
+    const alts = {
+      'src/h1.js': [`'miner.${'la'}n'`, HOST],
+      'src/h2.js': [`'miner.home.${'ar'}pa'`, HOST],
+      'src/h3.js': [`'db.${'inter'}nal'`, HOST],
+      'docs/h4.md': [`Open miner.${'lo'}cal.`, HOST],             // sentence-ending period
+      'src/w1.js': [`'${['C:', 'Users', 'someone'].join('/')}'`, 'Windows user-profile path'],
+      'src/u1.js': [`'/${'Users'}/someone/repo'`, 'Unix home-directory path'],
+      'docs/u2.md': [`WorkingDirectory=/${'home'}/someone\n`, 'Unix home-directory path'],
+      'src/t1.js': [`'${'github'}_pat_${'A1'.repeat(12)}'`, TOKEN],
+      'src/t2.js': [`'${'sk-'}ant-${'a1B2'.repeat(6)}'`, TOKEN],
+      'src/t3.js': [`'${'AK'}IA${'ABCD1234'.repeat(2)}'`, TOKEN],
+      'src/t4.js': [`'${'xo'}xb-${'1234567890'.repeat(2)}'`, TOKEN],
+    };
+    const files = Object.fromEntries(Object.entries(alts).map(([f, [v]]) => [f, `${v}\n`]));
+    const result = scanFiles(files);
+    for (const [f, [, name]] of Object.entries(alts)) expectRejected(result, f, name);
+  });
+
+  it('stays linear on a long hyphenated run (no catastrophic backtracking)', () => {
+    // The first hostname regex restarted at every `-`: quadratic, minutes on 2 MB.
+    const r = spawnSync(process.execPath, [SCANNER], {
+      cwd: makeRepo({ 'docs/long.md': `${'a-'.repeat(1_000_000)}\n` }), encoding: 'utf8', timeout: 15_000,
+    });
+    expect(r.status, `scanner did not finish cleanly (signal ${r.signal})`).toBe(0);
+  }, 30_000);
 
   it('still accepts loopback, which is deliberately not banned', () => {
     expectAccepted(scanFiles({ 'server.js': `listen(3000, '${dotted(127, 0, 0, 1)}');\n` }));

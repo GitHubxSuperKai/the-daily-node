@@ -13,7 +13,7 @@ function wrap(ui) {
 describe('MobileTabBar', () => {
   it('renders four tab buttons', () => {
     wrap(<MobileTabBar activeTab="home" onChange={() => {}} />);
-    expect(screen.getByRole('button', { name: /home/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /^home$/i })).toBeDefined();
     expect(screen.getByRole('button', { name: /bitcoin/i })).toBeDefined();
     expect(screen.getByRole('button', { name: /miners/i })).toBeDefined();
     expect(screen.getByRole('button', { name: /news/i })).toBeDefined();
@@ -36,6 +36,6 @@ describe('MobileTabBar', () => {
   it('marks the active tab with aria-current="page"', () => {
     wrap(<MobileTabBar activeTab="news" onChange={() => {}} />);
     expect(screen.getByRole('button', { name: /news/i }).getAttribute('aria-current')).toBe('page');
-    expect(screen.getByRole('button', { name: /home/i }).getAttribute('aria-current')).toBeNull();
+    expect(screen.getByRole('button', { name: /^home$/i }).getAttribute('aria-current')).toBeNull();
   });
 });
