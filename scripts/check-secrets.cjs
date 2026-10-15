@@ -8,6 +8,22 @@ const BANNED = [
   { name: 'private RFC1918 IP (172.16-31)',   regex: /\b172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}\b/ },
   { name: 'non-zero latitude',                regex: /lat:\s*-?(?!0\.0|0\b)\d+\.\d+/ },
   { name: 'non-zero longitude',               regex: /lng:\s*-?(?!0\.0|0\b)\d+\.\d+/ },
+  // Widened 2026-10. Each pattern below matched NOTHING in the tracked tree when it was
+  // added, so none needed a RESERVED entry or a scrub. Deliberately left out: 127.0.0.1
+  // (loopback discloses nothing, and bind/CORS code uses it legitimately in ~20 files),
+  // IPv4 link-local and fe80:: (169.254.169.254 and fe80::1 are the subject of the SSRF
+  // tests and say nothing about this network), and usernames and hostnames in general:
+  // they have no shape a regex can see, and a denylist of the real values would publish
+  // the very thing it guards.
+  { name: 'CGNAT / Tailscale IP (100.64/10)', regex: /\b100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3}\b/ },
+  { name: 'IPv6 unique-local address (fc00::/7)', regex: /\bf[cd][0-9a-f]{2}:[0-9a-f]{0,4}:[0-9a-f:]*[0-9a-f]/i },
+  { name: 'LAN hostname (.local / .lan / .home.arpa / .internal)',
+    regex: /\b[a-z0-9][a-z0-9-]*\.(local|lan|home\.arpa|internal)\b(?![.\w-])/i },
+  { name: 'Windows user-profile path',        regex: /\b[A-Za-z]:[\\/]+Users[\\/]+[A-Za-z0-9._-]+/i },
+  { name: 'Unix home-directory path',         regex: /\/(home|Users)\/[A-Za-z0-9._-]+\// },
+  { name: 'private key block',                regex: /-----BEGIN [A-Z ]*PRIVATE KEY-----/ },
+  { name: 'API token',
+    regex: /\b(ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|sk-ant-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,})/ },
 ];
 
 // Files to skip (build artifacts are excluded — source files are the real gate).
