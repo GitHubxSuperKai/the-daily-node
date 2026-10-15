@@ -340,6 +340,18 @@ describe('check-secrets: it scans the staged blob, not the working copy', () => 
     expectAccepted(result);
     expect(scannedCount(result)).toBe(2);
   });
+
+  it('lists the whole index from a subdirectory even under diff.relative=true', () => {
+    // diff.relative makes `git diff` list only paths under the cwd, relative to it. A
+    // subdirectory run would then miss every staged file outside it -- and with nothing
+    // staged inside it, print "checked 0 staged files" over a secret elsewhere.
+    const dir = makeRepo({
+      'src/a.js': 'export const a = 1;\n',
+      'docs/b.md': `host ${PLAIN_192}\n`,
+    });
+    git(['config', 'diff.relative', 'true'], dir);
+    expectRejected(runScanner(path.join(dir, 'src')), 'docs/b.md', P_192);
+  });
 });
 
 describe('check-secrets: an unread entry is a failure, not a clean scan', () => {

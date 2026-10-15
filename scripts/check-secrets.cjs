@@ -97,7 +97,11 @@ const isReserved = m => RESERVED.has(
 // block a commit AND a required CI check over a path that does not exist. The
 // NUL-delimited listing is never quoted, so this closes the gap rather than only
 // making it loud. No .trim(): a NUL-delimited record may legitimately end in space.
-const stagedRaw = execSync('git diff --cached --name-only --diff-filter=d -z', { encoding: 'utf8' });
+//
+// --no-relative overrides a user's diff.relative=true, which would otherwise list only
+// the staged paths under the cwd, relative to it: a subdirectory run would skip every
+// staged file outside that directory, and print a clean result if none were inside it.
+const stagedRaw = execSync('git diff --cached --no-relative --name-only --diff-filter=d -z', { encoding: 'utf8' });
 const staged = stagedRaw.split('\0').filter(Boolean);
 
 const targets = staged.filter(f => !SKIP.some(rx => rx.test(f)));
@@ -124,7 +128,9 @@ for (const f of targets) {
   let content;
   try { content = readStaged(f); }
   catch (e) {
-    const why = String(e.stderr || '').trim().split('\n').pop() || e.code || e.message;
+    // The fatal:/error: line, not the last one: for an unmerged path git ends on a hint.
+    const lines = String(e.stderr || '').trim().split('\n');
+    const why = lines.find(l => /^(fatal|error):/.test(l)) || lines.pop() || e.code || e.message;
     unreadable.push(`${f}: ${why}`);
     continue;
   }
