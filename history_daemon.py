@@ -164,29 +164,39 @@ def poll_chain(db_path):
 def poll_miners(db_path, ips):
     if not ips:
         return
-    ts   = int(time.time())
-    conn = sqlite3.connect(db_path)
+    ts = int(time.time())
+    # Outer guard like the sibling pollers: connect() and commit() sit outside the per-miner
+    # except, and an exception escaping here would end poll_forever's thread for good.
     try:
-        for ip in ips:
-            try:
-                raw      = fetch_json(f'http://{ip}/api/system/info', timeout=5)
-                hashrate = float(raw.get('hashRate', 0))
-                temp     = float(raw.get('temp', 0))
-                shares   = int(raw.get('sharesAccepted', 0))
-                conn.execute('INSERT OR REPLACE INTO miners VALUES (?, ?, ?, ?, ?)',
-                             (ts, ip, hashrate, temp, shares))
-            except Exception as e:
-                print(f'[miners] {ip} error: {e}', file=sys.stderr)
-        conn.commit()
-    finally:
-        conn.close()
+        conn = sqlite3.connect(db_path)
+        try:
+            for ip in ips:
+                try:
+                    raw      = fetch_json(f'http://{ip}/api/system/info', timeout=5)
+                    hashrate = float(raw.get('hashRate', 0))
+                    temp     = float(raw.get('temp', 0))
+                    shares   = int(raw.get('sharesAccepted', 0))
+                    conn.execute('INSERT OR REPLACE INTO miners VALUES (?, ?, ?, ?, ?)',
+                                 (ts, ip, hashrate, temp, shares))
+                except Exception as e:
+                    print(f'[miners] {ip} error: {e}', file=sys.stderr)
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f'[miners] poll error: {e}', file=sys.stderr)
 
 
 # ─── Background polling ────────────────────────────────────────
 
 def poll_forever(fn, interval_s):
+    # Each poller guards itself, but this loop is the thread: one exception that slips past
+    # a poller would stop that metric recording until the process restarts. Log and go on.
     while True:
-        fn()
+        try:
+            fn()
+        except Exception as e:
+            print(f'[poll] {getattr(fn, "__name__", fn)} error: {e}', file=sys.stderr)
         time.sleep(interval_s)
 
 
