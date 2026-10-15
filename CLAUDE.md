@@ -42,13 +42,15 @@ Single-file React dashboard for Bitcoin & mining monitoring. React + ReactDOM ar
 ```
 App (root — owns all hooks, theme, localStorage prefs)
 └── ThemeCtx.Provider
-    └── CommandCenter (4-column grid)
+    └── CommandCenter (4-column grid; App renders MobileApp instead below 900px)
         ├── Masthead + DesktopTicker (top chrome)
-        ├── Col 0: Sidebar (Logo, Clock, Weather, StatusDots)
-        ├── Col 1: MarketsColumn (price rendered inline), LineChart, LeadStory
-        ├── Col 2: News feed
-        └── Col 3: Miners, Chain stats, Kicker
+        ├── Col 0: Sidebar (logo, clock, Weather, OnThisDay, StatusDot)
+        ├── Col 1: MarketsColumn (price rendered inline, LineChart, LeadImage, ProofOfRead)
+        ├── Col 2: NewsColumn
+        ├── Col 3: ChainColumn (Miners → FleetSummary/MinerRow, NetworkStatusWidget)
+        └── SettingsPanel (overlay)
 ```
+Shared leaves (`Kicker`, `Num`, `Rule`) are omitted; `docs/ARCHITECTURE.md` has the fuller tree. Check names against `src/components/` when editing either.
 
 **Data flow:** External APIs → custom hooks → App → CommandCenter as props. Each hook exposes its own data field plus health metadata; shapes vary (e.g. `useBitaxe` → `{ miners, err, loading, lastOk, interval, refresh }`). Check the hook's return for exact fields.
 
