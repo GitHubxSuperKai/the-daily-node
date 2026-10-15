@@ -6,6 +6,7 @@ import { useT } from '../theme';
 import { u } from '../utils/scale.js';
 import { useHistory } from '../hooks/useHistory.js';
 import { useAlerts } from '../hooks/useAlerts.js';
+import { msSinceLastBlockFor } from '../utils/alertThresholds.js';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Masthead } from './Masthead';
 import { Sidebar } from './Sidebar';
@@ -51,7 +52,7 @@ export function CommandCenter({
   }, [clock.timeHM, weather.data?.wxSunrise, weather.data?.wxSunset, dark, v2prefs?.theme]);
 
   const lastBlockTs = chain.recentBlocks?.[0]?.timestamp ?? null;
-  const msSinceLastBlock = lastBlockTs ? (Date.now() / 1000 - lastBlockTs) * 1000 : null;
+  const msSinceLastBlock = msSinceLastBlockFor(chain);
 
   const priceHistory = useHistory('price', '24h');
   const _yesterdayPrice = priceHistory.data.length > 0 ? priceHistory.data[0].usd : null;
