@@ -9,6 +9,7 @@ Usage:
 Then open Command Center.html. The dashboard will poll http://localhost:3001/api/miners.
 """
 import argparse
+import errno
 import json
 import os
 import re
@@ -94,6 +95,10 @@ def save_config(path=CONFIG_PATH, ips=()):
             fd, tmp = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(path)),
                                        prefix=os.path.basename(path) + '.', suffix='.tmp')
         except OSError as e:
+            # Only a permissions refusal means "this directory is not ours to write". A
+            # full disk or quota (ENOSPC/EDQUOT) must not fall through to a truncating write.
+            if e.errno not in (errno.EACCES, errno.EPERM, errno.EROFS):
+                raise
             write_in_place(f'temp file: {e}')
             return
         with os.fdopen(fd, 'w') as f:

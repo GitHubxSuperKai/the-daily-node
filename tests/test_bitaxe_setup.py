@@ -120,6 +120,15 @@ class SaveConfigAtomicTest(unittest.TestCase):
         with open(self.path) as f:
             self.assertEqual(json.load(f), {'bitaxe_ips': ['miner-d'], 'proxy_hosts': ['keep-me']})
 
+    def test_disk_full_creating_the_temp_file_does_not_fall_back(self):
+        # ENOSPC must leave the old config alone, not route into the truncating write.
+        from unittest import mock
+        with mock.patch('bitaxe_api.tempfile.mkstemp', side_effect=OSError(28, 'No space left on device')), \
+             mock.patch('builtins.print'):
+            bitaxe_api.save_config(self.path, ['miner-f'])
+        with open(self.path) as f:
+            self.assertEqual(json.load(f), {'bitaxe_ips': ['miner-a'], 'proxy_hosts': ['keep-me']})
+
     def test_keeps_the_existing_file_mode(self):
         if os.name != 'posix':
             self.skipTest('POSIX permission bits')
@@ -130,7 +139,8 @@ class SaveConfigAtomicTest(unittest.TestCase):
     def test_falls_back_to_in_place_write_when_replace_is_refused(self):
         # A file bind-mounted on its own cannot be replaced (EBUSY); it must still save.
         from unittest import mock
-        with mock.patch('bitaxe_api.os.replace', side_effect=OSError(16, 'Device or resource busy')):
+        with mock.patch('bitaxe_api.os.replace', side_effect=OSError(16, 'Device or resource busy')), \
+             mock.patch('builtins.print'):
             bitaxe_api.save_config(self.path, ['miner-c'])
         with open(self.path) as f:
             self.assertEqual(json.load(f)['bitaxe_ips'], ['miner-c'])
