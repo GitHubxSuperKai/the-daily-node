@@ -189,14 +189,14 @@ def poll_miners(db_path, ips):
 
 # ─── Background polling ────────────────────────────────────────
 
-def poll_forever(fn, interval_s):
+def poll_forever(fn, interval_s, name=None):
     # Each poller guards itself, but this loop is the thread: one exception that slips past
     # a poller would stop that metric recording until the process restarts. Log and go on.
     while True:
         try:
             fn()
         except Exception as e:
-            print(f'[poll] {getattr(fn, "__name__", fn)} error: {e}', file=sys.stderr)
+            print(f'[poll] {name or getattr(fn, "__name__", fn)} error: {e}', file=sys.stderr)
         time.sleep(interval_s)
 
 
@@ -312,13 +312,13 @@ def main():
     print(f'[daemon] HTTP:       {args.bind}:{args.port}')
     print(f'[daemon] BitAxe IPs: {args.bitaxe_ips or "(none)"}')
 
-    for fn, interval in [
-        (lambda: poll_price(args.db),                    POLL_PRICE_S),
-        (lambda: poll_chain(args.db),                    POLL_CHAIN_S),
-        (lambda: poll_miners(args.db, args.bitaxe_ips),  POLL_MINER_S),
-        (lambda: poll_purge(args.db),                    PURGE_INTERVAL_S),
+    for name, fn, interval in [
+        ('price',  lambda: poll_price(args.db),                    POLL_PRICE_S),
+        ('chain',  lambda: poll_chain(args.db),                    POLL_CHAIN_S),
+        ('miners', lambda: poll_miners(args.db, args.bitaxe_ips),  POLL_MINER_S),
+        ('purge',  lambda: poll_purge(args.db),                    PURGE_INTERVAL_S),
     ]:
-        threading.Thread(target=poll_forever, args=(fn, interval), daemon=True).start()
+        threading.Thread(target=poll_forever, args=(fn, interval, name), daemon=True).start()
 
     HistoryHandler.db_path = args.db
     server = HTTPServer((args.bind, args.port), HistoryHandler)
