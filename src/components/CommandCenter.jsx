@@ -1,7 +1,7 @@
 import React from 'react';
 import CONFIG from '../config.js';
 import { sourceFreshness } from '../utils/freshness.js';
-import { themeFlipDecision } from '../utils/autoTheme.js';
+import { themeFlipDecision, shouldBeDarkAt } from '../utils/autoTheme.js';
 import { useT } from '../theme';
 import { u } from '../utils/scale.js';
 import { useHistory } from '../hooks/useHistory.js';
@@ -42,15 +42,13 @@ export function CommandCenter({
   const lastShouldBeDark = React.useRef(null);
   React.useEffect(() => {
     if (v2prefs?.theme !== 'auto') return;
-    const wx = weather.data;
-    if (wx?.wxSunriseHr == null) return;
-    const hr = new Date().getHours();
-    const shouldBeDark = hr < wx.wxSunriseHr || hr >= wx.wxSunsetHr;
+    const shouldBeDark = shouldBeDarkAt(new Date(), weather.data);
+    if (shouldBeDark == null) return;
     const { update, flip } = themeFlipDecision(lastShouldBeDark.current, shouldBeDark, dark);
     if (update) lastShouldBeDark.current = shouldBeDark;
     if (flip) onToggleDark();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: re-runs on clock tick only; weather.data + onToggleDark closure is read fresh
-  }, [clock.timeHM, weather.data?.wxSunriseHr, dark, v2prefs?.theme]);
+  }, [clock.timeHM, weather.data?.wxSunrise, weather.data?.wxSunset, dark, v2prefs?.theme]);
 
   const lastBlockTs = chain.recentBlocks?.[0]?.timestamp ?? null;
   const msSinceLastBlock = lastBlockTs ? (Date.now() / 1000 - lastBlockTs) * 1000 : null;
