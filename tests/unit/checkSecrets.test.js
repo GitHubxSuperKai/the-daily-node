@@ -19,7 +19,7 @@
 // wired only into that chain gets zero CI coverage.
 //
 // Each case drives the real CLI end-to-end in a throwaway git repo. The scanner reads
-// `git diff --cached --name-only` and then reads each staged path off disk, so a
+// `git diff --cached --name-only` and then reads each staged blob from the index, so a
 // staged temp repo is the only way to exercise it without touching this repo's index.
 //
 // This runs under the suite-wide jsdom environment even though nothing here needs a
@@ -351,6 +351,11 @@ describe('check-secrets: it scans the staged blob, not the working copy', () => 
     });
     git(['config', 'diff.relative', 'true'], dir);
     expectRejected(runScanner(path.join(dir, 'src')), 'docs/b.md', P_192);
+
+    // The fail-OPEN form: a directory with nothing staged under it. Without the fix this
+    // listed nothing and printed a clean "checked 0 staged files".
+    fs.mkdirSync(path.join(dir, 'empty'));
+    expectRejected(runScanner(path.join(dir, 'empty')), 'docs/b.md', P_192);
   });
 });
 
