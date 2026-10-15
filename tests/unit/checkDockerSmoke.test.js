@@ -202,7 +202,7 @@ describe('the trigger that decides whether the smoke job runs at all', () => {
 
 describe('the smoke job’s own shape', () => {
   it('rejects an added job', () => {
-    expect(rejects(`${GOOD}\n  extra:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n`))
+    expect(rejects(`${GOOD}\n  extra:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n`))
       .toMatch(/declares jobs/);
   });
 
@@ -324,7 +324,7 @@ describe('an unreadable workflow is reported, never passed over', () => {
   });
 
   it('reports a steps: value that is not a list', () => {
-    const mutated = sub(GOOD, '    steps:\n      - uses: actions/checkout@v6', '    steps: none\n    unused:\n      - uses: actions/checkout@v6');
+    const mutated = sub(GOOD, '    steps:\n      - uses: actions/checkout@v7', '    steps: none\n    unused:\n      - uses: actions/checkout@v7');
     expect(rejects(mutated)).toMatch(/has no readable steps: list/);
   });
 

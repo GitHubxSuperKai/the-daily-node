@@ -301,11 +301,11 @@ describe('check-codeql-config: workflow mutations that unhook the config', () =>
     },
     {
       name: 'an extra action is inserted into the job',
-      workflow: GOOD_WORKFLOW.replace('      - uses: actions/checkout@v6', '      - uses: actions/checkout@v6\n      - uses: evil/exfil@v1'),
+      workflow: GOOD_WORKFLOW.replace('      - uses: actions/checkout@v7', '      - uses: actions/checkout@v7\n      - uses: evil/exfil@v1'),
     },
     {
       name: 'the checkout step is dropped',
-      workflow: GOOD_WORKFLOW.replace('      - uses: actions/checkout@v6\n', ''),
+      workflow: GOOD_WORKFLOW.replace('      - uses: actions/checkout@v7\n', ''),
     },
     {
       // Anchoring is what makes this fail: every workflow pattern requires the key at
@@ -342,7 +342,7 @@ describe('check-codeql-config: workflow mutations that unhook the config', () =>
       // The uses: pattern could not see a line with a trailing comment, so the inserted
       // step never entered the compared list -- an allowlist blind to insertions.
       name: 'an inserted step carries a trailing comment',
-      workflow: GOOD_WORKFLOW.replace('      - uses: actions/checkout@v6', '      - uses: actions/checkout@v6\n      - uses: evil/exfil@v1 # pinned'),
+      workflow: GOOD_WORKFLOW.replace('      - uses: actions/checkout@v7', '      - uses: actions/checkout@v7\n      - uses: evil/exfil@v1 # pinned'),
     },
     {
       // `if : false` is valid YAML. One space walked past an assertion anchored on
@@ -361,7 +361,7 @@ describe('check-codeql-config: workflow mutations that unhook the config', () =>
       name: 'an earlier run: block decoys the guarded keys',
       workflow: GOOD_WORKFLOW
         .replace('          config-file: .github/codeql/codeql-config.yml', '          config-file: evil.yml')
-        .replace('      - uses: actions/checkout@v6', '      - run: |\n          config-file: .github/codeql/codeql-config.yml\n      - uses: actions/checkout@v6'),
+        .replace('      - uses: actions/checkout@v7', '      - run: |\n          config-file: .github/codeql/codeql-config.yml\n      - uses: actions/checkout@v7'),
     },
     // Round three: QUOTED keys. Ordinary YAML, honoured by GitHub Actions, and every
     // assertion that matched only the bare spelling was walked past by two characters.
@@ -388,7 +388,7 @@ describe('check-codeql-config: workflow mutations that unhook the config', () =>
     },
     {
       name: 'a step is inserted with a quoted uses: key',
-      workflow: GOOD_WORKFLOW.replace('      - uses: actions/checkout@v6', '      - uses: actions/checkout@v6\n      - "uses": evil/exfil@v1'),
+      workflow: GOOD_WORKFLOW.replace('      - uses: actions/checkout@v7', '      - uses: actions/checkout@v7\n      - "uses": evil/exfil@v1'),
     },
     {
       name: 'if: is set with a quoted key',
@@ -588,7 +588,7 @@ describe('check-codeql-config: workflow assertions must not be satisfied by pros
   const QUOTED = [
     ['config-file', '          config-file: .github/codeql/codeql-config.yml'],
     ['queries', '          queries: security-extended,security-and-quality'],
-    ['uses', '      - uses: actions/checkout@v6'],
+    ['uses', '      - uses: actions/checkout@v7'],
   ];
   for (const [key, line] of QUOTED) {
     it(`accepts a quoted ${key}: key carrying the correct value`, () => {
