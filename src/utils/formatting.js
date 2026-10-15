@@ -94,12 +94,17 @@ function safeISODate(value) {
   return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
 }
 
-function nextHalving(height) {
+// Projected calendar date `blocks` blocks from `now`, at the 10-minute target spacing.
+// `now` is a parameter (as in sourceFreshness) so callers and tests can pin the clock.
+function projectBlocksDate(blocks, now = Date.now()) {
+  return safeISODate(now + blocks * 10 * 60 * 1000);
+}
+
+function nextHalving(height, now = Date.now()) {
   const halvingInterval = 210000;
   const nextHalvingBlock = Math.ceil((height + 1) / halvingInterval) * halvingInterval;
   const blocksRemaining = nextHalvingBlock - height;
-  const daysRemaining = blocksRemaining / 144;
-  return safeISODate(Date.now() + daysRemaining * 86400000) ?? '—';
+  return projectBlocksDate(blocksRemaining, now) ?? '—';
 }
 
 function circulatingBTC(height) {
@@ -246,6 +251,7 @@ if (typeof module !== 'undefined' && module.exports) {
     fmtHHMM,
     safeISODate,
     nextHalving,
+    projectBlocksDate,
     circulatingBTC,
     calcSoloOdds,
     wmoDesc,
