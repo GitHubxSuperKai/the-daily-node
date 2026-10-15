@@ -13,6 +13,7 @@ import json
 import os
 import re
 import ssl
+import tempfile
 import threading
 import urllib.request
 import urllib.error
@@ -73,11 +74,33 @@ def save_config(path=CONFIG_PATH, ips=()):
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         existing = {}
     existing['bitaxe_ips'] = list(ips)
+    # Write a sibling temp file and os.replace() it over the config: replace is atomic, so
+    # a failure mid-write leaves the previous config intact instead of a truncated one.
+    tmp = None
     try:
-        with open(path, 'w') as f:
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(path)),
+                                   prefix=os.path.basename(path) + '.', suffix='.tmp')
+        with os.fdopen(fd, 'w') as f:
             json.dump(existing, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        try:
+            os.replace(tmp, path)
+        except OSError:
+            # A config file bind-mounted on its own (rather than its directory) cannot be
+            # replaced (EBUSY). Fall back to the old in-place write so it still saves.
+            with open(path, 'w') as f:
+                json.dump(existing, f, indent=2)
+        else:
+            tmp = None
     except OSError as e:
         print(f'[BitAxe API] WARNING: could not save config to {path}: {e}')
+    finally:
+        if tmp is not None:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
 
 
 def normalize_proxy_base(raw):
