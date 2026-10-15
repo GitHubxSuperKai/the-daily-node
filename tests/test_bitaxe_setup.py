@@ -110,6 +110,23 @@ class SaveConfigAtomicTest(unittest.TestCase):
                      if n.startswith(os.path.basename(self.path) + '.')]
         self.assertEqual(leftovers, [], 'temp file left behind')
 
+    def test_falls_back_to_in_place_write_when_the_temp_file_cannot_be_created(self):
+        # A file mounted into a directory the process cannot write: mkstemp fails before
+        # any replace is attempted. The old in-place write saved fine here, so must this.
+        from unittest import mock
+        with mock.patch('bitaxe_api.tempfile.mkstemp', side_effect=PermissionError(13, 'Permission denied')), \
+             mock.patch('builtins.print'):
+            bitaxe_api.save_config(self.path, ['miner-d'])
+        with open(self.path) as f:
+            self.assertEqual(json.load(f), {'bitaxe_ips': ['miner-d'], 'proxy_hosts': ['keep-me']})
+
+    def test_keeps_the_existing_file_mode(self):
+        if os.name != 'posix':
+            self.skipTest('POSIX permission bits')
+        os.chmod(self.path, 0o644)
+        bitaxe_api.save_config(self.path, ['miner-e'])
+        self.assertEqual(os.stat(self.path).st_mode & 0o777, 0o644)
+
     def test_falls_back_to_in_place_write_when_replace_is_refused(self):
         # A file bind-mounted on its own cannot be replaced (EBUSY); it must still save.
         from unittest import mock

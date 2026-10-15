@@ -13,6 +13,7 @@ import json
 import os
 import re
 import ssl
+import stat
 import tempfile
 import threading
 import urllib.request
@@ -76,21 +77,39 @@ def save_config(path=CONFIG_PATH, ips=()):
     existing['bitaxe_ips'] = list(ips)
     # Write a sibling temp file and os.replace() it over the config: replace is atomic, so
     # a failure mid-write leaves the previous config intact instead of a truncated one.
+    #
+    # The in-place write is kept as a fallback for the two layouts where the atomic path
+    # cannot work: the temp file cannot be created (the config is mounted into a directory
+    # this process cannot write), or the replace is refused (a file bind-mounted on its own
+    # gives EBUSY). A failure while WRITING the temp file does not fall back: that is the
+    # disk-full case, where an in-place write is exactly what truncates the config.
+    def write_in_place(reason):
+        print(f'[BitAxe API] NOTE: non-atomic config write to {path} ({reason})')
+        with open(path, 'w') as f:
+            json.dump(existing, f, indent=2)
+
     tmp = None
     try:
-        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(path)),
-                                   prefix=os.path.basename(path) + '.', suffix='.tmp')
+        try:
+            fd, tmp = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(path)),
+                                       prefix=os.path.basename(path) + '.', suffix='.tmp')
+        except OSError as e:
+            write_in_place(f'temp file: {e}')
+            return
         with os.fdopen(fd, 'w') as f:
             json.dump(existing, f, indent=2)
             f.flush()
             os.fsync(f.fileno())
         try:
-            os.replace(tmp, path)
+            # mkstemp creates 0600; keep the existing file's mode so a save never makes
+            # the config unreadable to whoever could read it before.
+            os.chmod(tmp, stat.S_IMODE(os.stat(path).st_mode))
         except OSError:
-            # A config file bind-mounted on its own (rather than its directory) cannot be
-            # replaced (EBUSY). Fall back to the old in-place write so it still saves.
-            with open(path, 'w') as f:
-                json.dump(existing, f, indent=2)
+            pass
+        try:
+            os.replace(tmp, path)
+        except OSError as e:
+            write_in_place(f'replace: {e}')
         else:
             tmp = None
     except OSError as e:
