@@ -195,14 +195,14 @@ describe('the trigger that decides whether the smoke job runs at all', () => {
   });
 
   it('rejects reordered pull_request paths', () => {
-    expect(rejects(sub(GOOD, "      - 'Dockerfile'\n      - '.dockerignore'\n      - 'bitaxe_api.py'\n      - 'setup.html'\n      - 'src/**'\n      - 'build.js'\n      - 'package.json'\n      - 'package-lock.json'\n      - 'docker-compose.yml'", "      - '.dockerignore'\n      - 'Dockerfile'\n      - 'bitaxe_api.py'\n      - 'setup.html'\n      - 'src/**'\n      - 'build.js'\n      - 'package.json'\n      - 'package-lock.json'\n      - 'docker-compose.yml'")))
+    expect(rejects(sub(GOOD, "      - 'Dockerfile'\n      - '.dockerignore'\n      - 'bitaxe_api.py'\n      - 'history_daemon.py'\n      - 'setup.html'\n      - 'src/**'\n      - 'build.js'\n      - 'package.json'\n      - 'package-lock.json'\n      - 'docker-compose.yml'", "      - '.dockerignore'\n      - 'Dockerfile'\n      - 'bitaxe_api.py'\n      - 'history_daemon.py'\n      - 'setup.html'\n      - 'src/**'\n      - 'build.js'\n      - 'package.json'\n      - 'package-lock.json'\n      - 'docker-compose.yml'")))
       .toMatch(/pull_request\.paths/);
   });
 });
 
 describe('the smoke job’s own shape', () => {
   it('rejects an added job', () => {
-    expect(rejects(`${GOOD}\n  extra:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n`))
+    expect(rejects(`${GOOD}\n  extra:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n`))
       .toMatch(/declares jobs/);
   });
 
@@ -324,7 +324,7 @@ describe('an unreadable workflow is reported, never passed over', () => {
   });
 
   it('reports a steps: value that is not a list', () => {
-    const mutated = sub(GOOD, '    steps:\n      - uses: actions/checkout@v6', '    steps: none\n    unused:\n      - uses: actions/checkout@v6');
+    const mutated = sub(GOOD, '    steps:\n      - uses: actions/checkout@v7', '    steps: none\n    unused:\n      - uses: actions/checkout@v7');
     expect(rejects(mutated)).toMatch(/has no readable steps: list/);
   });
 

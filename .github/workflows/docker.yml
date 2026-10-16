@@ -8,6 +8,7 @@ on:
       - 'Dockerfile'
       - '.dockerignore'
       - 'bitaxe_api.py'
+      - 'history_daemon.py'
       - 'setup.html'
       - 'src/**'
       - 'build.js'
@@ -63,6 +64,7 @@ on:
       - 'Dockerfile'
       - '.dockerignore'
       - 'bitaxe_api.py'
+      - 'history_daemon.py'
       - 'setup.html'
       - 'src/**'
       - 'build.js'
@@ -83,7 +85,7 @@ jobs:
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # The smoke test below uses `docker run`, so it never reads the compose
       # file. Validate the YAML here; the probe itself is executed against the
@@ -263,7 +265,7 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: docker/setup-qemu-action@v4
 

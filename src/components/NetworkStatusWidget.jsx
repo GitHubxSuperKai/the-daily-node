@@ -1,5 +1,5 @@
 import React from 'react';
-import { fmtHashrate, fmtDiff, fmtNum, fmtBlockSize, safeISODate } from '../utils/formatting.js';
+import { fmtHashrate, fmtDiff, fmtNum, fmtBlockSize, safeISODate, projectBlocksDate } from '../utils/formatting.js';
 import { u } from '../utils/scale.js';
 
 function SubLabel({ children, right, alert, rightColor, noBorder, T }) {
@@ -82,7 +82,7 @@ export function NetworkStatusWidget({ chain, T }) {
   const remainingBlocks = d?.remainingBlocks ?? 0;
   const remainingDays = Math.round(remainingBlocks * 10 / 60 / 24);
   const projectedRetargetDateStr = remainingBlocks > 0
-    ? safeISODate(Date.now() + remainingBlocks * 10 * 60 * 1000)
+    ? projectBlocksDate(remainingBlocks)
     : null;
   const prevDiffAdj = d?.previousDiffAdj;
   const prevDiffAdjStr = prevDiffAdj != null ? `${prevDiffAdj >= 0 ? '+' : ''}${prevDiffAdj.toFixed(2)}%` : '—';

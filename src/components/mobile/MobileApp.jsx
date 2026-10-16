@@ -1,6 +1,6 @@
 import React from 'react';
 import { useT } from '../../theme.js';
-import { themeFlipDecision } from '../../utils/autoTheme.js';
+import { themeFlipDecision, shouldBeDarkAt } from '../../utils/autoTheme.js';
 import { MobileHeader } from './MobileHeader.jsx';
 import { MobileTabBar } from './MobileTabBar.jsx';
 import { HomePanel } from './HomePanel.jsx';
@@ -43,15 +43,13 @@ function MobileApp(props) {
   const lastShouldBeDark = React.useRef(null);
   React.useEffect(() => {
     if (v2prefs?.theme !== 'auto') return;
-    const wx = weather.data;
-    if (wx?.wxSunriseHr == null) return;
-    const hr = new Date().getHours();
-    const shouldBeDark = hr < wx.wxSunriseHr || hr >= wx.wxSunsetHr;
+    const shouldBeDark = shouldBeDarkAt(new Date(), weather.data);
+    if (shouldBeDark == null) return;
     const { update, flip } = themeFlipDecision(lastShouldBeDark.current, shouldBeDark, dark);
     if (update) lastShouldBeDark.current = shouldBeDark;
     if (flip) onToggleDark();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clock.timeHM, weather.data?.wxSunriseHr, dark, v2prefs?.theme]);
+  }, [clock.timeHM, weather.data?.wxSunrise, weather.data?.wxSunset, dark, v2prefs?.theme]);
 
   return (
     <div

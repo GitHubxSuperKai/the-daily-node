@@ -35,7 +35,7 @@ assert.ok(!html.includes('/* MODULES CONCATENATED BY build.js */'),
 // literals and object-property names that survive minification unchanged.
 const REQUIRED_MARKERS = [
   'dailynode-prefs',       // App.jsx (localStorage key — string literal)
-  '127.0.0.1:3002',        // hooks/useHistory.js (HISTORY_BASE constant — string literal)
+  '127.0.0.1:3002',        // src/config.js (HISTORY_BASE fallback — string literal)
   'fetchBTCPrice',         // utils/api.js (object property key)
   'fmtPrice',              // utils/formatting.js (object property key)
   'METEOCONS_SVG',         // utils/svg.js (object property key)
@@ -91,21 +91,32 @@ assert.ok(html.includes(`"v${version}"`),
   `version string "v${version}" not found — __VERSION__ define may not have been replaced`);
 
 // 10. CSP meta tag must be present with required directives
-assert.ok(html.includes('Content-Security-Policy'),
-  'CSP meta tag missing from output');
-const REQUIRED_CSP_HOSTS = [
-  'api.kraken.com',
-  'api.coingecko.com',
-  'mempool.space',
-  'api.open-meteo.com',
-  'api.rss2json.com',
-  '127.0.0.1:3001',
+// Sources are checked as whole tokens of the meta tag's connect-src. A whole-page
+// includes() stayed green with a CSP entry deleted, because most hosts also appear in JS
+// literals or HTML comments (shown by mutation for http://*:3002); and a substring check
+// on connect-src alone still passed with https://api.open-meteo.com deleted, since
+// https://geocoding-api.open-meteo.com contains it.
+const cspMatch = html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]*)"/);
+assert.ok(cspMatch, 'CSP meta tag missing from output');
+const csp = cspMatch[1];
+const connectSrc = (csp.match(/(?:^|;)\s*connect-src ([^;]*)/) || [])[1] || '';
+assert.ok(connectSrc, 'CSP has no connect-src directive');
+const connectTokens = connectSrc.trim().split(/\s+/);
+const REQUIRED_CSP_SOURCES = [
+  'https://api.kraken.com',
+  'https://api.coingecko.com',
+  'https://mempool.space',
+  'https://api.open-meteo.com',
+  'https://geocoding-api.open-meteo.com',   // city search (settings)
+  'https://api.rss2json.com',
+  'http://127.0.0.1:3001',
+  'http://*:3002',      // history daemon on the serving host (CONFIG.HISTORY_BASE)
 ];
-for (const host of REQUIRED_CSP_HOSTS) {
-  assert.ok(html.includes(host),
-    `CSP missing required connect-src host: ${host}`);
+for (const source of REQUIRED_CSP_SOURCES) {
+  assert.ok(connectTokens.includes(source),
+    `CSP missing required connect-src source: ${source}`);
 }
-assert.ok(html.includes('frame-ancestors'),
+assert.ok(/(?:^|;)\s*frame-ancestors /.test(csp),
   'CSP missing frame-ancestors directive');
 
 // 11. The 900px mobile breakpoint must stay in sync across all three checks.

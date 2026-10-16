@@ -89,4 +89,15 @@ describe('useRSS', () => {
     expect(safeItems.length).toBeGreaterThan(0);
     safeItems.forEach(i => expect(i.link).toBe('https://example.com/safe'));
   });
+
+  it('bounds every fetch with a timeout signal, so a hung request cannot stall the feed', async () => {
+    // A bare fetch() has no deadline: a request that never settles left the feed stuck on
+    // stale data with no error. Every call must carry an AbortSignal.
+    global.fetch = vi.fn().mockResolvedValue(feedResp(5));
+    renderHook(() => useRSS());
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    for (const [, init] of global.fetch.mock.calls) {
+      expect(init?.signal, 'fetch called without a signal').toBeInstanceOf(AbortSignal);
+    }
+  });
 });
