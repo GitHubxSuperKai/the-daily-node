@@ -1,8 +1,12 @@
+import os
+import sys
 import unittest
-import sys, os
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from urllib.parse import urlparse
+
 from bitaxe_api import is_origin_allowed
+
 
 class TestOriginAllowlist(unittest.TestCase):
     def test_allows_localhost(self):

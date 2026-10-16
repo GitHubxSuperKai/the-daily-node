@@ -10,6 +10,7 @@ Then open Command Center.html. The dashboard will poll http://localhost:3001/api
 """
 import argparse
 import errno
+import ipaddress
 import json
 import os
 import re
@@ -17,13 +18,10 @@ import ssl
 import stat
 import tempfile
 import threading
-import urllib.request
 import urllib.error
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
-
-
-import ipaddress
+import urllib.request
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import parse_qs, urlparse
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):

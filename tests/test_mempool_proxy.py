@@ -8,9 +8,9 @@ import json
 import sys
 import threading
 import unittest
-import urllib.request
 import urllib.error
-from http.server import HTTPServer, BaseHTTPRequestHandler
+import urllib.request
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 # Make bitaxe_api importable

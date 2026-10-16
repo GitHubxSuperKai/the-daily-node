@@ -7,7 +7,15 @@ import unittest
 import unittest.mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from history_daemon import ensure_schema, parse_chain_response, parse_price_response, poll_forever, poll_miners, poll_purge, purge_old
+from history_daemon import (
+    ensure_schema,
+    parse_chain_response,
+    parse_price_response,
+    poll_forever,
+    poll_miners,
+    poll_purge,
+    purge_old,
+)
 
 
 class TestSchema(unittest.TestCase):
