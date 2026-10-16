@@ -81,10 +81,11 @@ jobs:
           python-version: '3.11'
 
       # Pinned to match `required-version` in ruff.toml; bump both together.
+      # `github` output turns each finding into a PR annotation on the offending line.
       - name: Check Python import order
         run: |
           pip install ruff==0.16.10
-          ruff check .
+          ruff check --output-format=github .
 
       - name: Run python tests
         run: npm run test:py
