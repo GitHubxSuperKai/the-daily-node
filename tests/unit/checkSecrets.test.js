@@ -19,7 +19,7 @@
 // wired only into that chain gets zero CI coverage.
 //
 // Each case drives the real CLI end-to-end in a throwaway git repo. The scanner reads
-// `git diff --cached --name-only` and then reads each staged path off disk, so a
+// `git diff --cached --name-only` and then reads each staged blob from the index, so a
 // staged temp repo is the only way to exercise it without touching this repo's index.
 //
 // This runs under the suite-wide jsdom environment even though nothing here needs a
@@ -105,10 +105,9 @@ function makeRepo(files) {
   return dir;
 }
 
-// `cwd` is a real argument, not a detail: the scanner resolves the repo-root-relative
-// paths git hands it against its own working directory, so which directory it runs from
-// decides whether it reads anything at all. The fail-closed cases below run it from a
-// subdirectory for exactly that reason.
+// `cwd` is a real argument: the scanner reads index entries, which must resolve the same
+// from any directory in the repo, and one case below runs it from a subdirectory to pin
+// that.
 function runScanner(cwd) {
   const r = spawnSync(process.execPath, [SCANNER], { cwd, encoding: 'utf8' });
   return { code: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
@@ -296,66 +295,109 @@ describe('check-secrets: controls', () => {
   });
 });
 
-describe('check-secrets: an unread file is a failure, not a clean scan', () => {
-  // The gate's whole value is that a green run means something. The read used to be
-  // wrapped in a bare catch-and-continue, so a run that opened NOTHING printed the same
-  // success line and the same exit 0 as a clean full-repo scan -- a totally broken run
-  // and a passing run were indistinguishable. Every case here asserts on the absence of
-  // that success line, because the exit code alone cannot tell them apart either: a
-  // scanner that crashes on startup also exits 1.
+describe('check-secrets: it scans the staged blob, not the working copy', () => {
+  // The index is what a commit records, so the index is what has to be scanned. The
+  // scanner used to read each staged path off disk, which opened a gap the pre-commit
+  // hook could not see: stage a secret, edit it out of the file without re-staging, and
+  // the secret committed unscanned. Both directions are pinned, because a scanner that
+  // reads index AND worktree would pass the first case and fail the second.
 
-  it('refuses to report a clean scan when run from a subdirectory', () => {
-    // Git emits repo-root-relative paths, so from a subdirectory every single read
-    // throws. Not reachable through the two supported entry points -- git runs hooks
-    // from the top level, npm runs scripts from the package root -- so this pins
-    // hardening rather than a live leak.
+  it('rejects a secret that is staged and then edited out of the worktree', () => {
+    const dir = makeRepo({ 'src/config.js': `export const HOST = '${PLAIN_192}';\n` });
+    fs.writeFileSync(path.join(dir, 'src/config.js'), "export const HOST = '<lan-host>';\n");
+    expectRejected(runScanner(dir), 'src/config.js', P_192);
+  });
+
+  it('accepts a clean staged file whose unstaged worktree copy holds a secret', () => {
+    const dir = makeRepo({ 'src/config.js': "export const HOST = '<lan-host>';\n" });
+    fs.writeFileSync(path.join(dir, 'src/config.js'), `export const HOST = '${PLAIN_192}';\n`);
+    const result = runScanner(dir);
+    expectAccepted(result);
+    expect(scannedCount(result)).toBe(1);
+  });
+
+  it('scans a staged file whose worktree copy was deleted without `git rm`', () => {
+    // The index still carries content the commit will include, so it is scanned like any
+    // other staged file. The planted address proves the read happened: an accept here is
+    // also what a scanner that skipped the path would print.
+    const dir = makeRepo({ 'docs/gone.md': `host ${PLAIN_192}\n` });
+    fs.rmSync(path.join(dir, 'docs/gone.md'));
+    expectRejected(runScanner(dir), 'docs/gone.md', P_192);
+  });
+
+  it('scans the same bytes from a subdirectory as from the root', () => {
+    // Index paths resolve from the repository root whatever the cwd, so the wrong-cwd
+    // failure the working-copy reader had (every read threw from a subdirectory) cannot
+    // happen. Pinned both ways so a cwd-sensitive reader fails here.
     const dir = makeRepo({
       'src/config.js': 'export const HOST = "<lan-host>";\n',
       'setup.html': `<p>Example: ${PLAIN_192}</p>\n`,
     });
-    const result = runScanner(path.join(dir, 'src'));
+    expectRejected(runScanner(path.join(dir, 'src')), 'setup.html', P_192);
 
-    expect(result.code, `expected a fail-closed exit, scanner said: ${result.stdout.trim()}`).toBe(1);
-    expect(result.stdout, 'reported a clean scan over files it never opened').not.toMatch(/checked \d+ staged files/);
-    expect(result.stderr).toContain('could not read');
-
-    // The planted address is the point of the case, not decoration: this run cannot see
-    // it, and must therefore refuse to pass rather than pass silently. The positive
-    // control below proves the same bytes DO fail from the root, so a green result here
-    // could only ever have meant the scan did not happen.
-    expect(result.stderr, 'the subdir run cannot have seen this -- it read nothing').not.toContain(`matches ${P_192}`);
-    expectRejected(runScanner(dir), 'setup.html', P_192);
+    const clean = makeRepo({ 'src/a.js': 'export const a = 1;\n', 'docs/b.md': 'clean\n' });
+    const result = runScanner(path.join(clean, 'src'));
+    expectAccepted(result);
+    expect(scannedCount(result)).toBe(2);
   });
 
-  it('names every file it could not read, and the count matches the list', () => {
-    // A bare count is not actionable, and the list is what distinguishes one broken
-    // symlink from the whole staged set (the wrong-cwd shape). Both halves are asserted
-    // together so a header that drifts from the enumeration cannot pass.
+  it('lists the whole index from a subdirectory even under diff.relative=true', () => {
+    // diff.relative makes `git diff` list only paths under the cwd, relative to it. A
+    // subdirectory run would then miss every staged file outside it -- and with nothing
+    // staged inside it, print "checked 0 staged files" over a secret elsewhere.
     const dir = makeRepo({
       'src/a.js': 'export const a = 1;\n',
-      'src/b.js': 'export const b = 2;\n',
-      'docs/c.md': 'clean\n',
+      'docs/b.md': `host ${PLAIN_192}\n`,
     });
-    const result = runScanner(path.join(dir, 'src'));
+    git(['config', 'diff.relative', 'true'], dir);
+    expectRejected(runScanner(path.join(dir, 'src')), 'docs/b.md', P_192);
 
+    // The fail-OPEN form: a directory with nothing staged under it. Without the fix this
+    // listed nothing and printed a clean "checked 0 staged files".
+    fs.mkdirSync(path.join(dir, 'empty'));
+    expectRejected(runScanner(path.join(dir, 'empty')), 'docs/b.md', P_192);
+  });
+});
+
+describe('check-secrets: an unread entry is a failure, not a clean scan', () => {
+  // The gate's whole value is that a green run means something. The read used to be
+  // wrapped in a bare catch-and-continue, so a run that opened NOTHING printed the same
+  // success line and the same exit 0 as a clean full-repo scan. Every case here asserts
+  // on the absence of that success line, because the exit code alone cannot tell them
+  // apart either: a scanner that crashes on startup also exits 1.
+  //
+  // With blob reads, the entry that cannot be read is one that is not a stage-0 blob. A
+  // gitlink (submodule) is the reachable one: its index entry names a commit, not a blob.
+  function addGitlink(dir, rel) {
+    // Any well-formed object name will do: the commit it names is never fetched.
+    git(['update-index', '--add', '--cacheinfo', `160000,${'1'.repeat(40)},${rel}`], dir);
+  }
+
+  it('names every entry it could not read, and the count matches the list', () => {
+    const dir = makeRepo({ 'src/a.js': 'export const a = 1;\n' });
+    addGitlink(dir, 'vendor/one');
+    addGitlink(dir, 'vendor/two');
+
+    const result = runScanner(dir);
     expect(result.code).toBe(1);
-    expect(result.stdout).not.toMatch(/checked \d+ staged files/);
+    expect(result.stdout, 'reported a clean scan over entries it never opened').not.toMatch(/checked \d+ staged files/);
     const header = result.stderr.match(/could not read (\d+) of (\d+) staged file\(s\)/);
     expect(header, `no unreadable-file report in: ${result.stderr}`).not.toBeNull();
-    expect(Number(header[1])).toBe(3);
+    expect(Number(header[1])).toBe(2);
     expect(Number(header[2])).toBe(3);
-    for (const rel of ['src/a.js', 'src/b.js', 'docs/c.md']) {
+    for (const rel of ['vendor/one', 'vendor/two']) {
       expect(result.stderr, `${rel} went unread but was not named`).toContain(rel);
     }
+    expect(result.stderr, 'a readable file was reported unread').not.toMatch(/^\s+src\/a\.js:/m);
   });
 
   it('reads a staged path whose name git would C-quote', () => {
     // `git diff --cached --name-only` C-quotes any path with non-ASCII bytes under
-    // core.quotepath, handing back a name no filesystem has. That file was never
-    // scanned before the fail-closed change either -- it was skipped in silence -- so
-    // the -z listing closes a real coverage hole rather than only making it loud.
-    // Asserted as a REJECT, not an accept: an accept here is also what a scanner that
-    // skipped the file entirely would print.
+    // core.quotepath, handing back a name no index or filesystem has. That file was never
+    // scanned before the fail-closed change either -- it was skipped in silence -- so the
+    // -z listing closes a real coverage hole rather than only making it loud. Asserted as
+    // a REJECT, not an accept: an accept here is also what a scanner that skipped the file
+    // entirely would print.
     const accented = `src/caf${String.fromCharCode(0xe9)}.js`;
     expectRejected(
       scanFiles({ [accented]: `const host = '${PLAIN_192}';\n` }),
@@ -363,45 +405,10 @@ describe('check-secrets: an unread file is a failure, not a clean scan', () => {
     );
   });
 
-  it('blames the working directory only when the run really is outside the repo root', () => {
-    // The cwd advice is right for the wrong-cwd run and wrong for every other cause, so
-    // it is gated on `git rev-parse --show-prefix` -- the condition itself. An earlier
-    // revision gated it on "every target went unread", which is only a proxy: it holds
-    // for ANY single-file commit, which is the hook's commonest invocation, so a lone
-    // file removed from the worktree got told to re-run from a different directory.
-    const CWD_ADVICE = 'not at the repository root';
-
-    const partial = makeRepo({ 'docs/here.md': 'clean\n', 'docs/gone.md': 'clean\n' });
-    fs.rmSync(path.join(partial, 'docs/gone.md'));
-    const partialResult = runScanner(partial);
-    expect(partialResult.code).toBe(1);
-    expect(partialResult.stderr).toContain('docs/gone.md');
-    expect(partialResult.stderr, 'blamed the cwd for a partial failure').not.toContain(CWD_ADVICE);
-
-    // The proxy's blind spot, pinned: one staged file, unreadable, run from the root.
-    // "every target unreadable" is trivially true here, so this is the case that told a
-    // developer to change directory when the directory was never the problem.
-    const single = makeRepo({ 'docs/only.md': 'clean\n' });
-    fs.rmSync(path.join(single, 'docs/only.md'));
-    const singleResult = runScanner(single);
-    expect(singleResult.code).toBe(1);
-    expect(singleResult.stderr).toContain('docs/only.md');
-    expect(singleResult.stderr, 'blamed the cwd on a single-file commit at the root')
-      .not.toContain(CWD_ADVICE);
-
-    // Positive control: the advice MUST appear for the run it describes, or every
-    // assertion above is satisfied by a scanner that simply never prints it.
-    const all = makeRepo({ 'src/a.js': 'export const a = 1;\n', 'docs/b.md': 'clean\n' });
-    const allResult = runScanner(path.join(all, 'src'));
-    expect(allResult.code).toBe(1);
-    expect(allResult.stderr).toContain(CWD_ADVICE);
-  });
-
   it('does not trip on a staged deletion, where the file is legitimately gone', () => {
-    // The one case the old silent skip was right about, and the reason this is a
-    // --diff-filter=d exclusion rather than a blanket "any missing file fails". A staged
-    // deletion is routine -- `git rm` before a local commit, and any PR that removes a
-    // file, once CI stages base..HEAD -- and there is nothing left to scan.
+    // --diff-filter=d drops staged deletions before any read. A staged deletion is routine
+    // -- `git rm` before a local commit, and any PR that removes a file, once CI stages
+    // base..HEAD -- and there is no stage-0 blob left to scan.
     const dir = makeRepo({ 'docs/keep.md': 'clean\n', 'docs/drop.md': 'clean\n' });
     git(['-c', 'user.email=t@example.invalid', '-c', 'user.name=tester', 'commit', '-qm', 'base'], dir);
     fs.appendFileSync(path.join(dir, 'docs/keep.md'), 'edited\n');
@@ -417,19 +424,6 @@ describe('check-secrets: an unread file is a failure, not a clean scan', () => {
     const result = runScanner(dir);
     expectAccepted(result);
     expect(scannedCount(result), 'the deleted path must be excluded, not scanned').toBe(1);
-  });
-
-  it('still fails when a staged path vanishes from the worktree without being deleted in git', () => {
-    // The deletion exclusion must not become a blanket amnesty. Here the index still
-    // carries content the commit will include, and the scanner reads working-copy bytes,
-    // so this run genuinely did not see what is about to be committed.
-    const dir = makeRepo({ 'docs/gone.md': 'clean\n' });
-    fs.rmSync(path.join(dir, 'docs/gone.md'));
-
-    const result = runScanner(dir);
-    expect(result.code).toBe(1);
-    expect(result.stdout).not.toMatch(/checked \d+ staged files/);
-    expect(result.stderr).toContain('docs/gone.md');
   });
 });
 
@@ -464,5 +458,87 @@ describe('check-secrets: this file passes its own scanner off the fixture surfac
       scanFiles({ 'src/utils/selfScanFixture.js': `${self}\n// ${RESERVED_IP_10}\n` }),
       'src/utils/selfScanFixture.js', P_10,
     );
+  });
+});
+
+describe('check-secrets: patterns beyond RFC1918', () => {
+  // Every value is assembled at runtime, so nothing here is itself a match. Each banned
+  // shape has a reject case naming the pattern that fired, and each has a benign
+  // neighbour that must PASS, so a pattern that over-matches fails as loudly as one that
+  // under-matches. The benign side includes what this repo actually contains: loopback
+  // binds, `config.local.js`-style filenames, and `<user>` placeholders.
+  const BS = String.fromCharCode(92);
+  const cases = [
+    { name: 'CGNAT / Tailscale IP (100.64/10)',
+      bad: dotted(100, 101, 7, 9),
+      good: dotted(100, 128, 7, 9) },                 // just above 100.127, public space
+    { name: 'IPv6 unique-local host address',
+      bad: ['fd7a', '115c', 'a1e0', '', '1'].join(':'),
+      good: 'feed: fdfd stays a word' },
+    { name: 'LAN hostname (.local / .lan / .home.arpa / .internal)',
+      bad: `miner.${'lo'}cal`,
+      good: `see src/config.${'lo'}cal.js and settings.${'lo'}cal.json` },
+    { name: 'Windows user-profile path',
+      bad: ['C:', 'Users', 'someone', 'repo'].join(BS),
+      good: ['C:', 'Users', '<user>', 'repo'].join(BS) },
+    { name: 'Unix home-directory path',
+      bad: `/${'home'}/someone/repo`,
+      good: `/${'home'}/<user>/repo` },
+    { name: 'private key block',
+      bad: `-----BEGIN OPENSSH ${'PRIVATE'} KEY-----`,
+      good: '-----BEGIN PUBLIC KEY-----' },
+    { name: 'API token',
+      bad: `${'gh'}p_${'a1B2'.repeat(9)}`,
+      good: `${'gh'}p_short` },
+  ];
+
+  for (const { name, bad, good } of cases) {
+    it(`rejects: ${name}`, () => {
+      expectRejected(scanFiles({ 'src/config.js': `const x = '${bad}';\n` }), 'src/config.js', name);
+    });
+    it(`accepts the benign neighbour of: ${name}`, () => {
+      const result = scanFiles({ 'src/config.js': `const x = '${good}';\n` });
+      expectAccepted(result);
+    });
+  }
+
+  it('rejects every alternative inside a pattern, not just the first', () => {
+    // One file per alternative, so each rejection is attributable. Removing any single
+    // alternative from the scanner fails exactly its line here.
+    const HOST = 'LAN hostname (.local / .lan / .home.arpa / .internal)';
+    const TOKEN = 'API token';
+    const alts = {
+      'src/h1.js': [`'miner.${'la'}n'`, HOST],
+      'src/h2.js': [`'miner.home.${'ar'}pa'`, HOST],
+      'src/h3.js': [`'db.${'inter'}nal'`, HOST],
+      'docs/h4.md': [`Open miner.${'lo'}cal.`, HOST],             // sentence-ending period
+      'src/w1.js': [`'${['C:', 'Users', 'someone'].join('/')}'`, 'Windows user-profile path'],
+      'src/u1.js': [`'/${'Users'}/someone/repo'`, 'Unix home-directory path'],
+      'docs/u2.md': [`WorkingDirectory=/${'home'}/someone\n`, 'Unix home-directory path'],
+      'src/t1.js': [`'${'github'}_pat_${'A1'.repeat(12)}'`, TOKEN],
+      'src/t2.js': [`'${'sk-'}ant-${'a1B2'.repeat(6)}'`, TOKEN],
+      'src/t3.js': [`'${'AK'}IA${'ABCD1234'.repeat(2)}'`, TOKEN],
+      'src/t4.js': [`'${'xo'}xb-${'1234567890'.repeat(2)}'`, TOKEN],
+    };
+    const files = Object.fromEntries(Object.entries(alts).map(([f, [v]]) => [f, `${v}\n`]));
+    const result = scanFiles(files);
+    for (const [f, [, name]] of Object.entries(alts)) expectRejected(result, f, name);
+  });
+
+  it('stays linear on a long hyphenated run (no catastrophic backtracking)', () => {
+    // The first hostname regex restarted at every `-`: quadratic, roughly 17 minutes on 2 MB.
+    const r = spawnSync(process.execPath, [SCANNER], {
+      cwd: makeRepo({ 'docs/long.md': `${'a-'.repeat(1_000_000)}\n` }), encoding: 'utf8', timeout: 15_000,
+    });
+    expect(r.status, `scanner did not finish cleanly (signal ${r.signal})`).toBe(0);
+  }, 30_000);
+
+  it('still accepts loopback, which is deliberately not banned', () => {
+    expectAccepted(scanFiles({ 'server.js': `listen(3000, '${dotted(127, 0, 0, 1)}');\n` }));
+  });
+
+  it('honours no RESERVED exemption for the new patterns, even under tests/', () => {
+    const { name, bad } = cases[0];
+    expectRejected(scanFiles({ 'tests/unit/x.test.js': `'${bad}'\n` }), 'tests/unit/x.test.js', name);
   });
 });

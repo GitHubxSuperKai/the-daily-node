@@ -4,12 +4,18 @@ on:
   pull_request:
   push:
     branches: [main]
+  # No merge queue today (branch protection's `strict: true` serialises merges
+  # instead). `build` and `secrets` are REQUIRED contexts, though, so if a queue is
+  # ever enabled a workflow without this trigger never reports on the queue's
+  # merge_group event and the queue waits on it forever. codeql.yml's two required
+  # Analyze jobs have the same gap, so it needs this trigger too before a queue is enabled.
+  merge_group:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7
         with:
@@ -80,8 +86,8 @@ jobs:
   # check:secrets reads the STAGED set, which is empty in a normal CI checkout —
   # a bare `npm run check:secrets` step would report "checked 0 staged files" and
   # pass unconditionally. Staging the diff under review first gives it something
-  # real to scan, and makes index and worktree agree, which also closes the
-  # stage-then-edit gap the hook has locally.
+  # real to scan. The scanner reads staged blobs, not the worktree, so what it
+  # scans is exactly the diff under review.
   #
   # Runs as its own job: `git reset --soft` moves HEAD, and the build job must
   # not observe a rewritten HEAD partway through.
@@ -90,7 +96,7 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # BASE below must be present in the clone
 
@@ -107,10 +113,15 @@ jobs:
           EVENT: ${{ github.event_name }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PUSH_BASE: ${{ github.event.before }}
+          # A merge_group event carries neither of the two above: without its own
+          # arm every queue run would take the HEAD~1 fallback and under-scan.
+          QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
         run: |
           set -euo pipefail
           if [ "$EVENT" = "pull_request" ]; then
             BASE="$PR_BASE"
+          elif [ "$EVENT" = "merge_group" ]; then
+            BASE="$QUEUE_BASE"
           else
             BASE="$PUSH_BASE"
           fi

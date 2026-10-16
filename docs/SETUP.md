@@ -35,11 +35,10 @@ Before getting started, ensure you have the following installed:
 
    **Claude Code sets this for you.** The tracked `.claude/settings.json` runs `git config core.hooksPath .githooks` at every Claude Code session start, overriding any local or global `core.hooksPath` you had set. Outside Claude Code (a plain `git clone` and commit) the step is still manual. Read the `.git/hooks/` caveat below before opening the repo in Claude Code if you rely on hooks from other tools.
 
-   This is a narrow guard, and a green hook is not proof a commit is clean. Five things to know before relying on it — the first three are limits of the scan itself, all verified by probe:
+   This is a narrow guard, and a green hook is not proof a commit is clean. Four things to know before relying on it — the first two are limits of the scan itself, both verified by probe:
 
    - **Everything is scanned except three files: the built root `index.html`, `package-lock.json`, and the scanner itself.** `docs/` and `tests/` are scanned like the rest. The one carve-out is the short `RESERVED` list in `scripts/check-secrets.cjs`: those exact literals pass under `tests/` and root-level `test_*.py` only, because they are the subject of the tests that assert on them. Whole-match, so a value one digit off still fails, and anywhere else — `src/`, `docs/` — the reserved literals fail like any other address. `docs/` gets no exemption at all, which matters because `CLAUDE.md` names `docs/superpowers/` as this repo's historical leak vector: use placeholders there, never an example address. Still review docs changes by eye — the next limit is why.
-   - **Only literal RFC1918 addresses match** — `10.x`, `172.16–31.x`, `192.168.x`. Confirmed *not* caught: `127.0.0.1`, CGNAT/Tailscale `100.64.x`, link-local, IPv6, hostnames, usernames, absolute local paths, SSH keys, API tokens. `CLAUDE.md` bans all of those; the hook enforces one of them.
-   - **It reads the working-copy content of staged files, not the staged blob.** Stage a secret, then edit it out of the file without re-staging, and the secret commits unscanned.
+   - **It matches shapes, not your values.** Caught: RFC1918 and CGNAT/Tailscale (`100.64.x`) IPv4, IPv6 unique-local host addresses (`fdxx:…`), hostnames ending `.local` / `.lan` / `.home.arpa` / `.internal`, user-home paths (`<drive>:\Users\<name>`, `/home/<name>`, `/Users/<name>`), private-key blocks, the GitHub (`ghp_`, `github_pat_`), Anthropic, AWS (`AKIA`) and Slack token prefixes, and non-zero `lat:`/`lng:`. *Not* caught: `127.0.0.1` and link-local (deliberately — loopback discloses nothing, and the SSRF tests use link-local), any other hostname, bare usernames, other absolute paths (`D:\...`, `/root/`), SSH key paths, other token formats, and secrets with no recognisable prefix. `CLAUDE.md` bans all of those; read your own diff for the rest.
    - **This replaces `.git/hooks/` entirely.** `core.hooksPath` is a redirect, not an overlay. Any hook installed into `.git/hooks/` by another tool (husky, an IDE, an editor plugin) will silently stop running once this is set.
    - **It only runs on branches that contain `.githooks/`.** Git skips a missing hook without any message, so a branch created before this directory existed gets no scanning even with the setting enabled. Rebase in-flight branches onto `main` after enabling. This applies to `git worktree` checkouts too — they share `.git/config`, and so inherit the setting regardless of which branch they hold.
 
@@ -109,6 +108,28 @@ To expose the server to other devices on your LAN (e.g. a wall display), add `--
 **Requirements:**
 - Python 3.10+ (standard library only — no `pip install`)
 - BitAxe miners reachable on your LAN
+
+## Running the History Daemon (Optional, for History Charts)
+
+`history_daemon.py` records price, chain and miner history to SQLite and serves it on port 3002, which is where the dashboard looks for it (`CONFIG.HISTORY_BASE`). It ships in the Docker image but is not its default command, so run it as a second service from the same image:
+
+```yaml
+  daily-node-history:
+    image: ghcr.io/githubxsuperkai/the-daily-node:latest
+    command: ["python", "history_daemon.py", "--bind", "0.0.0.0",
+              "--db", "/data/history.db",
+              "--allow-origin", "http://<lan-host>:3001",
+              "--allow-origin", "http://localhost:3001"]   # explicit origins replace the defaults
+    environment:
+      - PYTHONUNBUFFERED=1   # so the startup banner (incl. the origin list) reaches docker logs
+    ports:
+      - "3002:3002"
+    volumes:
+      - daily-node-config:/data
+    restart: unless-stopped
+```
+
+By default the daemon only answers dashboards on `localhost`/`127.0.0.1` (ports 3000, 3001 and 3002); a browser discards history responses from any other origin. For a dashboard opened from another machine, pass `--allow-origin` with its exact origin. Unlike `bitaxe_api.py`, the daemon does not auto-allow private-IP origins, and once any `--allow-origin` is given it replaces the localhost defaults, so list every origin you open the dashboard from (a host name and an IP are different origins). Add `--bitaxe-ip <miner-ip>` once per miner to record miner history.
 
 ## Deployment
 
@@ -350,7 +371,7 @@ To expose to LAN (e.g., to view the dashboard from your phone on the same wifi):
 
 Notes:
 - The proxy validates `Origin`/`Referer` on every request and returns 403 for anything outside the allowlist.
-- The default allowlist covers `http://localhost:3000`, `http://127.0.0.1:3000`, `http://localhost:3002`, `http://127.0.0.1:3002`. Add your LAN URL only when you need it.
+- The default allowlist covers `localhost` and `127.0.0.1` on ports 3000, 3001 and 3002, and any origin whose host is a private or loopback IP is allowed regardless of the list (`is_origin_allowed`). Add your LAN URL only when you open the dashboard by a host name or a non-private IP (e.g. Tailscale `100.x`); a private LAN IP needs no flag, and passing one only replaces the localhost defaults.
 - This is not authentication. Anyone on your LAN who can spoof the `Origin` header (trivial with `curl`) can reach the proxy. Treat your LAN as trusted, or run a reverse proxy with HTTP basic auth in front.
 
 ### Self-hosted mempool node (`/api/mempool-proxy`)

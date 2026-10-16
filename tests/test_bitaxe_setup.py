@@ -79,5 +79,80 @@ class SetupEndpointTest(unittest.TestCase):
         self.assertEqual(body, {'bitaxe_ips': [], 'configured': True})
 
 
+class SaveConfigAtomicTest(unittest.TestCase):
+    """save_config used to open the live file with 'w', which truncates it before a byte
+    is written. A failure mid-write (disk full, killed process) left an empty or partial
+    config, and the next start lost the miner list AND the proxy allowlist."""
+
+    def setUp(self):
+        fd, self.path = tempfile.mkstemp(suffix='.json')
+        os.close(fd)
+        with open(self.path, 'w') as f:
+            json.dump({'bitaxe_ips': ['miner-a'], 'proxy_hosts': ['keep-me']}, f)
+
+    def tearDown(self):
+        os.unlink(self.path)
+
+    def test_failed_write_leaves_the_previous_config_intact(self):
+        from unittest import mock
+
+        def dump_then_fail(obj, f, **kw):
+            f.write('{"bitaxe_ips": ["half')
+            raise OSError(28, 'No space left on device')
+
+        with mock.patch('bitaxe_api.json.dump', side_effect=dump_then_fail), \
+             mock.patch('builtins.print'):
+            bitaxe_api.save_config(self.path, ['miner-b'])
+
+        with open(self.path) as f:
+            self.assertEqual(json.load(f), {'bitaxe_ips': ['miner-a'], 'proxy_hosts': ['keep-me']})
+        leftovers = [n for n in os.listdir(os.path.dirname(self.path))
+                     if n.startswith(os.path.basename(self.path) + '.')]
+        self.assertEqual(leftovers, [], 'temp file left behind')
+
+    def test_falls_back_to_in_place_write_when_the_temp_file_cannot_be_created(self):
+        # A file mounted into a directory the process cannot write: mkstemp fails before
+        # any replace is attempted. The old in-place write saved fine here, so must this.
+        from unittest import mock
+        with mock.patch('bitaxe_api.tempfile.mkstemp', side_effect=PermissionError(13, 'Permission denied')), \
+             mock.patch('builtins.print'):
+            bitaxe_api.save_config(self.path, ['miner-d'])
+        with open(self.path) as f:
+            self.assertEqual(json.load(f), {'bitaxe_ips': ['miner-d'], 'proxy_hosts': ['keep-me']})
+
+    def test_disk_full_creating_the_temp_file_does_not_fall_back(self):
+        # ENOSPC must leave the old config alone, not route into the truncating write.
+        from unittest import mock
+        with mock.patch('bitaxe_api.tempfile.mkstemp', side_effect=OSError(28, 'No space left on device')), \
+             mock.patch('builtins.print'):
+            bitaxe_api.save_config(self.path, ['miner-f'])
+        with open(self.path) as f:
+            self.assertEqual(json.load(f), {'bitaxe_ips': ['miner-a'], 'proxy_hosts': ['keep-me']})
+
+    def test_keeps_the_existing_file_mode(self):
+        if os.name != 'posix':
+            self.skipTest('POSIX permission bits')
+        os.chmod(self.path, 0o400)
+        bitaxe_api.save_config(self.path, ['miner-e'])
+        self.assertEqual(os.stat(self.path).st_mode & 0o777, 0o400)
+
+    def test_falls_back_to_in_place_write_when_replace_is_refused(self):
+        # A file bind-mounted on its own cannot be replaced (EBUSY); it must still save.
+        from unittest import mock
+        with mock.patch('bitaxe_api.os.replace', side_effect=OSError(16, 'Device or resource busy')), \
+             mock.patch('builtins.print'):
+            bitaxe_api.save_config(self.path, ['miner-c'])
+        with open(self.path) as f:
+            self.assertEqual(json.load(f)['bitaxe_ips'], ['miner-c'])
+        leftovers = [n for n in os.listdir(os.path.dirname(self.path))
+                     if n.startswith(os.path.basename(self.path) + '.')]
+        self.assertEqual(leftovers, [], 'temp file left behind')
+
+    def test_successful_write_replaces_ips_and_keeps_other_keys(self):
+        bitaxe_api.save_config(self.path, ['miner-b'])
+        with open(self.path) as f:
+            self.assertEqual(json.load(f), {'bitaxe_ips': ['miner-b'], 'proxy_hosts': ['keep-me']})
+
+
 if __name__ == '__main__':
     unittest.main()

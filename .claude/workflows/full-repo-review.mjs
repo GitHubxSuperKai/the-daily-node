@@ -129,6 +129,30 @@ const GROUPS = [
     ],
   },
   {
+    key: 'repo-tooling-scripts',
+    label: 'Repo Tooling Scripts (CI gates / smoke build / vendor check / capture utilities)',
+    files: [
+      'scripts/check-codeql-config.cjs',
+      'scripts/check-docker-smoke.cjs',
+      'scripts/check-review-paths.cjs',
+      'scripts/check-secrets.cjs',
+      'scripts/smoke-build.cjs',
+      'scripts/verify-vendor.cjs',
+      'scripts/capture-mobile.cjs',
+      'scripts/repro-vpn.cjs',
+    ],
+    context: `These are Node CommonJS scripts, not React. Ignore the React, hook,
+styling and localStorage guidance above. Most of them are CI gates on a PUBLIC
+repo: check-secrets (pre-commit and CI secrets scan), check-codeql-config,
+check-docker-smoke, check-review-paths (the guard on this very list),
+smoke-build and verify-vendor. Review each gate adversarially: an input it
+silently skips, a parse it can get partially right and still exit 0, a path
+read without -z, a catch that swallows a failure into a success line, a
+success message that claims more coverage than was checked. capture-mobile and
+repro-vpn are manual developer utilities (Playwright), not gates; review them
+for correctness only.`,
+  },
+  {
     key: 'tests-utils-hooks',
     label: 'Test Suite — Utilities & Hooks',
     files: [
@@ -181,11 +205,12 @@ const GROUPS = [
   },
   {
     key: 'tests-repo-tooling',
-    label: 'Test Suite — Repo Tooling (secrets scanner, CodeQL config guard, docker smoke guard)',
+    label: 'Test Suite — Repo Tooling (secrets scanner, CodeQL config guard, docker smoke guard, review-path guard)',
     files: [
       'tests/unit/checkSecrets.test.js',
       'tests/unit/checkCodeqlConfig.test.js',
       'tests/unit/checkDockerSmoke.test.js',
+      'tests/unit/checkReviewPaths.test.js',
     ],
     // Its own group rather than a line in tests-harness: this reviews repo tooling,
     // not the dashboard, so the shared React brief would frame it wrongly — and a
@@ -221,7 +246,14 @@ if the semantic half were deleted proves nothing, because the pin catches
 everything on its own. Also look for: mutation cases whose replace() silently
 matches nothing (each one must assert it changed the text), marker assertions with
 no negative control, and cases that assert only "not empty" where the specific
-problem message is what distinguishes one guard from another.`,
+problem message is what distinguishes one guard from another.
+
+checkReviewPaths.test.js tests scripts/check-review-paths.cjs, the guard on this
+workflow's own GROUPS list. Same frame. Each case copies the real guard into a
+throwaway repo beside a fixture workflow file. Look for: a failing branch of the
+guard that no case reaches, must-PASS controls that would also pass against a guard
+rejecting nothing, source mutations whose replace() no longer matches, and fixture
+counts that do not follow from the files the case created.`,
   },
   {
     key: 'tests-python',

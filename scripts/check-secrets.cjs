@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 
 // Patterns we never want committed
 const BANNED = [
@@ -8,6 +8,32 @@ const BANNED = [
   { name: 'private RFC1918 IP (172.16-31)',   regex: /\b172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}\b/ },
   { name: 'non-zero latitude',                regex: /lat:\s*-?(?!0\.0|0\b)\d+\.\d+/ },
   { name: 'non-zero longitude',               regex: /lng:\s*-?(?!0\.0|0\b)\d+\.\d+/ },
+  // Widened 2026-10. Each pattern below matched nothing in the tracked tree when it was
+  // added except two `home` regex literals in a test, rewritten to `/^home$/i`; none
+  // needed a RESERVED entry. Deliberately left out: 127.0.0.1
+  // (loopback discloses nothing, and bind/CORS code uses it legitimately in ~20 files),
+  // IPv4 link-local and fe80:: (169.254.169.254 and fe80::1 are the subject of the SSRF
+  // tests and say nothing about this network), and usernames and hostnames in general:
+  // they have no shape a regex can see, and a denylist of the real values would publish
+  // the very thing it guards.
+  { name: 'CGNAT / Tailscale IP (100.64/10)', regex: /\b100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3}\b/ },
+  // Host addresses only (fdxx:...:<interface id>); a bare prefix such as `fd00::/8` is
+  // not matched, so this repo's own docs can still name the range.
+  { name: 'IPv6 unique-local host address', regex: /\bf[cd][0-9a-f]{2}:[0-9a-f]{0,4}:[0-9a-f:]*[0-9a-f]/i },
+  // (?<![\w-]) anchors the label start once, rather than \b firing after every `-`, which
+  // made this quadratic on a long `a-a-a-...` run (seconds at 80k chars). Accepted cost:
+  // a name glued to a preceding `_` or `-` with no clean start (`foo_bar-nas.lan`) is
+  // missed. The lookahead
+  // lets a sentence-ending period through (`miner.local.`) but not `config.local.js`.
+  { name: 'LAN hostname (.local / .lan / .home.arpa / .internal)',
+    regex: /(?<![\w-])[a-z0-9][a-z0-9-]*\.(local|lan|home\.arpa|internal)\b(?!\.?[\w-])/i },
+  { name: 'Windows user-profile path',        regex: /\b[a-z]:[\\/]+Users[\\/]+[a-z0-9._-]+/i },
+  // No trailing slash required: systemd units, env lines and shell commands write
+  // `/home/name` bare. `/home/<user>` placeholders still pass.
+  { name: 'Unix home-directory path',         regex: /\/(home|Users)\/[A-Za-z0-9._-]+(?![A-Za-z0-9._-])/ },
+  { name: 'private key block',                regex: /-----BEGIN [A-Z ]*PRIVATE KEY-----/ },
+  { name: 'API token',
+    regex: /\b(ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|sk-ant-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,})/ },
 ];
 
 // Files to skip (build artifacts are excluded — source files are the real gate).
@@ -81,49 +107,59 @@ const isReserved = m => RESERVED.has(
 
 // --diff-filter=d (lower case excludes) drops staged DELETIONS from the list. That is a
 // real and routine case, not a hypothetical: a git rm before a local commit, and any PR
-// that removes a file, once CI stages base..HEAD. The working-copy file genuinely no
-// longer exists, so there is nothing to read and nothing that could leak. Excluding it
+// that removes a file, once CI stages base..HEAD. The index holds no stage-0 blob for
+// it any more, so there is nothing to read and nothing that could leak. Excluding it
 // here — rather than letting the read throw and be swallowed — is what makes every
 // remaining read failure mean that something is actually wrong.
 //
 // A path staged as a modification whose working-copy file is then deleted survives this
-// filter and fails below, correctly: the scan reads working-copy content, so for that
-// path there is committed content this run did not see.
+// filter and is scanned normally: the scan reads the staged blob, which still exists.
 //
 // -z because git C-quotes any path holding non-ASCII bytes, quotes, backslashes or
 // control characters (core.quotepath, on by default): the plain listing returns
 // "src/caf\303\251.js" for a file named with an accent, which is a path no
 // filesystem has. That file was never scanned before this change either -- it was
 // skipped in silence. Now that an unread file stops the run, the same quoting would
-// block a commit AND a required CI check while blaming the working directory. The
+// block a commit AND a required CI check over a path that does not exist. The
 // NUL-delimited listing is never quoted, so this closes the gap rather than only
 // making it loud. No .trim(): a NUL-delimited record may legitimately end in space.
-const stagedRaw = execSync('git diff --cached --name-only --diff-filter=d -z', { encoding: 'utf8' });
+//
+// --no-relative overrides a user's diff.relative=true, which would otherwise list only
+// the staged paths under the cwd, relative to it: a subdirectory run would skip every
+// staged file outside that directory, and print a clean result if none were inside it.
+const stagedRaw = execSync('git diff --cached --no-relative --name-only --diff-filter=d -z', { encoding: 'utf8' });
 const staged = stagedRaw.split('\0').filter(Boolean);
 
-// Empty at the repository root, the path of the cwd relative to it anywhere else.
-// This is the wrong-cwd condition itself rather than a proxy for it, which matters:
-// gating the advice on "every target was unreadable" misfires on the single-file
-// commit that is the hook's commonest invocation, and re-prints the misdiagnosis this
-// scanner was changed to stop printing. No path normalising either, so drive-letter
-// case and separator style cannot decide whether the advice appears.
-const cwdPrefix = execSync('git rev-parse --show-prefix', { encoding: 'utf8' }).trim();
 const targets = staged.filter(f => !SKIP.some(rx => rx.test(f)));
 
+// Reads the STAGED blob, never the working copy: the index is what gets committed, so it
+// is what must be scanned. Reading the working copy let a secret be staged, edited out of
+// the file without re-staging, and committed unscanned. `:0:<path>` names the stage-0
+// index entry and resolves from the repository root whatever the cwd, so a run from a
+// subdirectory scans the same bytes as one from the root. The explicit stage number stops
+// a file named like `1:x` being read as a stage. execFileSync with no shell: the path is
+// one argv entry, so nothing in a filename is interpreted.
+const readStaged = f => execFileSync('git', ['cat-file', 'blob', `:0:${f}`], {
+  encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024,
+});
+
 let matched = false;
-// Fail CLOSED on unreadable files. Git emits repo-root-relative paths, so a scanner run
-// from any other working directory makes every single read throw; the previous bare
-// catch-and-continue swallowed all of them and printed the same success line a clean
-// full-repo scan prints. A totally broken run and a green run were indistinguishable,
-// which is the one thing a gate may never be. Not reachable through the two supported
-// entry points — git runs hooks from the top level, npm runs scripts from the package
-// root — so this is hardening; but the success line must not be printable when files
-// went unread, whatever the cause (wrong cwd, permissions, a race, a broken symlink).
+// Fail CLOSED on unreadable entries. The previous bare catch-and-continue printed the
+// same success line for a run that opened nothing as for a clean full-repo scan, which is
+// the one thing a gate may never do. With blob reads a failure means the index entry is
+// not a readable stage-0 blob -- a gitlink (submodule) or an unmerged path. Rare, but the
+// success line must not be printable while anything staged went unscanned.
 const unreadable = [];
 for (const f of targets) {
   let content;
-  try { content = require('fs').readFileSync(f, 'utf8'); }
-  catch (e) { unreadable.push(`${f}: ${e.code || e.message}`); continue; }
+  try { content = readStaged(f); }
+  catch (e) {
+    // The fatal:/error: line, not the last one: for an unmerged path git ends on a hint.
+    const lines = String(e.stderr || '').trim().split('\n');
+    const why = lines.find(l => /^(fatal|error):/.test(l)) || lines.pop() || e.code || e.message;
+    unreadable.push(`${f}: ${why}`);
+    continue;
+  }
   const exempt = FIXTURE_PATH.test(f);
   for (const { name, regex } of BANNED) {
     // Fresh /g regex per file so no lastIndex state carries between iterations.
@@ -143,19 +179,11 @@ if (matched) {
 }
 if (unreadable.length) {
   // Named, not merely counted: "3 files unreadable" is not actionable, and the list is what
-  // tells you whether this is one broken symlink or the entire staged set (the wrong-cwd shape).
+  // tells you which index entries (a submodule, an unmerged path) went unscanned.
   console.error(`\n✗ could not read ${unreadable.length} of ${targets.length} staged file(s):`);
   for (const u of unreadable) console.error(`    ${u}`);
   console.error('These files were NOT scanned. Reporting that as a failure rather than as a clean');
   console.error('scan is deliberate: a pass over files nobody opened proves nothing.');
-  // Only when the cwd genuinely is not the repository root. Naming that cause anywhere
-  // else is actively wrong -- a file removed from the worktree after being staged is a
-  // different diagnosis, and re-running from somewhere else would not fix it.
-  if (cwdPrefix) {
-    console.error('This run was not at the repository root. Git reports paths relative to that root,');
-    console.error('so the paths above were resolved against the wrong directory —');
-    console.error('re-run it as "npm run check:secrets" from there.');
-  }
 }
 if (matched || unreadable.length) process.exit(1);
 console.log(`✓ checked ${targets.length} staged files, no banned patterns`);
