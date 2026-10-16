@@ -51,9 +51,18 @@ describe('Weather UV cell', () => {
     expect(screen.getByText('6')).toBeDefined();
   });
 
-  it('falls back to 06:00-20:00 daytime when there are no sunrise/sunset fields', () => {
+  describe('with no sunrise/sunset fields, falls back to 06:00-20:00 daytime', () => {
     const data = { ...weather.data, wxSunrise: undefined, wxSunset: undefined, wxSunriseHr: undefined, wxSunsetHr: undefined };
-    renderAt(19, 30, { ...weather, data });
-    expect(screen.getByText('UV Index')).toBeDefined();
+    const noSun = { ...weather, data };
+
+    it.each([[6, 0], [19, 59]])('%i:%i is daytime', (h, m) => {
+      renderAt(h, m, noSun);
+      expect(screen.getByText('UV Index')).toBeDefined();
+    });
+
+    it.each([[5, 59], [20, 0]])('%i:%i is night', (h, m) => {
+      renderAt(h, m, noSun);
+      expect(screen.getByText('UV Tomorrow')).toBeDefined();
+    });
   });
 });
