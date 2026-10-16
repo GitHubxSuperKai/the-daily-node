@@ -221,21 +221,25 @@ def _build_metric_queries():
 
 METRIC_QUERIES = _build_metric_queries()
 
+# :3000 is the dev server, :3001 the dashboard served by bitaxe_api / the Docker image.
 DEFAULT_ALLOWED_ORIGINS = frozenset({
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    'http://localhost:3001',
+    'http://127.0.0.1:3001',
     'http://localhost:3002',
     'http://127.0.0.1:3002',
 })
 
 
 def resolve_allowed_origins(cli_origins):
-    """The CORS allowlist: the --allow-origin values if any were given (replacing the
-    localhost defaults, as bitaxe_api does), otherwise the defaults. A deployed dashboard
-    is served from another host:port, so it needs its own origin listed here or the
-    browser discards every history response. Trailing slashes are stripped because a
-    browser's Origin header never carries one."""
-    origins = frozenset(o.rstrip('/') for o in (cli_origins or []) if o.strip())
+    """The CORS allowlist: the --allow-origin values if any were given (they replace the
+    localhost defaults, the same rule bitaxe_api's flag follows), otherwise the defaults.
+    Unlike bitaxe_api this does NOT auto-allow private-IP origins: every origin a
+    dashboard is opened from must be listed exactly. Values are trimmed, lowercased (a
+    browser sends the host lowercase) and stripped of a trailing slash; anything empty
+    after that is dropped, since an empty entry would match a request with no Origin."""
+    origins = frozenset(filter(None, (o.strip().rstrip('/').lower() for o in (cli_origins or []))))
     return origins or DEFAULT_ALLOWED_ORIGINS
 
 

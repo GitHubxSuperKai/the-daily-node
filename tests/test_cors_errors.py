@@ -157,6 +157,17 @@ class HistoryDaemonAllowOriginTest(unittest.TestCase):
         # pasted URL still matches.
         self.assertEqual(resolve_allowed_origins([self.DASHBOARD + '/']),
                          frozenset({self.DASHBOARD}))
+        # Browsers send the host lowercase; whitespace and a lone '/' are typos, never
+        # an origin (an empty entry would match a request with no Origin at all).
+        self.assertEqual(resolve_allowed_origins(['  HTTP://Dashboard.Example:3001 ']),
+                         frozenset({self.DASHBOARD}))
+        self.assertEqual(resolve_allowed_origins(['/', '   ']), DEFAULT_ALLOWED_ORIGINS)
+
+    def test_defaults_include_the_docker_dashboard_port(self):
+        # The Docker image serves the dashboard on :3001, so on the Docker host itself the
+        # charts must work with no --allow-origin at all.
+        for origin in ('http://localhost:3001', 'http://127.0.0.1:3001'):
+            self.assertIn(origin, DEFAULT_ALLOWED_ORIGINS)
 
 
 if __name__ == '__main__':

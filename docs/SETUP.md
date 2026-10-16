@@ -119,13 +119,16 @@ To expose the server to other devices on your LAN (e.g. a wall display), add `--
     command: ["python", "history_daemon.py", "--bind", "0.0.0.0",
               "--db", "/data/history.db",
               "--allow-origin", "http://<lan-host>:3001"]
+    environment:
+      - PYTHONUNBUFFERED=1   # so the startup banner (incl. the origin list) reaches docker logs
     ports:
       - "3002:3002"
     volumes:
       - daily-node-config:/data
+    restart: unless-stopped
 ```
 
-`--allow-origin` is required for any dashboard not served from `localhost`: the daemon's CORS allowlist is localhost-only by default, and the browser discards history responses from a port it does not allow. List every origin you open the dashboard from (host name and IP are different origins). Add `--bitaxe-ip <miner-ip>` once per miner to record miner history.
+By default the daemon only answers dashboards on `localhost`/`127.0.0.1` (ports 3000, 3001 and 3002); a browser discards history responses from any other origin. For a dashboard opened from another machine, pass `--allow-origin` with its exact origin. Unlike `bitaxe_api.py`, the daemon does not auto-allow private-IP origins, and once any `--allow-origin` is given it replaces the localhost defaults, so list every origin you open the dashboard from (a host name and an IP are different origins). Add `--bitaxe-ip <miner-ip>` once per miner to record miner history.
 
 ## Deployment
 
@@ -367,7 +370,7 @@ To expose to LAN (e.g., to view the dashboard from your phone on the same wifi):
 
 Notes:
 - The proxy validates `Origin`/`Referer` on every request and returns 403 for anything outside the allowlist.
-- The default allowlist covers `http://localhost:3000`, `http://127.0.0.1:3000`, `http://localhost:3002`, `http://127.0.0.1:3002`. Add your LAN URL only when you need it.
+- The default allowlist covers `localhost` and `127.0.0.1` on ports 3000, 3001 and 3002, and any origin whose host is a private or loopback IP is allowed regardless of the list (`is_origin_allowed`). Add your LAN URL only when you open the dashboard by a host name.
 - This is not authentication. Anyone on your LAN who can spoof the `Origin` header (trivial with `curl`) can reach the proxy. Treat your LAN as trusted, or run a reverse proxy with HTTP basic auth in front.
 
 ### Self-hosted mempool node (`/api/mempool-proxy`)
