@@ -22,6 +22,9 @@ const CONFIG = {
     ? `${window.location.protocol}//${window.location.hostname}:3002`
     : 'http://127.0.0.1:3002',
 
+  // Kraken OHLC endpoint for the chart range buttons; append the interval in minutes.
+  KRAKEN_OHLC: 'https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=',
+
   // ─── Weather ──────────────────────────────────────────
   // Your location for weather (decimal degrees)
   // User customization via: in-app location search or edit before build
