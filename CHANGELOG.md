@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tests/unit/checkReviewPaths.test.js`: 34 behaviour cases for `scripts/check-review-paths.cjs`, the guard on the full-repo review's GROUPS list, which until now had no test of its own and only ever ran its happy path in CI. It is PR #130's scratch-only mutation battery, rewritten to run in throwaway repos against a copy of the real guard: 26 must-FAIL cases assert the message that fired, and eight must-PASS controls (a baseline; nested, spaced and non-ASCII names; a group context; an out-of-root file; the EXCLUDED opt-out; an exact enumeration count; a staged file removed from disk; gitignored junk under a covered root) catch a guard that rejects everything. Every source mutation asserts it matched. On Windows, each of 21 guard mutations turns the suite red: 20 that each remove or hollow one check (two of them hollow the same listed-path check in different ways) and a reject-everything control; the table of which case fired for each is in PR #177. On a case-sensitive filesystem such as Linux CI the readdir basename-case check is not pinned, because `statSync` rejects the mismatch first. Known to have no case (found by review and audit; not claimed complete): an unreadable workflow file, non-array or empty GROUPS, a group without a files array, a non-string files entry, a non-string context, a failed git enumeration, conflicted-index dedup, the GROUPS evaluation timeout, a backslash `..` path (the split matters on Windows only), and the overall zero-paths check, which the per-group checks make unreachable.
+
 ### Changed
 
 - Dependencies: `actions/checkout` v6 → v7 (v7.0.1) in all four workflows, plus the two guard scripts and their tests that pin the line. v7's one behavioural change refuses fork-PR checkouts under `pull_request_target` and `workflow_run`, neither of which this repo uses. It was the last action pin behind its latest major.
