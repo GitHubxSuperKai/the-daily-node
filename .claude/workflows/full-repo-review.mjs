@@ -49,12 +49,13 @@ const GROUPS = [
   },
   {
     key: 'utils',
-    label: 'Utilities (api / formatting / alertThresholds / autoTheme / freshness / ipValidation / v2prefs)',
+    label: 'Utilities (api / formatting / alertThresholds / autoTheme / chartSeries / freshness / ipValidation / v2prefs)',
     files: [
       'src/utils/api.js',
       'src/utils/formatting.js',
       'src/utils/alertThresholds.js',
       'src/utils/autoTheme.js',
+      'src/utils/chartSeries.js',
       'src/utils/freshness.js',
       'src/utils/ipValidation.js',
       'src/utils/log.js',
@@ -158,6 +159,7 @@ for correctness only.`,
     files: [
       'tests/unit/alertThresholds.test.js',
       'tests/unit/autoTheme.test.js',
+      'tests/unit/chartSeries.test.js',
       'tests/unit/formatting.test.js',
       'tests/unit/freshness.test.js',
       'tests/unit/ipValidation.test.js',
