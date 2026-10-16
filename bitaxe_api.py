@@ -110,6 +110,7 @@ def save_config(path=CONFIG_PATH, ips=()):
             # the config unreadable to whoever could read it before.
             os.chmod(tmp, stat.S_IMODE(os.stat(path).st_mode))
         except OSError:
+            # No existing config to copy a mode from (first save): keep mkstemp's 0600.
             pass
         try:
             os.replace(tmp, path)
@@ -124,6 +125,8 @@ def save_config(path=CONFIG_PATH, ips=()):
             try:
                 os.unlink(tmp)
             except OSError:
+                # Best-effort cleanup of our own temp file; the save result is already
+                # decided and reported above, so a leftover .tmp must not raise here.
                 pass
 
 

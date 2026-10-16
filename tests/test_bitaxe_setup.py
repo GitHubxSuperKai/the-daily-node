@@ -132,9 +132,9 @@ class SaveConfigAtomicTest(unittest.TestCase):
     def test_keeps_the_existing_file_mode(self):
         if os.name != 'posix':
             self.skipTest('POSIX permission bits')
-        os.chmod(self.path, 0o644)
+        os.chmod(self.path, 0o640)
         bitaxe_api.save_config(self.path, ['miner-e'])
-        self.assertEqual(os.stat(self.path).st_mode & 0o777, 0o644)
+        self.assertEqual(os.stat(self.path).st_mode & 0o777, 0o640)
 
     def test_falls_back_to_in_place_write_when_replace_is_refused(self):
         # A file bind-mounted on its own cannot be replaced (EBUSY); it must still save.
