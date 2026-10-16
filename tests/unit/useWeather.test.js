@@ -72,4 +72,15 @@ describe('useWeather', () => {
     await waitFor(() => expect(result.current.err).toBe(true));
     expect(result.current.data).toBeNull();
   });
+
+  it('bounds every fetch with a timeout signal, so a hung request cannot stall the feed', async () => {
+    // A bare fetch() has no deadline: a request that never settles left the feed stuck on
+    // stale data with no error. Every call must carry an AbortSignal.
+    global.fetch = vi.fn().mockResolvedValue(wxOk);
+    renderHook(() => useWeather(37.7, -122.4, 'fahrenheit'));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    for (const [, init] of global.fetch.mock.calls) {
+      expect(init?.signal, 'fetch called without a signal').toBeInstanceOf(AbortSignal);
+    }
+  });
 });

@@ -16,11 +16,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import bitaxe_api  # noqa: E402
-from history_daemon import HistoryHandler, ensure_schema  # noqa: E402
+from history_daemon import (  # noqa: E402
+    DEFAULT_ALLOWED_ORIGINS, HistoryHandler, ensure_schema, resolve_allowed_origins,
+)
 
 # 127.0.0.1 is a loopback IP — passes bitaxe_api.is_private_ip() unconditionally.
 BITAXE_ORIGIN = 'http://127.0.0.1:3000'
-# Must be an exact entry in history_daemon._ALLOWED_ORIGINS (string match, not IP check).
+# Must be an exact entry in history_daemon.DEFAULT_ALLOWED_ORIGINS (string match, not IP check).
 HISTORY_ORIGIN = 'http://localhost:3000'
 
 
@@ -98,6 +100,74 @@ class HistoryDaemonErrorCORSTest(unittest.TestCase):
             self.assertEqual(headers.get('Access-Control-Allow-Origin'), HISTORY_ORIGIN)
         finally:
             HistoryHandler.db_path = original
+
+
+class HistoryDaemonAllowOriginTest(unittest.TestCase):
+    """--allow-origin lets a deployed dashboard (served from another host:port) read the
+    daemon. Without it the allowlist is localhost-only, so a dashboard on a LAN host gets
+    no Access-Control-Allow-Origin and the browser discards every history response."""
+
+    DASHBOARD = 'http://dashboard.example:3001'
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmpdir = tempfile.mkdtemp()
+        db_path = os.path.join(cls._tmpdir, 'test.db')
+        conn = sqlite3.connect(db_path)
+        ensure_schema(conn)
+        conn.close()
+        cls._saved = (HistoryHandler.db_path, HistoryHandler.allowed_origins)
+        HistoryHandler.db_path = db_path
+        cls.server = HTTPServer(('127.0.0.1', 0), HistoryHandler)
+        cls.port = cls.server.server_address[1]
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        HistoryHandler.db_path, HistoryHandler.allowed_origins = cls._saved
+        import shutil
+        shutil.rmtree(cls._tmpdir, ignore_errors=True)
+
+    def tearDown(self):
+        HistoryHandler.allowed_origins = self._saved[1]
+
+    def test_default_allowlist_rejects_a_lan_dashboard(self):
+        _, headers = _get(self.port, '/history/price', origin=self.DASHBOARD)
+        self.assertIsNone(headers.get('Access-Control-Allow-Origin'))
+        _, headers = _get(self.port, '/history/price', origin=HISTORY_ORIGIN)
+        self.assertEqual(headers.get('Access-Control-Allow-Origin'), HISTORY_ORIGIN)
+
+    def test_configured_origin_is_allowed_and_replaces_the_defaults(self):
+        HistoryHandler.allowed_origins = resolve_allowed_origins([self.DASHBOARD])
+        status, headers = _get(self.port, '/history/price', origin=self.DASHBOARD)
+        self.assertEqual(status, 200)
+        self.assertEqual(headers.get('Access-Control-Allow-Origin'), self.DASHBOARD)
+        _, headers = _get(self.port, '/history/price', origin=HISTORY_ORIGIN)
+        self.assertIsNone(headers.get('Access-Control-Allow-Origin'),
+                          'an explicit --allow-origin list replaces the localhost defaults')
+
+    def test_resolve_allowed_origins(self):
+        self.assertEqual(resolve_allowed_origins(None), DEFAULT_ALLOWED_ORIGINS)
+        self.assertEqual(resolve_allowed_origins([]), DEFAULT_ALLOWED_ORIGINS)
+        self.assertEqual(resolve_allowed_origins([self.DASHBOARD, self.DASHBOARD]),
+                         frozenset({self.DASHBOARD}))
+        # Trailing slashes never appear in a browser Origin header; strip them so a
+        # pasted URL still matches.
+        self.assertEqual(resolve_allowed_origins([self.DASHBOARD + '/']),
+                         frozenset({self.DASHBOARD}))
+        # Browsers send the host lowercase; whitespace and a lone '/' are typos, never
+        # an origin (an empty entry would match a request with no Origin at all).
+        self.assertEqual(resolve_allowed_origins(['  HTTP://Dashboard.Example:3001 ']),
+                         frozenset({self.DASHBOARD}))
+        self.assertEqual(resolve_allowed_origins(['/', '   ']), DEFAULT_ALLOWED_ORIGINS)
+
+    def test_defaults_include_the_docker_dashboard_port(self):
+        # The Docker image serves the dashboard on :3001, so on the Docker host itself the
+        # charts must work with no --allow-origin at all.
+        for origin in ('http://localhost:3001', 'http://127.0.0.1:3001'):
+            self.assertIn(origin, DEFAULT_ALLOWED_ORIGINS)
 
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { themeFlipDecision } from '../../src/utils/autoTheme.js';
+import { themeFlipDecision, shouldBeDarkAt } from '../../src/utils/autoTheme.js';
 
 describe('themeFlipDecision', () => {
   it('is a no-op when shouldBeDark is unchanged', () => {
@@ -32,5 +32,37 @@ describe('themeFlipDecision', () => {
   it('no-op (no crossing) even when dark state disagrees with shouldBeDark', () => {
     // same shouldBeDark as prev -> no crossing -> no flip even if dark is wrong
     expect(themeFlipDecision(true, true, false)).toEqual({ update: false, flip: false });
+  });
+});
+
+describe('shouldBeDarkAt', () => {
+  // Local wall-clock instants; the date part is irrelevant, only hours and minutes are read.
+  const at = (h, m) => new Date(2026, 9, 15, h, m);
+  const wx = { wxSunrise: '06:42', wxSunset: '18:17', wxSunriseHr: 6, wxSunsetHr: 18 };
+
+  it('stays dark until the sunrise minute, not the sunrise hour', () => {
+    // The old hour-truncated rule turned light at 06:00, 42 minutes early.
+    expect(shouldBeDarkAt(at(6, 0), wx)).toBe(true);
+    expect(shouldBeDarkAt(at(6, 41), wx)).toBe(true);
+    expect(shouldBeDarkAt(at(6, 42), wx)).toBe(false);
+  });
+
+  it('stays light until the sunset minute, not the sunset hour', () => {
+    // The old rule turned dark at 18:00, 17 minutes early.
+    expect(shouldBeDarkAt(at(18, 0), wx)).toBe(false);
+    expect(shouldBeDarkAt(at(18, 16), wx)).toBe(false);
+    expect(shouldBeDarkAt(at(18, 17), wx)).toBe(true);
+  });
+
+  it('falls back to the hour fields when the HH:MM strings are missing or malformed', () => {
+    const hrOnly = { wxSunriseHr: 6, wxSunsetHr: 18 };
+    expect(shouldBeDarkAt(at(5, 59), hrOnly)).toBe(true);
+    expect(shouldBeDarkAt(at(6, 0), hrOnly)).toBe(false);
+    expect(shouldBeDarkAt(at(6, 0), { ...hrOnly, wxSunrise: 'garbage', wxSunset: undefined })).toBe(false);
+  });
+
+  it('returns null when there is no usable sunrise/sunset at all', () => {
+    expect(shouldBeDarkAt(at(12, 0), null)).toBeNull();
+    expect(shouldBeDarkAt(at(12, 0), {})).toBeNull();
   });
 });

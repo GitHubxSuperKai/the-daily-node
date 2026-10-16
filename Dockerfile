@@ -34,6 +34,10 @@ VOLUME /data
 # the push `paths:` filter in .github/workflows/docker.yml too, or a change
 # to it will alter the image without publishing a new :latest.
 COPY --chown=app:app bitaxe_api.py ./
+# history_daemon.py is not the default CMD: run it as its own service with the same
+# image (python history_daemon.py --bind 0.0.0.0 --db /data/history.db
+# --allow-origin <dashboard origin>) so the history charts have a backend.
+COPY --chown=app:app history_daemon.py ./
 COPY --from=build --chown=app:app /app/index.html ./
 # setup.html is served on first launch when BITAXE_IPS is not configured
 COPY --chown=app:app setup.html ./

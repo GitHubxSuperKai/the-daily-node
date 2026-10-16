@@ -642,23 +642,14 @@ describe('fixture contract — derived values inside the right type', () => {
   // would pin this test equally well. FIXTURE_CLOCK is the one inside that window
   // the literal actually came from -- the authoring instant of commit 3bc0874 --
   // so the fixture value is unchanged and the pin records that provenance rather
-  // than re-guessing the value. Date.now() is the only clock nextHalving reads,
-  // so spying on it is enough; no fake timers. Removing the pin does not silently
-  // re-arm this: the literal matches only a clock inside that window, so an
-  // unpinned run fails immediately.
+  // than re-guessing the value. nextHalving takes the clock as its `now` argument,
+  // so the pin is passed in directly; no Date.now() spy and no fake timers.
+  // Dropping the argument does not silently re-arm this: the literal matches only a
+  // clock inside that window, so an unpinned run fails immediately.
   const FIXTURE_CLOCK = Date.UTC(2026, 7, 26, 11, 7, 12);
 
   it('chain.data.nextHalvingDate is nextHalving of its own height', () => {
-    // mockRestore(), not restoreAllMocks(): this runs inside a test body, where
-    // restoreAllMocks() would also tear down any spy a future beforeEach in this
-    // describe installs -- and that surfaces as a failure in a LATER test, well
-    // away from the cause. Restore exactly what this test mocked.
-    const spy = vi.spyOn(Date, 'now').mockReturnValue(FIXTURE_CLOCK);
-    try {
-      expect(data.nextHalvingDate).toBe(nextHalving(data.height));
-    } finally {
-      spy.mockRestore();
-    }
+    expect(data.nextHalvingDate).toBe(nextHalving(data.height, FIXTURE_CLOCK));
   });
 
   it('weather.data.wxCond is wmoDesc of its own wxCode', () => {

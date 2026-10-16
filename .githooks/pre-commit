@@ -17,9 +17,12 @@
 #      only thing that passes there. Whole-match comparison, so a neighbouring
 #      value one digit off still fails, and in src/ the reserved literals fail
 #      like any other. smoke-build.cjs step 15 stops this carve-out widening.
-#   2. Only literal RFC1918 addresses match (10.x, 172.16-31.x, 192.168.x).
-#      NOT caught: 127.0.0.1, CGNAT/Tailscale 100.64.x, link-local, IPv6,
-#      hostnames, usernames, absolute local paths, SSH keys, API tokens.
+#   2. It matches SHAPES: RFC1918 and CGNAT/Tailscale IPv4, IPv6 unique-local
+#      host addresses, .local/.lan/.home.arpa/.internal hostnames, user-home
+#      paths, private-key blocks, some API-token prefixes, non-zero lat:/lng:.
+#      NOT caught: 127.0.0.1 and link-local (deliberately), any other hostname,
+#      bare usernames, other absolute paths (D:\..., /root/), SSH key paths,
+#      and secrets with no recognisable prefix.
 #
 # It scans the STAGED blob of each file, not the working copy, so a secret that
 # is staged and then edited out of the file without re-staging is still caught.
@@ -44,5 +47,5 @@
 # not CI's.
 #
 # CI does NOT rescue limits 1 and 2: it runs the same scanner, so it inherits the
-# reserved-fixture carve-out and the RFC1918-only pattern.
+# reserved-fixture carve-out and the shape-only patterns.
 npm run check:secrets || exit 1

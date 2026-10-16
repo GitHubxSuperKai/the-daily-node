@@ -185,6 +185,7 @@ const EXPECTED_PULL_REQUEST_PATHS = [
   'Dockerfile',
   '.dockerignore',
   'bitaxe_api.py',
+  'history_daemon.py',
   'setup.html',
   'src/**',
   'build.js',
