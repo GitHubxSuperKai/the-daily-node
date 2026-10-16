@@ -176,15 +176,16 @@ if (dupes.length > 0) {
 // rejected: every file this check found unlisted on its first run was under
 // tests/, so the drift-prone half is exactly the half a warning would not defend.
 //
-// Enforced roots are src/ and tests/ only, so the success line names them: this
-// check's ✓ must never be read as "the whole repo is covered". Outside those roots
-// GROUPS lists build.js, server.js, bitaxe_api.py, history_daemon.py and
-// test_bitaxe_api.py by hand. Everything else outside them is reviewed by nobody
-// and enforced by nothing -- notably all of scripts/*.cjs (this file included),
-// vitest.config.js, eslint.config.mjs, the Dockerfile, and the review workflow
-// itself. Adding 'scripts' as a third root is cheap and was left out only to keep
-// this change scoped; it is the largest instance of the very rot fixed here.
-const COVERED_ROOTS = ['src', 'tests'];
+// Enforced roots are src/, tests/ and scripts/, so the success line names them:
+// this check's ✓ must never be read as "the whole repo is covered". scripts/ holds
+// the repo's own gates (this file included), so a guard added there without a
+// GROUPS line would be the one kind of file guaranteed never to be reviewed.
+// Outside these roots GROUPS lists build.js, server.js, bitaxe_api.py,
+// history_daemon.py and test_bitaxe_api.py by hand. Everything else outside them is
+// reviewed by nobody and enforced by nothing -- notably vitest.config.js,
+// eslint.config.mjs, the Dockerfile, the .github/ workflows and the review workflow
+// itself.
+const COVERED_ROOTS = ['src', 'tests', 'scripts'];
 
 // Files under a covered root that are deliberately not reviewed. Every entry needs
 // a reason. An entry that no longer exists, or that is also listed in GROUPS, fails

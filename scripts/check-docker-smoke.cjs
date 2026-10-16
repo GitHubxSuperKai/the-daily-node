@@ -215,7 +215,7 @@ const EXPECTED_PULL_REQUEST_PATHS = [
 // everything -- the presence half passes on any page and the absence half fails, so it
 // is loud, but only by luck).
 const EXPECTED_STEPS = [
-  { id: 'uses:actions/checkout@v6', keys: ['uses'], uses: 'actions/checkout@v6' },
+  { id: 'uses:actions/checkout@v7', keys: ['uses'], uses: 'actions/checkout@v7' },
   { id: 'name:Validate compose file', keys: ['name', 'run'] },
   { id: 'uses:docker/setup-buildx-action@v4', keys: ['uses'], uses: 'docker/setup-buildx-action@v4' },
   {

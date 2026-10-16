@@ -5,7 +5,7 @@
 # Enable in a fresh clone (git does not install hooks automatically):
 #   git config core.hooksPath .githooks
 #
-# THIS IS A NARROW GUARD. All three limits verified by black-box probe:
+# THIS IS A NARROW GUARD. Both limits verified by black-box probe:
 #
 #   1. Everything is scanned except the built root index.html,
 #      package-lock.json, and the scanner itself. docs/, tests/, the
@@ -20,9 +20,9 @@
 #   2. Only literal RFC1918 addresses match (10.x, 172.16-31.x, 192.168.x).
 #      NOT caught: 127.0.0.1, CGNAT/Tailscale 100.64.x, link-local, IPv6,
 #      hostnames, usernames, absolute local paths, SSH keys, API tokens.
-#   3. It reads the WORKING-COPY content of each staged file, not the staged
-#      blob. Stage a secret, then edit it out of the file without re-staging,
-#      and the secret commits unscanned.
+#
+# It scans the STAGED blob of each file, not the working copy, so a secret that
+# is staged and then edited out of the file without re-staging is still caught.
 #
 # A staged file the scanner cannot READ is a hard failure, named in the output,
 # not a silent skip: a run that opens nothing can no longer print the success
@@ -35,8 +35,7 @@
 # CI runs the same scan (the `secrets` job in .github/workflows/build.yml). That
 # job stages the diff under review first — a bare `npm run check:secrets` step
 # would find nothing staged, report "checked 0 staged files" and pass
-# unconditionally. Because it stages from a clean checkout, index and worktree
-# agree there, so limit 3 above does not apply to the CI run.
+# unconditionally.
 #
 # But CI sees only the NET base..HEAD diff. A secret added in one commit and
 # removed in a later one stages as nothing and scans clean — while still sitting
