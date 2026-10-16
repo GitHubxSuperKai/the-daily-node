@@ -6,7 +6,7 @@ import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from history_daemon import ensure_schema, parse_price_response, parse_chain_response, purge_old, poll_purge, poll_miners, poll_forever
-from unittest import mock
+import unittest.mock
 import tempfile
 
 
@@ -128,8 +128,8 @@ class TestPollerSurvival(unittest.TestCase):
         # A directory is not a database: connect() or the first execute fails. Before the
         # fix, poll_miners opened and committed outside any except, so this raised.
         with tempfile.TemporaryDirectory() as d:
-            with mock.patch('history_daemon.fetch_json', return_value={'hashRate': 1, 'temp': 50, 'sharesAccepted': 1}):
-                with mock.patch('sys.stderr'):
+            with unittest.mock.patch('history_daemon.fetch_json', return_value={'hashRate': 1, 'temp': 50, 'sharesAccepted': 1}):
+                with unittest.mock.patch('sys.stderr'):
                     poll_miners(d, ['miner-a'])  # must not raise
 
     def test_poll_forever_keeps_polling_after_an_exception(self):
@@ -143,7 +143,7 @@ class TestPollerSurvival(unittest.TestCase):
                 raise RuntimeError('transient')
             raise Stop()
 
-        with mock.patch('history_daemon.time.sleep'), mock.patch('sys.stderr'):
+        with unittest.mock.patch('history_daemon.time.sleep'), unittest.mock.patch('sys.stderr'):
             with self.assertRaises(Stop):
                 poll_forever(fn, 60)
         self.assertEqual(len(calls), 2, 'the loop died on the first exception')
