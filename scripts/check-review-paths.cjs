@@ -180,8 +180,8 @@ if (dupes.length > 0) {
 // this check's ✓ must never be read as "the whole repo is covered". scripts/ holds
 // the repo's own gates (this file included), so a guard added there without a
 // GROUPS line would be the one kind of file guaranteed never to be reviewed.
-// Outside these roots GROUPS lists build.js, server.js, bitaxe_api.py,
-// history_daemon.py and test_bitaxe_api.py by hand. Everything else outside them is
+// Outside these roots GROUPS lists build.js, server.js, bitaxe_api.py and
+// history_daemon.py by hand. Everything else outside them is
 // reviewed by nobody and enforced by nothing -- notably vitest.config.js,
 // eslint.config.mjs, the Dockerfile, the .github/ workflows and the review workflow
 // itself.
