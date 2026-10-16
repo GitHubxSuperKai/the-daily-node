@@ -62,13 +62,15 @@ export function useChartRange(rangeKey) {
   }, []);
 
   const fetchSelected = () => load(rangeKey, false);
-  useResettableInterval(fetchSelected, RANGES[rangeKey].refreshMs);
+  const { reset } = useResettableInterval(fetchSelected, RANGES[rangeKey].refreshMs);
 
   useEffect(() => {
     load(rangeKey, false);
   }, [rangeKey, load]);
 
-  const refresh = useCallback(() => { load(rangeKey, true); }, [rangeKey, load]);
+  // The forced load registers as in flight synchronously, so reset()'s immediate callback is
+  // deduped; reset() restarts the timer so a tick right after a refresh is not skipped as fresh.
+  const refresh = useCallback(() => { load(rangeKey, true); reset(); }, [rangeKey, load, reset]);
 
   return useMemo(() => {
     const { interval, spanMs } = RANGES[rangeKey];

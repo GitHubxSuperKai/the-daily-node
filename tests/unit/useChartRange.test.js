@@ -1,4 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// React 19 silently drops a setState on an unmounted component (no warning, no re-render), so the
+// only way to observe the hook's unmount guard is to count calls to its state setter.
+const setterCalls = vi.hoisted(() => ({ n: 0 }));
+vi.mock('react', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    useState: (init) => {
+      const [value, set] = actual.useState(init);
+      return [value, (...args) => { setterCalls.n += 1; return set(...args); }];
+    },
+  };
+});
 import { renderHook, act } from '@testing-library/react';
 import { useChartRange } from '../../src/hooks/useChartRange.js';
 
@@ -30,6 +44,7 @@ beforeEach(() => {
     const n = intervalOf(url);
     const m = mode.get(n);
     if (m === 'error-body') return Promise.resolve(okResponse({ error: ['EGeneral:Too many requests'], result: {} }));
+    if (m === 'http503') return Promise.resolve({ ok: false, status: 503, json: async () => body(5) });
     if (m === 'reject') return Promise.reject(new Error('network'));
     if (held.has(n)) return new Promise((res) => { held.get(n).push(res); });
     return Promise.resolve(okResponse(body(n)));
@@ -174,7 +189,39 @@ describe('useChartRange', () => {
     const { unmount } = mount('24h');
     await flush();
     unmount();
+    setterCalls.n = 0;
     await release(5);
-    expect(console.error).not.toHaveBeenCalled();
+    expect(setterCalls.n).toBe(0);
+  });
+
+  it('refresh restarts the timer so a tick one period later still fetches', async () => {
+    const { result } = mount('24h');
+    await flush();
+    await act(async () => { vi.advanceTimersByTime(200000); });
+    await act(async () => { result.current.refresh(); });
+    await flush();
+    expect(calls(5).length).toBe(2);
+    await act(async () => { vi.advanceTimersByTime(300000); });
+    expect(calls(5).length).toBe(3);
+  });
+
+  it('an HTTP non-OK response counts as failure', async () => {
+    mode.set(5, 'http503');
+    const { result } = mount('24h');
+    await flush();
+    expect(result.current.points).toBeNull();
+    expect(result.current.failed).toBe(true);
+  });
+
+  it('a failed fetch for an uncached range is both stale and failed', async () => {
+    const { result, rerender } = mount('24h');
+    await flush();
+    const p24 = result.current.points;
+    mode.set(1440, 'reject');
+    rerender({ rangeKey: '1y' });
+    await flush();
+    expect(result.current.stale).toBe(true);
+    expect(result.current.failed).toBe(true);
+    expect(result.current.points).toBe(p24);
   });
 });
