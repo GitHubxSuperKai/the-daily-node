@@ -129,6 +129,30 @@ const GROUPS = [
     ],
   },
   {
+    key: 'repo-tooling-scripts',
+    label: 'Repo Tooling Scripts (CI gates / smoke build / vendor check / capture utilities)',
+    files: [
+      'scripts/check-codeql-config.cjs',
+      'scripts/check-docker-smoke.cjs',
+      'scripts/check-review-paths.cjs',
+      'scripts/check-secrets.cjs',
+      'scripts/smoke-build.cjs',
+      'scripts/verify-vendor.cjs',
+      'scripts/capture-mobile.cjs',
+      'scripts/repro-vpn.cjs',
+    ],
+    context: `These are Node CommonJS scripts, not React. Ignore the React, hook,
+styling and localStorage guidance above. Most of them are CI gates on a PUBLIC
+repo: check-secrets (pre-commit and CI secrets scan), check-codeql-config,
+check-docker-smoke, check-review-paths (the guard on this very list),
+smoke-build and verify-vendor. Review each gate adversarially: an input it
+silently skips, a parse it can get partially right and still exit 0, a path
+read without -z, a catch that swallows a failure into a success line, a
+success message that claims more coverage than was checked. capture-mobile and
+repro-vpn are manual developer utilities (Playwright), not gates; review them
+for correctness only.`,
+  },
+  {
     key: 'tests-utils-hooks',
     label: 'Test Suite — Utilities & Hooks',
     files: [

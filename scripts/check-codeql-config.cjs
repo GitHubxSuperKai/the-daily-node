@@ -110,7 +110,7 @@ const EXPECTED_LANGUAGES = ['javascript-typescript', 'python'];
 // not merely tolerated: `@v3`/`@v4` bumps are exactly what ship-it's release step asks
 // about, so the forced edit puts a human on that decision.
 const EXPECTED_USES = [
-  'actions/checkout@v6',
+  'actions/checkout@v7',
   'github/codeql-action/init@v4',
   'github/codeql-action/analyze@v4',
 ];
