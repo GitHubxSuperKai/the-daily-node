@@ -118,7 +118,8 @@ To expose the server to other devices on your LAN (e.g. a wall display), add `--
     image: ghcr.io/githubxsuperkai/the-daily-node:latest
     command: ["python", "history_daemon.py", "--bind", "0.0.0.0",
               "--db", "/data/history.db",
-              "--allow-origin", "http://<lan-host>:3001"]
+              "--allow-origin", "http://<lan-host>:3001",
+              "--allow-origin", "http://localhost:3001"]   # explicit origins replace the defaults
     environment:
       - PYTHONUNBUFFERED=1   # so the startup banner (incl. the origin list) reaches docker logs
     ports:
@@ -370,7 +371,7 @@ To expose to LAN (e.g., to view the dashboard from your phone on the same wifi):
 
 Notes:
 - The proxy validates `Origin`/`Referer` on every request and returns 403 for anything outside the allowlist.
-- The default allowlist covers `localhost` and `127.0.0.1` on ports 3000, 3001 and 3002, and any origin whose host is a private or loopback IP is allowed regardless of the list (`is_origin_allowed`). Add your LAN URL only when you open the dashboard by a host name.
+- The default allowlist covers `localhost` and `127.0.0.1` on ports 3000, 3001 and 3002, and any origin whose host is a private or loopback IP is allowed regardless of the list (`is_origin_allowed`). Add your LAN URL only when you open the dashboard by a host name or a non-private IP (e.g. Tailscale `100.x`); a private LAN IP needs no flag, and passing one only replaces the localhost defaults.
 - This is not authentication. Anyone on your LAN who can spoof the `Origin` header (trivial with `curl`) can reach the proxy. Treat your LAN as trusted, or run a reverse proxy with HTTP basic auth in front.
 
 ### Self-hosted mempool node (`/api/mempool-proxy`)
