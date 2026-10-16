@@ -1,11 +1,12 @@
 import React from 'react';
 import { useT } from '../theme';
 import { fmtPrice } from '../utils/formatting.js';
+import { mergeSeries, nearestIndex, fmtChipTime } from '../utils/chartSeries.js';
 
-const CONTAINER_STYLE = { width: '100%', height: '100%', display: 'block', flexShrink: 0 };
+const CONTAINER_STYLE = { width: '100%', height: '100%', display: 'block', flexShrink: 0, touchAction: 'pan-y' };
 const SVG_BLOCK = { display: 'block' };
 
-function LineChart({ color, points, fill, vwap, historyPoints, showLabels }) {
+function LineChart({ color, points, fill, vwap, historyPoints, showLabels, onHover }) {
   const T = useT();
   color = color ?? T.orange;
 
@@ -24,13 +25,64 @@ function LineChart({ color, points, fill, vwap, historyPoints, showLabels }) {
 
   const { w, h } = dims;
 
-  const allPoints = React.useMemo(() => {
-    if (!Array.isArray(historyPoints) || historyPoints.length === 0) return points;
-    const converted = historyPoints.map(p => [p.ts * 1000, p.usd]);
-    return points ? [...converted, ...points] : converted;
-  }, [historyPoints, points]);
+  const series = React.useMemo(() => mergeSeries(historyPoints, points), [historyPoints, points]);
 
-  const useFallback = !allPoints || allPoints.length < 2;
+  const useFallback = series.length < 2 || series[0][0] === series[series.length - 1][0];
+
+  const [hoverIdx, setHoverIdx] = React.useState(null);
+  const emittedRef = React.useRef(null);
+  const scrubbingRef = React.useRef(false);
+  const onHoverRef = React.useRef(onHover);
+  onHoverRef.current = onHover;
+
+  const clearHover = React.useCallback(() => {
+    scrubbingRef.current = false;
+    setHoverIdx(null);
+    if (emittedRef.current !== null) {
+      emittedRef.current = null;
+      onHoverRef.current?.(null);
+    }
+  }, []);
+
+  // A new series invalidates any hovered index.
+  React.useEffect(() => {
+    clearHover();
+  }, [series, clearHover]);
+
+  const updateHover = React.useCallback((clientX) => {
+    const el = containerRef.current;
+    if (!el || useFallback) return;
+    const rect = el.getBoundingClientRect();
+    if (!rect.width) return;
+    const t0 = series[0][0];
+    const t1 = series[series.length - 1][0];
+    const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const idx = nearestIndex(series, t0 + frac * (t1 - t0));
+    if (idx < 0) return;
+    setHoverIdx(idx);
+    if (idx !== emittedRef.current) {
+      emittedRef.current = idx;
+      onHoverRef.current?.({ t: series[idx][0], price: series[idx][1] });
+    }
+  }, [series, useFallback]);
+
+  const onPointerDown = React.useCallback((e) => {
+    if (e.pointerType === 'mouse') return;
+    scrubbingRef.current = true;
+    updateHover(e.clientX);
+  }, [updateHover]);
+
+  const onPointerMove = React.useCallback((e) => {
+    if (e.pointerType === 'mouse' || scrubbingRef.current) updateHover(e.clientX);
+  }, [updateHover]);
+
+  const onPointerUp = React.useCallback((e) => {
+    if (e.pointerType !== 'mouse') clearHover();
+  }, [clearHover]);
+
+  // Bound-check during render: the clearing effect runs after commit, so the
+  // first render of a shorter series still holds the old index.
+  const hIdx = !useFallback && hoverIdx !== null && hoverIdx < series.length ? hoverIdx : null;
   let pts = [];
   let minP = 0, maxP = 0, minIdx = 0, maxIdx = 0;
 
@@ -45,7 +97,7 @@ function LineChart({ color, points, fill, vwap, historyPoints, showLabels }) {
         pts.push([x.toFixed(1), Math.max(2, Math.min(h - 2, y)).toFixed(1)]);
       }
     } else {
-      const prices = allPoints.map(p => p[1]);
+      const prices = series.map(p => p[1]);
       minP = Infinity;
       maxP = -Infinity;
       prices.forEach((p, i) => {
@@ -53,8 +105,10 @@ function LineChart({ color, points, fill, vwap, historyPoints, showLabels }) {
         if (p > maxP) { maxP = p; maxIdx = i; }
       });
       const range = maxP - minP || 1;
-      pts = allPoints.map((p, i) => {
-        const x = (i / (allPoints.length - 1)) * w;
+      const t0 = series[0][0];
+      const span = series[series.length - 1][0] - t0;
+      pts = series.map((p) => {
+        const x = ((p[0] - t0) / span) * w;
         const y = h - 4 - ((p[1] - minP) / range) * (h - 8);
         return [x.toFixed(1), Math.max(2, Math.min(h - 2, y)).toFixed(1)];
       });
@@ -73,7 +127,16 @@ function LineChart({ color, points, fill, vwap, historyPoints, showLabels }) {
   const lastPt = pts[pts.length - 1];
 
   return (
-    <div ref={containerRef} style={CONTAINER_STYLE}>
+    <div
+      ref={containerRef}
+      style={CONTAINER_STYLE}
+      data-chart-scrub="true"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerLeave={clearHover}
+      onPointerCancel={clearHover}
+    >
       {w > 0 && h > 0 && (
         <svg width={w} height={h} style={SVG_BLOCK}>
           {fill && d && <path d={`${d} L${w},${h} L0,${h}Z`} fill={color} fillOpacity={0.07} />}
@@ -87,8 +150,8 @@ function LineChart({ color, points, fill, vwap, historyPoints, showLabels }) {
           {showLabels && !useFallback && pts.length > 0 && (() => {
             const maxPt = pts[maxIdx];
             const minPt = pts[minIdx];
-            const maxAnchor = maxIdx > pts.length / 2 ? 'end' : 'start';
-            const minAnchor = minIdx > pts.length / 2 ? 'end' : 'start';
+            const maxAnchor = parseFloat(maxPt[0]) > w / 2 ? 'end' : 'start';
+            const minAnchor = parseFloat(minPt[0]) > w / 2 ? 'end' : 'start';
             const maxY = Math.max(12, parseFloat(maxPt[1]) - 6);
             const minY = Math.min(h - 2, parseFloat(minPt[1]) + 14);
             const labelStyle = { fill: T.ink3, fontSize: 10, fontFamily: T.mono, opacity: 0.85, pointerEvents: 'none' };
@@ -100,6 +163,31 @@ function LineChart({ color, points, fill, vwap, historyPoints, showLabels }) {
                 <text x={minPt[0]} y={minY} textAnchor={minAnchor} {...labelStyle}>
                   ${fmtPrice(minP)}
                 </text>
+              </>
+            );
+          })()}
+          {hIdx !== null && (() => {
+            const hp = pts[hIdx];
+            const hx = parseFloat(hp[0]);
+            const hy = parseFloat(hp[1]);
+            const label = fmtChipTime(series[hIdx][0]);
+            const chipW = label.length * 6 + 10;
+            const chipH = 16;
+            const cx = Math.max(chipW / 2, Math.min(w - chipW / 2, hx));
+            const chipY = hy > h * 0.75 ? 2 : h - chipH - 2;
+            return (
+              <>
+                <line data-testid="chart-crosshair" x1={hx} y1={0} x2={hx} y2={h}
+                  stroke={T.ink3} strokeWidth={1} strokeDasharray="3 3" pointerEvents="none" />
+                <circle data-testid="chart-hover-dot" data-t={series[hIdx][0]}
+                  cx={hx} cy={hy} r={4} fill={color} pointerEvents="none" />
+                <g data-testid="chart-chip" pointerEvents="none">
+                  <rect x={cx - chipW / 2} y={chipY} width={chipW} height={chipH} rx={2} fill={T.ink} />
+                  <text x={cx} y={chipY + 11.5} textAnchor="middle"
+                    style={{ fill: T.paper, fontSize: 10, fontFamily: T.num }}>
+                    {label}
+                  </text>
+                </g>
               </>
             );
           })()}

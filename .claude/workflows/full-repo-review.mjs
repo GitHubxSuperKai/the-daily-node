@@ -184,6 +184,7 @@ for correctness only.`,
     files: [
       'tests/unit/App.test.jsx',
       'tests/unit/CommandCenter.test.jsx',
+      'tests/unit/LineChart.test.jsx',
       'tests/unit/ErrorBoundary.test.jsx',
       'tests/unit/FleetSummary.test.jsx',
       'tests/unit/OnThisDay.test.jsx',
