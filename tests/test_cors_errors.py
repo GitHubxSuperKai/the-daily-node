@@ -17,7 +17,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import bitaxe_api  # noqa: E402
 from history_daemon import (  # noqa: E402
-    DEFAULT_ALLOWED_ORIGINS, HistoryHandler, ensure_schema, resolve_allowed_origins,
+    DEFAULT_ALLOWED_ORIGINS,
+    HistoryHandler,
+    ensure_schema,
+    resolve_allowed_origins,
 )
 
 # 127.0.0.1 is a loopback IP — passes bitaxe_api.is_private_ip() unconditionally.

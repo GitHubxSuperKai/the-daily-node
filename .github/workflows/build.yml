@@ -80,6 +80,12 @@ jobs:
         with:
           python-version: '3.11'
 
+      # Pinned to match `required-version` in ruff.toml; bump both together.
+      - name: Check Python import order
+        run: |
+          pip install ruff==0.16.10
+          ruff check .
+
       - name: Run python tests
         run: npm run test:py
 

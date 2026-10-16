@@ -1,0 +1,8 @@
+# Import sorting only. Run by the "Check Python import order" step in
+# .github/workflows/build.yml; bump the version there and here together.
+required-version = "==0.16.10"
+
+[lint]
+# `I` (isort) only. Line length is left at ruff's default; it shapes how isort
+# wraps long imports but is not itself enforced (E501 is not selected).
+select = ["I"]
