@@ -109,6 +109,28 @@ To expose the server to other devices on your LAN (e.g. a wall display), add `--
 - Python 3.10+ (standard library only — no `pip install`)
 - BitAxe miners reachable on your LAN
 
+## Running the History Daemon (Optional, for History Charts)
+
+`history_daemon.py` records price, chain and miner history to SQLite and serves it on port 3002, which is where the dashboard looks for it (`CONFIG.HISTORY_BASE`). It ships in the Docker image but is not its default command, so run it as a second service from the same image:
+
+```yaml
+  daily-node-history:
+    image: ghcr.io/githubxsuperkai/the-daily-node:latest
+    command: ["python", "history_daemon.py", "--bind", "0.0.0.0",
+              "--db", "/data/history.db",
+              "--allow-origin", "http://<lan-host>:3001",
+              "--allow-origin", "http://localhost:3001"]   # explicit origins replace the defaults
+    environment:
+      - PYTHONUNBUFFERED=1   # so the startup banner (incl. the origin list) reaches docker logs
+    ports:
+      - "3002:3002"
+    volumes:
+      - daily-node-config:/data
+    restart: unless-stopped
+```
+
+By default the daemon only answers dashboards on `localhost`/`127.0.0.1` (ports 3000, 3001 and 3002); a browser discards history responses from any other origin. For a dashboard opened from another machine, pass `--allow-origin` with its exact origin. Unlike `bitaxe_api.py`, the daemon does not auto-allow private-IP origins, and once any `--allow-origin` is given it replaces the localhost defaults, so list every origin you open the dashboard from (a host name and an IP are different origins). Add `--bitaxe-ip <miner-ip>` once per miner to record miner history.
+
 ## Deployment
 
 ### GitHub Pages (Recommended)
@@ -349,7 +371,7 @@ To expose to LAN (e.g., to view the dashboard from your phone on the same wifi):
 
 Notes:
 - The proxy validates `Origin`/`Referer` on every request and returns 403 for anything outside the allowlist.
-- The default allowlist covers `http://localhost:3000`, `http://127.0.0.1:3000`, `http://localhost:3002`, `http://127.0.0.1:3002`. Add your LAN URL only when you need it.
+- The default allowlist covers `localhost` and `127.0.0.1` on ports 3000, 3001 and 3002, and any origin whose host is a private or loopback IP is allowed regardless of the list (`is_origin_allowed`). Add your LAN URL only when you open the dashboard by a host name or a non-private IP (e.g. Tailscale `100.x`); a private LAN IP needs no flag, and passing one only replaces the localhost defaults.
 - This is not authentication. Anyone on your LAN who can spoof the `Origin` header (trivial with `curl`) can reach the proxy. Treat your LAN as trusted, or run a reverse proxy with HTTP basic auth in front.
 
 ### Self-hosted mempool node (`/api/mempool-proxy`)

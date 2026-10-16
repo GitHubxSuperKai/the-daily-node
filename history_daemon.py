@@ -221,23 +221,38 @@ def _build_metric_queries():
 
 METRIC_QUERIES = _build_metric_queries()
 
-_ALLOWED_ORIGINS = {
+# :3000 is the dev server, :3001 the dashboard served by bitaxe_api / the Docker image.
+DEFAULT_ALLOWED_ORIGINS = frozenset({
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    'http://localhost:3001',
+    'http://127.0.0.1:3001',
     'http://localhost:3002',
     'http://127.0.0.1:3002',
-}
+})
+
+
+def resolve_allowed_origins(cli_origins):
+    """The CORS allowlist: the --allow-origin values if any were given (they replace the
+    localhost defaults, the same rule bitaxe_api's flag follows), otherwise the defaults.
+    Unlike bitaxe_api this does NOT auto-allow private-IP origins: every origin a
+    dashboard is opened from must be listed exactly. Values are trimmed, lowercased (a
+    browser sends the host lowercase) and stripped of a trailing slash; anything empty
+    after that is dropped, since an empty entry would match a request with no Origin."""
+    origins = frozenset(filter(None, (o.strip().rstrip('/').lower() for o in (cli_origins or []))))
+    return origins or DEFAULT_ALLOWED_ORIGINS
 
 
 class HistoryHandler(BaseHTTPRequestHandler):
     db_path = None
+    allowed_origins = DEFAULT_ALLOWED_ORIGINS
 
     def log_message(self, fmt, *args):
         pass  # silence default access log
 
     def _send_cors(self):
         origin = self.headers.get('Origin', '')
-        if origin in _ALLOWED_ORIGINS:
+        if origin in self.allowed_origins:
             self.send_header('Access-Control-Allow-Origin', origin.replace('\r', '').replace('\n', ''))
 
     def do_OPTIONS(self):
@@ -298,6 +313,9 @@ def main():
     parser.add_argument('--port',      type=int, default=3002, help='HTTP port')
     parser.add_argument('--bitaxe-ip', action='append', default=[], dest='bitaxe_ips',
                         help='BitAxe miner IP (repeatable)')
+    parser.add_argument('--allow-origin', action='append', default=None, dest='allow_origins',
+                        help='Dashboard origin allowed to read history, e.g. '
+                             'http://<lan-host>:3001 (repeatable; replaces the localhost defaults)')
     args = parser.parse_args()
 
     db_dir = os.path.dirname(args.db)
@@ -321,6 +339,8 @@ def main():
         threading.Thread(target=poll_forever, args=(fn, interval, name), daemon=True).start()
 
     HistoryHandler.db_path = args.db
+    HistoryHandler.allowed_origins = resolve_allowed_origins(args.allow_origins)
+    print(f'[daemon] Origins:    {", ".join(sorted(HistoryHandler.allowed_origins))}')
     server = HTTPServer((args.bind, args.port), HistoryHandler)
     print(f'[daemon] Listening. Ctrl+C to stop.')
     try:

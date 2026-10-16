@@ -195,7 +195,7 @@ describe('the trigger that decides whether the smoke job runs at all', () => {
   });
 
   it('rejects reordered pull_request paths', () => {
-    expect(rejects(sub(GOOD, "      - 'Dockerfile'\n      - '.dockerignore'\n      - 'bitaxe_api.py'\n      - 'setup.html'\n      - 'src/**'\n      - 'build.js'\n      - 'package.json'\n      - 'package-lock.json'\n      - 'docker-compose.yml'", "      - '.dockerignore'\n      - 'Dockerfile'\n      - 'bitaxe_api.py'\n      - 'setup.html'\n      - 'src/**'\n      - 'build.js'\n      - 'package.json'\n      - 'package-lock.json'\n      - 'docker-compose.yml'")))
+    expect(rejects(sub(GOOD, "      - 'Dockerfile'\n      - '.dockerignore'\n      - 'bitaxe_api.py'\n      - 'history_daemon.py'\n      - 'setup.html'\n      - 'src/**'\n      - 'build.js'\n      - 'package.json'\n      - 'package-lock.json'\n      - 'docker-compose.yml'", "      - '.dockerignore'\n      - 'Dockerfile'\n      - 'bitaxe_api.py'\n      - 'history_daemon.py'\n      - 'setup.html'\n      - 'src/**'\n      - 'build.js'\n      - 'package.json'\n      - 'package-lock.json'\n      - 'docker-compose.yml'")))
       .toMatch(/pull_request\.paths/);
   });
 });
