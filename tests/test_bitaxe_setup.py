@@ -1,7 +1,7 @@
 """Unit tests for /api/setup GET endpoint."""
 import json
-import sys
 import os
+import sys
 import tempfile
 import threading
 import unittest
