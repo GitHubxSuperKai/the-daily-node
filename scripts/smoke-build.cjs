@@ -296,7 +296,7 @@ assert.ok(fixtureRx,
 // source while passing any "starts with ^" test. Only an exact set bounds it.
 // Naive split on | means a grouped alternation like ^(tests|spec)/ also trips this;
 // that is intended — a deliberate edit here is the gate.
-const FIXTURE_ALLOWED = ['^tests\\/', '^test_[^/]*\\.py$'];
+const FIXTURE_ALLOWED = ['^tests\\/'];
 const fixtureAlts = fixtureRx[1].split('|');
 assert.deepStrictEqual(fixtureAlts, FIXTURE_ALLOWED,
   `FIXTURE_PATH changed to ${JSON.stringify(fixtureAlts)} — this is the set of paths where the reserved literals are exempt. Widening it (^src/ especially, but also ^docs/ or a universal ^.*) reintroduces the blindness this scanner was fixed to remove. If the change is deliberate, update FIXTURE_ALLOWED in this assertion too.`);

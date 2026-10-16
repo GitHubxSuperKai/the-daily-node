@@ -58,10 +58,10 @@ const SKIP = [/node_modules\//, /\.git\//, /package-lock\.json$/, /scripts\/chec
 // historical leak vector, and exempting anything across that whole tree to buy one
 // plan document is a bad trade.
 //
-// The trailing alternative covers test_bitaxe_api.py, a python test that sits at the
-// repo root rather than under tests/ — same fixture role, just misfiled. It was
-// invisible until the blanket test_*.py skip came off.
-const FIXTURE_PATH = /^tests\/|^test_[^/]*\.py$/;
+// A root-level test_*.py alternative used to sit here for test_bitaxe_api.py, a
+// python test misfiled at the repo root. That file now lives under tests/, so the
+// alternative was removed rather than left exempting a path nothing occupies.
+const FIXTURE_PATH = /^tests\//;
 
 // This repo's reserved example values — the only private-looking literals allowed to
 // live on the fixture surface above, and ONLY there. Everywhere else (src/, docs/,

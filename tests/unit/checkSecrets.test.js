@@ -53,7 +53,7 @@ const dotted = (...parts) => parts.join('.');
 const geo = (key, value, gap = ' ') => `${key}:${gap}${value}`;
 
 // Values from the scanner's RESERVED set, rebuilt. Any of these is exempt ONLY on the
-// fixture surface (tests/ and root-level test_*.py).
+// fixture surface (tests/ only).
 const RESERVED_IP_192 = dotted(192, 168, 1, 10);
 const RESERVED_IP_10 = dotted(10, 0, 0, 1);
 const RESERVED_LAT = 34.05;
@@ -219,10 +219,18 @@ describe('check-secrets: the carve-out is path-scoped', () => {
     );
   });
 
-  it('accepts a RESERVED literal in a root-level test_*.py', () => {
-    // Root-level python tests are on the fixture surface too -- they were invisible
-    // until the blanket test_*.py skip came off.
-    expectAccepted(scanFiles({ 'test_bitaxe_api.py': `HOST = "${RESERVED_IP_10}"\n` }));
+  it('rejects a RESERVED literal in a root-level test_*.py', () => {
+    // Root-level python tests used to share the fixture surface; the carve-out went
+    // when test_bitaxe_api.py moved under tests/. A root test_*.py is scanned like any
+    // other root file, so a reserved value there fails.
+    expectRejected(
+      scanFiles({ 'test_bitaxe_api.py': `HOST = "${RESERVED_IP_10}"\n` }),
+      'test_bitaxe_api.py', P_10,
+    );
+  });
+
+  it('accepts a RESERVED literal in a python test under tests/', () => {
+    expectAccepted(scanFiles({ 'tests/test_bitaxe_api.py': `HOST = "${RESERVED_IP_10}"\n` }));
   });
 });
 
