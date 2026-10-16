@@ -221,23 +221,34 @@ def _build_metric_queries():
 
 METRIC_QUERIES = _build_metric_queries()
 
-_ALLOWED_ORIGINS = {
+DEFAULT_ALLOWED_ORIGINS = frozenset({
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'http://localhost:3002',
     'http://127.0.0.1:3002',
-}
+})
+
+
+def resolve_allowed_origins(cli_origins):
+    """The CORS allowlist: the --allow-origin values if any were given (replacing the
+    localhost defaults, as bitaxe_api does), otherwise the defaults. A deployed dashboard
+    is served from another host:port, so it needs its own origin listed here or the
+    browser discards every history response. Trailing slashes are stripped because a
+    browser's Origin header never carries one."""
+    origins = frozenset(o.rstrip('/') for o in (cli_origins or []) if o.strip())
+    return origins or DEFAULT_ALLOWED_ORIGINS
 
 
 class HistoryHandler(BaseHTTPRequestHandler):
     db_path = None
+    allowed_origins = DEFAULT_ALLOWED_ORIGINS
 
     def log_message(self, fmt, *args):
         pass  # silence default access log
 
     def _send_cors(self):
         origin = self.headers.get('Origin', '')
-        if origin in _ALLOWED_ORIGINS:
+        if origin in self.allowed_origins:
             self.send_header('Access-Control-Allow-Origin', origin.replace('\r', '').replace('\n', ''))
 
     def do_OPTIONS(self):
@@ -298,6 +309,9 @@ def main():
     parser.add_argument('--port',      type=int, default=3002, help='HTTP port')
     parser.add_argument('--bitaxe-ip', action='append', default=[], dest='bitaxe_ips',
                         help='BitAxe miner IP (repeatable)')
+    parser.add_argument('--allow-origin', action='append', default=None, dest='allow_origins',
+                        help='Dashboard origin allowed to read history, e.g. '
+                             'http://<lan-host>:3001 (repeatable; replaces the localhost defaults)')
     args = parser.parse_args()
 
     db_dir = os.path.dirname(args.db)
@@ -321,6 +335,8 @@ def main():
         threading.Thread(target=poll_forever, args=(fn, interval, name), daemon=True).start()
 
     HistoryHandler.db_path = args.db
+    HistoryHandler.allowed_origins = resolve_allowed_origins(args.allow_origins)
+    print(f'[daemon] Origins:    {", ".join(sorted(HistoryHandler.allowed_origins))}')
     server = HTTPServer((args.bind, args.port), HistoryHandler)
     print(f'[daemon] Listening. Ctrl+C to stop.')
     try:
