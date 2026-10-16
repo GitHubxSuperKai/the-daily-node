@@ -526,7 +526,7 @@ describe('check-secrets: patterns beyond RFC1918', () => {
   });
 
   it('stays linear on a long hyphenated run (no catastrophic backtracking)', () => {
-    // The first hostname regex restarted at every `-`: quadratic, minutes on 2 MB.
+    // The first hostname regex restarted at every `-`: quadratic, roughly 17 minutes on 2 MB.
     const r = spawnSync(process.execPath, [SCANNER], {
       cwd: makeRepo({ 'docs/long.md': `${'a-'.repeat(1_000_000)}\n` }), encoding: 'utf8', timeout: 15_000,
     });

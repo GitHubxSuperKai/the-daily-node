@@ -8,8 +8,9 @@ const BANNED = [
   { name: 'private RFC1918 IP (172.16-31)',   regex: /\b172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}\b/ },
   { name: 'non-zero latitude',                regex: /lat:\s*-?(?!0\.0|0\b)\d+\.\d+/ },
   { name: 'non-zero longitude',               regex: /lng:\s*-?(?!0\.0|0\b)\d+\.\d+/ },
-  // Widened 2026-10. Each pattern below matched NOTHING in the tracked tree when it was
-  // added, so none needed a RESERVED entry or a scrub. Deliberately left out: 127.0.0.1
+  // Widened 2026-10. Each pattern below matched nothing in the tracked tree when it was
+  // added except two `home` regex literals in a test, rewritten to `/^home$/i`; none
+  // needed a RESERVED entry. Deliberately left out: 127.0.0.1
   // (loopback discloses nothing, and bind/CORS code uses it legitimately in ~20 files),
   // IPv4 link-local and fe80:: (169.254.169.254 and fe80::1 are the subject of the SSRF
   // tests and say nothing about this network), and usernames and hostnames in general:
@@ -20,7 +21,9 @@ const BANNED = [
   // not matched, so this repo's own docs can still name the range.
   { name: 'IPv6 unique-local host address', regex: /\bf[cd][0-9a-f]{2}:[0-9a-f]{0,4}:[0-9a-f:]*[0-9a-f]/i },
   // (?<![\w-]) anchors the label start once, rather than \b firing after every `-`, which
-  // made this quadratic on a long `a-a-a-...` run (seconds at 80k chars). The lookahead
+  // made this quadratic on a long `a-a-a-...` run (seconds at 80k chars). Accepted cost:
+  // a name glued to a preceding `_` or `-` with no clean start (`foo_bar-nas.lan`) is
+  // missed. The lookahead
   // lets a sentence-ending period through (`miner.local.`) but not `config.local.js`.
   { name: 'LAN hostname (.local / .lan / .home.arpa / .internal)',
     regex: /(?<![\w-])[a-z0-9][a-z0-9-]*\.(local|lan|home\.arpa|internal)\b(?!\.?[\w-])/i },
