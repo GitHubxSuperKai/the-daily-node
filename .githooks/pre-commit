@@ -11,7 +11,7 @@
 #      package-lock.json, and the scanner itself. docs/, tests/, the
 #      hand-written setup.html and the src/index.html template ARE scanned.
 #      The one carve-out is a short RESERVED list in scripts/check-secrets.cjs:
-#      13 exact literals allowed under tests/ and root-level test_*.py ONLY,
+#      13 exact literals allowed under tests/ ONLY,
 #      because they are the subject of the tests asserting on them (isValidLanIp)
 #      rather than real addresses. docs/ gets NO exemption — placeholders are the
 #      only thing that passes there. Whole-match comparison, so a neighbouring
