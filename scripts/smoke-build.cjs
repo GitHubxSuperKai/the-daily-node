@@ -107,6 +107,7 @@ const REQUIRED_CSP_SOURCES = [
   'https://api.coingecko.com',
   'https://mempool.space',
   'https://api.open-meteo.com',
+  'https://geocoding-api.open-meteo.com',   // city search (settings)
   'https://api.rss2json.com',
   'http://127.0.0.1:3001',
   'http://*:3002',      // history daemon on the serving host (CONFIG.HISTORY_BASE)
