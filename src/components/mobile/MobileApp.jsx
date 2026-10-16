@@ -22,6 +22,11 @@ function MobileApp(props) {
   const touchStartRef = React.useRef(null);
 
   function onTouchStart(e) {
+    // A gesture that begins on the chart is a scrub, never a tab swipe.
+    if (e.target?.closest?.('[data-chart-scrub]')) {
+      touchStartRef.current = null;
+      return;
+    }
     const t = e.touches[0];
     touchStartRef.current = { x: t.clientX, y: t.clientY };
   }

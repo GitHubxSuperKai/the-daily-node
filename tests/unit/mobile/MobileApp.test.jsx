@@ -75,4 +75,31 @@ describe('MobileApp', () => {
     fireEvent.touchEnd(outer, { changedTouches: [{ clientX: 210, clientY: 250 }] });
     expect(screen.getByText(/BTC \/ USD/i)).toBeDefined();
   });
+
+  function openBitcoinBySwipe() {
+    const { container } = render(
+      <ThemeCtx.Provider value={LIGHT}><MobileApp {...baseProps()} /></ThemeCtx.Provider>
+    );
+    const outer = container.firstChild;
+    fireEvent.touchStart(outer, { touches: [{ clientX: 300, clientY: 200 }] });
+    fireEvent.touchEnd(outer, { changedTouches: [{ clientX: 200, clientY: 205 }] });
+    expect(screen.getByText(/Field Report/i)).toBeDefined();
+    return { container, outer };
+  }
+
+  it('swipe that starts on the chart does not change tab', () => {
+    const { container, outer } = openBitcoinBySwipe();
+    const chart = container.querySelector('[data-chart-scrub]');
+    expect(chart).not.toBeNull();
+    fireEvent.touchStart(chart, { touches: [{ clientX: 300, clientY: 200 }] });
+    fireEvent.touchEnd(outer, { changedTouches: [{ clientX: 150, clientY: 205 }] });
+    expect(screen.getByText(/Field Report/i)).toBeDefined();
+  });
+
+  it('swipe that starts elsewhere on the Bitcoin panel still changes tab', () => {
+    const { outer } = openBitcoinBySwipe();
+    fireEvent.touchStart(outer, { touches: [{ clientX: 300, clientY: 200 }] });
+    fireEvent.touchEnd(outer, { changedTouches: [{ clientX: 150, clientY: 205 }] });
+    expect(screen.queryByText(/Field Report/i)).toBeNull();
+  });
 });
