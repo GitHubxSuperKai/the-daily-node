@@ -143,6 +143,15 @@ describe('check-review-paths: must-PASS controls', () => {
     // 5 + src/a.js + tests/a.test.js + the guard; EXCLUDED vendor files are not counted.
     expect(result.stdout).toMatch(/all 8 file\(s\) under/);
   });
+
+  it('passes when a staged file was removed from disk and is not listed (ls-files --deleted)', () => {
+    // A path in the index but gone from the worktree has nothing to review. Without the
+    // --deleted skip the guard would false-fail on it as "not a readable regular file".
+    const dir = makeRepo({ files: { 'src/gone.js': 'g\n' },
+      listed: ['src/a.js', 'tests/a.test.js', GUARD_REL] });
+    fs.rmSync(path.join(dir, 'src', 'gone.js'));
+    expectPass(runGuard(dir));
+  });
 });
 
 describe('check-review-paths: exists-but-unlisted (direction 2)', () => {
@@ -167,6 +176,14 @@ describe('check-review-paths: exists-but-unlisted (direction 2)', () => {
     expectFail(r2, GUARD_REL);
   });
 
+  it('rejects an unlisted file that is new and not yet staged (ls-files --others)', () => {
+    // The commonest real case: create a file, run npm test before `git add`. makeRepo
+    // stages everything, so this file is written after it returns.
+    const dir = makeRepo({ listed: base });
+    fs.writeFileSync(path.join(dir, 'src', 'unstaged.js'), 'u\n');
+    expectFail(runGuard(dir), 'src/unstaged.js');
+  });
+
   it('rejects an existing file dropped from GROUPS', () => {
     expectFail(runGuard(makeRepo({ listed: ['tests/a.test.js', GUARD_REL] })), 'src/a.js');
   });
@@ -186,7 +203,8 @@ describe('check-review-paths: exists-but-unlisted (direction 2)', () => {
     fs.writeFileSync(path.join(sub, 'hidden.js'), 'h\n');
     git(['init', '-q', '.'], sub);
     git(['add', '.'], sub);
-    git(['-c', 'user.email=t@example.invalid', '-c', 'user.name=tester', 'commit', '-qm', 'n'], sub);
+    git(['-c', 'user.email=t@example.invalid', '-c', 'user.name=tester', '-c', 'commit.gpgsign=false',
+      '-c', 'core.hooksPath=', 'commit', '-qm', 'n'], sub);
     git(['add', 'src/nested'], dir);
     expectFail(runGuard(dir), 'not a readable regular file');
   });
@@ -205,11 +223,26 @@ describe('check-review-paths: listed-but-missing (direction 1)', () => {
   });
 
   it('rejects a path whose file-name case differs from the file on disk', () => {
-    // existsSync is case-insensitive on Windows; the guard's readdir check compares the
-    // BASENAME exactly, so this fails on every OS. (A wrong-case DIRECTORY segment is
-    // only caught on case-sensitive filesystems such as Linux CI; not pinned here.)
+    // The guard rejects this on every OS, but for different reasons: on a case-sensitive
+    // filesystem (Linux CI) statSync already fails, while on Windows only the readdir
+    // basename comparison catches it. So this case pins the readdir check on Windows
+    // runs only; on Linux it passes with or without it (measured, assay of PR #177).
+    // A wrong-case DIRECTORY segment (Src/a.js) slips through on Windows only when the
+    // correct-case path is also listed; not pinned here.
     expectFail(runGuard(makeRepo({ listed: ['src/A.js', 'src/a.js', 'tests/a.test.js', GUARD_REL] })),
       'src/A.js');
+  });
+
+  it('rejects a directory listed as a path (it would review nothing)', () => {
+    expectFail(runGuard(makeRepo({ listed: ['src/vendor', 'src/a.js', 'tests/a.test.js', GUARD_REL] })),
+      'src/vendor');
+  });
+
+  it('rejects an absolute path', () => {
+    // path.join(root, '/src/a.js') resolves inside the repo, so only the isAbsolute
+    // check rejects it.
+    expectFail(runGuard(makeRepo({ listed: ['/src/a.js', 'src/a.js', 'tests/a.test.js', GUARD_REL] })),
+      '/src/a.js');
   });
 
   it('rejects a path that climbs out with ..', () => {
@@ -267,7 +300,10 @@ describe('check-review-paths: EXCLUDED and COVERED_ROOTS', () => {
   it('rejects an EXCLUDED entry with an empty reason', () => {
     const guard = mutateGuard("  'src/vendor/MANIFEST.md':",
       "  'src/opt-out.js': '  ',\n  'src/vendor/MANIFEST.md':");
-    expectFail(runGuard(makeRepo({ files: { 'src/opt-out.js': 'o\n' }, guard })), 'has no reason');
+    // listed omits opt-out.js so the empty reason is the ONLY problem; listed and
+    // excluded together would fail through the "both" check instead.
+    expectFail(runGuard(makeRepo({ files: { 'src/opt-out.js': 'o\n' },
+      listed: ['src/a.js', 'tests/a.test.js', GUARD_REL], guard })), 'has no reason');
   });
 
   it('rejects an EXCLUDED key whose case differs from the file', () => {

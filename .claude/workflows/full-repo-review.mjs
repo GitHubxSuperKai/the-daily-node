@@ -250,7 +250,7 @@ problem message is what distinguishes one guard from another.
 
 checkReviewPaths.test.js tests scripts/check-review-paths.cjs, the guard on this
 workflow's own GROUPS list. Same frame. Each case copies the real guard into a
-throwaway repo beside a fixture GROUPS literal. Look for: a failing branch of the
+throwaway repo beside a fixture workflow file. Look for: a failing branch of the
 guard that no case reaches, must-PASS controls that would also pass against a guard
 rejecting nothing, source mutations whose replace() no longer matches, and fixture
 counts that do not follow from the files the case created.`,
