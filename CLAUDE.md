@@ -65,7 +65,7 @@ Shared leaves (`Kicker`, `Num`, `Rule`) are omitted; `docs/ARCHITECTURE.md` has 
 
 **Styling:** Inline `style` props only. No CSS files. All colors from `ThemeCtx` via `useT()`. Dark mode = swap theme object.
 
-**Canvas scaling:** Dashboard renders at 1920×1080, scaled to viewport via CSS `transform`. `src/utils/scale.js` exports `u(n)` — returns `calc(var(--u) * n)` for design-px values. Scaling logic lives inline in the component that mounts the canvas. **`u()` is desktop-canvas-only** — `--u` defaults to `1px` in `:root` (`index.html`) and is only rescaled by the desktop canvas system, so in mobile context `calc(var(--u) * N)` is valid CSS but renders unscaled 1:1, not the intended design-px value. Never call `u()` in components that can render in the mobile layout. (Root cause of PR #84 `NetworkStatusWidget` badge regression.)
+**Canvas scaling:** Dashboard is authored at 1920×1080 and *sized*, not CSS-`transform`ed, to the viewport. The inline `updateScale()` script in `src/index.html` (not a React component) sets `--u` to `min(vw/1920, vh/1080)` px (and unitless `--u-scale`), pinned to 1 at `vw <= 900`, on parse, `load` and `resize`; above 900px `#canvas` is `calc(var(--u) * 1920)` × `calc(var(--u) * 1080)`; at `vw <= 900` the `@media (max-width: 900px)` block makes it `100vw` × auto and `MobileApp` renders instead. `src/utils/scale.js` exports `u(n)` — returns `calc(var(--u) * n)` for design-px values. (`WxGlyph` is the one place that uses `transform: scale(var(--u-scale))`, for its fixed-px SVGs.) **`u()` is desktop-canvas-only** — `--u` defaults to `1px` in `:root` (`index.html`) and is only rescaled by the desktop canvas system, so in mobile context `calc(var(--u) * N)` is valid CSS but renders unscaled 1:1, not the intended design-px value. Never call `u()` in components that can render in the mobile layout. (Root cause of PR #84 `NetworkStatusWidget` badge regression.)
 
 **localStorage:** User prefs (weather location, time format, temp unit) persist under `dailynode-prefs`; v2 prefs (alerts, feeds, intervals, theme) under their own key via `utils/v2prefs.js`. App reads localStorage on mount, falls back to `config.js` defaults. The legacy `dailynode-bitaxe` key is removed unconditionally on mount as a one-time migration.
 
@@ -79,7 +79,7 @@ Shared leaves (`Kicker`, `Num`, `Rule`) are omitted; `docs/ARCHITECTURE.md` has 
 | `src/theme.js` | LIGHT/DARK theme objects, `ThemeCtx`, `useT()` hook |
 | `src/utils/formatting.js` | All formatters: `fmtPrice`, `fmtPct`, `fmtHashrate`, `wmoIcon`, `classifyTopic`, etc. |
 | `src/utils/api.js` | Fetch wrappers with 5s timeouts |
-| `src/utils/scale.js` | Viewport scaling logic |
+| `src/utils/scale.js` | `u(n)` design-px helper (the scaling itself is `updateScale()` in `src/index.html`) |
 | `src/utils/svg.js` | SVG icon helpers |
 | `src/hooks/useFeedHealth.js` | Monitors all data sources, drives sidebar status lights |
 | `src/hooks/useViewportMode.js` | Responsive layout dimensions |

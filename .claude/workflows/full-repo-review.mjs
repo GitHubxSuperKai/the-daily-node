@@ -342,7 +342,7 @@ The project is a static HTML file (built by esbuild from JSX source) that aggreg
 Key implementation details:
 - React + ReactDOM are vendored UMD builds (no CDN). JSX is compiled by esbuild at build time.
 - Styling is 100% inline style props — no CSS files. All colors come from ThemeCtx via useT().
-- The canvas scales to 1920×1080 via CSS transform; u(n) returns calc(var(--u) * n).
+- The desktop canvas is authored at 1920×1080 and sized (not CSS-transformed) to the viewport: updateScale() in src/index.html sets --u, #canvas is calc(var(--u) * 1920) by calc(var(--u) * 1080), and u(n) returns calc(var(--u) * n).
 - User prefs persist in localStorage under 'dailynode-prefs' (v1) and per-key v2 keys via v2prefs.js.
 - Hooks expose a health metadata shape alongside data (lastOk, err, loading, interval).
 - There is a separate mobile component tree (src/components/mobile/) gated by a 900px breakpoint.
