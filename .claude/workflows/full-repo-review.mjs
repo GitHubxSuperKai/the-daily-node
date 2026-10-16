@@ -278,7 +278,7 @@ to cover but does not actually exercise.`,
       'tests/test_cors_errors.py',
       'tests/test_history_daemon.py',
       'tests/test_mempool_proxy.py',
-      'tests/unit/origin_allowlist_test.py',
+      'tests/test_origin_allowlist.py',
     ],
   },
 ];
