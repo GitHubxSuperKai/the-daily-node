@@ -273,7 +273,7 @@ test is broken, unclosed sockets or servers leaking between cases, ordering
 dependencies between tests, and allowlist/validation cases the suite claims
 to cover but does not actually exercise.`,
     files: [
-      'test_bitaxe_api.py',
+      'tests/test_bitaxe_api.py',
       'tests/test_bitaxe_setup.py',
       'tests/test_cors_errors.py',
       'tests/test_history_daemon.py',
