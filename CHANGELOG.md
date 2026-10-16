@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `tests/unit/checkReviewPaths.test.js`: 29 behaviour cases for `scripts/check-review-paths.cjs`, the guard on the full-repo review's GROUPS list, which until now had no test of its own and only ever ran its happy path in CI. It is PR #130's scratch-only mutation battery, rewritten to run in throwaway repos against a copy of the real guard: must-FAIL cases assert the message that fired, six must-PASS controls (a baseline; nested, spaced and non-ASCII names; a group context; an out-of-root file; the EXCLUDED opt-out; an exact enumeration count) catch a guard that rejects everything, and every source mutation asserts it matched. Removing any of 16 guard behaviours one at a time, `-z` and the reject-everything case among them, turns the suite red.
+
 ### Changed
 
 - Dependencies: `actions/checkout` v6 → v7 (v7.0.1) in all four workflows, plus the two guard scripts and their tests that pin the line. v7's one behavioural change refuses fork-PR checkouts under `pull_request_target` and `workflow_run`, neither of which this repo uses. It was the last action pin behind its latest major.

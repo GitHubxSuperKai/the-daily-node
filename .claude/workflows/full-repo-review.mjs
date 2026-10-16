@@ -205,11 +205,12 @@ for correctness only.`,
   },
   {
     key: 'tests-repo-tooling',
-    label: 'Test Suite — Repo Tooling (secrets scanner, CodeQL config guard, docker smoke guard)',
+    label: 'Test Suite — Repo Tooling (secrets scanner, CodeQL config guard, docker smoke guard, review-path guard)',
     files: [
       'tests/unit/checkSecrets.test.js',
       'tests/unit/checkCodeqlConfig.test.js',
       'tests/unit/checkDockerSmoke.test.js',
+      'tests/unit/checkReviewPaths.test.js',
     ],
     // Its own group rather than a line in tests-harness: this reviews repo tooling,
     // not the dashboard, so the shared React brief would frame it wrongly — and a
@@ -245,7 +246,14 @@ if the semantic half were deleted proves nothing, because the pin catches
 everything on its own. Also look for: mutation cases whose replace() silently
 matches nothing (each one must assert it changed the text), marker assertions with
 no negative control, and cases that assert only "not empty" where the specific
-problem message is what distinguishes one guard from another.`,
+problem message is what distinguishes one guard from another.
+
+checkReviewPaths.test.js tests scripts/check-review-paths.cjs, the guard on this
+workflow's own GROUPS list. Same frame. Each case copies the real guard into a
+throwaway repo beside a fixture GROUPS literal. Look for: a failing branch of the
+guard that no case reaches, must-PASS controls that would also pass against a guard
+rejecting nothing, source mutations whose replace() no longer matches, and fixture
+counts that do not follow from the files the case created.`,
   },
   {
     key: 'tests-python',
