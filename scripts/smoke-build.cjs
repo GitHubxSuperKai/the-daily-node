@@ -91,8 +91,14 @@ assert.ok(html.includes(`"v${version}"`),
   `version string "v${version}" not found — __VERSION__ define may not have been replaced`);
 
 // 10. CSP meta tag must be present with required directives
-assert.ok(html.includes('Content-Security-Policy'),
-  'CSP meta tag missing from output');
+// Hosts are checked inside the meta tag's connect-src, not anywhere in the page: they also
+// appear in JS string literals and HTML comments, so a whole-page includes() stayed green
+// with a CSP entry deleted (shown by mutation for http://*:3002).
+const cspMatch = html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]*)"/);
+assert.ok(cspMatch, 'CSP meta tag missing from output');
+const csp = cspMatch[1];
+const connectSrc = (csp.match(/(?:^|;)\s*connect-src ([^;]*)/) || [])[1] || '';
+assert.ok(connectSrc, 'CSP has no connect-src directive');
 const REQUIRED_CSP_HOSTS = [
   'api.kraken.com',
   'api.coingecko.com',
@@ -100,12 +106,13 @@ const REQUIRED_CSP_HOSTS = [
   'api.open-meteo.com',
   'api.rss2json.com',
   '127.0.0.1:3001',
+  'http://*:3002',      // history daemon on the serving host (HISTORY_BASE)
 ];
 for (const host of REQUIRED_CSP_HOSTS) {
-  assert.ok(html.includes(host),
+  assert.ok(connectSrc.includes(host),
     `CSP missing required connect-src host: ${host}`);
 }
-assert.ok(html.includes('frame-ancestors'),
+assert.ok(/(?:^|;)\s*frame-ancestors /.test(csp),
   'CSP missing frame-ancestors directive');
 
 // 11. The 900px mobile breakpoint must stay in sync across all three checks.
