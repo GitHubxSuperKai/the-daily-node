@@ -79,6 +79,7 @@ Shared leaves (`Kicker`, `Num`, `Rule`) are omitted; `docs/ARCHITECTURE.md` has 
 | `src/theme.js` | LIGHT/DARK theme objects, `ThemeCtx`, `useT()` hook |
 | `src/utils/formatting.js` | All formatters: `fmtPrice`, `fmtPct`, `fmtHashrate`, `wmoIcon`, `classifyTopic`, etc. |
 | `src/utils/api.js` | Fetch wrappers with 5s timeouts |
+| `src/utils/chartSeries.js` | Merge history + CoinGecko by timestamp, nearest-point snap, readout maths |
 | `src/utils/scale.js` | `u(n)` design-px helper (the scaling itself is `updateScale()` in `src/index.html`) |
 | `src/utils/svg.js` | SVG icon helpers |
 | `src/hooks/useFeedHealth.js` | Monitors all data sources, drives sidebar status lights |

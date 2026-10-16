@@ -1,6 +1,7 @@
 import React from 'react';
 import { useT } from '../../theme.js';
 import { fmtPrice, fmtPct, fmtNum } from '../../utils/formatting.js';
+import { pctSince } from '../../utils/chartSeries.js';
 import LineChart from '../LineChart.jsx';
 import { NetworkStatusWidget } from '../NetworkStatusWidget.jsx';
 import { OnThisDay } from '../OnThisDay.jsx';
@@ -23,9 +24,15 @@ function BitcoinPanel({ btc, chain }) {
   const d = btc.data;
   const c = chain?.data;
 
-  const chgPct = d ? d.chgPct : null;
-  const chgUp = chgPct != null && chgPct >= 0;
-  const chgColor = chgUp ? T.green : T.red;
+  const [hover, setHover] = React.useState(null);
+
+  const headPrice = hover ? hover.price : d?.price;
+  const headText = Number.isFinite(headPrice) ? `$${fmtPrice(headPrice)}` : '—';
+  const chgPct = hover ? pctSince(hover.price, d?.price) : (d ? d.chgPct : null);
+  const chgKnown = Number.isFinite(chgPct);
+  const chgUp = chgKnown && chgPct >= 0;
+  const chgColor = chgKnown ? (chgUp ? T.green : T.red) : T.ink3;
+  const chgText = chgKnown ? `${hover ? (chgUp ? '▲ ' : '▼ ') : ''}${fmtPct(chgPct)}%` : '—';
 
 
   return (
@@ -49,9 +56,9 @@ function BitcoinPanel({ btc, chain }) {
             letterSpacing: -1,
             fontFeatureSettings: '"tnum" 1, "lnum" 1',
           }}>
-            {d ? `$${fmtPrice(d.price)}` : '—'}
+            {headText}
           </span>
-          {chgPct != null && (
+          {(chgPct != null || hover) && (
             <span style={{
               fontFamily: T.mono,
               fontSize: 16,
@@ -59,7 +66,8 @@ function BitcoinPanel({ btc, chain }) {
               color: chgColor,
               fontFeatureSettings: '"tnum" 1, "lnum" 1',
             }}>
-              {fmtPct(chgPct)}%
+              {chgText}
+              {hover && <span style={{ fontSize: 11, fontWeight: 400, color: T.ink3, marginLeft: 6 }}>since</span>}
             </span>
           )}
         </div>
@@ -75,12 +83,13 @@ function BitcoinPanel({ btc, chain }) {
       </div>
 
       {/* ── Chart ── */}
-      <div>
+      <div style={{ height: 120 }}>
         <LineChart
           color={T.orange}
           points={btc.chartPts}
           fill
           showLabels
+          onHover={setHover}
         />
       </div>
 

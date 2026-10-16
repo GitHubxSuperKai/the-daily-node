@@ -20,13 +20,22 @@ function MobileApp(props) {
   } = props;
 
   const touchStartRef = React.useRef(null);
+  // Set when any finger lands on the chart; the whole multi-finger gesture then
+  // stays a scrub (no tab swipe) until every finger has lifted.
+  const chartGestureRef = React.useRef(false);
 
   function onTouchStart(e) {
+    if (e.target?.closest?.('[data-chart-scrub]')) chartGestureRef.current = true;
+    if (chartGestureRef.current) {
+      touchStartRef.current = null;
+      return;
+    }
     const t = e.touches[0];
     touchStartRef.current = { x: t.clientX, y: t.clientY };
   }
 
   function onTouchEnd(e) {
+    if (!e.touches?.length) chartGestureRef.current = false;
     const start = touchStartRef.current;
     if (!start) return;
     touchStartRef.current = null;
@@ -55,7 +64,10 @@ function MobileApp(props) {
     <div
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
-      onTouchCancel={() => { touchStartRef.current = null; }}
+      onTouchCancel={(e) => {
+        touchStartRef.current = null;
+        if (!e.touches?.length) chartGestureRef.current = false;
+      }}
       style={{
         position: 'relative',
         width: '100%',
