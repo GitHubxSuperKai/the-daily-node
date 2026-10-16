@@ -1,5 +1,5 @@
 // useViewportMode — returns 'mobile' | 'desktop' based on viewport width
-// Breakpoint: ≤600px is mobile. Updates on window resize.
+// Mobile when innerWidth <= breakpoint (default 600; App passes 900). Updates on window resize.
 function useViewportMode(breakpoint) {
   breakpoint = breakpoint || 600;
   const [mode, setMode] = React.useState(
