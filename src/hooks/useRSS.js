@@ -17,7 +17,7 @@ export function useRSS() {
     const results = await Promise.allSettled(
       feeds.map(async feedUrl => {
         const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}${key}`;
-        const r = await fetch(url);
+        const r = await fetch(url, { signal: AbortSignal.timeout(CONFIG.FETCH_TIMEOUT) });
         if (!r.ok) throw new Error('rss');
         const j = await r.json();
         if (j.status !== 'ok') throw new Error('rss-status');

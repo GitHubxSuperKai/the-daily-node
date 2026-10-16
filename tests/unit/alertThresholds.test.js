@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   checkFeeThreshold,
   checkBlockTimeThreshold,
+  msSinceLastBlockFor,
   checkMinerOfflineThreshold,
   checkPriceThreshold,
 } from '../../src/utils/alertThresholds.js';
@@ -85,5 +86,28 @@ describe('checkPriceThreshold', () => {
       { ts: now - 15 * 60, usd: 51000 },  // newer in window (15 min ago)
     ];
     expect(checkPriceThreshold(53500, history, 5, 60 * 60)).toBe(true);
+  });
+});
+
+describe('msSinceLastBlockFor', () => {
+  const NOW = Date.UTC(2026, 9, 15, 12, 0, 0);
+  const tsMinAgo = min => Math.floor(NOW / 1000) - min * 60;
+
+  it('measures the age of the newest block on a healthy feed', () => {
+    const chain = { error: false, recentBlocks: [{ timestamp: tsMinAgo(20) }] };
+    expect(msSinceLastBlockFor(chain, NOW)).toBe(20 * 60 * 1000);
+  });
+
+  it('is unknown (null) while the chain feed is erroring, however old the last-good block is', () => {
+    // recentBlocks is last-good data during an outage; its age measures the outage, not the
+    // network, so it must not reach the block-time alert as "no block in N minutes".
+    const chain = { error: true, recentBlocks: [{ timestamp: tsMinAgo(45) }] };
+    expect(msSinceLastBlockFor(chain, NOW)).toBeNull();
+    expect(checkBlockTimeThreshold(msSinceLastBlockFor(chain, NOW))).toBe(false);
+  });
+
+  it('is null with no blocks', () => {
+    expect(msSinceLastBlockFor({ error: false, recentBlocks: [] }, NOW)).toBeNull();
+    expect(msSinceLastBlockFor(null, NOW)).toBeNull();
   });
 });

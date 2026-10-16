@@ -164,29 +164,39 @@ def poll_chain(db_path):
 def poll_miners(db_path, ips):
     if not ips:
         return
-    ts   = int(time.time())
-    conn = sqlite3.connect(db_path)
+    ts = int(time.time())
+    # Outer guard like the sibling pollers: connect() and commit() sit outside the per-miner
+    # except, and an exception escaping here would end poll_forever's thread for good.
     try:
-        for ip in ips:
-            try:
-                raw      = fetch_json(f'http://{ip}/api/system/info', timeout=5)
-                hashrate = float(raw.get('hashRate', 0))
-                temp     = float(raw.get('temp', 0))
-                shares   = int(raw.get('sharesAccepted', 0))
-                conn.execute('INSERT OR REPLACE INTO miners VALUES (?, ?, ?, ?, ?)',
-                             (ts, ip, hashrate, temp, shares))
-            except Exception as e:
-                print(f'[miners] {ip} error: {e}', file=sys.stderr)
-        conn.commit()
-    finally:
-        conn.close()
+        conn = sqlite3.connect(db_path)
+        try:
+            for ip in ips:
+                try:
+                    raw      = fetch_json(f'http://{ip}/api/system/info', timeout=5)
+                    hashrate = float(raw.get('hashRate', 0))
+                    temp     = float(raw.get('temp', 0))
+                    shares   = int(raw.get('sharesAccepted', 0))
+                    conn.execute('INSERT OR REPLACE INTO miners VALUES (?, ?, ?, ?, ?)',
+                                 (ts, ip, hashrate, temp, shares))
+                except Exception as e:
+                    print(f'[miners] {ip} error: {e}', file=sys.stderr)
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f'[miners] poll error: {e}', file=sys.stderr)
 
 
 # ─── Background polling ────────────────────────────────────────
 
-def poll_forever(fn, interval_s):
+def poll_forever(fn, interval_s, name=None):
+    # Each poller guards itself, but this loop is the thread: one exception that slips past
+    # a poller would stop that metric recording until the process restarts. Log and go on.
     while True:
-        fn()
+        try:
+            fn()
+        except Exception as e:
+            print(f'[poll] {name or getattr(fn, "__name__", fn)} error: {e}', file=sys.stderr)
         time.sleep(interval_s)
 
 
@@ -302,13 +312,13 @@ def main():
     print(f'[daemon] HTTP:       {args.bind}:{args.port}')
     print(f'[daemon] BitAxe IPs: {args.bitaxe_ips or "(none)"}')
 
-    for fn, interval in [
-        (lambda: poll_price(args.db),                    POLL_PRICE_S),
-        (lambda: poll_chain(args.db),                    POLL_CHAIN_S),
-        (lambda: poll_miners(args.db, args.bitaxe_ips),  POLL_MINER_S),
-        (lambda: poll_purge(args.db),                    PURGE_INTERVAL_S),
+    for name, fn, interval in [
+        ('price',  lambda: poll_price(args.db),                    POLL_PRICE_S),
+        ('chain',  lambda: poll_chain(args.db),                    POLL_CHAIN_S),
+        ('miners', lambda: poll_miners(args.db, args.bitaxe_ips),  POLL_MINER_S),
+        ('purge',  lambda: poll_purge(args.db),                    PURGE_INTERVAL_S),
     ]:
-        threading.Thread(target=poll_forever, args=(fn, interval), daemon=True).start()
+        threading.Thread(target=poll_forever, args=(fn, interval, name), daemon=True).start()
 
     HistoryHandler.db_path = args.db
     server = HTTPServer((args.bind, args.port), HistoryHandler)

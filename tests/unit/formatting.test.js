@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   fmtNum, fmtPrice, fmtPct, fmtVolUsd, fmtBlockTime, fmtHashrate,
   fmtDiff, fmtMempoolMB, fmtBlockSize, timeAgo, timeAgoUnix,
-  fmtHour, fmtHHMM, safeISODate, nextHalving, circulatingBTC, calcSoloOdds,
+  fmtHour, fmtHHMM, safeISODate, nextHalving, projectBlocksDate, circulatingBTC, calcSoloOdds,
   wmoDesc, wmoIcon, wmoSpeed, fmtBestDiff, classifyTopic, fmtUptime,
 } from '../../src/utils/formatting.js';
 
@@ -193,6 +193,24 @@ describe('nextHalving', () => {
   });
   it('returns the em-dash fallback for garbage height instead of throwing', () => {
     expect(nextHalving(NaN)).toBe('—');
+  });
+  it('projects from the injected clock, so a pinned clock gives a fixed date', () => {
+    // 900000 -> next halving at 1050000: 150000 blocks = 1041d 16h after `now`.
+    const now = Date.UTC(2026, 7, 26, 11, 7, 12);
+    expect(nextHalving(900_000, now)).toBe('2029-07-03');
+    expect(nextHalving(900_000, now + 86_400_000)).toBe('2029-07-04');
+  });
+});
+
+describe('projectBlocksDate', () => {
+  it('advances 10 minutes per block from the injected clock', () => {
+    const now = Date.UTC(2026, 9, 15, 23, 0, 0);
+    expect(projectBlocksDate(0, now)).toBe('2026-10-15');
+    expect(projectBlocksDate(6, now)).toBe('2026-10-16'); // 23:00 + 60 min crosses midnight UTC
+    expect(projectBlocksDate(144, now)).toBe('2026-10-16');
+  });
+  it('returns null for a garbage block count', () => {
+    expect(projectBlocksDate(NaN, Date.UTC(2026, 0, 1))).toBeNull();
   });
 });
 
