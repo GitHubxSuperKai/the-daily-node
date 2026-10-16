@@ -22,12 +22,15 @@ function MobileApp(props) {
   const touchStartRef = React.useRef(null);
 
   function onTouchStart(e) {
-    // A gesture that begins on the chart is a scrub, never a tab swipe.
-    if (e.target?.closest?.('[data-chart-scrub]')) {
+    // A gesture that begins on the chart is a scrub, never a tab swipe. Check the
+    // finger we would track (touches[0]) as well as this event's target: when a
+    // second finger lands elsewhere, touches[0] is still the chart finger.
+    const t = e.touches[0];
+    const onChart = el => el?.closest?.('[data-chart-scrub]');
+    if (onChart(e.target) || onChart(t?.target)) {
       touchStartRef.current = null;
       return;
     }
-    const t = e.touches[0];
     touchStartRef.current = { x: t.clientX, y: t.clientY };
   }
 

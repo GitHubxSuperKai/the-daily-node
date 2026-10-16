@@ -96,6 +96,17 @@ describe('MobileApp', () => {
     expect(screen.getByText(/Field Report/i)).toBeDefined();
   });
 
+  it('a second finger landing off the chart does not re-arm a swipe for the chart finger', () => {
+    const { container, outer } = openBitcoinBySwipe();
+    const chart = container.querySelector('[data-chart-scrub]');
+    const onChart = { clientX: 300, clientY: 200, target: chart };
+    fireEvent.touchStart(chart, { touches: [onChart] });
+    // e.touches[0] is still the chart finger when the second finger lands elsewhere.
+    fireEvent.touchStart(outer, { touches: [onChart, { clientX: 100, clientY: 400, target: outer }] });
+    fireEvent.touchEnd(outer, { changedTouches: [{ clientX: 150, clientY: 205 }] });
+    expect(screen.getByText(/Field Report/i)).toBeDefined();
+  });
+
   it('swipe that starts elsewhere on the Bitcoin panel still changes tab', () => {
     const { outer } = openBitcoinBySwipe();
     fireEvent.touchStart(outer, { touches: [{ clientX: 300, clientY: 200 }] });
