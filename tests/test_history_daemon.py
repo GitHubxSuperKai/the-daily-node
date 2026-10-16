@@ -1,10 +1,10 @@
-import unittest
-import unittest.mock
-import sqlite3
 import os
+import sqlite3
 import sys
 import tempfile
 import time
+import unittest
+import unittest.mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from history_daemon import ensure_schema, parse_price_response, parse_chain_response, purge_old, poll_purge, poll_miners, poll_forever
