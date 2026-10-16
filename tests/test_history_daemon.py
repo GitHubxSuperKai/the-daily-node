@@ -98,7 +98,6 @@ class TestPurge(unittest.TestCase):
 
 class TestPollPurge(unittest.TestCase):
     def test_poll_purge_removes_old_rows(self):
-        import tempfile
         old = int(time.time()) - 91 * 86400
         now = int(time.time())
         with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
