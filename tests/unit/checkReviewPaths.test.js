@@ -152,6 +152,17 @@ describe('check-review-paths: must-PASS controls', () => {
     fs.rmSync(path.join(dir, 'src', 'gone.js'));
     expectPass(runGuard(dir));
   });
+
+  it('ignores gitignored build junk under a covered root (ls-files --exclude-standard)', () => {
+    // A raw walk would pick up ignored files (tests/__pycache__) and fail on a developer
+    // machine but never in CI. Written after makeRepo returns: its `git add -f` would
+    // otherwise force-stage the ignored file.
+    const dir = makeRepo();
+    fs.writeFileSync(path.join(dir, '.gitignore'), '*.pyc\n');
+    fs.mkdirSync(path.join(dir, 'tests', '__pycache__'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'tests', '__pycache__', 'a.cpython.pyc'), 'junk\n');
+    expectPass(runGuard(dir));
+  });
 });
 
 describe('check-review-paths: exists-but-unlisted (direction 2)', () => {
@@ -226,16 +237,19 @@ describe('check-review-paths: listed-but-missing (direction 1)', () => {
     // The guard rejects this on every OS, but for different reasons: on a case-sensitive
     // filesystem (Linux CI) statSync already fails, while on Windows only the readdir
     // basename comparison catches it. So this case pins the readdir check on Windows
-    // runs only; on Linux it passes with or without it (measured, assay of PR #177).
-    // A wrong-case DIRECTORY segment (Src/a.js) slips through on Windows only when the
-    // correct-case path is also listed; not pinned here.
+    // runs only; on a case-sensitive filesystem it passes with or without it (simulated
+    // with a case-sensitive NTFS directory in the PR #177 assay; not run on Linux).
+    // A wrong-case DIRECTORY segment (Src/a.js) slips through on Windows whenever the
+    // correct-case path is also listed, EXCLUDED, or outside the covered roots; not
+    // pinned here.
     expectFail(runGuard(makeRepo({ listed: ['src/A.js', 'src/a.js', 'tests/a.test.js', GUARD_REL] })),
       'src/A.js');
   });
 
   it('rejects a directory listed as a path (it would review nothing)', () => {
-    expectFail(runGuard(makeRepo({ listed: ['src/vendor', 'src/a.js', 'tests/a.test.js', GUARD_REL] })),
-      'src/vendor');
+    const result = runGuard(makeRepo({ listed: ['src/vendor', 'src/a.js', 'tests/a.test.js', GUARD_REL] }));
+    expectFail(result, 'do not resolve');
+    expect(result.stderr).toMatch(/^\s+src\/vendor$/m);
   });
 
   it('rejects an absolute path', () => {
