@@ -109,6 +109,24 @@ To expose the server to other devices on your LAN (e.g. a wall display), add `--
 - Python 3.10+ (standard library only — no `pip install`)
 - BitAxe miners reachable on your LAN
 
+## Running the History Daemon (Optional, for History Charts)
+
+`history_daemon.py` records price, chain and miner history to SQLite and serves it on port 3002, which is where the dashboard looks for it (`CONFIG.HISTORY_BASE`). It ships in the Docker image but is not its default command, so run it as a second service from the same image:
+
+```yaml
+  daily-node-history:
+    image: ghcr.io/githubxsuperkai/the-daily-node:latest
+    command: ["python", "history_daemon.py", "--bind", "0.0.0.0",
+              "--db", "/data/history.db",
+              "--allow-origin", "http://<lan-host>:3001"]
+    ports:
+      - "3002:3002"
+    volumes:
+      - daily-node-config:/data
+```
+
+`--allow-origin` is required for any dashboard not served from `localhost`: the daemon's CORS allowlist is localhost-only by default, and the browser discards history responses from a port it does not allow. List every origin you open the dashboard from (host name and IP are different origins). Add `--bitaxe-ip <miner-ip>` once per miner to record miner history.
+
 ## Deployment
 
 ### GitHub Pages (Recommended)
