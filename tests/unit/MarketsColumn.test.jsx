@@ -238,6 +238,19 @@ describe('MarketsColumn — chart range', () => {
     expect(captured.points[captured.points.length - 1][0]).toBe(t1);
   });
 
+  it('a history-only 1h chart whose newest row is two hours old does not label its edge "now"', () => {
+    const end = Date.now() - 2 * 3_600_000;
+    const priceHistoryData = [];
+    for (let i = 0; i < 60; i++) priceHistoryData.push({ ts: (end - i * 60_000) / 1000, usd: 80000 + i });
+    mountRange({ range: '1h', priceHistoryData, chart: ok(null, null) });
+    expect(captured.domain[1]).toBe(end);
+    const row = screen.getByText('−45m').parentElement;
+    const labels = Array.from(row.children).map((c) => c.textContent);
+    expect(labels[0]).toBe('−60m');
+    expect(labels[4]).not.toBe('now');
+    expect(labels[4]).toMatch(/\d:\d\d [AP]M$/);
+  });
+
   it('dims the chart when its cache is aged', () => {
     const domain = dom(RANGES['24h'].spanMs);
     const m = mountRange({ range: '24h', chart: ok([[E - 1, 1]], domain) });
