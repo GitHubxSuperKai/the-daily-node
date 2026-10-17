@@ -47,9 +47,20 @@ const monthYear = (ms) => {
   return `${d.toLocaleDateString('en-US', { month: 'short' })} '${String(d.getFullYear()).slice(-2)}`;
 };
 
-export function axisLabels(rangeKey, endMs) {
-  if (rangeKey === '1h') return ['60m ago', '−45m', '−30m', '−15m', 'now'];
-  if (rangeKey === '24h') return ['24h ago', '−18h', '−12h', '−6h', 'now'];
+// History rows normally lag by up to ~11 min (10 min refetch + 1 min buckets); past this the
+// 1H/24H edge is not "now", so it shows its clock time and the left mark drops "ago".
+// A Kraken domain ages the same way while its refetches keep failing. History timestamps come
+// from the daemon host's clock, so that clock running minutes behind the browser's eats the margin.
+const STALE_EDGE_MS = 15 * 60000;
+
+export function axisLabels(rangeKey, endMs, nowMs = Date.now()) {
+  if (rangeKey === '1h' || rangeKey === '24h') {
+    const stale = nowMs - endMs > STALE_EDGE_MS;
+    const marks = rangeKey === '1h'
+      ? [stale ? '−60m' : '60m ago', '−45m', '−30m', '−15m']
+      : [stale ? '−24h' : '24h ago', '−18h', '−12h', '−6h'];
+    return [...marks, stale ? fmtChipTime(endMs, nowMs) : 'now'];
+  }
   const { spanMs } = RANGES[rangeKey];
   const fmt = rangeKey === '1y' ? monthYear : monthDay;
   const marks = [0, 1, 2, 3].map((k) => fmt(endMs - spanMs + (k * spanMs) / 4));

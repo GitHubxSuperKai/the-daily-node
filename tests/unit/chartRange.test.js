@@ -94,11 +94,34 @@ describe('windowSeries', () => {
 
 describe('axisLabels', () => {
   it('labels per range', () => {
-    expect(axisLabels('1h', END)).toEqual(['60m ago', '−45m', '−30m', '−15m', 'now']);
-    expect(axisLabels('24h', END)).toEqual(['24h ago', '−18h', '−12h', '−6h', 'now']);
-    expect(axisLabels('7d', END)).toEqual(['Oct 9', 'Oct 11', 'Oct 13', 'Oct 14', 'now']);
-    expect(axisLabels('30d', END)).toEqual(['Sep 16', 'Sep 24', 'Oct 1', 'Oct 9', 'now']);
-    expect(axisLabels('1y', END)).toEqual(["Oct '25", "Jan '26", "Apr '26", "Jul '26", 'now']);
+    expect(axisLabels('1h', END, END)).toEqual(['60m ago', '−45m', '−30m', '−15m', 'now']);
+    expect(axisLabels('24h', END, END)).toEqual(['24h ago', '−18h', '−12h', '−6h', 'now']);
+    expect(axisLabels('7d', END, END)).toEqual(['Oct 9', 'Oct 11', 'Oct 13', 'Oct 14', 'now']);
+    expect(axisLabels('30d', END, END)).toEqual(['Sep 16', 'Sep 24', 'Oct 1', 'Oct 9', 'now']);
+    expect(axisLabels('1y', END, END)).toEqual(["Oct '25", "Jan '26", "Apr '26", "Jul '26", 'now']);
+  });
+
+  it('1h/24h keep "now" while the edge is at most 15 minutes old', () => {
+    expect(axisLabels('1h', END, END + 15 * 60000)).toEqual(['60m ago', '−45m', '−30m', '−15m', 'now']);
+    expect(axisLabels('24h', END, END + 15 * 60000)).toEqual(['24h ago', '−18h', '−12h', '−6h', 'now']);
+  });
+
+  it('1h/24h label a stale edge with its clock time, not "now" or "ago"', () => {
+    const now = END + 15 * 60000 + 1;
+    expect(axisLabels('1h', END, now)).toEqual(['−60m', '−45m', '−30m', '−15m', fmtChipTime(END, now)]);
+    expect(axisLabels('24h', END, now)).toEqual(['−24h', '−18h', '−12h', '−6h', fmtChipTime(END, now)]);
+    expect(axisLabels('1h', END, now)[4]).toBe('12:00 PM');
+  });
+
+  it('a stale edge from yesterday reads "Yesterday"', () => {
+    expect(axisLabels('24h', END, END + 20 * 3600000)[4]).toBe('Yesterday 12:00 PM');
+  });
+
+  it('7d/30d/1y are unchanged by edge age', () => {
+    const now = END + 86400000;
+    expect(axisLabels('7d', END, now)[4]).toBe('now');
+    expect(axisLabels('30d', END, now)[4]).toBe('now');
+    expect(axisLabels('1y', END, now)[4]).toBe('now');
   });
 });
 
