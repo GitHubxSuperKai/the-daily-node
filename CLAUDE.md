@@ -55,7 +55,7 @@ Shared leaves (`Kicker`, `Num`, `Rule`) are omitted; `docs/ARCHITECTURE.md` has 
 **Data flow:** External APIs → custom hooks → App → CommandCenter as props. Each hook exposes its own data field plus health metadata; shapes vary (e.g. `useBitaxe` → `{ miners, err, loading, lastOk, interval, refresh }`). Check the hook's return for exact fields.
 
 **API sources** (intervals in `src/config.js`):
-- Kraken + CoinGecko → `useBTC` (price from Kraken, market cap from CoinGecko) — 30s
+- Kraken + CoinGecko → `useBTC` (price from Kraken, 30s; market cap from CoinGecko, 5m via `REFRESH_INTERVALS.chart`)
 - Kraken OHLC → `useChartRange` (chart line, per selected range; the selected range persists in v2 prefs as `chart.range`)
 - Mempool.space (5 endpoints via `Promise.allSettled`) → `useChain` — 60s
 - Local BitAxe API → `useBitaxe` (miner fleet)

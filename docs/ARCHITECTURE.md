@@ -40,7 +40,7 @@ Data flows from external APIs through custom hooks into the component tree:
 
 ```
 External APIs
-  ├── Kraken API → useBTC() → { price, chgPct, hi, lo }
+  ├── Kraken API → useBTC() → { price, chgAbs, chgPct, hi, lo, vwap, volBtc }
   ├── CoinGecko API → useBTC() → cap (market cap), ATH
   ├── Kraken OHLC → useChartRange() → { points, domain } for the selected range
   ├── Mempool.space → useChain() → { height, hashrate, fees, difficulty }
@@ -77,7 +77,7 @@ CommandCenter & Presentational Components
   └── Update localStorage on preference changes
 ```
 
-All hook data includes `{ data, loading, error, lastOk }` for status monitoring. Updates are staggered via `setInterval` at rates defined in `config.js` (price every 30s, chain every 60s, weather every 15m, news every 5m).
+Most hooks return `{ data, loading, error, lastOk }` for status monitoring; `useChartRange` is the exception and returns `{ points, domain, stale, failed, refresh }`. Updates are staggered via `setInterval` at rates defined in `config.js` (price every 30s, chain every 60s, weather every 15m, news every 5m).
 
 ## Modules
 
