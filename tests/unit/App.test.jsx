@@ -179,6 +179,27 @@ describe('App — localStorage wiring', () => {
   });
 });
 
+describe('App — chart range wiring', () => {
+  const ohlcUrls = () =>
+    global.fetch.mock.calls.map(([u]) => String(u)).filter((u) => u.includes('/0/public/OHLC'));
+
+  it('stored range 7d fetches Kraken interval 60', async () => {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ version: 2, chart: { range: '7d' } }));
+    await bootApp();
+    const urls = ohlcUrls();
+    expect(urls.some((u) => u.includes('interval=60'))).toBe(true);
+    expect(urls.some((u) => u.includes('interval=5'))).toBe(false);
+  });
+
+  it('bogus stored range falls back to 24h', async () => {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ version: 2, chart: { range: 'bogus' } }));
+    await bootApp();
+    const urls = ohlcUrls();
+    expect(urls.some((u) => u.includes('interval=5'))).toBe(true);
+    expect(urls.some((u) => u.includes('interval=60'))).toBe(false);
+  });
+});
+
 describe('App — theme on mount', () => {
   it('starts light by default', async () => {
     await bootApp();

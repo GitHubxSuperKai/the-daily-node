@@ -37,6 +37,9 @@ export function CommandCenter({
   weather,
   rss,
   feedHealth,
+  chart,
+  range,
+  onRangeChange,
 }) {
   const T = useT();
 
@@ -203,7 +206,7 @@ export function CommandCenter({
 
         {/* COL 1 — MARKETS + LEAD STORY */}
         <ErrorBoundary label="Markets">
-          <MarketsColumn btc={btc} chain={chain} rss={rss} priceHistoryData={priceHistory.data} />
+          <MarketsColumn btc={btc} chain={chain} rss={rss} priceHistoryData={priceHistory.data} chart={chart} range={range} onRangeChange={onRangeChange} />
         </ErrorBoundary>
 
         {/* COL 2 — HEADLINES FEED */}
