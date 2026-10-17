@@ -77,7 +77,7 @@ CommandCenter & Presentational Components
   └── Update localStorage on preference changes
 ```
 
-Most hooks return `{ data, loading, error, lastOk }` for status monitoring; `useChartRange` is the exception and returns `{ points, domain, stale, failed, refresh }`. Updates are staggered via `setInterval` at rates defined in `config.js` (price every 30s, chain every 60s, weather every 15m, news every 5m).
+Hook return shapes vary: `useBTC` and `useChain` return `{ data, loading, error, lastOk, … }`, `useBitaxe` returns `{ miners, err, loading, lastOk, … }`, and `useChartRange` returns `{ points, domain, stale, failed, refresh }`. Check the hook for its exact fields. Updates are staggered via `setInterval` at rates defined in `config.js` (price every 30s, chain every 60s, weather every 15m, news every 5m).
 
 ## Modules
 
