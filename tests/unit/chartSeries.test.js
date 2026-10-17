@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  HISTORY_GAP_MS, mergeSeries, nearestIndex, pctSince, fmtChipTime,
+  HISTORY_GAP_MS, mergeSeries, nearestIndex, pctSince, fmtChipTime, latestHistoryMs,
 } from '../../src/utils/chartSeries.js';
 
 const base = new Date(2026, 9, 16, 8, 0).getTime();
@@ -75,6 +75,17 @@ describe('mergeSeries', () => {
   it('both empty: returns []', () => {
     expect(mergeSeries([], [])).toEqual([]);
     expect(mergeSeries(null, null)).toEqual([]);
+  });
+});
+
+describe('latestHistoryMs', () => {
+  it('returns the newest valid row in ms regardless of order', () => {
+    expect(latestHistoryMs([H(5, 1), H(9, 1), H(2, 1), { ts: null, usd: 1 }])).toBe(base + 9 * 60000);
+  });
+  it('returns null for no valid rows', () => {
+    expect(latestHistoryMs(null)).toBeNull();
+    expect(latestHistoryMs([])).toBeNull();
+    expect(latestHistoryMs([{ ts: 'x', usd: 1 }])).toBeNull();
   });
 });
 

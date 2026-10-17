@@ -42,6 +42,12 @@ const lowerBound = (arr, t) => {
   return lo;
 };
 
+// Newest /history row time in ms, or null when there are no valid rows.
+export function latestHistoryMs(rows) {
+  const h = normHistory(rows);
+  return h.length ? h[h.length - 1][0] : null;
+}
+
 export function mergeSeries(historyPoints, chartPts) {
   const hist = normHistory(historyPoints);
   const cg = normChart(chartPts);

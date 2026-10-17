@@ -213,6 +213,111 @@ describe('useChartRange', () => {
     expect(result.current.failed).toBe(true);
   });
 
+  it('re-selecting a range with an aged cache dims it until the refetch lands', async () => {
+    const { result, rerender } = mount('24h');
+    await flush();
+    expect(result.current.aged).toBe(false);
+    rerender({ rangeKey: '7d' });
+    await flush();
+    // Past half the 24h refresh period, so re-selecting 24h refetches.
+    await act(async () => { vi.advanceTimersByTime(200000); });
+    hold(5);
+    rerender({ rangeKey: '24h' });
+    await flush();
+    expect(calls(5).length).toBe(2);
+    expect(result.current.points).not.toBeNull();
+    expect(result.current.aged).toBe(true);
+    expect(result.current.stale).toBe(false);
+    await release(5);
+    expect(result.current.aged).toBe(false);
+  });
+
+  it('re-selecting within half the refresh period is not aged', async () => {
+    const { result, rerender } = mount('24h');
+    await flush();
+    rerender({ rangeKey: '7d' });
+    await flush();
+    await act(async () => { vi.advanceTimersByTime(30000); });
+    rerender({ rangeKey: '24h' });
+    await flush();
+    expect(result.current.aged).toBe(false);
+  });
+
+  it('a timer refetch on the selected range does not dim it', async () => {
+    const { result } = mount('24h');
+    await flush();
+    // A failing tick bumps the hook's version, so `aged` is recomputed with the cache now old.
+    mode.set(5, 'reject');
+    await act(async () => { vi.advanceTimersByTime(300000); });
+    await flush();
+    expect(calls(5).length).toBe(2);
+    expect(result.current.failed).toBe(true);
+    expect(result.current.aged).toBe(false);
+  });
+
+  it('re-selecting at exactly half the refresh period is aged', async () => {
+    const { result, rerender } = mount('24h');
+    await flush();
+    rerender({ rangeKey: '7d' });
+    await flush();
+    await act(async () => { vi.advanceTimersByTime(150000); });
+    hold(5);
+    rerender({ rangeKey: '24h' });
+    await flush();
+    expect(calls(5).length).toBe(2);
+    expect(result.current.aged).toBe(true);
+    await release(5);
+  });
+
+  it('a successful timer retry clears the failure without a re-select', async () => {
+    mode.set(5, 'reject');
+    const { result } = mount('24h');
+    await flush();
+    expect(result.current.failed).toBe(true);
+    mode.delete(5);
+    await act(async () => { vi.advanceTimersByTime(300000); });
+    await flush();
+    expect(calls(5).length).toBe(2);
+    expect(result.current.failed).toBe(false);
+  });
+
+  it('re-selecting a range that failed earlier hides the old failure while the retry is in flight', async () => {
+    const { result, rerender } = mount('24h');
+    await flush();
+    mode.set(1440, 'reject');
+    rerender({ rangeKey: '1y' });
+    await flush();
+    expect(result.current.failed).toBe(true);
+    rerender({ rangeKey: '24h' });
+    await flush();
+    mode.delete(1440);
+    hold(1440);
+    rerender({ rangeKey: '1y' });
+    expect(result.current.failed).toBe(false);
+    await flush();
+    expect(calls(1440).length).toBe(2);
+    expect(result.current.failed).toBe(false);
+    expect(result.current.stale).toBe(true);
+    await release(1440);
+    expect(result.current.stale).toBe(false);
+    expect(result.current.failed).toBe(false);
+  });
+
+  it('a retry that fails again shows the failure', async () => {
+    const { result, rerender } = mount('24h');
+    await flush();
+    mode.set(1440, 'reject');
+    rerender({ rangeKey: '1y' });
+    await flush();
+    rerender({ rangeKey: '24h' });
+    await flush();
+    rerender({ rangeKey: '1y' });
+    expect(result.current.failed).toBe(false);
+    await flush();
+    expect(calls(1440).length).toBe(2);
+    expect(result.current.failed).toBe(true);
+  });
+
   it('a failed fetch for an uncached range is both stale and failed', async () => {
     const { result, rerender } = mount('24h');
     await flush();

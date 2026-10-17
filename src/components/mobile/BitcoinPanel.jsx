@@ -21,7 +21,7 @@ function sectionLabel(T) {
 }
 
 // Fallback for callers that pass no chart (older tests); never mutated.
-const EMPTY_CHART = Object.freeze({ points: null, domain: null, stale: false, failed: false });
+const EMPTY_CHART = Object.freeze({ points: null, domain: null, stale: false, aged: false, failed: false });
 const NOOP = () => {};
 
 function BitcoinPanel({ btc, chain, chart: chartProp, range = '24h', onRangeChange }) {
@@ -126,7 +126,7 @@ function BitcoinPanel({ btc, chain, chart: chartProp, range = '24h', onRangeChan
           color={T.orange}
           points={series}
           domain={domain}
-          dimmed={!!chart.stale}
+          dimmed={!!(chart.stale || chart.aged)}
           chipFormat={chipFormat}
           fill
           showLabels

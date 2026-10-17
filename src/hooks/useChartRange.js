@@ -13,7 +13,10 @@ import { log } from '../utils/log.js';
  *   points: array of [ms, price] windowed to the range, or null,
  *   domain: [startMs, endMs] or null,
  *   stale: true while showing the previous range's points (selected interval not loaded yet),
- *   failed: true if the latest fetch for the selected interval failed,
+ *   aged: true while showing this range's own cache that was already due a refetch when the
+ *     range was selected (dims it until the refetch lands; timer refetches never set it),
+ *   failed: true if a fetch for the selected interval failed since the range was selected
+ *     (an older failure is ignored while the re-select's retry is in flight),
  *   refresh: () => void  (bypasses the freshness check)
  * }
  *
@@ -23,7 +26,14 @@ import { log } from '../utils/log.js';
  */
 export function useChartRange(rangeKey) {
   const cache = useRef(new Map()); // interval -> { pts, fetchedAt (request start), windows: rangeKey -> { points, domain } }
-  const failedMap = useRef(new Map()); // interval -> boolean
+  const failedMap = useRef(new Map()); // interval -> seq of its latest failure, 0 once it loads
+  // One counter orders failures against selections: a failure only shows if it came after the
+  // current range was selected. `at` is the selection time, for the aged check.
+  const seq = useRef(0);
+  const selected = useRef({ key: rangeKey, seq: 0, at: Date.now() });
+  if (selected.current.key !== rangeKey) {
+    selected.current = { key: rangeKey, seq: ++seq.current, at: Date.now() };
+  }
   const inFlight = useRef(new Set());
   const lastGood = useRef({ points: null, domain: null });
   const mounted = useRef(true);
@@ -47,14 +57,13 @@ export function useChartRange(rangeKey) {
       if (!r.ok) throw new Error(`${r.status}`);
       const pts = normKrakenOHLC(await r.json());
       cache.current.set(interval, { pts, fetchedAt, windows: {} });
-      failedMap.current.set(interval, false);
+      failedMap.current.set(interval, 0);
       changed = true;
     } catch (e) {
       log.error('chart range fetch failed', interval, e);
-      if (!failedMap.current.get(interval)) {
-        failedMap.current.set(interval, true);
-        changed = true;
-      }
+      // Re-render only when the failure becomes visible: it was clear, or hidden by a re-select.
+      if (!(failedMap.current.get(interval) > selected.current.seq)) changed = true;
+      failedMap.current.set(interval, ++seq.current);
     } finally {
       inFlight.current.delete(interval);
     }
@@ -73,8 +82,9 @@ export function useChartRange(rangeKey) {
   const refresh = useCallback(() => { load(rangeKey, true); reset(); }, [rangeKey, load, reset]);
 
   return useMemo(() => {
-    const { interval, spanMs } = RANGES[rangeKey];
-    const failed = !!failedMap.current.get(interval);
+    const { interval, spanMs, refreshMs } = RANGES[rangeKey];
+    const sel = selected.current;
+    const failed = (failedMap.current.get(interval) ?? 0) > sel.seq;
     const entry = cache.current.get(interval);
     if (entry) {
       // Window once per (entry, range): 7d and 30d share an entry but not a span, and a
@@ -84,10 +94,12 @@ export function useChartRange(rangeKey) {
         entry.windows[rangeKey] = { points: windowSeries(entry.pts, domain), domain };
       }
       lastGood.current = entry.windows[rangeKey];
-      return { ...entry.windows[rangeKey], stale: false, failed, refresh };
+      // Same threshold as load(): a cache this old at selection time was refetched by the select.
+      const aged = sel.at - entry.fetchedAt >= refreshMs / 2;
+      return { ...entry.windows[rangeKey], stale: false, aged, failed, refresh };
     }
     const prev = lastGood.current;
-    return { points: prev.points, domain: prev.domain, stale: prev.points != null, failed, refresh };
+    return { points: prev.points, domain: prev.domain, stale: prev.points != null, aged: false, failed, refresh };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: `version` is the cache/failure-flag change signal; the refs are read when it bumps
   }, [version, rangeKey, refresh]);
 }

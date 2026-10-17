@@ -194,7 +194,7 @@ export function makeProps(overrides = {}) {
     chart: {
       points: [[Date.now() - 3600_000, 77900], [Date.now(), 78408]],
       domain: [Date.now() - 86_400_000, Date.now()],
-      stale: false, failed: false, refresh: vi.fn(),
+      stale: false, aged: false, failed: false, refresh: vi.fn(),
     },
     // range is resolveRange(v2prefs); the fixture v2prefs carry the default.
     range: '24h',
@@ -226,7 +226,7 @@ export function makeDownProps(overrides = {}) {
     feedHealth: 'offline',
     // With the fetch failing and nothing cached, useChartRange has no series to
     // show: points and domain stay null and failed is true.
-    chart: { points: null, domain: null, stale: false, failed: true, refresh: vi.fn() },
+    chart: { points: null, domain: null, stale: false, aged: false, failed: true, refresh: vi.fn() },
     ...overrides,
   });
 }

@@ -39,6 +39,7 @@ const REQUIRED_MARKERS = [
   'fetchBTCPrice',         // utils/api.js (object property key)
   'fmtPrice',              // utils/formatting.js (object property key)
   'METEOCONS_SVG',         // utils/svg.js (object property key)
+  '"aria-label":"Chart range"', // RangeButtons.jsx (JSX prop key + string literal)
 ];
 for (const m of REQUIRED_MARKERS) {
   assert.ok(html.includes(m), `missing required marker in bundle: ${m}`);
