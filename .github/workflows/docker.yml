@@ -231,11 +231,12 @@ jobs:
       #     exactly that: print() put just a newline (row D) or the whitespace
       #     plus a newline (row F) in the file. So a blank probe reported green
       #     having executed nothing, with nothing in the way (PR #148's
-      #     mutation matrix, rows D/F). Only an empty `docker compose config`
-      #     output (row B) left a zero-byte file: `> /tmp/probe.py` truncated
-      #     it BEFORE the pipeline ran, and json.load raising on that empty
-      #     stdin failed the step -- incidentally, not as an assertion, and
-      #     never for a blank probe. Hence the
+      #     mutation matrix, rows D/F). In that matrix only an empty
+      #     `docker compose config` output (row B) left a zero-byte file:
+      #     `> /tmp/probe.py` truncated it BEFORE the pipeline ran, and
+      #     json.load raising on the empty piped input failed the step --
+      #     incidentally, not as an assertion, and never for a blank probe.
+      #     Hence the
       #     explicit non-blank check before anything is written or run --
       #     whitespace-only is a no-op script for the same reason empty is.
       #     The check is deliberately syntactic: it rejects a BLANK probe,
