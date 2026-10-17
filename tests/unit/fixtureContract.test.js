@@ -375,7 +375,10 @@ describe('fixture contract — healthy dashboard (makeProps)', () => {
 
   it('chart matches useChartRange', async () => {
     const { result } = renderHook(() => useChartRange('24h'));
-    await waitFor(() => expect(result.current.points).not.toBeNull());
+    // Non-empty, not merely non-null: the Ticker body (what an unrouted OHLC URL
+    // would get) normalises to [], and diffShapes skips element checks on an empty
+    // array, so a non-null wait would pass with the OHLC route deleted.
+    await waitFor(() => expect(result.current.points?.length).toBeGreaterThan(0));
     expectSameShape(result.current, makeProps().chart, 'chart');
   });
 
