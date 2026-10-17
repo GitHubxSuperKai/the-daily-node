@@ -142,9 +142,9 @@ assert.ok(/@media\s*\(max-width:\s*900px\)\s*\{[^@]*?#canvas\s*\{/.test(html),
 //     React's first paint. src/index.html is copied verbatim apart from placeholder
 //     substitution, so this script is NOT minified and its identifiers survive by name
 //     (unlike the esbuild bundle — see the note on markers in step 4).
-//     If it were moved after the bundle, given defer/async, or made type="module", --u would
-//     stay at the :root default of 1px and the canvas would render unscaled with no error
-//     and no console warning.
+//     If it were moved after the bundle or made type="module" (which defers it), --u would
+//     still be at the :root default of 1px when the bundle runs, with no error and no console
+//     warning. defer/async have no effect on an inline script; the guard rejects them anyway.
 const scaleIdx = html.indexOf('function updateScale');
 // build.js replaces the /* MODULES CONCATENATED BY build.js */ placeholder with requireShim +
 // bundle; `var __dn_modules` is the first line of that shim, so it marks the bundle script.
