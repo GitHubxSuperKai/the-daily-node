@@ -2,7 +2,7 @@ import React from 'react';
 globalThis.React = React;
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { ThemeCtx, LIGHT, DARK } from '../../src/theme.js';
 import { PREFS_DEFAULTS } from '../../src/utils/v2prefs.js';
 import { makeProps, makeDownProps, NOW_SEC } from '../fixtures/dashboardProps.js';
@@ -57,6 +57,14 @@ describe('CommandCenter — desktop smoke render', () => {
     expect(container.textContent).toContain('19.88M BTC');
     expect(container.textContent).not.toContain('NaN');
     expect(container.textContent).not.toContain('undefined');
+  });
+
+  it('threads the range props to the markets column: buttons render and a click reports the key', () => {
+    const { props } = renderCC({ range: '7d' });
+    const group = screen.getByRole('group', { name: 'Chart range' });
+    expect(group.querySelector('[aria-pressed="true"]').textContent).toBe('7D');
+    fireEvent.click(screen.getByRole('button', { name: '30D' }));
+    expect(props.onRangeChange).toHaveBeenCalledWith('30d');
   });
 
   it('survives a fully degraded feed set — every source null or erroring', () => {

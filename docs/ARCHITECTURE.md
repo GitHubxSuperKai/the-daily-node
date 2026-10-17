@@ -18,7 +18,8 @@ App (root)
         │   │   └── StatusDot (system status lights)
         │   ├── Column 1: MarketsColumn
         │   │   ├── BTC/USD price & change (rendered inline)
-        │   │   ├── LineChart (24h price history)
+        │   │   ├── RangeButtons (1H / 24H / 7D / 30D / 1Y)
+        │   │   ├── LineChart (price history for the selected range)
         │   │   ├── LeadImage (top story art)
         │   │   └── ProofOfRead
         │   ├── Column 2: NewsColumn (headline feed)
@@ -39,8 +40,9 @@ Data flows from external APIs through custom hooks into the component tree:
 
 ```
 External APIs
-  ├── Kraken API → useBTC() → { price, chgPct, hi, lo, cap }
-  ├── CoinGecko API → useBTC() → chartPts (24h hourly)
+  ├── Kraken API → useBTC() → { price, chgAbs, chgPct, hi, lo, vwap, volBtc }
+  ├── CoinGecko API → useBTC() → cap (market cap), ATH
+  ├── Kraken OHLC → useChartRange() → { points, domain } for the selected range
   ├── Mempool.space → useChain() → { height, hashrate, fees, difficulty }
   ├── BitAxe API → useBitaxe() → { miners, power, hashrate, temps }
   ├── Open-Meteo API → useWeather() → { temp, icon, wind, sunrise/sunset }
@@ -49,7 +51,8 @@ External APIs
 ↓
 
 Custom Hooks (src/hooks/)
-  ├── useBTC: Fetches BTC price & chart, merges with market cap
+  ├── useBTC: Fetches BTC price, merges with market cap and ATH
+  ├── useChartRange: Fetches the chart line for the selected range from Kraken OHLC
   ├── useChain: Aggregates chain stats from 5 Mempool endpoints
   ├── useBitaxe: Polls local BitAxe API for miner health
   ├── useWeather: Uses geo coords to fetch weather, auto dark mode on sunset
@@ -74,7 +77,7 @@ CommandCenter & Presentational Components
   └── Update localStorage on preference changes
 ```
 
-All hook data includes `{ data, loading, error, lastOk }` for status monitoring. Updates are staggered via `setInterval` at rates defined in `config.js` (price every 30s, chain every 60s, weather every 15m, news every 5m).
+Hook return shapes vary: `useBTC` and `useChain` return `{ data, loading, error, lastOk, … }`, `useBitaxe` returns `{ miners, err, loading, lastOk, … }`, and `useChartRange` returns `{ points, domain, stale, failed, refresh }`. Check the hook for its exact fields. Updates are staggered via `setInterval` at rates defined in `config.js` (price every 30s, chain every 60s, weather every 15m, news every 5m).
 
 ## Modules
 
@@ -94,7 +97,10 @@ Low-level fetch wrappers with 5-second timeouts for all external APIs. Exports `
 SVG component factory functions for icons: `svgLine()`, `svgRect()`, `svgCircle()`, `svgPath()`. Used by chart and weather components to render inline SVG graphics without external assets.
 
 ### **src/hooks/useBTC.js**
-Fetches BTC price from Kraken API (primary) and 24h chart from CoinGecko. Returns `{ data, chartPts, loading, error, lastOk }`. Polls price every 30s and chart every 60s. Handles errors gracefully and merges market cap into data object.
+Fetches BTC price from Kraken API (primary) and market cap from CoinGecko (`market_chart`); ATH comes from a separate CoinGecko coins endpoint. Returns `{ data, chartPts, loading, error, lastOk }`; `chartPts` is no longer drawn. Polls price every 30s and market cap every 5m. Handles errors gracefully and merges market cap into data object.
+
+### **src/hooks/useChartRange.js**
+Fetches the chart line from Kraken OHLC for the selected range (1H, 24H, 7D, 30D or 1Y; the choice persists in v2 prefs as `chart.range`, default 24H). Returns `{ points, domain, stale, failed, refresh }`. Fetched only when a range is selected, cached in memory per Kraken interval (7D and 30D share one fetch), and refreshed while selected: 60s at 1H, 5m at 24H, 15m at 7D and 30D, 60m at 1Y. The range table and OHLC helpers live in `src/utils/chartRange.js`.
 
 ### **src/hooks/useChain.js**
 Aggregates block height, hashrate, network difficulty, mempool stats, and fee estimates from Mempool.space using 5 parallel endpoint requests. Returns computed values: difficulty adjustment countdown, solo mining odds, estimated retarget date. Polls every 60s.

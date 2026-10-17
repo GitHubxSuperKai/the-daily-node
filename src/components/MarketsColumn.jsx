@@ -5,7 +5,9 @@ import Rule from './Rule';
 import Kicker from './Kicker';
 import Num from './Num';
 import LineChart from './LineChart';
-import { pctSince } from '../utils/chartSeries.js';
+import RangeButtons from './RangeButtons';
+import { mergeSeries, pctSince } from '../utils/chartSeries.js';
+import { RANGES, windowSeries, axisLabels, chipTime } from '../utils/chartRange.js';
 import { ProofOfRead } from './ProofOfRead';
 import { LeadImage } from './LeadImage';
 import {
@@ -18,16 +20,42 @@ import {
   isFresh,
 } from '../utils/formatting.js';
 
-export function MarketsColumn({ btc, chain, rss, priceHistoryData }) {
+// Fallback for callers that pass no chart (older tests); never mutated.
+const EMPTY_CHART = Object.freeze({ points: null, domain: null, stale: false, failed: false });
+const NOOP = () => {};
+
+export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartProp, range = '24h', onRangeChange }) {
   const T = useT();
+  const chart = chartProp ?? EMPTY_CHART;
 
   const [hover, setHover] = React.useState(null);
+
+  // App re-renders every second and this component is not memo'd, so everything
+  // handed to LineChart must keep its identity between data changes: LineChart
+  // clears the hover whenever its series changes. Date.now() lives only in the memo.
+  const domain = React.useMemo(() => {
+    if (chart.domain) return chart.domain;
+    const now = Date.now();
+    return [now - RANGES[range].spanMs, now];
+  }, [chart.domain, range]);
+  const useHistory = range === '1h' || range === '24h';
+  const series = React.useMemo(
+    () => windowSeries(mergeSeries(useHistory ? priceHistoryData : null, chart.points), domain),
+    [priceHistoryData, chart.points, domain, useHistory],
+  );
+  const chipFormat = React.useCallback((t) => chipTime(range, t), [range]);
 
   const btcPrice   = btc.data ? `$${fmtPrice(btc.data.price)}` : '—';
   const headPrice  = hover ? hover.price : btc.data?.price;
   const headText   = Number.isFinite(headPrice) ? `$${fmtPrice(headPrice)}` : '—';
-  const slotPct    = hover ? pctSince(hover.price, btc.data?.price) : btc.data?.chgPct;
+  let slotPct;
+  if (hover) slotPct = pctSince(hover.price, btc.data?.price);
+  else if (range === '24h') slotPct = btc.data?.chgPct;
+  else if (chart.stale) slotPct = null;
+  else slotPct = pctSince(series[0]?.[1], btc.data?.price);
   const slotKnown  = Number.isFinite(slotPct);
+  const rangeSuffix = !hover && range !== '24h' && slotKnown ? RANGES[range].label.toLowerCase() : null;
+  const rangeNote  = chart.failed && (chart.stale || !chart.points) ? 'no data' : null;
   const slotText   = slotKnown ? `${fmtPct(slotPct)}%` : '—';
   const slotUp     = slotKnown ? slotPct >= 0 : true;
   const btcUp      = btc.data ? btc.data.chgPct >= 0 : true;
@@ -69,12 +97,24 @@ export function MarketsColumn({ btc, chain, rss, priceHistoryData }) {
         btcLo={btcLo}
         btcHi={btcHi}
       />
-      <Kicker>Markets · BTC / USD</Kicker>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Kicker>Markets · BTC / USD</Kicker>
+        <RangeButtons
+          value={range}
+          onChange={onRangeChange ?? NOOP}
+          note={rangeNote}
+          fontSize={u(11)}
+          padX={u(6)}
+          minHeight={u(20)}
+          gap={u(2)}
+        />
+      </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <Num size="hero" value={headText} />
         <div style={{ fontFamily: T.num, fontSize: u(22), fontWeight: 400, color: slotKnown ? (slotUp ? T.green : T.red) : T.ink3, paddingBottom: u(10), fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
           {slotKnown ? `${slotUp ? '▲' : '▼'} ${slotText}` : slotText}
           {hover && <span style={{ fontSize: u(13), color: T.ink3, marginLeft: u(6) }}>since</span>}
+          {rangeSuffix && <span style={{ fontSize: u(13), color: T.ink3, marginLeft: u(6) }}>{rangeSuffix}</span>}
         </div>
       </div>
       {btc.data?.ath && (
@@ -98,10 +138,10 @@ export function MarketsColumn({ btc, chain, rss, priceHistoryData }) {
       </div>
       {/* LineChart: parent div provides CSS dimensions, chart fills it */}
       <div style={{ width: '100%', height: u(110), flexShrink: 0 }}>
-        <LineChart color={T.orange} points={btc.chartPts} vwap={btc.data?.vwap} fill historyPoints={priceHistoryData} onHover={setHover} />
+        <LineChart color={T.orange} points={series} domain={domain} dimmed={!!chart.stale} chipFormat={chipFormat} vwap={range === '24h' ? btc.data?.vwap : undefined} fill onHover={setHover} />
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.num, fontSize: u(10), color: T.ink3 }}>
-        <span>24h ago</span><span>−18h</span><span>−12h</span><span>−6h</span><span>now</span>
+        {axisLabels(range, domain[1]).map((label, i) => <span key={i}>{label}</span>)}
       </div>
       <Rule dash />
       {/* Lead story */}

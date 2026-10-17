@@ -53,6 +53,16 @@ describe('loadV2Prefs', () => {
     store['dn.prefs.v2'] = 'not-json';
     expect(loadV2Prefs().version).toBe(PREFS_VERSION);
   });
+  it('defaults include chart.range 24h', () => {
+    expect(PREFS_DEFAULTS.chart.range).toBe('24h');
+    expect(loadV2Prefs().chart.range).toBe('24h');
+  });
+  it('stored v2 prefs without chart keep their alerts and gain chart.range 24h', () => {
+    store['dn.prefs.v2'] = JSON.stringify({ version: 2, alerts: { fee: { threshold: 77 } } });
+    const p = loadV2Prefs();
+    expect(p.alerts.fee.threshold).toBe(77);
+    expect(p.chart.range).toBe('24h');
+  });
   it('returns mempool defaults with empty baseUrl and fallbackToPublic true', () => {
     const p = loadV2Prefs();
     expect(p.mempool.baseUrl).toBe('');

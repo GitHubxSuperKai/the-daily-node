@@ -10,11 +10,13 @@ import { useChain } from '../../src/hooks/useChain.js';
 import { useBitaxe } from '../../src/hooks/useBitaxe.js';
 import { useWeather } from '../../src/hooks/useWeather.js';
 import { useRSS } from '../../src/hooks/useRSS.js';
+import { useChartRange } from '../../src/hooks/useChartRange.js';
 import { useClock } from '../../src/hooks/useClock.js';
 import { useFeedHealth } from '../../src/hooks/useFeedHealth.js';
 import { fmtMempoolMB, nextHalving, circulatingBTC, wmoDesc } from '../../src/utils/formatting.js';
 import CONFIG from '../../src/config.js';
 import { PREFS_DEFAULTS } from '../../src/utils/v2prefs.js';
+import { resolveRange } from '../../src/utils/chartRange.js';
 
 /**
  * Contract check for tests/fixtures/dashboardProps.js.
@@ -171,6 +173,19 @@ const KRAKEN = ok({
   },
 });
 
+// Kraken OHLC row: [time(s), open, high, low, close, vwap, volume, count].
+// Two rows inside the 24h window, so useChartRange returns a non-empty series.
+const KRAKEN_OHLC = ok({
+  error: [],
+  result: {
+    XXBTZUSD: [
+      [Math.floor((NOW - 3600_000) / 1000), '77900', '78100', '77800', '78000', '77950', '1.5', 40],
+      [NOW_SEC, '78000', '78500', '77900', '78408', '78200', '2.5', 55],
+    ],
+    last: NOW_SEC,
+  },
+});
+
 const CG_CHART = ok({
   prices: [[NOW - 7200_000, 77000], [NOW - 3600_000, 78000], [NOW, 78408]],
   market_caps: [[NOW - 3600_000, 1.55e12], [NOW, 1.56e12]],
@@ -280,7 +295,8 @@ function routeAll(url) {
   // fetches the relative '/api/miners', hence the base argument.
   const parsed = new URL(String(url), 'http://localhost');
   switch (parsed.hostname) {
-    case 'api.kraken.com': return KRAKEN;
+    case 'api.kraken.com':
+      return parsed.pathname === '/0/public/OHLC' ? KRAKEN_OHLC : KRAKEN;
     case 'api.coingecko.com':
       return parsed.pathname.endsWith('/market_chart') ? CG_CHART : CG_META;
     case 'api.open-meteo.com': return OPEN_METEO;
@@ -357,6 +373,21 @@ describe('fixture contract — healthy dashboard (makeProps)', () => {
     expectSameShape(result.current, makeProps().rss, 'rss');
   });
 
+  it('chart matches useChartRange', async () => {
+    const { result } = renderHook(() => useChartRange('24h'));
+    // Non-empty, not merely non-null: the Ticker body (what an unrouted OHLC URL
+    // would get) normalises to [], and diffShapes skips element checks on an empty
+    // array, so a non-null wait would pass with the OHLC route deleted.
+    await waitFor(() => expect(result.current.points?.length).toBeGreaterThan(0));
+    expectSameShape(result.current, makeProps().chart, 'chart');
+  });
+
+  it('range is the key resolveRange yields for the fixture v2prefs', () => {
+    const p = makeProps();
+    expect(resolveRange(p.v2prefs)).toBe(p.range);
+    expect(typeof p.onRangeChange).toBe('function');
+  });
+
   it('rss.leadStory is disjoint from rss.items, as useRSS produces it', async () => {
     const { result } = renderHook(() => useRSS());
     await waitFor(() => expect(result.current.leadStory).not.toBeNull());
@@ -412,6 +443,7 @@ describe('fixture contract — healthy dashboard (makeProps)', () => {
       'rss.items': p.rss.items,
       'bitaxe.miners': p.bitaxe.miners,
       'weather.data.hourly': p.weather.data.hourly,
+      'chart.points': p.chart.points,
     };
     for (const [name, arr] of Object.entries(arrays)) {
       expect(arr, `${name} is empty or missing — its element shape check is dead`)
@@ -469,6 +501,12 @@ describe('fixture contract — every source down (makeDownProps)', () => {
     expectSameShape(result.current, makeDownProps().rss, 'rss (down)', strict);
   });
 
+  it('chart matches useChartRange with fetch failing', async () => {
+    const { result } = renderHook(() => useChartRange('24h'));
+    await waitFor(() => expect(result.current.failed).toBe(true));
+    expectSameShape(result.current, makeDownProps().chart, 'chart (down)', strict);
+  });
+
   it('bitaxe matches useBitaxe with fetch failing', async () => {
     const { result } = renderHook(() => useBitaxe());
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -501,6 +539,7 @@ describe('fixture contract — every source down (makeDownProps)', () => {
     expect(down.weather.err).toBe(true);
     expect(down.rss.err).toBe(true);
     expect(down.bitaxe.err).toBe(true);
+    expect(down.chart.failed).toBe(true);
   });
 });
 

@@ -22,6 +22,9 @@ const CONFIG = {
     ? `${window.location.protocol}//${window.location.hostname}:3002`
     : 'http://127.0.0.1:3002',
 
+  // Kraken OHLC endpoint for the chart range buttons; append the interval in minutes.
+  KRAKEN_OHLC: 'https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=',
+
   // ─── Weather ──────────────────────────────────────────
   // Your location for weather (decimal degrees)
   // User customization via: in-app location search or edit before build
@@ -32,7 +35,7 @@ const CONFIG = {
   REFRESH_INTERVALS: {
     clock:   1000,
     price:   30000,           // BTC price every 30s
-    chart:   5 * 60 * 1000,   // CoinGecko 24h chart every 5m (hourly data)
+    chart:   5 * 60 * 1000,   // CoinGecko market cap every 5m (market_chart)
     chain:   60000,           // Chain vitals every 60s
     weather: 15 * 60 * 1000,  // Weather every 15m
     news:    5 * 60 * 1000,   // News every 5m

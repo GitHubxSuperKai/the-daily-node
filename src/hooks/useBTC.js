@@ -6,7 +6,9 @@ import { log } from '../utils/log.js';
 
 /**
  * useBTC Hook
- * Fetches BTC price from Kraken (primary) and 24h chart from CoinGecko (silent-fail)
+ * Fetches BTC price from Kraken (primary) and market cap from CoinGecko market_chart (silent-fail).
+ * The chart line itself comes from useChartRange (Kraken OHLC); chartPts is still
+ * returned but no component draws it.
  *
  * Returns: {
  *   data: object with { price, chgAbs, chgPct, hi, lo, vwap, volBtc, cap } or null,

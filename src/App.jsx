@@ -6,6 +6,7 @@ import { useChain } from './hooks/useChain.js';
 import { useBitaxe } from './hooks/useBitaxe.js';
 import { useWeather } from './hooks/useWeather.js';
 import { useRSS } from './hooks/useRSS.js';
+import { useChartRange } from './hooks/useChartRange.js';
 import { useFeedHealth } from './hooks/useFeedHealth.js';
 import { usePageRefresh } from './hooks/usePageRefresh.js';
 import { useViewportMode } from './hooks/useViewportMode.js';
@@ -16,6 +17,7 @@ import { SettingsPanel } from './components/SettingsPanel.jsx';
 import CONFIG from './config.js';
 import { LIGHT, DARK, ThemeCtx } from './theme.js';
 import { loadV2Prefs, saveV2Prefs } from './utils/v2prefs.js';
+import { resolveRange, withRange } from './utils/chartRange.js';
 import { RSS_FEED_MAP } from './config.js';
 
 const MIN_INTERVAL_MS = 5_000;
@@ -83,10 +85,12 @@ function App() {
   const bitaxe = useBitaxe();
   const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
   const rss = useRSS();
+  const range = resolveRange(v2prefs);
+  const chart = useChartRange(range);
   const feedHealth = useFeedHealth([btc, { ...chain, contentStale: chain.stale }, weather, rss, bitaxe]);
 
   // ─── Auto-Refresh (tab refocus + network restore) ─────────
-  usePageRefresh([btc.refresh, chain.refresh, rss.refresh, weather.refresh, bitaxe.refresh]);
+  usePageRefresh([btc.refresh, chain.refresh, rss.refresh, weather.refresh, bitaxe.refresh, chart.refresh]);
 
   // ─── Viewport Mode ────────────────────────────────────────
   // SYNC: 900 must match the isMobile check in updateScale() and
@@ -113,6 +117,14 @@ function App() {
     if (newPrefs.theme === 'light') setDark(false);
   }, []);
 
+  // Saves prefs only. Unlike handleSaveV2Prefs it must not re-apply the stored
+  // theme, or a range click would undo a manual Masthead dark/light toggle.
+  const handleRangeChange = React.useCallback((key) => {
+    const next = withRange(v2prefs, key);
+    saveV2Prefs(next);
+    setV2Prefs(next);
+  }, [v2prefs]);
+
   const handleSaveSettings = (newPrefs) => {
     setPrefs(newPrefs);
     localStorage.setItem('dailynode-prefs', JSON.stringify(newPrefs));
@@ -133,6 +145,9 @@ function App() {
             weather={weather}
             rss={rss}
             feedHealth={feedHealth}
+            chart={chart}
+            range={range}
+            onRangeChange={handleRangeChange}
             dark={dark}
             onToggleDark={handleToggleDark}
             onOpenSettings={() => setSettingsOpen(true)}
@@ -154,6 +169,9 @@ function App() {
             weather={weather}
             rss={rss}
             feedHealth={feedHealth}
+            chart={chart}
+            range={range}
+            onRangeChange={handleRangeChange}
           />
       }
       </ErrorBoundary>

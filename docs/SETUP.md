@@ -228,7 +228,7 @@ the-daily-node/
 │   │   ├── Masthead.jsx          # Top chrome with settings toggle
 │   │   ├── DesktopTicker.jsx     # Scrolling chain vitals banner
 │   │   ├── MarketsColumn.jsx     # BTC price, change %, lead story
-│   │   ├── LineChart.jsx         # 24-hour price chart (SVG)
+│   │   ├── LineChart.jsx         # Price chart for the selected range (SVG)
 │   │   ├── NewsColumn.jsx        # Headline feed column
 │   │   ├── Weather.jsx           # Weather card
 │   │   ├── ChainColumn.jsx       # Mining + network stats column
@@ -237,7 +237,8 @@ the-daily-node/
 │   │   ├── settings/             # SettingsPanel sections
 │   │   └── ...                   # Status lights, icons, utilities
 │   ├── hooks/                    # Custom data-fetching hooks
-│   │   ├── useBTC.js             # Kraken price + CoinGecko chart
+│   │   ├── useBTC.js             # Kraken price + CoinGecko market cap
+│   │   ├── useChartRange.js      # Kraken OHLC chart line per range
 │   │   ├── useChain.js           # Mempool.space aggregation
 │   │   ├── useBitaxe.js          # Local BitAxe API poller
 │   │   ├── useWeather.js         # Open-Meteo weather
@@ -281,7 +282,7 @@ the-daily-node/
 5. **Check external service status:**
    - [Kraken API Status](https://status.kraken.com/) — BTC price
    - [Mempool.space Status](https://mempool.space/) — Chain stats
-   - [CoinGecko API Status](https://www.coingecko.com/en/api) — Price chart
+   - [CoinGecko API Status](https://www.coingecko.com/en/api) — Market cap and ATH
    - [Open-Meteo Status](https://open-meteo.com/) — Weather
    - [RSS2JSON Status](https://rss2json.com/) — News feeds
 

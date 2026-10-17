@@ -131,6 +131,21 @@ describe('MobileApp', () => {
     expect(screen.queryByText(/Field Report/i)).toBeNull();
   });
 
+  it('range buttons render on the Bitcoin panel outside the chart scrub area', () => {
+    const { container } = openBitcoinBySwipe();
+    const button = container.querySelector('button[data-range="7d"]');
+    expect(button).not.toBeNull();
+    expect(button.closest('[data-chart-scrub]')).toBeNull();
+  });
+
+  it('a horizontal swipe that starts on a range button still switches tabs', () => {
+    const { container, outer } = openBitcoinBySwipe();
+    const button = container.querySelector('button[data-range="7d"]');
+    fireEvent.touchStart(button, { touches: [{ clientX: 300, clientY: 200, target: button }] });
+    fireEvent.touchEnd(outer, { touches: [], changedTouches: [{ clientX: 150, clientY: 205 }] });
+    expect(screen.queryByText(/Field Report/i)).toBeNull();
+  });
+
   it('swipe that starts elsewhere on the Bitcoin panel still changes tab', () => {
     const { outer } = openBitcoinBySwipe();
     fireEvent.touchStart(outer, { touches: [{ clientX: 300, clientY: 200 }] });

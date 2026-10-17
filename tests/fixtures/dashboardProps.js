@@ -15,6 +15,7 @@ import { PREFS_DEFAULTS } from '../../src/utils/v2prefs.js';
  *   bitaxe  — src/hooks/useBitaxe.js
  *   weather — src/hooks/useWeather.js
  *   rss     — src/hooks/useRSS.js
+ *   chart   — src/hooks/useChartRange.js
  *   clock   — src/hooks/useClock.js
  * When a hook changes, change this file — not a copy in one suite.
  */
@@ -188,6 +189,16 @@ export function makeProps(overrides = {}) {
     // DesktopTicker compares it with ===, so an object silently disables its
     // live-pulse branch.
     feedHealth: 'live',
+    // useChartRange returns { points, domain, stale, failed, refresh }. points is
+    // an array of [ms, price] windowed to the range, domain is [startMs, endMs].
+    chart: {
+      points: [[Date.now() - 3600_000, 77900], [Date.now(), 78408]],
+      domain: [Date.now() - 86_400_000, Date.now()],
+      stale: false, failed: false, refresh: vi.fn(),
+    },
+    // range is resolveRange(v2prefs); the fixture v2prefs carry the default.
+    range: '24h',
+    onRangeChange: vi.fn(),
     ...overrides,
   };
 }
@@ -213,6 +224,9 @@ export function makeDownProps(overrides = {}) {
     weather: { data: null, err: true, lastOk: null, interval: 900000, refresh: vi.fn() },
     rss: { items: [], leadStory: null, err: true, lastOk: null, interval: 300000, refresh: vi.fn() },
     feedHealth: 'offline',
+    // With the fetch failing and nothing cached, useChartRange has no series to
+    // show: points and domain stay null and failed is true.
+    chart: { points: null, domain: null, stale: false, failed: true, refresh: vi.fn() },
     ...overrides,
   });
 }

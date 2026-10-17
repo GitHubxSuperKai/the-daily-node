@@ -17,6 +17,7 @@ function MobileApp(props) {
   const {
     clock, btc, chain, bitaxe, weather, rss, feedHealth,
     prefs, v2prefs, dark, onToggleDark, onOpenSettings,
+    chart, range, onRangeChange,
   } = props;
 
   const touchStartRef = React.useRef(null);
@@ -97,7 +98,7 @@ function MobileApp(props) {
         />
       )}
       {activeTab === 'bitcoin' && (
-        <BitcoinPanel btc={btc} chain={chain} />
+        <BitcoinPanel btc={btc} chain={chain} chart={chart} range={range} onRangeChange={onRangeChange} />
       )}
       {activeTab === 'miners' && (
         <MinersPanel bitaxe={bitaxe} chain={chain} />

@@ -26,6 +26,9 @@ const PREFS_DEFAULTS = {
     baseUrl: '',            // empty string = use public mempool.space
     fallbackToPublic: true, // if self-hosted fails, fall back to mempool.space
   },
+  chart: {
+    range: '24h',           // one of RANGE_KEYS in utils/chartRange.js
+  },
 };
 
 function deepMerge(defaults, overrides) {
