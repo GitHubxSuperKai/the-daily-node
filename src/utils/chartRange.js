@@ -49,6 +49,8 @@ const monthYear = (ms) => {
 
 // History rows normally lag by up to ~11 min (10 min refetch + 1 min buckets); past this the
 // 1H/24H edge is not "now", so it shows its clock time and the left mark drops "ago".
+// A Kraken domain ages the same way while its refetches keep failing. History timestamps come
+// from the daemon host's clock, so that clock running minutes behind the browser's eats the margin.
 const STALE_EDGE_MS = 15 * 60000;
 
 export function axisLabels(rangeKey, endMs, nowMs = Date.now()) {
