@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Docs: CLAUDE.md and docs/ARCHITECTURE.md no longer claim every component is `React.memo`; only `RangeButtons` and the mobile tree are, `App` re-renders every second, and anything passed to `LineChart` must keep its identity.
+- Docs: CLAUDE.md and docs/ARCHITECTURE.md no longer claim every component is `React.memo`; only `RangeButtons` and the mobile tree are, `App` re-renders every second, and the chart data handed to `LineChart` must keep its identity.
 - Dependencies: `actions/checkout` v6 → v7 (v7.0.1) in all four workflows, plus the two guard scripts and their tests that pin the line. v7's one behavioural change refuses fork-PR checkouts under `pull_request_target` and `workflow_run`, neither of which this repo uses. It was the last action pin behind its latest major.
 - `build.yml` now also runs on `merge_group`. There is no merge queue today, but `build` and `secrets` are required checks, and a queue waits forever on a required check that never reports for its event. The `secrets` job takes its scan base from `merge_group.base_sha` on those runs instead of falling back to `HEAD~1`. (`codeql.yml`'s two required jobs have the same gap and are not changed here.)
 - `check-review-paths.cjs` now enforces `scripts/` as well as `src/` and `tests/`: every `scripts/*.cjs`, the guards included, must be listed in the full-repo review workflow, which gains a `repo-tooling-scripts` group with its own non-React review brief. `vitest.config.js`, `eslint.config.mjs`, the Dockerfile and the workflows are still outside every enforced root.
