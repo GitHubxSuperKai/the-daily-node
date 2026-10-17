@@ -153,7 +153,7 @@ assert.ok(scaleIdx !== -1, 'inline updateScale() scaling script missing from bui
 assert.ok(bundleIdx !== -1,
   'require shim missing from build — cannot locate the bundle script (if you renamed __dn_modules in build.js, update this anchor)');
 assert.ok(scaleIdx < bundleIdx,
-  'inline scaling script must come BEFORE the bundle script — otherwise --u is unset at React first paint and the canvas renders at 1px unscaled');
+  'inline scaling script must come BEFORE the bundle script — otherwise --u is still at its :root default of 1px when the bundle runs');
 
 // Locate the enclosing <script> tag, then prove it is a real tag and not one quoted inside
 // markup. src/index.html carries a literal "<script" in the CSP explainer comment in <head>,
