@@ -1,8 +1,10 @@
 import React from 'react';
 import { useT } from '../../theme.js';
 import { fmtPrice, fmtPct, fmtNum } from '../../utils/formatting.js';
-import { pctSince } from '../../utils/chartSeries.js';
+import { mergeSeries, pctSince } from '../../utils/chartSeries.js';
+import { RANGES, windowSeries, chipTime } from '../../utils/chartRange.js';
 import LineChart from '../LineChart.jsx';
+import RangeButtons from '../RangeButtons.jsx';
 import { NetworkStatusWidget } from '../NetworkStatusWidget.jsx';
 import { OnThisDay } from '../OnThisDay.jsx';
 
@@ -18,22 +20,48 @@ function sectionLabel(T) {
   };
 }
 
-function BitcoinPanel({ btc, chain }) {
+// Fallback for callers that pass no chart (older tests); never mutated.
+const EMPTY_CHART = Object.freeze({ points: null, domain: null, stale: false, failed: false });
+const NOOP = () => {};
+
+function BitcoinPanel({ btc, chain, chart: chartProp, range = '24h', onRangeChange }) {
   const T = useT();
+  const chart = chartProp ?? EMPTY_CHART;
 
   const d = btc.data;
   const c = chain?.data;
 
   const [hover, setHover] = React.useState(null);
 
+  // MobileApp re-renders every second (clock) and this memo'd component re-renders
+  // with it, so everything handed to LineChart must keep its identity between data
+  // changes: LineChart clears the hover/scrub whenever its series changes.
+  // Date.now() lives only inside the memo.
+  const domain = React.useMemo(() => {
+    if (chart.domain) return chart.domain;
+    const now = Date.now();
+    return [now - RANGES[range].spanMs, now];
+  }, [chart.domain, range]);
+  const series = React.useMemo(
+    () => windowSeries(mergeSeries(null, chart.points), domain),
+    [chart.points, domain],
+  );
+  const chipFormat = React.useCallback((t) => chipTime(range, t), [range]);
+
   const headPrice = hover ? hover.price : d?.price;
   const headText = Number.isFinite(headPrice) ? `$${fmtPrice(headPrice)}` : '—';
-  const chgPct = hover ? pctSince(hover.price, d?.price) : (d ? d.chgPct : null);
+  let chgPct;
+  if (hover) chgPct = pctSince(hover.price, d?.price);
+  else if (range === '24h') chgPct = d ? d.chgPct : null;
+  else if (chart.stale) chgPct = null;
+  else chgPct = pctSince(series[0]?.[1], d?.price);
   const chgKnown = Number.isFinite(chgPct);
   const chgUp = chgKnown && chgPct >= 0;
   const chgColor = chgKnown ? (chgUp ? T.green : T.red) : T.ink3;
-  const chgText = chgKnown ? `${hover ? (chgUp ? '▲ ' : '▼ ') : ''}${fmtPct(chgPct)}%` : '—';
-
+  const showArrow = hover || range !== '24h';
+  const chgText = chgKnown ? `${showArrow ? (chgUp ? '▲ ' : '▼ ') : ''}${fmtPct(chgPct)}%` : '—';
+  const rangeSuffix = !hover && range !== '24h' && chgKnown ? RANGES[range].label.toLowerCase() : null;
+  const rangeNote = chart.failed && (chart.stale || !chart.points) ? 'no data' : null;
 
   return (
     <div style={{
@@ -58,7 +86,7 @@ function BitcoinPanel({ btc, chain }) {
           }}>
             {headText}
           </span>
-          {(chgPct != null || hover) && (
+          {(chgPct != null || hover || range !== '24h') && (
             <span style={{
               fontFamily: T.mono,
               fontSize: 16,
@@ -68,6 +96,7 @@ function BitcoinPanel({ btc, chain }) {
             }}>
               {chgText}
               {hover && <span style={{ fontSize: 11, fontWeight: 400, color: T.ink3, marginLeft: 6 }}>since</span>}
+              {rangeSuffix && <span style={{ fontSize: 11, fontWeight: 400, color: T.ink3, marginLeft: 6 }}>{rangeSuffix}</span>}
             </span>
           )}
         </div>
@@ -83,10 +112,22 @@ function BitcoinPanel({ btc, chain }) {
       </div>
 
       {/* ── Chart ── */}
+      <RangeButtons
+        value={range}
+        onChange={onRangeChange ?? NOOP}
+        note={rangeNote}
+        fontSize={12}
+        padX={10}
+        minHeight={32}
+        gap={4}
+      />
       <div style={{ height: 120 }}>
         <LineChart
           color={T.orange}
-          points={btc.chartPts}
+          points={series}
+          domain={domain}
+          dimmed={!!chart.stale}
+          chipFormat={chipFormat}
           fill
           showLabels
           onHover={setHover}
