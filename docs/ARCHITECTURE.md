@@ -165,7 +165,7 @@ Simple time formatter that updates every 1 second. Accepts `timeFormat` string (
 
 ## Key Patterns & Gotchas
 
-**React.memo & useCallback:** Only `RangeButtons` and the mobile tree (`MobileApp`, its panels, header, tab bar and `StatusTile`) are wrapped in `React.memo()`. The desktop components, including `CommandCenter`, `MarketsColumn` and `LineChart`, are not, and `App` re-renders every second via `useClock`. The chart data handed to `LineChart` (`points`, `historyPoints`) must therefore keep its identity across renders (`useMemo`), because `LineChart` clears the hover whenever its merged series changes (or `dimmed` flips); `domain` is keyed on its values and `onHover` goes through a ref. Callbacks returned by hooks are wrapped in `useCallback()` so their identity only changes when their inputs do.
+**React.memo & useCallback:** Only `RangeButtons` and the mobile tree (`MobileApp`, its panels, header, tab bar and `StatusTile`) are wrapped in `React.memo()`. The desktop components, including `CommandCenter`, `MarketsColumn` and `LineChart`, are not, and `App` re-renders every second via `useClock`. The `points` array handed to `LineChart` (and `historyPoints`, if a caller passes it) must therefore keep its identity across renders (`useMemo`), because `LineChart` clears the hover whenever its merged series changes (or `dimmed` flips); `domain` is keyed on its values and `onHover` goes through a ref. Callbacks returned by hooks are wrapped in `useCallback()` so their identity only changes when their inputs do.
 
 **Promise.allSettled():** Used in `fetchChainStats()` to batch 5 Mempool endpoints in parallel. If one fails, others continue; the hook presents partial data instead of failing entirely.
 
