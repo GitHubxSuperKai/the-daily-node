@@ -251,6 +251,27 @@ describe('MarketsColumn — chart range', () => {
     expect(labels[4]).toMatch(/\d:\d\d [AP]M$/);
   });
 
+  it('the 1h axis edge turns from "now" to a clock time as the history goes stale, with no new data', () => {
+    const t0 = new Date(2026, 9, 17, 12, 0).getTime();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(t0);
+      const priceHistoryData = [];
+      for (let i = 0; i < 60; i++) priceHistoryData.push({ ts: (t0 - i * 60_000) / 1000, usd: 80000 + i });
+      const m = mountRange({ range: '1h', priceHistoryData, chart: ok(null, null) });
+      const axis = () => Array.from(screen.getByText('−45m').parentElement.children).map((c) => c.textContent);
+      expect(axis()[0]).toBe('60m ago');
+      expect(axis()[4]).toBe('now');
+      // The daemon stalls: 16 minutes on, the same history, re-rendered by App's clock tick.
+      vi.setSystemTime(t0 + 16 * 60_000);
+      m.rerenderWith({});
+      expect(axis()[0]).toBe('−60m');
+      expect(axis()[4]).toBe('12:00 PM');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('dims the chart when its cache is aged', () => {
     const domain = dom(RANGES['24h'].spanMs);
     const m = mountRange({ range: '24h', chart: ok([[E - 1, 1]], domain) });
