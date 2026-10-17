@@ -30,9 +30,11 @@ export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartP
 
   const [hover, setHover] = React.useState(null);
 
-  // App re-renders every second and this component is not memo'd, so everything
-  // handed to LineChart must keep its identity between data changes: LineChart
-  // clears the hover whenever its series changes. Date.now() lives only in the memo.
+  // App re-renders every second and this component is not memo'd, so the `points`
+  // handed to LineChart (`series` below) must keep its identity between data changes:
+  // LineChart clears the hover whenever its merged series changes. `domain` is keyed on
+  // its values there and `onHover` goes through a ref, but `series` depends on `domain`,
+  // so Date.now() lives only in the memo.
   // With no chart domain (Kraken not loaded) the window ends at the newest history row, so a
   // history-only 1H/24H chart keeps advancing; it changes only when history does.
   const useHistory = range === '1h' || range === '24h';
