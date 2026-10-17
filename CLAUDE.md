@@ -45,7 +45,7 @@ App (root — owns all hooks, theme, localStorage prefs)
     └── CommandCenter (4-column grid; App renders MobileApp instead at or below 900px)
         ├── Masthead + DesktopTicker (top chrome)
         ├── Col 0: Sidebar (logo, clock, Weather, OnThisDay, StatusDot)
-        ├── Col 1: MarketsColumn (price rendered inline, LineChart, LeadImage, ProofOfRead)
+        ├── Col 1: MarketsColumn (price rendered inline, RangeButtons, LineChart, LeadImage, ProofOfRead)
         ├── Col 2: NewsColumn
         ├── Col 3: ChainColumn (Miners → FleetSummary/MinerRow, NetworkStatusWidget)
         └── SettingsPanel (overlay)
@@ -55,7 +55,8 @@ Shared leaves (`Kicker`, `Num`, `Rule`) are omitted; `docs/ARCHITECTURE.md` has 
 **Data flow:** External APIs → custom hooks → App → CommandCenter as props. Each hook exposes its own data field plus health metadata; shapes vary (e.g. `useBitaxe` → `{ miners, err, loading, lastOk, interval, refresh }`). Check the hook's return for exact fields.
 
 **API sources** (intervals in `src/config.js`):
-- Kraken + CoinGecko → `useBTC` (price, chart) — 30s
+- Kraken + CoinGecko → `useBTC` (price from Kraken, market cap from CoinGecko) — 30s
+- Kraken OHLC → `useChartRange` (chart line, per selected range; the selected range persists in v2 prefs as `chart.range`)
 - Mempool.space (5 endpoints via `Promise.allSettled`) → `useChain` — 60s
 - Local BitAxe API → `useBitaxe` (miner fleet)
 - Open-Meteo → `useWeather` (auto dark mode on sunset) — 15m
@@ -79,9 +80,11 @@ Shared leaves (`Kicker`, `Num`, `Rule`) are omitted; `docs/ARCHITECTURE.md` has 
 | `src/theme.js` | LIGHT/DARK theme objects, `ThemeCtx`, `useT()` hook |
 | `src/utils/formatting.js` | All formatters: `fmtPrice`, `fmtPct`, `fmtHashrate`, `wmoIcon`, `classifyTopic`, etc. |
 | `src/utils/api.js` | Fetch wrappers with 5s timeouts |
-| `src/utils/chartSeries.js` | Merge history + CoinGecko by timestamp, nearest-point snap, readout maths |
+| `src/utils/chartSeries.js` | Merge history + chart points by timestamp, nearest-point snap, readout maths |
+| `src/utils/chartRange.js` | Range table (1H/24H/7D/30D/1Y), Kraken OHLC normaliser, axis labels, chip time |
 | `src/utils/scale.js` | `u(n)` design-px helper (the scaling itself is `updateScale()` in `src/index.html`) |
 | `src/utils/svg.js` | SVG icon helpers |
+| `src/hooks/useChartRange.js` | Kraken OHLC series for the selected chart range, cached per interval |
 | `src/hooks/useFeedHealth.js` | Monitors all data sources, drives sidebar status lights |
 | `src/hooks/useViewportMode.js` | Responsive layout dimensions |
 | `src/hooks/usePageRefresh.js` | Scheduled page reload |

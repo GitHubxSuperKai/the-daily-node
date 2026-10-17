@@ -1,4 +1,4 @@
-// Merge /history rows with CoinGecko chart points, snap a cursor time to the
+// Merge /history rows with chart points (Kraken OHLC), snap a cursor time to the
 // nearest point, and the small readout maths the chart crosshair needs.
 
 export const HISTORY_GAP_MS = 300000;

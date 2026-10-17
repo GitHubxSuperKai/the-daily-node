@@ -22,7 +22,7 @@ Built as a personal "field report" for a wall-mounted monitor. The layout is loc
 
 ## Features
 
-- 📈 **BTC price + 24h chart** — Kraken (live) + CoinGecko (history)
+- 📈 **BTC price + chart** — Kraken (live price and a 1H / 24H / 7D / 30D / 1Y chart from OHLC data), CoinGecko (market cap, ATH)
 - 📰 **Bitcoin news feed** — aggregated from Bitcoin Magazine, CoinDesk, news.bitcoin.com
 - ⛓️ **Chain stats** — block height, hashrate, fees, difficulty + adjustment countdown (via Mempool.space)
 - ⛏️ **BitAxe fleet monitoring** — live hashrate, power, temps from your local miners

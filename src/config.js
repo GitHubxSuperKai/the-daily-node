@@ -35,7 +35,7 @@ const CONFIG = {
   REFRESH_INTERVALS: {
     clock:   1000,
     price:   30000,           // BTC price every 30s
-    chart:   5 * 60 * 1000,   // CoinGecko 24h chart every 5m (hourly data)
+    chart:   5 * 60 * 1000,   // CoinGecko market cap every 5m (market_chart)
     chain:   60000,           // Chain vitals every 60s
     weather: 15 * 60 * 1000,  // Weather every 15m
     news:    5 * 60 * 1000,   // News every 5m
