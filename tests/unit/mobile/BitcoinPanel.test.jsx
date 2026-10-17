@@ -206,6 +206,11 @@ describe('BitcoinPanel — chart range', () => {
     expect(capturedProps.dimmed).toBe(true);
   });
 
+  it('dims the chart when its cache is aged', () => {
+    mount({ chart: chartOf({ aged: true }), range: '30d' });
+    expect(capturedProps.dimmed).toBe(true);
+  });
+
   it('keeps points, domain and chipFormat identity across a re-render with the same chart (null domain)', () => {
     // App re-renders every second; LineChart clears hover/scrub when its series changes.
     const chart = { points: [[Date.now() - 1000, 80000], [Date.now(), 84000]], domain: null, stale: false, failed: false };

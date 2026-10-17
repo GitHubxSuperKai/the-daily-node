@@ -219,6 +219,33 @@ describe('MarketsColumn — chart range', () => {
     }
   });
 
+  it('with no chart domain, the 1h window follows new history rows instead of freezing at mount', () => {
+    const t0 = Date.now();
+    const rows = (end) => {
+      const out = [];
+      for (let i = 0; i < 24 * 12; i++) out.push({ ts: (end - i * 300_000) / 1000, usd: 80000 + i });
+      return out;
+    };
+    const m = mountRange({ range: '1h', priceHistoryData: rows(t0), chart: ok(null, null) });
+    expect(captured.points.length).toBeGreaterThan(0);
+    // Two hours later Kraken still has not loaded; the daemon kept writing rows.
+    const t1 = t0 + 2 * 3_600_000;
+    m.rerenderWith({ priceHistoryData: rows(t1) });
+    const [d0, d1] = captured.domain;
+    expect(d1).toBe(t1);
+    expect(d1 - d0).toBe(3_600_000);
+    expect(captured.points.length).toBeGreaterThan(0);
+    expect(captured.points[captured.points.length - 1][0]).toBe(t1);
+  });
+
+  it('dims the chart when its cache is aged', () => {
+    const domain = dom(RANGES['24h'].spanMs);
+    const m = mountRange({ range: '24h', chart: ok([[E - 1, 1]], domain) });
+    expect(captured.dimmed).toBe(false);
+    m.rerenderWith({ chart: ok([[E - 1, 1]], domain, { aged: true }) });
+    expect(captured.dimmed).toBe(true);
+  });
+
   it('dims the chart when stale', () => {
     const domain = dom(RANGES['24h'].spanMs);
     const m = mountRange({ range: '24h', chart: ok([], domain) });

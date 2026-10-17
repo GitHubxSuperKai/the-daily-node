@@ -6,7 +6,7 @@ import Kicker from './Kicker';
 import Num from './Num';
 import LineChart from './LineChart';
 import RangeButtons from './RangeButtons';
-import { mergeSeries, pctSince } from '../utils/chartSeries.js';
+import { mergeSeries, pctSince, latestHistoryMs } from '../utils/chartSeries.js';
 import { RANGES, windowSeries, axisLabels, chipTime } from '../utils/chartRange.js';
 import { ProofOfRead } from './ProofOfRead';
 import { LeadImage } from './LeadImage';
@@ -21,7 +21,7 @@ import {
 } from '../utils/formatting.js';
 
 // Fallback for callers that pass no chart (older tests); never mutated.
-const EMPTY_CHART = Object.freeze({ points: null, domain: null, stale: false, failed: false });
+const EMPTY_CHART = Object.freeze({ points: null, domain: null, stale: false, aged: false, failed: false });
 const NOOP = () => {};
 
 export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartProp, range = '24h', onRangeChange }) {
@@ -33,12 +33,18 @@ export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartP
   // App re-renders every second and this component is not memo'd, so everything
   // handed to LineChart must keep its identity between data changes: LineChart
   // clears the hover whenever its series changes. Date.now() lives only in the memo.
+  // With no chart domain (Kraken not loaded) the window ends at the newest history row, so a
+  // history-only 1H/24H chart keeps advancing; it changes only when history does.
+  const useHistory = range === '1h' || range === '24h';
+  const historyEnd = React.useMemo(
+    () => (useHistory ? latestHistoryMs(priceHistoryData) : null),
+    [useHistory, priceHistoryData],
+  );
   const domain = React.useMemo(() => {
     if (chart.domain) return chart.domain;
-    const now = Date.now();
-    return [now - RANGES[range].spanMs, now];
-  }, [chart.domain, range]);
-  const useHistory = range === '1h' || range === '24h';
+    const end = historyEnd ?? Date.now();
+    return [end - RANGES[range].spanMs, end];
+  }, [chart.domain, range, historyEnd]);
   const series = React.useMemo(
     () => windowSeries(mergeSeries(useHistory ? priceHistoryData : null, chart.points), domain),
     [priceHistoryData, chart.points, domain, useHistory],
@@ -138,7 +144,7 @@ export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartP
       </div>
       {/* LineChart: parent div provides CSS dimensions, chart fills it */}
       <div style={{ width: '100%', height: u(110), flexShrink: 0 }}>
-        <LineChart color={T.orange} points={series} domain={domain} dimmed={!!chart.stale} chipFormat={chipFormat} vwap={range === '24h' ? btc.data?.vwap : undefined} fill onHover={setHover} />
+        <LineChart color={T.orange} points={series} domain={domain} dimmed={!!(chart.stale || chart.aged)} chipFormat={chipFormat} vwap={range === '24h' ? btc.data?.vwap : undefined} fill onHover={setHover} />
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: T.num, fontSize: u(10), color: T.ink3 }}>
         {axisLabels(range, domain[1]).map((label, i) => <span key={i}>{label}</span>)}
