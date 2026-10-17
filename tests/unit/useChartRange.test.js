@@ -243,7 +243,7 @@ describe('useChartRange', () => {
     expect(result.current.aged).toBe(false);
   });
 
-  it('a timer refetch on the selected range does not dim it', async () => {
+  it('a failed timer refetch on the selected range does not dim it', async () => {
     const { result } = mount('24h');
     await flush();
     // A failing tick bumps the hook's version, so `aged` is recomputed with the cache now old.
