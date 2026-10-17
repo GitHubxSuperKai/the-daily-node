@@ -2,7 +2,7 @@ import React from 'react';
 globalThis.React = React;
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, screen, cleanup } from '@testing-library/react';
+import { act, screen, cleanup, fireEvent } from '@testing-library/react';
 import { LIGHT, DARK } from '../../src/theme.js';
 import { PREFS_KEY } from '../../src/utils/v2prefs.js';
 
@@ -97,6 +97,7 @@ afterEach(async () => {
   document.body.style.background = '';
   document.documentElement.style.removeProperty('--paper');
   vi.doUnmock('react-dom/client');
+  vi.doUnmock('../../src/hooks/useChain.js');
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.resetModules();
@@ -189,6 +190,36 @@ describe('App — chart range wiring', () => {
     const urls = ohlcUrls();
     expect(urls.some((u) => u.includes('interval=60'))).toBe(true);
     expect(urls.some((u) => u.includes('interval=5'))).toBe(false);
+  });
+
+  it('clicking 7D saves the range, keeps stored prefs, and refetches Kraken at interval 60', async () => {
+    // Spy on what App hands useChain: a range save rebuilds v2prefs, but the
+    // mempool object must keep its identity or useChain's effect would re-fire.
+    const mempoolArgs = [];
+    vi.doMock('../../src/hooks/useChain.js', async (importOriginal) => {
+      const actual = await importOriginal();
+      return { ...actual, useChain: (m) => { mempoolArgs.push(m); return actual.useChain(m); } };
+    });
+    localStorage.setItem(PREFS_KEY, JSON.stringify({
+      version: 2,
+      alerts: { fee: { enabled: true, threshold: 77, cooldownMin: 30 } },
+      mempool: { baseUrl: 'https://mempool.example.test', fallbackToPublic: false },
+    }));
+    await bootApp();
+    expect(ohlcUrls().some((u) => u.includes('interval=5'))).toBe(true);
+    expect(ohlcUrls().some((u) => u.includes('interval=60'))).toBe(false);
+    const before = mempoolArgs[mempoolArgs.length - 1];
+    expect(before).toEqual({ baseUrl: 'https://mempool.example.test', fallbackToPublic: false });
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '7D' })); });
+
+    const saved = JSON.parse(localStorage.getItem(PREFS_KEY));
+    expect(saved.chart.range).toBe('7d');
+    expect(saved.alerts.fee.threshold).toBe(77);
+    expect(saved.mempool).toEqual(before);
+    expect(ohlcUrls().some((u) => u.includes('interval=60'))).toBe(true);
+    // Same reference, not just equal: withRange spreads, it does not clone nested prefs.
+    expect(mempoolArgs[mempoolArgs.length - 1]).toBe(before);
   });
 
   it('bogus stored range falls back to 24h', async () => {
