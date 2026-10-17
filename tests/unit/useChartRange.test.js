@@ -246,11 +246,39 @@ describe('useChartRange', () => {
   it('a timer refetch on the selected range does not dim it', async () => {
     const { result } = mount('24h');
     await flush();
-    hold(5);
+    // A failing tick bumps the hook's version, so `aged` is recomputed with the cache now old.
+    mode.set(5, 'reject');
     await act(async () => { vi.advanceTimersByTime(300000); });
+    await flush();
     expect(calls(5).length).toBe(2);
+    expect(result.current.failed).toBe(true);
     expect(result.current.aged).toBe(false);
+  });
+
+  it('re-selecting at exactly half the refresh period is aged', async () => {
+    const { result, rerender } = mount('24h');
+    await flush();
+    rerender({ rangeKey: '7d' });
+    await flush();
+    await act(async () => { vi.advanceTimersByTime(150000); });
+    hold(5);
+    rerender({ rangeKey: '24h' });
+    await flush();
+    expect(calls(5).length).toBe(2);
+    expect(result.current.aged).toBe(true);
     await release(5);
+  });
+
+  it('a successful timer retry clears the failure without a re-select', async () => {
+    mode.set(5, 'reject');
+    const { result } = mount('24h');
+    await flush();
+    expect(result.current.failed).toBe(true);
+    mode.delete(5);
+    await act(async () => { vi.advanceTimersByTime(300000); });
+    await flush();
+    expect(calls(5).length).toBe(2);
+    expect(result.current.failed).toBe(false);
   });
 
   it('re-selecting a range that failed earlier hides the old failure while the retry is in flight', async () => {
