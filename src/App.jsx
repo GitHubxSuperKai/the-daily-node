@@ -117,10 +117,13 @@ function App() {
     if (newPrefs.theme === 'light') setDark(false);
   }, []);
 
-  const handleRangeChange = React.useCallback(
-    (key) => handleSaveV2Prefs(withRange(v2prefs, key)),
-    [v2prefs, handleSaveV2Prefs],
-  );
+  // Saves prefs only. Unlike handleSaveV2Prefs it must not re-apply the stored
+  // theme, or a range click would undo a manual Masthead dark/light toggle.
+  const handleRangeChange = React.useCallback((key) => {
+    const next = withRange(v2prefs, key);
+    saveV2Prefs(next);
+    setV2Prefs(next);
+  }, [v2prefs]);
 
   const handleSaveSettings = (newPrefs) => {
     setPrefs(newPrefs);

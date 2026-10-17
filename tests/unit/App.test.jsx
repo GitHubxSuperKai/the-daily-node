@@ -222,6 +222,21 @@ describe('App — chart range wiring', () => {
     expect(mempoolArgs[mempoolArgs.length - 1]).toBe(before);
   });
 
+  it('clicking a range keeps a manual dark toggle instead of re-applying the stored theme', async () => {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ version: 2, theme: 'light' }));
+    await bootApp();
+    expect(document.body.style.background).toBe(toRgb(LIGHT.paper));
+
+    await act(async () => { fireEvent.click(screen.getByTitle('Switch to dark mode')); });
+    expect(document.body.style.background).toBe(toRgb(DARK.paper));
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '7D' })); });
+
+    expect(JSON.parse(localStorage.getItem(PREFS_KEY)).chart.range).toBe('7d');
+    expect(document.documentElement.style.getPropertyValue('--paper')).toBe(DARK.paper);
+    expect(document.body.style.background).toBe(toRgb(DARK.paper));
+  });
+
   it('bogus stored range falls back to 24h', async () => {
     localStorage.setItem(PREFS_KEY, JSON.stringify({ version: 2, chart: { range: 'bogus' } }));
     await bootApp();

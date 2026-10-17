@@ -29,9 +29,11 @@ export function normKrakenOHLC(json) {
   const out = [];
   for (const row of rows) {
     if (!Array.isArray(row)) continue;
+    // Number(null) and Number('') are 0, so reject those before converting.
+    if (row[0] == null || row[0] === '' || row[4] == null || row[4] === '') continue;
     const t = Number(row[0]) * 1000;
     const p = Number(row[4]);
-    if (Number.isFinite(t) && Number.isFinite(p)) out.push([t, p]);
+    if (Number.isFinite(t) && Number.isFinite(p) && p > 0) out.push([t, p]);
   }
   return out.sort((a, b) => a[0] - b[0]);
 }

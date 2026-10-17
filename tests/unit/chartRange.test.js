@@ -59,6 +59,24 @@ describe('normKrakenOHLC', () => {
     expect(normKrakenOHLC(json)).toEqual([]);
   });
 
+  it('drops null, empty and zero closes or times but keeps a valid row', () => {
+    const json = {
+      error: [],
+      result: {
+        XXBTZUSD: [
+          [1700000000, '1', '2', '0.5', null, '1', '0.1', 3],
+          [1700000060, '1', '2', '0.5', '', '1', '0.1', 3],
+          [1700000120, '1', '2', '0.5', '0', '1', '0.1', 3],
+          [null, '1', '2', '0.5', '81000', '1', '0.1', 3],
+          ['', '1', '2', '0.5', '81000', '1', '0.1', 3],
+          [1700000180, '1', '2', '0.5', '81500', '1', '0.1', 3],
+        ],
+        last: 1700000180,
+      },
+    };
+    expect(normKrakenOHLC(json)).toEqual([[1700000180000, 81500]]);
+  });
+
   it('throws on a Kraken error array or a missing result', () => {
     expect(() => normKrakenOHLC({ error: ['EGeneral:Too many requests'], result: {} })).toThrow('kraken');
     expect(() => normKrakenOHLC({ error: [] })).toThrow('kraken');
