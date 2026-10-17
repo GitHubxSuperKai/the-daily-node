@@ -34,9 +34,10 @@ function BitcoinPanel({ btc, chain, chart: chartProp, range = '24h', onRangeChan
   const [hover, setHover] = React.useState(null);
 
   // MobileApp re-renders every second (clock) and this memo'd component re-renders
-  // with it, so everything handed to LineChart must keep its identity between data
-  // changes: LineChart clears the hover/scrub whenever its series changes.
-  // Date.now() lives only inside the memo.
+  // with it, so the `points` handed to LineChart (`series` below) must keep their identity
+  // between data changes: LineChart clears the hover/scrub whenever its merged series
+  // changes. `domain` is keyed on its values there and `onHover` goes through a ref, but
+  // `series` depends on `domain`, so Date.now() lives only inside the memo.
   const domain = React.useMemo(() => {
     if (chart.domain) return chart.domain;
     const now = Date.now();
