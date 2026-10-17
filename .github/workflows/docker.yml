@@ -227,9 +227,12 @@ jobs:
       #     `export x=$(cmd)` do NOT abort, the declaration builtin's own
       #     status wins (verified in PR #146's review).
       #  2. `> /tmp/probe.py` truncated the file BEFORE the pipeline ran, and
-      #     `python3 - < empty-file` exits 0 -- an empty script is a successful
-      #     no-op. So a blank probe reported green having executed nothing,
-      #     with nothing in the way (PR #148's mutation matrix, rows D/F).
+      #     `python3 - < /tmp/probe.py` exits 0 on a blank file -- an empty or
+      #     whitespace-only script is a successful no-op. A blank probe never
+      #     left the file empty: print() wrote just a newline (row D) or the
+      #     whitespace plus a newline (row F). So a blank probe reported green
+      #     having executed nothing, with nothing in the way (PR #148's
+      #     mutation matrix, rows D/F).
       #     json.load raising on empty stdin caught only an empty
       #     `docker compose config` output (row B), never a blank probe, and
       #     that was incidental, not an assertion. Hence the

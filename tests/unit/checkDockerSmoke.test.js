@@ -570,9 +570,10 @@ describe('the blank-probe guard and its ordering (#148)', () => {
       .toMatch(/0 un-negated guards|pinned commands/);
   });
 
-  // The subtle one. The check is still there, still exits, still un-negated -- and it is
-  // worthless, because `> /tmp/probe.py` truncated the file and `python3 - < empty-file`
-  // has already exited 0 by the time it runs.
+  // The subtle one. The check is still there, still exits, still un-negated, and a blank
+  // probe still fails the step -- but only after it has been written to /tmp/probe.py and
+  // run in the image. The contract is that nothing blank is written or executed, so this
+  // ordering is rejected.
   it('rejects the blank-probe check moved after the write and the exec', () => {
     const withoutGuard = sub(GOOD, BLANK_GUARD, '');
     const moved = sub(

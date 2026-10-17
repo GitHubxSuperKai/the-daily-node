@@ -13,8 +13,10 @@
 //         `/usr/bin/bash -e {0}` -- errexit, NOT pipefail -- so a pipeline exits with
 //         its LAST command's status and the failing curl was discarded. The fix
 //         captures into `body=$(...)` first.
-//   #148  The healthcheck step truncated /tmp/probe.py before the extraction pipeline
-//         ran, and `python3 - < empty-file` exits 0. The fix captures into
+//   #148  The healthcheck step piped the extraction straight into /tmp/probe.py, and
+//         `python3 -` exits 0 on a blank script, so a blank probe passed having run
+//         nothing (print() wrote a newline, or the whitespace plus a newline, never
+//         zero bytes). The fix captures into
 //         `config=$(...)`/`probe=$(...)` and refuses to execute a blank probe.
 //
 // Each of those is guarded today by prose -- including a literal "Do NOT collapse this
@@ -351,11 +353,12 @@ const PAGE_ASSERTIONS = {
 
 // The healthcheck step's non-blank guard (#148), and the two lines it must precede.
 //
-// Ordering is the whole point. `> /tmp/probe.py` truncates the file before its pipeline
-// runs, and `python3 - < empty-file` exits 0 -- an empty script is a successful no-op. A
-// non-blank check placed AFTER the write, or after the exec, still reads as a guard and
-// guards nothing, because by then the green verdict has already been earned by executing
-// an empty file.
+// Ordering is the whole point. `python3 -` exits 0 on a blank file -- an empty or
+// whitespace-only script is a successful no-op -- and a blank probe writes exactly that
+// (`printf '%s\n'` of nothing is a bare newline). The check reads $probe, not the file, so
+// placed AFTER the write or the exec it still fails the step, but only after a blank file
+// has been written (and, after the exec, run in the image). It must come first so nothing
+// blank is ever written or executed.
 const PROBE_GUARD = {
   step: 'Verify the shipped healthcheck probe exits 0',
   condition: '[ -z "${probe//[[:space:]]/}" ]',
@@ -1259,8 +1262,8 @@ function checkDockerSmoke({
           fail(
             `${WORKFLOW_REL} step ${JSON.stringify(PROBE_GUARD.step)} has ${matching.length} un-negated guards on`,
             `  \`${PROBE_GUARD.condition}\`, expected 1.`,
-            '  `python3 - < empty-file` exits 0 -- an empty script is a successful no-op -- so without this',
-            '  check an extraction that yielded nothing reports green having executed nothing (PR #148).',
+            '  `python3 -` exits 0 on a blank file -- an empty or whitespace-only script is a successful',
+            '  no-op -- so without this check a blank probe reports green having executed nothing (PR #148).',
           );
         } else if (!guardExits(matching[0])) {
           fail(
@@ -1292,9 +1295,9 @@ function checkDockerSmoke({
             } else if (idx < guardIdx) {
               fail(
                 `${WORKFLOW_REL} step ${JSON.stringify(PROBE_GUARD.step)} runs ${JSON.stringify(later)} BEFORE the`,
-                '  blank-probe check. Ordering is the whole point: `> /tmp/probe.py` truncates the file before',
-                '  its pipeline runs, so a check placed after the write still reads as a guard and guards',
-                '  nothing -- the green verdict has already been earned by executing an empty file.',
+                '  blank-probe check. The check must come first so a blank probe is never written or executed:',
+                '  placed later it still fails the step, but only after the blank file has been written, and',
+                '  run in the image if the check also follows the exec.',
               );
             }
           }
