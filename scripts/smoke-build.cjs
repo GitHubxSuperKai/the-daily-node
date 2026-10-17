@@ -144,8 +144,7 @@ assert.ok(/@media\s*\(max-width:\s*900px\)\s*\{[^@]*?#canvas\s*\{/.test(html),
 //     (unlike the esbuild bundle — see the note on markers in step 4).
 //     If it were moved after the bundle or made type="module" (which defers it), --u would
 //     still be at the :root default of 1px when the bundle runs, with no error and no console
-//     warning. defer/async have no effect on an inline script; the guard
-//     rejects them anyway.
+//     warning. defer/async have no effect on an inline script; the guard rejects them anyway.
 const scaleIdx = html.indexOf('function updateScale');
 // build.js replaces the /* MODULES CONCATENATED BY build.js */ placeholder with requireShim +
 // bundle; `var __dn_modules` is the first line of that shim, so it marks the bundle script.
