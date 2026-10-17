@@ -70,7 +70,7 @@ Shared leaves (`Kicker`, `Num`, `Rule`) are omitted; `docs/ARCHITECTURE.md` has 
 
 **localStorage:** User prefs (weather location, time format, temp unit) persist under `dailynode-prefs`; v2 prefs (alerts, feeds, intervals, theme) under their own key via `utils/v2prefs.js`. App reads localStorage on mount, falls back to `config.js` defaults. The legacy `dailynode-bitaxe` key is removed unconditionally on mount as a one-time migration.
 
-**Performance:** All components wrapped in `React.memo()`; hook callbacks in `useCallback()` with stable deps.
+**Performance:** Only `RangeButtons` and the mobile tree (`MobileApp` and its panels, header, tab bar, `StatusTile`) are `React.memo`. The desktop components are NOT memo'd, including `CommandCenter`, `MarketsColumn` and `LineChart`. `App` re-renders every second via `useClock`, so every mounted desktop component that is not memo'd re-renders every second. The `points` array handed to `LineChart` (and `historyPoints`, if a caller passes it) must keep its identity across renders (`useMemo`, with `Date.now()` inside the memo), because `LineChart` clears the hover whenever its merged series changes (or `dimmed` flips). `domain` is keyed on its values and `onHover` goes through a ref, so those may be fresh each render. Callbacks returned by hooks are wrapped in `useCallback()`.
 
 ## Module Reference
 
