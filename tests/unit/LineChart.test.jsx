@@ -272,6 +272,73 @@ describe('LineChart labels and chip', () => {
   });
 });
 
+describe('LineChart fixed domain, dimmed state, chip format', () => {
+  it('domain positions a point by time inside the domain', () => {
+    const points = [[T0 + 30 * MIN, 100], [T0 + 60 * MIN, 110]];
+    const domain = [T0, T0 + 60 * MIN];
+    const { box, container } = mount({ points, domain });
+    const p = parsePath(linePath(container).getAttribute('d'));
+    expect(p[0][0]).toBeCloseTo(300, 1);
+    expect(p[1][0]).toBeCloseTo(600, 1);
+    move(box, 300);
+    expect(q(container, 'chart-hover-dot').getAttribute('data-t')).toBe(String(T0 + 30 * MIN));
+  });
+
+  it('pointer maps through the domain when it is wider than the data', () => {
+    const points = [45, 50, 55, 60].map((m, i) => [T0 + m * MIN, 100 + i]);
+    const domain = [T0, T0 + 60 * MIN];
+    const { box, container } = mount({ points, domain });
+    // 490 / 600 = 0.8167 of the domain = 49 min -> nearest is 50 min.
+    // The old first-to-last mapping would land on 57.3 min -> 55 min.
+    move(box, 490);
+    expect(q(container, 'chart-hover-dot').getAttribute('data-t')).toBe(String(T0 + 50 * MIN));
+  });
+
+  it('hover survives a re-render with the same points identity', () => {
+    const onHover = vi.fn();
+    const domain = [T0, T0 + 4 * MIN];
+    const { box, container, rerenderChart } = mount({ points: even, domain, onHover });
+    move(box, 300);
+    onHover.mockClear();
+    rerenderChart({ points: even, domain: [domain[0], domain[1]], onHover, showLabels: true });
+    expect(q(container, 'chart-crosshair')).not.toBeNull();
+    expect(onHover).not.toHaveBeenCalledWith(null);
+  });
+
+  it('dimmed draws no crosshair and emits no hover', () => {
+    const onHover = vi.fn();
+    const { box, container } = mount({ points: even, onHover, dimmed: true });
+    move(box, 300);
+    expect(q(container, 'chart-crosshair')).toBeNull();
+    expect(onHover).not.toHaveBeenCalled();
+    expect(box.getAttribute('data-chart-dimmed')).toBe('true');
+    expect(container.querySelector('svg').style.opacity).toBe('0.4');
+  });
+
+  it('dimming while hovering clears the crosshair', () => {
+    const onHover = vi.fn();
+    const { box, container, rerenderChart } = mount({ points: even, onHover });
+    move(box, 300);
+    expect(q(container, 'chart-crosshair')).not.toBeNull();
+    rerenderChart({ points: even, onHover, dimmed: true });
+    move(box, 310);
+    expect(q(container, 'chart-crosshair')).toBeNull();
+    expect(onHover).toHaveBeenLastCalledWith(null);
+  });
+
+  it('is not dimmed by default', () => {
+    const { box, container } = mount({ points: even });
+    expect(box.getAttribute('data-chart-dimmed')).toBeNull();
+    expect(container.querySelector('svg').style.opacity).toBe('');
+  });
+
+  it('chipFormat is used for the chip', () => {
+    const { box, container } = mount({ points: even, chipFormat: () => 'Oct 9, 3 PM' });
+    move(box, 300);
+    expect(q(container, 'chart-chip').querySelector('text').textContent).toBe('Oct 9, 3 PM');
+  });
+});
+
 describe('LineChart container', () => {
   it('carries data-chart-scrub and touch-action pan-y', () => {
     const { box } = mount({ points: even });
