@@ -153,7 +153,7 @@ assert.ok(scaleIdx !== -1, 'inline updateScale() scaling script missing from bui
 assert.ok(bundleIdx !== -1,
   'require shim missing from build — cannot locate the bundle script (if you renamed __dn_modules in build.js, update this anchor)');
 assert.ok(scaleIdx < bundleIdx,
-  'inline scaling script must come BEFORE the bundle script — otherwise --u is unset at React first paint and the canvas renders at 1px unscaled');
+  'inline scaling script must come BEFORE the bundle script — otherwise --u is still at its :root default of 1px when the bundle runs');
 
 // Locate the enclosing <script> tag, then prove it is a real tag and not one quoted inside
 // markup. src/index.html carries a literal "<script" in the CSP explainer comment in <head>,
@@ -176,7 +176,7 @@ const scaleBody = html.slice(scaleTagEnd, scaleClose);
 // Anchored at column 0 deliberately: `^\s*` would also match the call indented inside a
 // DOMContentLoaded/setTimeout callback, which is the regression this assertion exists to catch.
 assert.ok(/^updateScale\(\);/m.test(scaleBody),
-  'scaling script must call updateScale() unindented at top level, at parse time — deferring it behind load/DOMContentLoaded/setTimeout leaves --u at 1px through React first paint');
+  'scaling script must call updateScale() unindented at top level, at parse time — deferring it behind load/DOMContentLoaded/setTimeout leaves --u at its :root default of 1px when the bundle runs');
 assert.ok(/window\.updateScale\s*=\s*updateScale/.test(scaleBody),
   'window.updateScale assignment missing — scripts/capture-mobile.cjs calls it to force a rescale');
 
