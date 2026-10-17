@@ -32,7 +32,7 @@ App (root)
 Shared leaf components — `Kicker`, `Num`, `Rule` — are used across several columns and are
 omitted above. `src/components/mobile/` holds a separate tree, gated by a 900px breakpoint.
 
-Each component is memoized (`React.memo`) to prevent unnecessary re-renders and optimized with `useCallback` for stable function references.
+Only `RangeButtons` and the mobile tree are memoized (`React.memo`); the desktop components are not, and `App` re-renders every second via `useClock`. Hook callbacks use `useCallback` for stable function references.
 
 ## Data Flow
 
@@ -165,7 +165,7 @@ Simple time formatter that updates every 1 second. Accepts `timeFormat` string (
 
 ## Key Patterns & Gotchas
 
-**React.memo & useCallback:** All presentational components are wrapped in `React.memo()` to prevent re-renders when parent props haven't changed. Hook callbacks are wrapped in `useCallback()` with stable dependency arrays to maintain referential equality across renders.
+**React.memo & useCallback:** Only `RangeButtons` and the mobile tree (`MobileApp`, its panels, header, tab bar and `StatusTile`) are wrapped in `React.memo()`. The desktop components, including `CommandCenter`, `MarketsColumn` and `LineChart`, are not, and `App` re-renders every second via `useClock`. Anything passed to `LineChart` must therefore keep its identity across renders (`useMemo`/`useCallback`), because `LineChart` clears the hover whenever its series identity changes. Hook callbacks are wrapped in `useCallback()` with stable dependency arrays to maintain referential equality across renders.
 
 **Promise.allSettled():** Used in `fetchChainStats()` to batch 5 Mempool endpoints in parallel. If one fails, others continue; the hook presents partial data instead of failing entirely.
 
