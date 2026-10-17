@@ -571,8 +571,8 @@ describe('the blank-probe guard and its ordering (#148)', () => {
   });
 
   // The subtle one. The check is still there, still exits, still un-negated -- and it is
-  // worthless, because `> /tmp/probe.py` truncated the file and `python3 - < empty-file`
-  // has already exited 0 by the time it runs.
+  // worthless, because a blank probe has already been written to /tmp/probe.py and
+  // `python3 -` has already exited 0 on it by the time it runs.
   it('rejects the blank-probe check moved after the write and the exec', () => {
     const withoutGuard = sub(GOOD, BLANK_GUARD, '');
     const moved = sub(
