@@ -26,16 +26,19 @@ import { log } from '../utils/log.js';
  */
 export function useChartRange(rangeKey) {
   const cache = useRef(new Map()); // interval -> { pts, fetchedAt (request start), windows: rangeKey -> { points, domain } }
-  const failedMap = useRef(new Map()); // interval -> seq of its latest failure, 0 once it loads
-  // One counter orders failures against selections: a failure only shows if it came after the
-  // current range was selected. `at` is the selection time, for the aged check.
-  const seq = useRef(0);
-  const selected = useRef({ key: rangeKey, seq: 0, at: Date.now() });
-  if (selected.current.key !== rangeKey) {
-    selected.current = { key: rangeKey, seq: ++seq.current, at: Date.now() };
+  const failedMap = useRef(new Map()); // interval -> `gen` of the selection its latest failure landed in; absent once it loads
+  // Each range selection gets a new `gen`; a failure only shows during the selection it landed
+  // in. `at` is the selection time, for the aged check. Selection is state, set during render,
+  // so a render React discards (a suspended transition) leaves no selection behind.
+  const [selState, setSelState] = useState(() => ({ key: rangeKey, gen: 0, at: Date.now() }));
+  let sel = selState;
+  if (sel.key !== rangeKey) {
+    sel = { key: rangeKey, gen: sel.gen + 1, at: Date.now() };
+    setSelState(sel);
   }
+  const selGen = useRef(sel.gen); // committed selection, for load()'s failure stamp
   const inFlight = useRef(new Set());
-  const lastGood = useRef({ points: null, domain: null });
+  const lastGood = useRef({ points: null, domain: null }); // window of the last committed cached render
   const mounted = useRef(true);
   const [version, setVersion] = useState(0);
 
@@ -43,6 +46,9 @@ export function useChartRange(rangeKey) {
     mounted.current = true;
     return () => { mounted.current = false; };
   }, []);
+
+  // Declared before the load effect so a load started by a new selection stamps its failure with it.
+  useEffect(() => { selGen.current = sel.gen; }, [sel.gen]);
 
   const load = useCallback(async (key, force) => {
     const { interval, refreshMs } = RANGES[key];
@@ -57,13 +63,13 @@ export function useChartRange(rangeKey) {
       if (!r.ok) throw new Error(`${r.status}`);
       const pts = normKrakenOHLC(await r.json());
       cache.current.set(interval, { pts, fetchedAt, windows: {} });
-      failedMap.current.set(interval, 0);
+      failedMap.current.delete(interval);
       changed = true;
     } catch (e) {
       log.error('chart range fetch failed', interval, e);
       // Re-render only when the failure becomes visible: it was clear, or hidden by a re-select.
-      if (!(failedMap.current.get(interval) > selected.current.seq)) changed = true;
-      failedMap.current.set(interval, ++seq.current);
+      if (failedMap.current.get(interval) !== selGen.current) changed = true;
+      failedMap.current.set(interval, selGen.current);
     } finally {
       inFlight.current.delete(interval);
     }
@@ -81,10 +87,9 @@ export function useChartRange(rangeKey) {
   // deduped; reset() restarts the timer so a tick right after a refresh is not skipped as fresh.
   const refresh = useCallback(() => { load(rangeKey, true); reset(); }, [rangeKey, load, reset]);
 
-  return useMemo(() => {
+  const { result, window: shown } = useMemo(() => {
     const { interval, spanMs, refreshMs } = RANGES[rangeKey];
-    const sel = selected.current;
-    const failed = (failedMap.current.get(interval) ?? 0) > sel.seq;
+    const failed = failedMap.current.get(interval) === sel.gen;
     const entry = cache.current.get(interval);
     if (entry) {
       // Window once per (entry, range): 7d and 30d share an entry but not a span, and a
@@ -93,13 +98,18 @@ export function useChartRange(rangeKey) {
         const domain = [entry.fetchedAt - spanMs, entry.fetchedAt];
         entry.windows[rangeKey] = { points: windowSeries(entry.pts, domain), domain };
       }
-      lastGood.current = entry.windows[rangeKey];
+      const win = entry.windows[rangeKey];
       // Same threshold as load(): a cache this old at selection time was refetched by the select.
       const aged = sel.at - entry.fetchedAt >= refreshMs / 2;
-      return { ...entry.windows[rangeKey], stale: false, aged, failed, refresh };
+      return { result: { ...win, stale: false, aged, failed, refresh }, window: win };
     }
     const prev = lastGood.current;
-    return { points: prev.points, domain: prev.domain, stale: prev.points != null, aged: false, failed, refresh };
+    return { result: { points: prev.points, domain: prev.domain, stale: prev.points != null, aged: false, failed, refresh }, window: null };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: `version` is the cache/failure-flag change signal; the refs are read when it bumps
-  }, [version, rangeKey, refresh]);
+  }, [version, rangeKey, sel.gen, refresh]);
+
+  // Only a committed render may become the stale fallback for the next uncached range.
+  useEffect(() => { if (shown) lastGood.current = shown; }, [shown]);
+
+  return result;
 }

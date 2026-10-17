@@ -13,7 +13,8 @@ vi.mock('react', async (importOriginal) => {
     },
   };
 });
-import { renderHook, act } from '@testing-library/react';
+import { createElement, Suspense, startTransition, useState } from 'react';
+import { render, renderHook, act } from '@testing-library/react';
 import { useChartRange } from '../../src/hooks/useChartRange.js';
 
 const NOW = Date.UTC(2026, 9, 16, 12, 0, 0);
@@ -328,5 +329,70 @@ describe('useChartRange', () => {
     expect(result.current.stale).toBe(true);
     expect(result.current.failed).toBe(true);
     expect(result.current.points).toBe(p24);
+  });
+
+  // A render React throws away (here a transition that suspends) must leave no trace: the hook
+  // body runs for '7d', but 24h stays the committed selection, so a later failed timer refetch
+  // must not see a re-select stamped at the discarded render's time and dim the chart as aged.
+  it('a discarded render for another range does not restamp the selection', async () => {
+    const never = new Promise(() => {});
+    const out = { current: null };
+    let setProps;
+    function Probe({ rangeKey, suspend }) {
+      const r = useChartRange(rangeKey);
+      if (suspend) throw never;
+      out.current = r;
+      return null;
+    }
+    function Host() {
+      const [p, set] = useState({ rangeKey: '24h', suspend: false });
+      setProps = set;
+      return createElement(Suspense, { fallback: null }, createElement(Probe, p));
+    }
+    render(createElement(Host));
+    await flush();
+    await act(async () => { vi.advanceTimersByTime(150000); });
+    await act(async () => { startTransition(() => setProps({ rangeKey: '7d', suspend: true })); });
+    expect(calls(60).length).toBe(0);
+    await act(async () => { setProps({ rangeKey: '24h', suspend: false }); });
+    mode.set(5, 'reject');
+    await act(async () => { vi.advanceTimersByTime(150000); });
+    await flush();
+    expect(calls(5).length).toBe(2);
+    expect(out.current.failed).toBe(true);
+    expect(out.current.aged).toBe(false);
+  });
+
+  // Same discard, other ref: the stale fallback for an uncached range must be the last range
+  // actually shown (24h), not the cached 7d window the discarded render computed.
+  it('a discarded render does not change which points an uncached range shows as stale', async () => {
+    const never = new Promise(() => {});
+    const out = { current: null };
+    let setProps;
+    function Probe({ rangeKey, suspend }) {
+      const r = useChartRange(rangeKey);
+      if (suspend) throw never;
+      out.current = r;
+      return null;
+    }
+    function Host() {
+      const [p, set] = useState({ rangeKey: '24h', suspend: false });
+      setProps = set;
+      return createElement(Suspense, { fallback: null }, createElement(Probe, p));
+    }
+    render(createElement(Host));
+    await flush();
+    await act(async () => { setProps({ rangeKey: '7d', suspend: false }); });
+    await flush();
+    await act(async () => { setProps({ rangeKey: '24h', suspend: false }); });
+    await flush();
+    const p24 = out.current.points;
+    await act(async () => { startTransition(() => setProps({ rangeKey: '7d', suspend: true })); });
+    await act(async () => { setProps({ rangeKey: '24h', suspend: false }); });
+    mode.set(1440, 'reject');
+    await act(async () => { setProps({ rangeKey: '1y', suspend: false }); });
+    await flush();
+    expect(out.current.stale).toBe(true);
+    expect(out.current.points).toBe(p24);
   });
 });
