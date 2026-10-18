@@ -14,8 +14,8 @@ import socket
 import sys
 import threading
 import unittest
+import unittest.mock
 from pathlib import Path
-from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -85,7 +85,7 @@ class ServerConcurrencyTest(unittest.TestCase):
         return t, done
 
     def test_miners_answers_while_a_feed_fetch_is_blocked(self):
-        with mock.patch.object(bitaxe_api, '_fetch_feed', self._hold):
+        with unittest.mock.patch.object(bitaxe_api, '_fetch_feed', self._hold):
             t, done = self._start_blocked('/api/rss?feed=optech')
             status, body = self._get('/api/miners')
             self.assertEqual(status, 200)
@@ -98,7 +98,7 @@ class ServerConcurrencyTest(unittest.TestCase):
 
     def test_setup_answers_while_a_miner_fetch_is_blocked(self):
         bitaxe_api.BITAXE_IPS[:] = ['127.0.0.1']
-        with mock.patch.object(bitaxe_api.urllib.request, 'urlopen', self._hold):
+        with unittest.mock.patch.object(bitaxe_api.urllib.request, 'urlopen', self._hold):
             t, done = self._start_blocked('/api/miners')
             status, _ = self._get('/api/setup')
             self.assertEqual(status, 200)
@@ -121,7 +121,7 @@ class ServerConcurrencyTest(unittest.TestCase):
                 self._hold()
             return b'<rss/>'
 
-        with mock.patch.object(bitaxe_api, '_fetch_feed', fetch):
+        with unittest.mock.patch.object(bitaxe_api, '_fetch_feed', fetch):
             t, done = self._start_blocked('/api/rss?feed=optech')
             status, body = self._get('/api/rss?feed=optech')
             self.assertEqual((status, body), (200, b'<rss/>'))
