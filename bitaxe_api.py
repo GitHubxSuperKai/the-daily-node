@@ -227,8 +227,9 @@ FETCH_TIMEOUT = 5
 SERVER_CLASS  = ThreadingHTTPServer
 # Seconds a client socket may sit silent before the handler closes it, so an idle
 # preconnect, or a peer on the LAN that connects and sends nothing, frees its thread.
-# It bounds each read from and write to the client, not upstream work (a slow miner or
-# feed), and not a client that trickles a byte at a time.
+# It bounds each read from the client and each whole response sent to it (sendall's
+# timeout covers the full send, so a client too slow to take a body in 30s is cut off),
+# not upstream work (a slow miner or feed), and not a client that trickles request bytes.
 REQUEST_TIMEOUT = 30
 # Serializes /api/setup POSTs: save_config is a read-modify-write of the config file, and
 # the file and the in-memory BITAXE_IPS/CONFIGURED must end up from the same request.

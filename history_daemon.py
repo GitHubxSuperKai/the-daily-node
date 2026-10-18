@@ -31,8 +31,9 @@ RETENTION_DAYS = 90
 SERVER_CLASS   = ThreadingHTTPServer
 # Seconds a client socket may sit silent before the handler closes it, so an idle
 # preconnect, or a peer on the LAN that connects and sends nothing, frees its thread.
-# It bounds each read from and write to the client, not a slow query, and not a client
-# that trickles a byte at a time.
+# It bounds each read from the client and each whole response sent to it (sendall's
+# timeout covers the full send), not a slow query, and not a client that trickles
+# request bytes.
 REQUEST_TIMEOUT = 30
 
 

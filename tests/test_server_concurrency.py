@@ -10,6 +10,7 @@ Requests here go through http.client, not urllib, because one case patches
 urllib.request.urlopen.
 """
 import http.client
+import math
 import socket
 import sys
 import threading
@@ -142,7 +143,7 @@ class ServerConcurrencyTest(unittest.TestCase):
 
     # The handler's socket timeout closes a connection that never sends a request, so
     # an idle preconnect (or a silent peer on the LAN) can't pin a thread forever. It
-    # bounds reads from and writes to the client, not time spent in upstream calls.
+    # bounds reads from the client and each whole response sent to it, not time spent in upstream calls.
 
     def _short_timeout(self):
         # setup() reads the class attribute per accepted connection, so patching it
@@ -156,6 +157,8 @@ class ServerConcurrencyTest(unittest.TestCase):
         # the patch supplies the timeout; this pins that the server sets one itself.
         shipped = bitaxe_api.BitaxeAPIHandler.timeout
         self.assertIsInstance(shipped, (int, float))
+        self.assertNotIsInstance(shipped, bool)
+        self.assertTrue(math.isfinite(shipped))
         self.assertGreater(shipped, 0)
         self.assertEqual(shipped, bitaxe_api.REQUEST_TIMEOUT)
 

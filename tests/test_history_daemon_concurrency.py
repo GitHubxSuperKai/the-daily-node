@@ -6,6 +6,7 @@ stuck in its SQLite query or a connection that never sends a request line (a bro
 idle preconnect socket) holds the accept loop, and every other request queues behind it.
 """
 import http.client
+import math
 import os
 import shutil
 import socket
@@ -101,7 +102,7 @@ class HistoryDaemonConcurrencyTest(unittest.TestCase):
 
     # The handler's socket timeout closes a connection that never sends a request, so
     # an idle preconnect (or a silent peer on the LAN) can't pin a thread forever. It
-    # bounds reads from and writes to the client, not time spent in a query.
+    # bounds reads from the client and each whole response sent to it, not time spent in a query.
 
     def _short_timeout(self):
         # setup() reads the class attribute per accepted connection, so patching it
@@ -115,6 +116,8 @@ class HistoryDaemonConcurrencyTest(unittest.TestCase):
         # the patch supplies the timeout; this pins that the server sets one itself.
         shipped = history_daemon.HistoryHandler.timeout
         self.assertIsInstance(shipped, (int, float))
+        self.assertNotIsInstance(shipped, bool)
+        self.assertTrue(math.isfinite(shipped))
         self.assertGreater(shipped, 0)
         self.assertEqual(shipped, history_daemon.REQUEST_TIMEOUT)
 
