@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Firmware update badge for BitAxe miners. `bitaxe_api.py` serves `GET /api/firmware` → `{"latest": "<tag>"}`, the latest ESP-Miner release from the GitHub releases API (`releases/latest`, which skips drafts and prereleases). The tag is cached for 6h, a failed lookup is retried after 15m, and while GitHub is unreachable or rate-limited the last good tag (or `null`) is served. `useBitaxe` polls it every 6h as `latestFirmware`. The desktop `MinerRow` and the mobile `MinersPanel` show an UPDATE badge, with the installed and latest versions in its tooltip, on any online miner whose AxeOS `version` is older. Only the major.minor.patch core is compared: a `v` prefix and suffixes such as `-rc1` or git-describe builds are ignored, so an rc of the latest release shows no badge. A missing, `"Unknown"` or unparseable version, or an unknown latest release, shows no badge.
+
 ## [1.5.0] — 2026-10-17
 
 ### Added

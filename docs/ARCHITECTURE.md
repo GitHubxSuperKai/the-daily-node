@@ -106,7 +106,7 @@ Fetches the chart line from Kraken OHLC for the selected range (1H, 24H, 7D, 30D
 Aggregates block height, hashrate, network difficulty, mempool stats, and fee estimates from Mempool.space using 5 parallel endpoint requests. Returns computed values: difficulty adjustment countdown, solo mining odds, estimated retarget date. Polls every 60s.
 
 ### **src/hooks/useBitaxe.js**
-Polls the server's `/api/miners` endpoint for miner fleet stats. Returns hashrate, power consumption, temperatures, and uptime per miner. Polls every 30s. Falls back gracefully if API unavailable.
+Polls the server's `/api/miners` endpoint for miner fleet stats. Returns hashrate, power consumption, temperatures, and uptime per miner. Polls every 30s. Falls back gracefully if API unavailable. Separately polls `/api/firmware` every 6h and exposes `latestFirmware`, the latest ESP-Miner release tag (or `null`); the server fetches it from the GitHub releases API and caches it for 6h. `MinerRow` and the mobile `MinersPanel` compare it with each miner's AxeOS `version` via `src/utils/firmware.js` and show an UPDATE badge when the miner is older. A failed lookup only hides the badge; it does not touch `err` or `lastOk`.
 
 ### **src/hooks/useWeather.js**
 Fetches current weather from Open-Meteo API (no key required) using lat/lng coordinates. Returns temperature, weather code (WMO), wind speed, and sunrise/sunset times. Triggers auto dark mode at sunset. Polls every 15 minutes. Supports Celsius/Fahrenheit.
