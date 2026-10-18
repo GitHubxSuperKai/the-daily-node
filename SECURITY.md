@@ -15,5 +15,6 @@ The Daily Node is a static, client-side dashboard. It:
 - Handles no authentication, no payment, no PII.
 - Stores user preferences in browser `localStorage` only.
 - Makes outbound API calls (Kraken, Mempool.space, CoinGecko, Open-Meteo, RSS2JSON) and an optional local BitAxe API.
+- Its local server, `bitaxe_api.py`, calls one internet endpoint itself: `https://api.github.com/repos/bitaxeorg/ESP-Miner/releases/latest`, a fixed URL with no caller input, at most once per 6h (once per 15m while lookups fail), to serve the latest firmware tag at `/api/firmware`.
 
 The most security-relevant surface is the **BitAxe API URL** in user settings — visitors can change this in their own browser. If you find a way for that input to escape the local browser context (e.g. XSS via API response, code injection via config), please report it.
