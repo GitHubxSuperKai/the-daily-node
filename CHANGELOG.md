@@ -9,8 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `/api/rss` in `bitaxe_api.py`: a same-origin news proxy. The dashboard asks for a feed by key (`?feed=optech`), the server fetches the matching URL from its fixed `RSS_FEEDS` map (no caller-supplied URLs, no redirects followed, 2 MB cap, a time limit on reading the body) and returns the raw XML as inert `text/plain` (`nosniff`, sandboxing CSP), which the browser parses (`src/utils/feedXml.js`, RSS 2.0 and Atom). Each feed is fetched at most once per 330s, longer than the dashboard's 300s news poll: a failed refetch serves the previous copy, and a failure with no copy is not retried until the 330s are up, so a hung upstream can't stall the single-threaded server on every poll. When `/api/rss` is unavailable, as on the plain dev server, a feed falls back to RSS2JSON as before.
+- `/api/rss` in `bitaxe_api.py`: a same-origin news proxy. The dashboard asks for a feed by key (`?feed=optech`), the server fetches the matching URL from its fixed `RSS_FEEDS` map (no caller-supplied URLs, no redirects followed, 2 MB cap, a time limit on reading the body) and returns the raw XML as inert `text/plain` (`nosniff`, sandboxing CSP), which the browser parses (`src/utils/feedXml.js`, RSS 2.0 and Atom). Each feed is fetched at most once per 330s, longer than the dashboard's 300s news poll: a failed refetch serves the previous copy, and a failure with no copy is not retried until the 330s are up, so a hung upstream isn't retried on every poll. When `/api/rss` is unavailable, as on the plain dev server, a feed falls back to RSS2JSON as before.
 - Five more news feeds, off by default and switchable in Settings: Bitcoin Optech, No Bullshit Bitcoin, Stacker News, Hashrate Index and TFTC. They load through `/api/rss`. Their RSS2JSON fallback is unreliable: in testing, every attempt through RSS2JSON failed for Stacker News, Hashrate Index and TFTC (one of TFTC's four was a client-side timeout), while No Bullshit Bitcoin failed once in five attempts.
+
+### Fixed
+
+- `bitaxe_api.py` now serves on `ThreadingHTTPServer`, a thread per connection. On the single-threaded `HTTPServer`, one request waiting on an upstream (an unreachable miner, a slow feed or mempool node) held every other request, which can push `/api/miners` past the dashboard's 5s fetch timeout; and a browser's idle preconnect socket, which never sends a request, stalled the server outright. `/api/setup` POSTs are now serialized by a lock, and `fetch_all_miners` reads one snapshot of the miner list. `tests/test_server_concurrency.py` covers a blocked feed fetch, a blocked miner fetch and an idle connection; all three time out on `HTTPServer`.
 
 ## [1.5.0] — 2026-10-17
 

@@ -21,7 +21,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 
@@ -221,21 +221,30 @@ BITAXE_IPS = []
 CONFIGURED = False
 PORT          = 3001
 FETCH_TIMEOUT = 5
+# A thread per connection, so a request waiting on an upstream (a miner, a feed, the
+# mempool proxy) or a connection that never sends a request (a browser's idle preconnect)
+# can't hold every other request. tests/test_server_concurrency.py fails on HTTPServer.
+SERVER_CLASS  = ThreadingHTTPServer
+# Serializes /api/setup POSTs: save_config is a read-modify-write of the config file, and
+# the file and the in-memory BITAXE_IPS/CONFIGURED must end up from the same request.
+_setup_lock = threading.Lock()
 
 # /api/rss cache: feed key -> (time.monotonic() of the last attempt, body or None).
 # None marks a failed fetch with no earlier copy; a failed refetch keeps the old body.
 # Either way the attempt is stamped, so a feed is tried at most once per TTL.
-# The server is single-threaded, so no lock.
+# No lock: each dict read and write is atomic, and two requests that miss the same key
+# at once both fetch it, which costs one extra fetch and nothing else.
 # The TTL must exceed the dashboard's 300s news poll (REFRESH_INTERVALS.news in
 # src/config.js), or every poll misses the cache and refetches every feed.
 RSS_CACHE_TTL  = 330
 RSS_SIZE_LIMIT = 2 * 1024 * 1024
 # Time budget for reading one feed's BODY. The urllib timeout only bounds each socket
 # read, so an upstream trickling its body a byte at a time would otherwise hold this
-# single-threaded server indefinitely; this caps the body phase at the budget plus one
+# request (and its thread) indefinitely; this caps the body phase at the budget plus one
 # read timeout. NOT covered: connecting, TLS, and the status/header lines, which
 # opener.open() reads before the loop. An upstream trickling its headers can still
-# stall the server; bounding that needs a watchdog thread, which was decided against.
+# hold that request's thread; bounding that needs a watchdog thread, which was decided
+# against.
 RSS_FETCH_DEADLINE = FETCH_TIMEOUT - 1
 _rss_cache = {}
 
@@ -274,12 +283,15 @@ def fetch_miner(ip):
 
 
 def fetch_all_miners():
-    results = [None] * len(BITAXE_IPS)
+    # One snapshot: an /api/setup POST on another thread can replace BITAXE_IPS between
+    # sizing `results` and starting the workers.
+    ips = list(BITAXE_IPS)
+    results = [None] * len(ips)
 
     def worker(i, ip):
         results[i] = fetch_miner(ip)
 
-    threads = [threading.Thread(target=worker, args=(i, ip)) for i, ip in enumerate(BITAXE_IPS)]
+    threads = [threading.Thread(target=worker, args=(i, ip)) for i, ip in enumerate(ips)]
     for t in threads:
         t.start()
     for t in threads:
@@ -523,9 +535,10 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             self._json(400, {'error': 'validation failed', 'errors': errors})
             return
         global CONFIGURED
-        save_config(BitaxeAPIHandler.CONFIG_PATH, valid)
-        BITAXE_IPS[:] = valid
-        CONFIGURED = True
+        with _setup_lock:
+            save_config(BitaxeAPIHandler.CONFIG_PATH, valid)
+            BITAXE_IPS[:] = valid
+            CONFIGURED = True
         if valid:
             print(f'[BitAxe API] Configured miners: {", ".join(valid)}')
         else:
@@ -555,7 +568,7 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
                 error = f'upstream {e.code}' if isinstance(e, urllib.error.HTTPError) else f'feed fetch failed: {e}'
                 stale = cached[1] if cached else None
                 # Stamp the failure either way: retrying a hung upstream on every poll would
-                # block this single-threaded server (and /api/miners) each time.
+                # hold a request for the full fetch deadline each time.
                 _rss_cache[key] = (time.monotonic(), stale)
                 if stale is None:
                     self._json(502, {'error': error})
@@ -682,7 +695,7 @@ if __name__ == '__main__':
         BitaxeAPIHandler._setup_page = None
         print('[BitAxe API] WARN: setup.html not found — first-launch onboarding disabled')
 
-    server = HTTPServer((args.bind, args.port), BitaxeAPIHandler)
+    server = SERVER_CLASS((args.bind, args.port), BitaxeAPIHandler)
     print(f'BitAxe Fleet API  ->  http://{args.bind}:{args.port}/api/miners')
     if BITAXE_IPS:
         print(f'Monitoring: {", ".join(BITAXE_IPS)}')
