@@ -53,7 +53,7 @@ const CONFIG = {
     weather: 15 * 60 * 1000,  // Weather every 15m
     news:    5 * 60 * 1000,   // News every 5m
     bitaxe:  30000,           // Miner stats every 30s
-    firmware: 15 * 60 * 1000, // /api/firmware every 15m; the server caches GitHub's answer for 6h
+    firmware: 6 * 60 * 60 * 1000, // Latest ESP-Miner release every 6h (server caches too)
     pools:   5 * 60 * 1000,   // Mining pools + bitcoin meta every 5m
   },
 
