@@ -222,15 +222,40 @@ CONFIGURED = False
 PORT          = 3001
 FETCH_TIMEOUT = 5
 
-# /api/rss: fetched feed bodies, keyed by feed key -> (fetched_at, body). Only
-# successful fetches are stored. The server is single-threaded, so no lock.
-RSS_CACHE_TTL  = 120
+# /api/rss cache: feed key -> (time.monotonic() of the last attempt, body or None).
+# None marks a failed fetch with no earlier copy; a failed refetch keeps the old body.
+# Either way the attempt is stamped, so a feed is tried at most once per TTL.
+# The server is single-threaded, so no lock.
+# The TTL must exceed the dashboard's 300s news poll (REFRESH_INTERVALS.news in
+# src/config.js), or every poll misses the cache and refetches every feed.
+RSS_CACHE_TTL  = 330
 RSS_SIZE_LIMIT = 2 * 1024 * 1024
 # Total time budget for one feed fetch. The urllib timeout only bounds each socket read,
 # so an upstream sending a byte at a time would otherwise hold this single-threaded
 # server indefinitely. Checked between reads: worst case is this plus one read timeout.
 RSS_FETCH_DEADLINE = FETCH_TIMEOUT - 1
 _rss_cache = {}
+
+
+def _fetch_feed(target):
+    """Fetch one feed body: redirects refused, size-capped, total-time-bounded. Raises on
+    any failure (urllib.error.HTTPError for an upstream status, including a refused 3xx)."""
+    req = urllib.request.Request(target, headers={'User-Agent': 'DailyNode/1.0'})
+    opener = urllib.request.build_opener(_NoRedirect)
+    deadline = time.monotonic() + RSS_FETCH_DEADLINE
+    chunks, size = [], 0
+    with opener.open(req, timeout=RSS_FETCH_DEADLINE) as resp:
+        while size < RSS_SIZE_LIMIT:
+            if time.monotonic() > deadline:
+                raise TimeoutError('exceeded total deadline')
+            chunk = resp.read1(min(64 * 1024, RSS_SIZE_LIMIT - size))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            size += len(chunk)
+    if size >= RSS_SIZE_LIMIT:
+        raise ValueError('upstream response too large')
+    return b''.join(chunks)
 
 
 def fetch_miner(ip):
@@ -514,34 +539,26 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
         # The destination comes from the server-side map, never from the request.
         target = self.RSS_FEEDS[key]
         cached = _rss_cache.get(key)
-        if cached and time.time() - cached[0] < RSS_CACHE_TTL:
+        if cached and time.monotonic() - cached[0] < RSS_CACHE_TTL:
             body = cached[1]
+            if body is None:
+                self._json(502, {'error': 'feed fetch failed recently; not retried yet'})
+                return
         else:
             try:
-                req = urllib.request.Request(target, headers={'User-Agent': 'DailyNode/1.0'})
-                opener = urllib.request.build_opener(_NoRedirect)
-                deadline = time.monotonic() + RSS_FETCH_DEADLINE
-                chunks, size = [], 0
-                with opener.open(req, timeout=RSS_FETCH_DEADLINE) as resp:
-                    while size < RSS_SIZE_LIMIT:
-                        if time.monotonic() > deadline:
-                            raise TimeoutError('exceeded total deadline')
-                        chunk = resp.read1(min(64 * 1024, RSS_SIZE_LIMIT - size))
-                        if not chunk:
-                            break
-                        chunks.append(chunk)
-                        size += len(chunk)
-                body = b''.join(chunks)
-            except urllib.error.HTTPError as e:
-                self._json(502, {'error': f'upstream {e.code}'})
-                return
+                body = _fetch_feed(target)
             except Exception as e:
-                self._json(502, {'error': f'feed fetch failed: {e}'})
-                return
-            if len(body) >= RSS_SIZE_LIMIT:
-                self._json(502, {'error': 'upstream response too large'})
-                return
-            _rss_cache[key] = (time.time(), body)
+                error = f'upstream {e.code}' if isinstance(e, urllib.error.HTTPError) else f'feed fetch failed: {e}'
+                stale = cached[1] if cached else None
+                # Stamp the failure either way: retrying a hung upstream on every poll would
+                # block this single-threaded server (and /api/miners) each time.
+                _rss_cache[key] = (time.monotonic(), stale)
+                if stale is None:
+                    self._json(502, {'error': error})
+                    return
+                body = stale
+            else:
+                _rss_cache[key] = (time.monotonic(), body)
         self.send_response(200)
         # Third-party content on the dashboard's own origin: serve it so it can never
         # render as a document (an XHTML <script> in a feed opened directly would run

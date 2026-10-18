@@ -51,7 +51,7 @@ export function useRSS() {
           t: timeAgo(it.pubDate),
           link: safeUrl(it.link),
           img:
-            it.thumbnail ||
+            safeUrl(it.thumbnail || null) ||
             (it.enclosure && it.enclosure.type && it.enclosure.type.startsWith('image/') ? safeUrl(it.enclosure.link) : null) ||
             (it.description ? safeUrl((it.description.match(/<img\b[^>]*\bsrc=["']([^"']+)["']/i) || [])[1] || null) : null) ||
             null,

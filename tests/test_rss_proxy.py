@@ -164,11 +164,41 @@ class UpstreamFailureTest(RssProxyTestBase):
         status, _, body = self._get('/api/rss?feed=stub')
         self.assertEqual(status, 502)
         self.assertIn('error', json.loads(body))
-        self.assertNotIn('stub', bitaxe_api._rss_cache, 'a failure must not be cached')
+        # Negatively cached, so a hung or failing upstream is not retried on every poll.
+        self.assertIsNone(bitaxe_api._rss_cache['stub'][1])
 
     def test_upstream_error_status_becomes_502(self):
         _StubUpstream.status = 500
         self._assert_502()
+
+    def test_failure_is_not_retried_within_ttl(self):
+        # Each retry of a hung upstream blocks the single-threaded server (and /api/miners)
+        # for up to the fetch deadline; the dashboard polls every 300s.
+        _StubUpstream.status = 500
+        self._assert_502()
+        status, _, _ = self._get('/api/rss?feed=stub')
+        self.assertEqual(status, 502)
+        self.assertEqual(_StubUpstream.hits, 1)
+
+    def test_failed_refetch_serves_the_stale_copy(self):
+        self._get('/api/rss?feed=stub')
+        fetched_at, body = bitaxe_api._rss_cache['stub']
+        bitaxe_api._rss_cache['stub'] = (fetched_at - bitaxe_api.RSS_CACHE_TTL - 1, body)
+        _StubUpstream.status = 500
+        status, _, got = self._get('/api/rss?feed=stub')
+        self.assertEqual(status, 200)
+        self.assertEqual(got, FEED_XML)
+        # ...and the stale copy is re-stamped, so the next poll does not retry either.
+        self._get('/api/rss?feed=stub')
+        self.assertEqual(_StubUpstream.hits, 2)
+
+    def test_ttl_outlasts_the_dashboard_poll_interval(self):
+        # src/config.js REFRESH_INTERVALS.news is 5 * 60 * 1000 ms. A TTL below it means the
+        # cache never serves a single dashboard's polls, and every poll refetches every feed.
+        config_js = (ROOT / 'src' / 'config.js').read_text(encoding='utf-8')
+        m = re.search(r'news:\s*(\d+)\s*\*\s*60\s*\*\s*1000', config_js)
+        self.assertIsNotNone(m, 'REFRESH_INTERVALS.news not found in src/config.js')
+        self.assertGreater(bitaxe_api.RSS_CACHE_TTL, int(m.group(1)) * 60)
 
     def test_redirect_is_not_followed(self):
         _StubUpstream.status = 302
