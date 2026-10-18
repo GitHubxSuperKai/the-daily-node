@@ -13,6 +13,7 @@ import http.client
 import socket
 import sys
 import threading
+import time
 import unittest
 import unittest.mock
 from pathlib import Path
@@ -139,6 +140,66 @@ class ServerConcurrencyTest(unittest.TestCase):
         status, _ = self._get('/api/setup')
         self.assertEqual(status, 200)
 
+    # The handler's socket timeout closes a connection that never sends a request, so
+    # an idle preconnect (or a silent peer on the LAN) can't pin a thread forever. It
+    # bounds reads from and writes to the client, not time spent in upstream calls.
+
+    def _short_timeout(self):
+        # setup() reads the class attribute per accepted connection, so patching it
+        # after the server started applies to every connection the test then opens.
+        patcher = unittest.mock.patch.object(bitaxe_api.BitaxeAPIHandler, 'timeout', 1)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_the_handler_ships_a_finite_timeout(self):
+        # The patched cases below would pass on the stdlib default (None) as well, since
+        # the patch supplies the timeout; this pins that the server sets one itself.
+        shipped = bitaxe_api.BitaxeAPIHandler.timeout
+        self.assertIsInstance(shipped, (int, float))
+        self.assertGreater(shipped, 0)
+        self.assertEqual(shipped, bitaxe_api.REQUEST_TIMEOUT)
+
+    def test_the_server_closes_an_idle_connection(self):
+        self._short_timeout()
+        idle = socket.create_connection(('127.0.0.1', self.port), timeout=5)
+        self.addCleanup(idle.close)
+        try:
+            self.assertEqual(idle.recv(1), b'')
+        except TimeoutError:
+            self.fail('the server left an idle connection open')
+
+    def test_a_feed_fetch_may_outlast_the_timeout(self):
+        self._short_timeout()
+
+        def slow_fetch(_target):
+            time.sleep(2)
+            return b'<rss/>'
+
+        with unittest.mock.patch.object(bitaxe_api, '_fetch_feed', slow_fetch):
+            self.assertEqual(self._get('/api/rss?feed=optech', timeout=15), (200, b'<rss/>'))
+
+    def test_a_miner_fetch_may_outlast_the_timeout(self):
+        self._short_timeout()
+
+        class Resp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def read(self):
+                return b'{"hashRate": 1}'
+
+        def slow_urlopen(*_args, **_kwargs):
+            time.sleep(2)
+            return Resp()
+
+        bitaxe_api.BITAXE_IPS[:] = ['127.0.0.1']
+        with unittest.mock.patch.object(bitaxe_api.urllib.request, 'urlopen', slow_urlopen):
+            status, body = self._get('/api/miners', timeout=15)
+        self.assertEqual(status, 200)
+        self.assertIn(b'"online": true', body)
 
 if __name__ == '__main__':
     unittest.main()
