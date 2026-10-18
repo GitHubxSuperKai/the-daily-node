@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `bitaxe_api.py` now serves on `ThreadingHTTPServer`, a thread per connection. On the single-threaded `HTTPServer`, one request waiting on an upstream (an unreachable miner, a slow feed or mempool node) held every other request, which can push `/api/miners` past the dashboard's 5s fetch timeout; and a browser's idle preconnect socket, which never sends a request, stalled the server outright. `/api/setup` POSTs are now serialized by a lock, and `fetch_all_miners` reads one snapshot of the miner list. `tests/test_server_concurrency.py` covers a blocked feed fetch, a blocked miner fetch and an idle connection; all three time out on `HTTPServer`.
+- `bitaxe_api.py` now serves on `ThreadingHTTPServer`, a thread per connection. On the single-threaded `HTTPServer`, one request waiting on an upstream (an unreachable miner, a slow feed or mempool node) held every other request, which can push `/api/miners` past the dashboard's 5s fetch timeout; and a browser's idle preconnect socket, which never sends a request, stalled the server outright. `/api/setup` POSTs are now serialized by a lock, and `fetch_all_miners` reads one snapshot of the miner list. Only one thread at a time refreshes the `/api/firmware` GitHub lookup; other callers meanwhile get the cached tag at once. `tests/test_server_concurrency.py` covers a blocked feed fetch, a blocked miner fetch and an idle connection; all three time out on `HTTPServer`.
 
 ## [1.5.0] — 2026-10-17
 

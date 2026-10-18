@@ -73,6 +73,38 @@ class LatestFirmwareTests(unittest.TestCase):
             self.assertIsNone(latest, bad)
 
 
+class ConcurrentLookupTests(unittest.TestCase):
+    """The server is threaded, so latest_firmware() can run on several threads at once."""
+
+    def setUp(self):
+        bitaxe_api._firmware_cache.update(latest='v2.15.2', next_check=None)
+
+    def test_concurrent_callers_share_one_github_request(self):
+        release = threading.Event()
+        entered = threading.Event()
+        calls = []
+
+        def slow_urlopen(*_a, **_k):
+            calls.append(1)
+            entered.set()
+            release.wait(5)
+            return _resp({'tag_name': 'v2.15.3'})
+
+        results = []
+        with unittest.mock.patch.object(bitaxe_api.urllib.request, 'urlopen', side_effect=slow_urlopen):
+            first = threading.Thread(target=lambda: results.append(bitaxe_api.latest_firmware(now=1000.0)))
+            first.start()
+            self.assertTrue(entered.wait(5))
+            # A second caller while the first is still waiting on GitHub gets the
+            # cached tag at once instead of starting its own request.
+            second = bitaxe_api.latest_firmware(now=1000.0)
+            release.set()
+            first.join(5)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(second, 'v2.15.2')
+        self.assertEqual(results, ['v2.15.3'])
+
+
 class FirmwareRouteTests(unittest.TestCase):
     """GET /api/firmware is wired to latest_firmware() and sits behind the origin gate."""
 

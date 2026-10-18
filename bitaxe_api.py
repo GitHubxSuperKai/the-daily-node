@@ -308,6 +308,7 @@ FIRMWARE_TTL   = 6 * 60 * 60
 FIRMWARE_RETRY = 15 * 60
 _FIRMWARE_TAG  = re.compile(r'v?\d+\.\d+\.\d+[A-Za-z0-9.+-]{0,32}')
 _firmware_cache = {'latest': None, 'next_check': None}
+_firmware_lock  = threading.Lock()
 
 
 def latest_firmware(now=None):
@@ -316,6 +317,18 @@ def latest_firmware(now=None):
     next_check = _firmware_cache['next_check']
     if next_check is not None and now < next_check:
         return _firmware_cache['latest']
+    # The server is threaded: one thread refreshes, any other caller meanwhile gets the
+    # cached value at once rather than queueing or making a second GitHub request.
+    if not _firmware_lock.acquire(blocking=False):
+        return _firmware_cache['latest']
+    try:
+        _refresh_firmware(now)
+    finally:
+        _firmware_lock.release()
+    return _firmware_cache['latest']
+
+
+def _refresh_firmware(now):
     try:
         req = urllib.request.Request(FIRMWARE_RELEASE_URL, headers={
             'User-Agent': 'DailyNode/1.0', 'Accept': 'application/vnd.github+json',
@@ -328,7 +341,6 @@ def latest_firmware(now=None):
         _firmware_cache['next_check'] = now + FIRMWARE_TTL
     except Exception:
         _firmware_cache['next_check'] = now + FIRMWARE_RETRY
-    return _firmware_cache['latest']
 
 
 class BitaxeAPIHandler(BaseHTTPRequestHandler):
