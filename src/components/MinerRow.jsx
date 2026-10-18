@@ -65,7 +65,7 @@ export function MinerRow({ miner, ri: _ri, isLast, latestFirmware }) {
               style={{
                 display: 'inline-block', marginLeft: u(4), padding: `0 ${u(3)}`,
                 border: `1px solid ${T.orange}`, color: T.orange,
-                fontFamily: T.sans, fontSize: u(7), fontWeight: 700, letterSpacing: u(0.6),
+                fontFamily: T.sans, fontSize: u(8), fontWeight: 700, letterSpacing: u(0.6),
                 lineHeight: 1.4, verticalAlign: 'middle', whiteSpace: 'nowrap',
               }}
             >UPDATE</span>
