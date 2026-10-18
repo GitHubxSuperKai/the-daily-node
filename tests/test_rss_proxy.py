@@ -34,7 +34,7 @@ class _StubUpstream(BaseHTTPRequestHandler):
         type(self).hits += 1
         if self.trickle:
             # One byte every 0.2s against a large Content-Length: each read returns well
-            # inside any per-read socket timeout, so only a total deadline can stop it.
+            # inside any per-read socket timeout, so only a deadline across reads can stop it.
             self.send_response(200)
             self.send_header('Content-Length', '100000')
             self.end_headers()
@@ -188,9 +188,22 @@ class UpstreamFailureTest(RssProxyTestBase):
         status, _, got = self._get('/api/rss?feed=stub')
         self.assertEqual(status, 200)
         self.assertEqual(got, FEED_XML)
-        # ...and the stale copy is re-stamped, so the next poll does not retry either.
-        self._get('/api/rss?feed=stub')
+        # ...and the stale copy is re-stamped and kept, so the next poll does not retry
+        # either, and still gets the copy.
+        status, _, got = self._get('/api/rss?feed=stub')
+        self.assertEqual((status, got), (200, FEED_XML))
         self.assertEqual(_StubUpstream.hits, 2)
+
+    def test_cached_failure_is_retried_after_ttl(self):
+        _StubUpstream.status = 500
+        self._assert_502()
+        fetched_at, _ = bitaxe_api._rss_cache['stub']
+        bitaxe_api._rss_cache['stub'] = (fetched_at - bitaxe_api.RSS_CACHE_TTL - 1, None)
+        _StubUpstream.status = 200
+        status, _, got = self._get('/api/rss?feed=stub')
+        self.assertEqual((status, got), (200, FEED_XML))
+        self.assertEqual(_StubUpstream.hits, 2)
+        self.assertEqual(bitaxe_api._rss_cache['stub'][1], FEED_XML)
 
     def test_ttl_outlasts_the_dashboard_poll_interval(self):
         # src/config.js REFRESH_INTERVALS.news is 5 * 60 * 1000 ms. A TTL below it means the

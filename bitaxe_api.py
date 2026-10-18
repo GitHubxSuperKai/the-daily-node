@@ -230,16 +230,20 @@ FETCH_TIMEOUT = 5
 # src/config.js), or every poll misses the cache and refetches every feed.
 RSS_CACHE_TTL  = 330
 RSS_SIZE_LIMIT = 2 * 1024 * 1024
-# Total time budget for one feed fetch. The urllib timeout only bounds each socket read,
-# so an upstream sending a byte at a time would otherwise hold this single-threaded
-# server indefinitely. Checked between reads: worst case is this plus one read timeout.
+# Time budget for reading one feed's BODY. The urllib timeout only bounds each socket
+# read, so an upstream trickling its body a byte at a time would otherwise hold this
+# single-threaded server indefinitely; this caps the body phase at the budget plus one
+# read timeout. NOT covered: connecting, TLS, and the status/header lines, which
+# opener.open() reads before the loop. An upstream trickling its headers can still
+# stall the server; bounding that needs a watchdog thread, which was decided against.
 RSS_FETCH_DEADLINE = FETCH_TIMEOUT - 1
 _rss_cache = {}
 
 
 def _fetch_feed(target):
-    """Fetch one feed body: redirects refused, size-capped, total-time-bounded. Raises on
-    any failure (urllib.error.HTTPError for an upstream status, including a refused 3xx)."""
+    """Fetch one feed body: redirects refused, size-capped, body read time-bounded (see
+    RSS_FETCH_DEADLINE for what that does not cover). Raises on any failure
+    (urllib.error.HTTPError for an upstream status, including a refused 3xx)."""
     req = urllib.request.Request(target, headers={'User-Agent': 'DailyNode/1.0'})
     opener = urllib.request.build_opener(_NoRedirect)
     deadline = time.monotonic() + RSS_FETCH_DEADLINE
@@ -247,7 +251,7 @@ def _fetch_feed(target):
     with opener.open(req, timeout=RSS_FETCH_DEADLINE) as resp:
         while size < RSS_SIZE_LIMIT:
             if time.monotonic() > deadline:
-                raise TimeoutError('exceeded total deadline')
+                raise TimeoutError('exceeded the body-read deadline')
             chunk = resp.read1(min(64 * 1024, RSS_SIZE_LIMIT - size))
             if not chunk:
                 break
