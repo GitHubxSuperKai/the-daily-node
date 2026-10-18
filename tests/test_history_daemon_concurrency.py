@@ -14,8 +14,8 @@ import sys
 import tempfile
 import threading
 import unittest
+import unittest.mock
 from pathlib import Path
-from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -76,7 +76,7 @@ class HistoryDaemonConcurrencyTest(unittest.TestCase):
             except Exception as e:  # reported by the assertion, not swallowed
                 done['result'] = e
 
-        with mock.patch.object(history_daemon.sqlite3, 'connect', connect):
+        with unittest.mock.patch.object(history_daemon.sqlite3, 'connect', connect):
             t = threading.Thread(target=run, daemon=True)
             t.start()
             self.assertTrue(self.started.wait(5), 'the first request never reached its query')
