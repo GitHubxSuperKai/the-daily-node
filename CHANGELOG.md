@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Five more news feeds, off by default and switchable in Settings: Bitcoin Optech, No Bullshit Bitcoin, Stacker News, Hashrate Index and TFTC. They load through `/api/rss`. Their RSS2JSON fallback is unreliable: in testing, every attempt through RSS2JSON failed for Stacker News, Hashrate Index and TFTC (one of TFTC's four was a client-side timeout), while No Bullshit Bitcoin failed once in five attempts.
 - Firmware update badge for BitAxe miners. `bitaxe_api.py` serves `GET /api/firmware` → `{"latest": "<tag>"}`, the latest ESP-Miner release from the GitHub releases API (`releases/latest`, which skips drafts and prereleases). The tag is cached for 6h, a failed lookup is retried after 15m, and while GitHub is unreachable or rate-limited the last good tag (or `null`) is served. `useBitaxe` polls it every 6h as `latestFirmware`. This makes `bitaxe_api.py` call the internet on its own (`api.github.com`) for the first time; `SECURITY.md` lists it. The desktop `MinerRow` and the mobile `MinersPanel` show an UPDATE badge, with the installed and latest versions in its tooltip, on any online miner whose AxeOS `version` is older. Only the major.minor.patch core is compared: a `v` prefix and suffixes such as `-rc1` or git-describe builds are ignored, so an rc of the latest release shows no badge. A missing, `"Unknown"` or unparseable version, or an unknown latest release, shows no badge.
 
+### Fixed
+
+- `history_daemon.py` now serves on `ThreadingHTTPServer`, a thread per connection. On the single-threaded `HTTPServer`, a browser's idle preconnect socket, which never sends a request, stalled the history API outright, and a slow query held every other request. Each request already opens its own SQLite connection, so no lock was needed. `tests/test_history_daemon_concurrency.py` covers a blocked query and an idle connection; both time out on `HTTPServer`.
+
 ## [1.5.0] — 2026-10-17
 
 ### Added

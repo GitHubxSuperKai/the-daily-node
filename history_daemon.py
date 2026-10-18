@@ -14,7 +14,7 @@ import sys
 import threading
 import time
 import urllib.request
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 DEFAULT_DB     = os.path.expanduser('~/.daily-node/history.db')
@@ -23,6 +23,12 @@ POLL_CHAIN_S   = 60
 POLL_MINER_S   = 30
 PURGE_INTERVAL_S = 86400
 RETENTION_DAYS = 90
+# A thread per connection, so a slow query or a connection that never sends a request
+# (a browser's idle preconnect) can't hold every other request. Each request opens its
+# own SQLite connection, and HistoryHandler's class attributes are set once in main(),
+# so nothing the handler touches is shared between threads.
+# tests/test_history_daemon_concurrency.py fails on HTTPServer.
+SERVER_CLASS   = ThreadingHTTPServer
 
 
 # ─── Schema ────────────────────────────────────────────────────
@@ -341,7 +347,7 @@ def main():
     HistoryHandler.db_path = args.db
     HistoryHandler.allowed_origins = resolve_allowed_origins(args.allow_origins)
     print(f'[daemon] Origins:    {", ".join(sorted(HistoryHandler.allowed_origins))}')
-    server = HTTPServer((args.bind, args.port), HistoryHandler)
+    server = SERVER_CLASS((args.bind, args.port), HistoryHandler)
     print(f'[daemon] Listening. Ctrl+C to stop.')
     try:
         server.serve_forever()
