@@ -4,10 +4,10 @@ import os
 import sys
 import threading
 import unittest
+import unittest.mock
 import urllib.error
 import urllib.request
 from http.server import HTTPServer
-from unittest import mock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -16,7 +16,7 @@ import bitaxe_api
 
 def _resp(payload):
     body = payload if isinstance(payload, bytes) else json.dumps(payload).encode()
-    cm = mock.MagicMock()
+    cm = unittest.mock.MagicMock()
     cm.__enter__.return_value = io.BytesIO(body)
     cm.__exit__.return_value = False
     return cm
@@ -27,7 +27,7 @@ class LatestFirmwareTests(unittest.TestCase):
         bitaxe_api._firmware_cache.update(latest=None, next_check=None)
 
     def _fetch(self, now, side_effect):
-        with mock.patch.object(bitaxe_api.urllib.request, 'urlopen', side_effect=side_effect) as m:
+        with unittest.mock.patch.object(bitaxe_api.urllib.request, 'urlopen', side_effect=side_effect) as m:
             return bitaxe_api.latest_firmware(now=now), m
 
     def test_fetches_the_latest_release_tag(self):
@@ -97,19 +97,19 @@ class FirmwareRouteTests(unittest.TestCase):
             return e.code, e.read()
 
     def test_serves_latest_as_json(self):
-        with mock.patch.object(bitaxe_api, 'latest_firmware', return_value='v2.15.3'):
+        with unittest.mock.patch.object(bitaxe_api, 'latest_firmware', return_value='v2.15.3'):
             status, body = self._get('http://localhost:3000')
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body), {'latest': 'v2.15.3'})
 
     def test_serves_null_when_unknown(self):
-        with mock.patch.object(bitaxe_api, 'latest_firmware', return_value=None):
+        with unittest.mock.patch.object(bitaxe_api, 'latest_firmware', return_value=None):
             status, body = self._get('http://localhost:3000')
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body), {'latest': None})
 
     def test_rejects_a_disallowed_origin_without_fetching(self):
-        with mock.patch.object(bitaxe_api, 'latest_firmware', return_value='v2.15.3') as m:
+        with unittest.mock.patch.object(bitaxe_api, 'latest_firmware', return_value='v2.15.3') as m:
             status, _ = self._get('https://evil.example')
         self.assertEqual(status, 403)
         m.assert_not_called()
