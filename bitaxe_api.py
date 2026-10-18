@@ -222,6 +222,45 @@ CONFIGURED = False
 PORT          = 3001
 FETCH_TIMEOUT = 5
 
+# /api/rss cache: feed key -> (time.monotonic() of the last attempt, body or None).
+# None marks a failed fetch with no earlier copy; a failed refetch keeps the old body.
+# Either way the attempt is stamped, so a feed is tried at most once per TTL.
+# The server is single-threaded, so no lock.
+# The TTL must exceed the dashboard's 300s news poll (REFRESH_INTERVALS.news in
+# src/config.js), or every poll misses the cache and refetches every feed.
+RSS_CACHE_TTL  = 330
+RSS_SIZE_LIMIT = 2 * 1024 * 1024
+# Time budget for reading one feed's BODY. The urllib timeout only bounds each socket
+# read, so an upstream trickling its body a byte at a time would otherwise hold this
+# single-threaded server indefinitely; this caps the body phase at the budget plus one
+# read timeout. NOT covered: connecting, TLS, and the status/header lines, which
+# opener.open() reads before the loop. An upstream trickling its headers can still
+# stall the server; bounding that needs a watchdog thread, which was decided against.
+RSS_FETCH_DEADLINE = FETCH_TIMEOUT - 1
+_rss_cache = {}
+
+
+def _fetch_feed(target):
+    """Fetch one feed body: redirects refused, size-capped, body read time-bounded (see
+    RSS_FETCH_DEADLINE for what that does not cover). Raises on any failure
+    (urllib.error.HTTPError for an upstream status, including a refused 3xx)."""
+    req = urllib.request.Request(target, headers={'User-Agent': 'DailyNode/1.0'})
+    opener = urllib.request.build_opener(_NoRedirect)
+    deadline = time.monotonic() + RSS_FETCH_DEADLINE
+    chunks, size = [], 0
+    with opener.open(req, timeout=RSS_FETCH_DEADLINE) as resp:
+        while size < RSS_SIZE_LIMIT:
+            if time.monotonic() > deadline:
+                raise TimeoutError('exceeded the body-read deadline')
+            chunk = resp.read1(min(64 * 1024, RSS_SIZE_LIMIT - size))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            size += len(chunk)
+    if size >= RSS_SIZE_LIMIT:
+        raise ValueError('upstream response too large')
+    return b''.join(chunks)
+
 
 def fetch_miner(ip):
     try:
@@ -284,6 +323,19 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
     ALLOWED_ORIGINS = []
     ALLOWED_PROXY_HOSTS = frozenset()
     ALLOWED_PROXY_BASES = frozenset()  # authorized proxy destinations: normalized scheme://host:port
+    # /api/rss outbound allowlist. The caller names a feed by key and can never supply
+    # a URL. Keys must match RSS_FEED_MAP in src/config.js (tests/test_rss_proxy.py checks).
+    # URLs are the final ones: the fetch refuses redirects, so a URL that 3xx's never loads.
+    RSS_FEEDS = {
+        'bitcoinMagazine': 'https://bitcoinmagazine.com/feed',
+        'coindesk':        'https://www.coindesk.com/arc/outboundfeeds/rss?outputType=xml',
+        'newsBitcoin':     'https://news.bitcoin.com/feed/',
+        'optech':          'https://bitcoinops.org/feed.xml',
+        'nobsBitcoin':     'https://www.nobsbitcoin.com/rss/',
+        'stackerNews':     'https://stacker.news/rss',
+        'hashrateIndex':   'https://hashrateindex.com/blog/rss/',
+        'tftc':            'https://www.tftc.io/rss.xml',
+    }
     CONFIG_PATH = CONFIG_PATH  # overridden in __main__ from args.config
     _setup_page = None
     _dashboard = None
@@ -373,6 +425,8 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
         elif self.path == '/api/firmware':
             self._json(200, {'latest': latest_firmware()})
+        elif urlparse(self.path).path == '/api/rss':
+            self._rss()
         elif self.path.startswith('/api/mempool-proxy'):
             parsed = urlparse(self.path)
             params = parse_qs(parsed.query)
@@ -510,6 +564,49 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
         else:
             print('[BitAxe API] Setup complete — no miners configured (skipped)')
         self._json(200, {'bitaxe_ips': valid})
+
+    def _rss(self):
+        """Pass a feed's raw XML through, so the browser parses it (DOMParser) and the
+        dashboard no longer depends on rss2json. Not parsed here: untrusted XML stays
+        out of the server."""
+        key = parse_qs(urlparse(self.path).query).get('feed', [''])[0]
+        if key not in self.RSS_FEEDS:
+            self._json(400, {'error': 'unknown feed'})
+            return
+        # The destination comes from the server-side map, never from the request.
+        target = self.RSS_FEEDS[key]
+        cached = _rss_cache.get(key)
+        if cached and time.monotonic() - cached[0] < RSS_CACHE_TTL:
+            body = cached[1]
+            if body is None:
+                self._json(502, {'error': 'feed fetch failed recently; not retried yet'})
+                return
+        else:
+            try:
+                body = _fetch_feed(target)
+            except Exception as e:
+                error = f'upstream {e.code}' if isinstance(e, urllib.error.HTTPError) else f'feed fetch failed: {e}'
+                stale = cached[1] if cached else None
+                # Stamp the failure either way: retrying a hung upstream on every poll would
+                # block this single-threaded server (and /api/miners) each time.
+                _rss_cache[key] = (time.monotonic(), stale)
+                if stale is None:
+                    self._json(502, {'error': error})
+                    return
+                body = stale
+            else:
+                _rss_cache[key] = (time.monotonic(), body)
+        self.send_response(200)
+        # Third-party content on the dashboard's own origin: serve it so it can never
+        # render as a document (an XHTML <script> in a feed opened directly would run
+        # with access to /api/setup). The dashboard reads it with r.text() and DOMParser.
+        self.send_header('Content-Type', 'text/plain; charset=utf-8')
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('Content-Security-Policy', "default-src 'none'; sandbox")
+        self.send_header('Content-Length', str(len(body)))
+        self._cors()
+        self.end_headers()
+        self.wfile.write(body)
 
     def _json(self, status, payload):
         body = json.dumps(payload).encode('utf-8')

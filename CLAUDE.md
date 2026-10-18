@@ -60,7 +60,7 @@ Shared leaves (`Kicker`, `Num`, `Rule`) are omitted; `docs/ARCHITECTURE.md` has 
 - Mempool.space (5 endpoints via `Promise.allSettled`) → `useChain` — 60s
 - Local BitAxe API → `useBitaxe` (miner fleet); `/api/firmware` → `useBitaxe.latestFirmware` (latest ESP-Miner release, fetched from GitHub and cached 6h by `bitaxe_api.py`) — 15m
 - Open-Meteo → `useWeather` (auto dark mode on sunset) — 15m
-- RSS2JSON (3 feeds) → `useRSS` — 5m
+- RSS feeds → `useRSS` — 5m. Each enabled feed (`RSS_FEED_MAP` in `src/config.js`, 3 on by default) is fetched by key from the same-origin `/api/rss` proxy in `bitaxe_api.py`, which holds the matching key → URL allowlist, and parsed in the browser by `src/utils/feedXml.js`. Without `/api/rss` (e.g. the dev server) a feed falls back to RSS2JSON
 
 ## Key Patterns
 

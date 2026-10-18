@@ -1,3 +1,5 @@
+import { RSS_FEED_MAP } from '../config.js';
+
 const PREFS_KEY     = 'dn.prefs.v2';
 const PREFS_VERSION = 2;
 
@@ -9,11 +11,7 @@ const PREFS_DEFAULTS = {
     minerOffline: { enabled: true,  cooldownMin: 10 },
     price:        { enabled: false, pctThreshold: 5, windowMin: 60, cooldownMin: 60 },
   },
-  feeds: {
-    bitcoinMagazine: true,
-    coindesk:        true,
-    newsBitcoin:     true,
-  },
+  feeds: Object.fromEntries(RSS_FEED_MAP.map(f => [f.key, f.on])),
   intervals: {
     price:   30,
     chain:   60,
