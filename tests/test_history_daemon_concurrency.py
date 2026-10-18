@@ -76,6 +76,8 @@ class HistoryDaemonConcurrencyTest(unittest.TestCase):
             except Exception as e:  # reported by the assertion, not swallowed
                 done['result'] = e
 
+        # history_daemon.sqlite3 IS the sqlite3 module, so this patches connect for the
+        # whole process, not only the daemon; nothing else opens a connection meanwhile.
         with unittest.mock.patch.object(history_daemon.sqlite3, 'connect', connect):
             t = threading.Thread(target=run, daemon=True)
             t.start()
