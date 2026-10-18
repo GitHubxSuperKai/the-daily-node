@@ -29,6 +29,11 @@ RETENTION_DAYS = 90
 # so nothing the handler touches is shared between threads.
 # tests/test_history_daemon_concurrency.py fails on HTTPServer.
 SERVER_CLASS   = ThreadingHTTPServer
+# Seconds a client socket may sit silent before the handler closes it, so an idle
+# preconnect, or a peer on the LAN that connects and sends nothing, frees its thread.
+# It bounds each read from and write to the client, not a slow query, and not a client
+# that trickles a byte at a time.
+REQUEST_TIMEOUT = 30
 
 
 # ─── Schema ────────────────────────────────────────────────────
@@ -250,6 +255,7 @@ def resolve_allowed_origins(cli_origins):
 
 
 class HistoryHandler(BaseHTTPRequestHandler):
+    timeout = REQUEST_TIMEOUT  # applied to the client socket by StreamRequestHandler
     db_path = None
     allowed_origins = DEFAULT_ALLOWED_ORIGINS
 
