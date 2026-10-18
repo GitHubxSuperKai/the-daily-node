@@ -234,7 +234,8 @@ _setup_lock = threading.Lock()
 # Either way the attempt is stamped, so a feed is tried at most once per TTL.
 # No lock: each dict read and write is atomic. Two requests that miss the same key
 # at once both fetch it (one extra fetch), and a failing fetch re-reads the entry
-# before stamping it, so it never discards a copy another thread just cached.
+# just before stamping it, so a copy another thread cached during the fetch survives
+# (only a success landing between that re-read and the stamp is lost).
 # The TTL must exceed the dashboard's 300s news poll (REFRESH_INTERVALS.news in
 # src/config.js), or every poll misses the cache and refetches every feed.
 RSS_CACHE_TTL  = 330
@@ -319,8 +320,8 @@ def latest_firmware(now=None):
     if next_check is not None and now < next_check:
         return _firmware_cache['latest']
     # The server is threaded: one thread refreshes. With a tag cached, any other caller
-    # meanwhile gets it at once; with none cached it waits for that lookup (bounded by
-    # FETCH_TIMEOUT) rather than answer null, which the dashboard would keep for 6h.
+    # meanwhile gets it at once; with none cached it waits for that lookup (each socket
+    # operation bounded by FETCH_TIMEOUT) rather than answer null, which the dashboard would keep for 6h.
     if not _firmware_lock.acquire(blocking=_firmware_cache['latest'] is None):
         return _firmware_cache['latest']
     try:
