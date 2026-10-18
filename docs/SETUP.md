@@ -242,7 +242,7 @@ the-daily-node/
 │   │   ├── useChain.js           # Mempool.space aggregation
 │   │   ├── useBitaxe.js          # Local BitAxe API poller
 │   │   ├── useWeather.js         # Open-Meteo weather
-│   │   ├── useRSS.js             # RSS2JSON news aggregation
+│   │   ├── useRSS.js             # News aggregation (/api/rss, RSS2JSON fallback)
 │   │   ├── useClock.js           # Time formatting
 │   │   └── useFeedHealth.js      # Data source status monitoring
 │   └── utils/                    # Shared utilities
@@ -301,15 +301,16 @@ the-daily-node/
 **Symptom:** News section empty or "Loading..." indefinitely.
 
 **Solutions:**
-1. **Verify RSS2JSON limits:** RSS2JSON (free tier) has rate limits. If you're running the app frequently, consider adding an API key in `src/config.js`:
+1. **Check `/api/rss`:** when the dashboard is served by `bitaxe_api.py` (the Docker image does this), feeds load from its same-origin `/api/rss?feed=<key>` endpoint. A 502 there means the server could not fetch that feed upstream; the dashboard then tries RSS2JSON for that feed. The plain dev server has no `/api/rss`, so every feed goes through RSS2JSON.
+2. **Verify RSS2JSON limits:** RSS2JSON (free tier) has rate limits. If you're running the app frequently, consider adding an API key in `src/config.js`:
    ```javascript
    const RSS2JSON_API_KEY = 'your_key_here';
    ```
    Sign up at [rss2json.com](https://rss2json.com/) for a free API key.
 
-2. **Check feed URLs:** Open `src/config.js` and verify the RSS feed list (`RSS_FEEDS`). Some feeds may be down or have changed URLs.
-3. **Network tab:** Inspect RSS2JSON requests in DevTools. Look for 4xx errors (bad feed URL) or 5xx errors (service issue).
-4. **CORS issues:** Some RSS feeds may block requests from browsers. RSS2JSON acts as a proxy, but if it's down, news won't load.
+3. **Check feed URLs:** the feed list is `RSS_FEED_MAP` in `src/config.js` (RSS2JSON fallback URLs) and `RSS_FEEDS` in `bitaxe_api.py` (proxy URLs). Some feeds may be down or have changed URLs.
+4. **Network tab:** Inspect `/api/rss` and RSS2JSON requests in DevTools. Look for 4xx errors (bad feed URL) or 5xx errors (service issue).
+5. **CORS issues:** Some RSS feeds may block requests from browsers, which is why feeds go through `/api/rss` or RSS2JSON rather than being fetched directly.
 
 ### Dark Mode Not Working
 

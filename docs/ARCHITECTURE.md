@@ -46,7 +46,7 @@ External APIs
   ├── Mempool.space → useChain() → { height, hashrate, fees, difficulty }
   ├── BitAxe API → useBitaxe() → { miners, power, hashrate, temps }
   ├── Open-Meteo API → useWeather() → { temp, icon, wind, sunrise/sunset }
-  └── RSS Feeds (RSS2JSON) → useRSS() → { articles, timestamps }
+  └── RSS Feeds (/api/rss proxy, RSS2JSON fallback) → useRSS() → { items, leadStory }
 
 ↓
 
@@ -56,7 +56,7 @@ Custom Hooks (src/hooks/)
   ├── useChain: Aggregates chain stats from 5 Mempool endpoints
   ├── useBitaxe: Polls local BitAxe API for miner health
   ├── useWeather: Uses geo coords to fetch weather, auto dark mode on sunset
-  ├── useRSS: Aggregates Bitcoin news from 3 RSS feeds
+  ├── useRSS: Aggregates Bitcoin news from the enabled RSS feeds
   ├── useClock: Formats current time in 12h/24h
   └── useFeedHealth: Monitors all data sources, returns { up, down, stale }
 
@@ -112,7 +112,7 @@ Polls the server's `/api/miners` endpoint for miner fleet stats. Returns hashrat
 Fetches current weather from Open-Meteo API (no key required) using lat/lng coordinates. Returns temperature, weather code (WMO), wind speed, and sunrise/sunset times. Triggers auto dark mode at sunset. Polls every 15 minutes. Supports Celsius/Fahrenheit.
 
 ### **src/hooks/useRSS.js**
-Aggregates Bitcoin news from 3 RSS feeds (Bitcoin Magazine, CoinDesk, news.bitcoin.com) via RSS2JSON proxy. Removes duplicates and sorts by timestamp. Returns up to 100 articles with title, content, link, and publication date. Polls every 5 minutes.
+Aggregates Bitcoin news from the feeds enabled in Settings (`RSS_FEED_MAP` in `src/config.js`; Bitcoin Magazine, CoinDesk and news.bitcoin.com are on by default). Each feed is fetched by key from the same-origin `/api/rss` proxy and parsed by `src/utils/feedXml.js`, falling back to RSS2JSON when the proxy is unavailable. Takes up to 10 items per feed, sorts them newest first, and returns the newest as `leadStory` plus the next 14 as `items`. Polls every 5 minutes.
 
 ### **src/hooks/useFeedHealth.js**
 Monitor hook that tracks all data sources and returns overall feed health. Checks `lastOk` timestamps on all hooks and marks feeds as stale (>120s since last good fetch). Renders status lights in sidebar to indicate live/stale feeds.

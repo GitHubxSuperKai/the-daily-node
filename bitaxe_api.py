@@ -18,6 +18,7 @@ import ssl
 import stat
 import tempfile
 import threading
+import time
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -221,6 +222,12 @@ CONFIGURED = False
 PORT          = 3001
 FETCH_TIMEOUT = 5
 
+# /api/rss: fetched feed bodies, keyed by feed key -> (fetched_at, body). Only
+# successful fetches are stored. The server is single-threaded, so no lock.
+RSS_CACHE_TTL  = 120
+RSS_SIZE_LIMIT = 2 * 1024 * 1024
+_rss_cache = {}
+
 
 def fetch_miner(ip):
     try:
@@ -252,6 +259,19 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
     ALLOWED_ORIGINS = []
     ALLOWED_PROXY_HOSTS = frozenset()
     ALLOWED_PROXY_BASES = frozenset()  # authorized proxy destinations: normalized scheme://host:port
+    # /api/rss outbound allowlist. The caller names a feed by key and can never supply
+    # a URL. Keys must match RSS_FEED_MAP in src/config.js (tests/test_rss_proxy.py checks).
+    # URLs are the final ones: the fetch refuses redirects, so a URL that 3xx's never loads.
+    RSS_FEEDS = {
+        'bitcoinMagazine': 'https://bitcoinmagazine.com/feed',
+        'coindesk':        'https://www.coindesk.com/arc/outboundfeeds/rss?outputType=xml',
+        'newsBitcoin':     'https://news.bitcoin.com/feed/',
+        'optech':          'https://bitcoinops.org/feed.xml',
+        'nobsBitcoin':     'https://www.nobsbitcoin.com/rss/',
+        'stackerNews':     'https://stacker.news/rss',
+        'hashrateIndex':   'https://hashrateindex.com/blog/rss/',
+        'tftc':            'https://www.tftc.io/rss.xml',
+    }
     CONFIG_PATH = CONFIG_PATH  # overridden in __main__ from args.config
     _setup_page = None
     _dashboard = None
@@ -339,6 +359,8 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             self._cors()
             self.end_headers()
             self.wfile.write(body)
+        elif urlparse(self.path).path == '/api/rss':
+            self._rss()
         elif self.path.startswith('/api/mempool-proxy'):
             parsed = urlparse(self.path)
             params = parse_qs(parsed.query)
@@ -476,6 +498,42 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
         else:
             print('[BitAxe API] Setup complete — no miners configured (skipped)')
         self._json(200, {'bitaxe_ips': valid})
+
+    def _rss(self):
+        """Pass a feed's raw XML through, so the browser parses it (DOMParser) and the
+        dashboard no longer depends on rss2json. Not parsed here: untrusted XML stays
+        out of the server."""
+        key = parse_qs(urlparse(self.path).query).get('feed', [''])[0]
+        if key not in self.RSS_FEEDS:
+            self._json(400, {'error': 'unknown feed'})
+            return
+        # The destination comes from the server-side map, never from the request.
+        target = self.RSS_FEEDS[key]
+        cached = _rss_cache.get(key)
+        if cached and time.time() - cached[0] < RSS_CACHE_TTL:
+            body = cached[1]
+        else:
+            try:
+                req = urllib.request.Request(target, headers={'User-Agent': 'DailyNode/1.0'})
+                opener = urllib.request.build_opener(_NoRedirect)
+                with opener.open(req, timeout=FETCH_TIMEOUT - 1) as resp:
+                    body = resp.read(RSS_SIZE_LIMIT)
+            except urllib.error.HTTPError as e:
+                self._json(502, {'error': f'upstream {e.code}'})
+                return
+            except Exception as e:
+                self._json(502, {'error': f'feed fetch failed: {e}'})
+                return
+            if len(body) >= RSS_SIZE_LIMIT:
+                self._json(502, {'error': 'upstream response too large'})
+                return
+            _rss_cache[key] = (time.time(), body)
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/xml; charset=utf-8')
+        self.send_header('Content-Length', str(len(body)))
+        self._cors()
+        self.end_headers()
+        self.wfile.write(body)
 
     def _json(self, status, payload):
         body = json.dumps(payload).encode('utf-8')

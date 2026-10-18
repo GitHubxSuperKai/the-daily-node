@@ -329,7 +329,9 @@ assert.deepStrictEqual(codeqlProblems, [],
   `CodeQL config guard failed: ${codeqlProblems.join(' | ')}`);
 
 // Track A assertions
-if (!/feeds\.bitcoinMagazine/.test(html)) { console.error('FAIL: SettingsPanel missing from build'); process.exit(1); }
+// The feed toggles are generated from RSS_FEED_MAP, so no per-feed `feeds.<key>` literal
+// survives in the bundle; the section heading is the one string unique to FeedsThemeSection.
+if (!/RSS FEEDS/.test(html)) { console.error('FAIL: SettingsPanel missing from build'); process.exit(1); }
 if (!/minerOffline/.test(html))       { console.error('FAIL: useAlerts missing from build'); process.exit(1); }
 if (!/checkFeeThreshold/.test(html))  { console.error('FAIL: alertThresholds missing from build'); process.exit(1); }
 if (!/dn\.prefs\.v2/.test(html))      { console.error('FAIL: v2prefs PREFS_KEY missing from build'); process.exit(1); }

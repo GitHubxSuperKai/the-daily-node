@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `/api/rss` in `bitaxe_api.py`: a same-origin news proxy. The dashboard asks for a feed by key (`?feed=optech`), the server fetches the matching URL from its fixed `RSS_FEEDS` map (no caller-supplied URLs, no redirects followed, 2 MB cap, 120s cache) and returns the raw XML, which the browser parses (`src/utils/feedXml.js`, RSS 2.0 and Atom). When `/api/rss` is unavailable, as on the plain dev server, a feed falls back to RSS2JSON as before.
+- Five more news feeds, off by default and switchable in Settings: Bitcoin Optech, No Bullshit Bitcoin, Stacker News, Hashrate Index and TFTC. They load through `/api/rss` only; RSS2JSON returned errors for all of them except Optech and No Bullshit Bitcoin when tested.
+
 ## [1.5.0] — 2026-10-17
 
 ### Added

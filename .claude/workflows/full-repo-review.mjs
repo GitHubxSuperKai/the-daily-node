@@ -31,6 +31,7 @@ const GROUPS = [
       'src/hooks/useChain.js',
       'src/hooks/useBitaxe.js',
       'src/hooks/useRSS.js',
+      'src/utils/feedXml.js',
       'src/hooks/useWeather.js',
       'src/hooks/useAlerts.js',
       'src/hooks/useHistory.js',
@@ -179,6 +180,7 @@ for correctness only.`,
       'tests/unit/useHistory.test.js',
       'tests/unit/useResettableInterval.test.js',
       'tests/unit/useRSS.test.js',
+      'tests/unit/feedXml.test.js',
       'tests/unit/useViewportMode.test.js',
       'tests/unit/useWeather.test.js',
     ],
@@ -289,6 +291,7 @@ to cover but does not actually exercise.`,
       'tests/test_cors_errors.py',
       'tests/test_history_daemon.py',
       'tests/test_mempool_proxy.py',
+      'tests/test_rss_proxy.py',
       'tests/test_origin_allowlist.py',
     ],
   },
@@ -347,7 +350,7 @@ The project is a static HTML file (built by esbuild from JSX source) that aggreg
 - Blockchain stats from mempool.space (fee rates, difficulty, blocks, CLR)
 - BitAxe ASIC miner fleet status via a local Python API (useBitaxe hook → bitaxe_api.py)
 - Weather from Open-Meteo (also drives automatic dark mode on sunset)
-- RSS news feeds from three sources via RSS2JSON
+- RSS news feeds via the same-origin /api/rss proxy (bitaxe_api.py), RSS2JSON as fallback
 
 Key implementation details:
 - React + ReactDOM are vendored UMD builds (no CDN). JSX is compiled by esbuild at build time.
