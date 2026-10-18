@@ -2,8 +2,11 @@ import io
 import json
 import os
 import sys
+import threading
 import unittest
 import urllib.error
+import urllib.request
+from http.server import HTTPServer
 from unittest import mock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -68,6 +71,48 @@ class LatestFirmwareTests(unittest.TestCase):
             bitaxe_api._firmware_cache.update(latest=None, next_check=None)
             latest, _ = self._fetch(1000.0, [_resp(bad)])
             self.assertIsNone(latest, bad)
+
+
+class FirmwareRouteTests(unittest.TestCase):
+    """GET /api/firmware is wired to latest_firmware() and sits behind the origin gate."""
+
+    @classmethod
+    def setUpClass(cls):
+        bitaxe_api.BitaxeAPIHandler.ALLOWED_ORIGINS = ['http://localhost:3000']
+        cls.server = HTTPServer(('127.0.0.1', 0), bitaxe_api.BitaxeAPIHandler)
+        cls.port = cls.server.server_address[1]
+        threading.Thread(target=cls.server.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+
+    def _get(self, origin):
+        req = urllib.request.Request(f'http://127.0.0.1:{self.port}/api/firmware', headers={'Origin': origin})
+        try:
+            with urllib.request.urlopen(req, timeout=5) as r:
+                return r.status, r.read()
+        except urllib.error.HTTPError as e:
+            return e.code, e.read()
+
+    def test_serves_latest_as_json(self):
+        with mock.patch.object(bitaxe_api, 'latest_firmware', return_value='v2.15.3'):
+            status, body = self._get('http://localhost:3000')
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {'latest': 'v2.15.3'})
+
+    def test_serves_null_when_unknown(self):
+        with mock.patch.object(bitaxe_api, 'latest_firmware', return_value=None):
+            status, body = self._get('http://localhost:3000')
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {'latest': None})
+
+    def test_rejects_a_disallowed_origin_without_fetching(self):
+        with mock.patch.object(bitaxe_api, 'latest_firmware', return_value='v2.15.3') as m:
+            status, _ = self._get('https://evil.example')
+        self.assertEqual(status, 403)
+        m.assert_not_called()
 
 
 if __name__ == '__main__':
