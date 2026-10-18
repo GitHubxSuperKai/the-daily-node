@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { useBitaxe } from '../../src/hooks/useBitaxe.js';
 import CONFIG from '../../src/config.js';
 
@@ -63,20 +63,22 @@ describe('useBitaxe', () => {
     });
 
     it('leaves err and lastOk alone when /api/firmware fails', async () => {
-      // Reject only AFTER /api/miners has settled, so the miners success path
-      // cannot overwrite whatever the firmware failure did to err/lastOk.
-      let settled;
-      const firmwareSettled = new Promise((r) => { settled = r; });
-      global.fetch = route(() => new Promise((_, reject) => setTimeout(() => {
-        reject(new TypeError('fetch failed'));
-        setTimeout(settled, 0);
-      }, 50)));
+      // Hold the rejection until /api/miners has settled and its state is
+      // captured, so the miners success path cannot overwrite whatever the
+      // firmware failure does to err/lastOk. No timers: a timer here races
+      // waitFor's own polling.
+      let rejectFirmware;
+      global.fetch = route(() => new Promise((_, reject) => { rejectFirmware = reject; }));
       const { result } = renderHook(() => useBitaxe());
       await waitFor(() => expect(result.current.loading).toBe(false));
       const lastOk = result.current.lastOk;
       expect(lastOk).not.toBeNull();
-      await firmwareSettled;
-      await waitFor(() => expect(result.current.err).toBe(false));
+      expect(result.current.err).toBe(false);
+      await act(async () => {
+        rejectFirmware(new TypeError('fetch failed'));
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      expect(result.current.err).toBe(false);
       expect(result.current.lastOk).toBe(lastOk);
       expect(result.current.latestFirmware).toBeNull();
     });
