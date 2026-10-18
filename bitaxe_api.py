@@ -226,6 +226,10 @@ FETCH_TIMEOUT = 5
 # successful fetches are stored. The server is single-threaded, so no lock.
 RSS_CACHE_TTL  = 120
 RSS_SIZE_LIMIT = 2 * 1024 * 1024
+# Total time budget for one feed fetch. The urllib timeout only bounds each socket read,
+# so an upstream sending a byte at a time would otherwise hold this single-threaded
+# server indefinitely. Checked between reads: worst case is this plus one read timeout.
+RSS_FETCH_DEADLINE = FETCH_TIMEOUT - 1
 _rss_cache = {}
 
 
@@ -516,8 +520,18 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             try:
                 req = urllib.request.Request(target, headers={'User-Agent': 'DailyNode/1.0'})
                 opener = urllib.request.build_opener(_NoRedirect)
-                with opener.open(req, timeout=FETCH_TIMEOUT - 1) as resp:
-                    body = resp.read(RSS_SIZE_LIMIT)
+                deadline = time.monotonic() + RSS_FETCH_DEADLINE
+                chunks, size = [], 0
+                with opener.open(req, timeout=RSS_FETCH_DEADLINE) as resp:
+                    while size < RSS_SIZE_LIMIT:
+                        if time.monotonic() > deadline:
+                            raise TimeoutError('exceeded total deadline')
+                        chunk = resp.read1(min(64 * 1024, RSS_SIZE_LIMIT - size))
+                        if not chunk:
+                            break
+                        chunks.append(chunk)
+                        size += len(chunk)
+                body = b''.join(chunks)
             except urllib.error.HTTPError as e:
                 self._json(502, {'error': f'upstream {e.code}'})
                 return
@@ -529,7 +543,12 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
                 return
             _rss_cache[key] = (time.time(), body)
         self.send_response(200)
-        self.send_header('Content-Type', 'application/xml; charset=utf-8')
+        # Third-party content on the dashboard's own origin: serve it so it can never
+        # render as a document (an XHTML <script> in a feed opened directly would run
+        # with access to /api/setup). The dashboard reads it with r.text() and DOMParser.
+        self.send_header('Content-Type', 'text/plain; charset=utf-8')
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('Content-Security-Policy', "default-src 'none'; sandbox")
         self.send_header('Content-Length', str(len(body)))
         self._cors()
         self.end_headers()

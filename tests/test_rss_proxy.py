@@ -8,10 +8,11 @@ import json
 import re
 import sys
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -26,10 +27,25 @@ class _StubUpstream(BaseHTTPRequestHandler):
     body = FEED_XML
     status = 200
     location = None
+    trickle = False
     hits = 0
 
     def do_GET(self):
         type(self).hits += 1
+        if self.trickle:
+            # One byte every 0.2s against a large Content-Length: each read returns well
+            # inside any per-read socket timeout, so only a total deadline can stop it.
+            self.send_response(200)
+            self.send_header('Content-Length', '100000')
+            self.end_headers()
+            try:
+                for _ in range(50):
+                    self.wfile.write(b'x')
+                    self.wfile.flush()
+                    time.sleep(0.2)
+            except OSError:
+                pass  # the proxy hung up, which is the point
+            return
         if self.path == '/redirected':
             # Redirect target answers 200, so a proxy that followed the 3xx would succeed.
             self.send_response(200)
@@ -54,7 +70,8 @@ class RssProxyTestBase(unittest.TestCase):
     def setUpClass(cls):
         bitaxe_api.BitaxeAPIHandler.ALLOWED_ORIGINS = []
         cls.proxy = HTTPServer(('127.0.0.1', 0), bitaxe_api.BitaxeAPIHandler)
-        cls.upstream = HTTPServer(('127.0.0.1', 0), _StubUpstream)
+        # Threading, so a trickling response can't hold the stub for the next test.
+        cls.upstream = ThreadingHTTPServer(('127.0.0.1', 0), _StubUpstream)
         cls.stub_url = f'http://127.0.0.1:{cls.upstream.server_address[1]}/feed'
         cls._saved_feeds = bitaxe_api.BitaxeAPIHandler.RSS_FEEDS
         for srv in (cls.proxy, cls.upstream):
@@ -72,6 +89,7 @@ class RssProxyTestBase(unittest.TestCase):
         _StubUpstream.body = FEED_XML
         _StubUpstream.status = 200
         _StubUpstream.location = None
+        _StubUpstream.trickle = False
         _StubUpstream.hits = 0
 
     def _get(self, path, headers=None):
@@ -89,7 +107,15 @@ class HappyPathTest(RssProxyTestBase):
         status, headers, body = self._get('/api/rss?feed=stub')
         self.assertEqual(status, 200)
         self.assertEqual(body, FEED_XML)
-        self.assertEqual(headers['Content-Type'], 'application/xml; charset=utf-8')
+
+    def test_body_can_never_render_as_a_document(self):
+        # Third-party XML on the dashboard's own origin: opened directly as application/xml,
+        # an XHTML <script> in a compromised feed would run with access to /api/setup.
+        # The dashboard only ever calls r.text(), so it loses nothing.
+        _, headers, _ = self._get('/api/rss?feed=stub')
+        self.assertEqual(headers['Content-Type'], 'text/plain; charset=utf-8')
+        self.assertEqual(headers['X-Content-Type-Options'], 'nosniff')
+        self.assertEqual(headers['Content-Security-Policy'], "default-src 'none'; sandbox")
 
     def test_second_request_within_ttl_is_served_from_cache(self):
         self._get('/api/rss?feed=stub')
@@ -149,6 +175,19 @@ class UpstreamFailureTest(RssProxyTestBase):
         _StubUpstream.location = self.stub_url.replace('/feed', '/redirected')
         self._assert_502()
         self.assertEqual(_StubUpstream.hits, 1)
+
+    def test_trickling_upstream_is_cut_off_at_the_total_deadline(self):
+        # The urllib timeout is per socket read, so a byte-at-a-time upstream would hold
+        # the single-threaded server indefinitely without an overall deadline.
+        saved = bitaxe_api.RSS_FETCH_DEADLINE
+        bitaxe_api.RSS_FETCH_DEADLINE = 1
+        try:
+            _StubUpstream.trickle = True
+            started = time.monotonic()
+            self._assert_502()
+            self.assertLess(time.monotonic() - started, 3)
+        finally:
+            bitaxe_api.RSS_FETCH_DEADLINE = saved
 
     def test_oversized_body_rejected(self):
         _StubUpstream.body = b'x' * bitaxe_api.RSS_SIZE_LIMIT
