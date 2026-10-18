@@ -225,6 +225,12 @@ FETCH_TIMEOUT = 5
 # mempool proxy) or a connection that never sends a request (a browser's idle preconnect)
 # can't hold every other request. tests/test_server_concurrency.py fails on HTTPServer.
 SERVER_CLASS  = ThreadingHTTPServer
+# Seconds a client socket may sit silent before the handler closes it, so an idle
+# preconnect, or a peer on the LAN that connects and sends nothing, frees its thread.
+# It bounds each read from the client and each whole response sent to it (sendall's
+# timeout covers the full send, so a client too slow to take a body in 30s is cut off),
+# not upstream work (a slow miner or feed), and not a client that trickles request bytes.
+REQUEST_TIMEOUT = 30
 # Serializes /api/setup POSTs: save_config is a read-modify-write of the config file, and
 # the file and the in-memory BITAXE_IPS/CONFIGURED must end up from the same request.
 _setup_lock = threading.Lock()
@@ -350,6 +356,7 @@ def _refresh_firmware(now):
 
 
 class BitaxeAPIHandler(BaseHTTPRequestHandler):
+    timeout = REQUEST_TIMEOUT  # applied to the client socket by StreamRequestHandler
     ALLOWED_ORIGINS = []
     ALLOWED_PROXY_HOSTS = frozenset()
     ALLOWED_PROXY_BASES = frozenset()  # authorized proxy destinations: normalized scheme://host:port

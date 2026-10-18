@@ -6,6 +6,7 @@ stuck in its SQLite query or a connection that never sends a request line (a bro
 idle preconnect socket) holds the accept loop, and every other request queues behind it.
 """
 import http.client
+import math
 import os
 import shutil
 import socket
@@ -13,6 +14,7 @@ import sqlite3
 import sys
 import tempfile
 import threading
+import time
 import unittest
 import unittest.mock
 from pathlib import Path
@@ -97,6 +99,48 @@ class HistoryDaemonConcurrencyTest(unittest.TestCase):
         self.addCleanup(idle.close)
         status, _ = self._get('/history/price')
         self.assertEqual(status, 200)
+
+    # The handler's socket timeout closes a connection that never sends a request, so
+    # an idle preconnect (or a silent peer on the LAN) can't pin a thread forever. It
+    # bounds reads from the client and each whole response sent to it, not time spent in a query.
+
+    def _short_timeout(self):
+        # setup() reads the class attribute per accepted connection, so patching it
+        # after the server started applies to every connection the test then opens.
+        patcher = unittest.mock.patch.object(history_daemon.HistoryHandler, 'timeout', 1)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_the_handler_ships_a_finite_timeout(self):
+        # The patched cases below would pass on the stdlib default (None) as well, since
+        # the patch supplies the timeout; this pins that the server sets one itself.
+        shipped = history_daemon.HistoryHandler.timeout
+        self.assertIsInstance(shipped, (int, float))
+        self.assertNotIsInstance(shipped, bool)
+        self.assertTrue(math.isfinite(shipped))
+        self.assertGreater(shipped, 0)
+        self.assertEqual(shipped, history_daemon.REQUEST_TIMEOUT)
+
+    def test_the_server_closes_an_idle_connection(self):
+        self._short_timeout()
+        idle = socket.create_connection(('127.0.0.1', self.port), timeout=5)
+        self.addCleanup(idle.close)
+        try:
+            self.assertEqual(idle.recv(1), b'')
+        except TimeoutError:
+            self.fail('the server left an idle connection open')
+
+    def test_a_query_may_outlast_the_timeout(self):
+        self._short_timeout()
+        real_connect = sqlite3.connect
+
+        def slow_connect(path, *args, **kwargs):
+            time.sleep(2)
+            return real_connect(path, *args, **kwargs)
+
+        # Process-wide patch, as in the blocked-query case above.
+        with unittest.mock.patch.object(history_daemon.sqlite3, 'connect', slow_connect):
+            self.assertEqual(self._get('/history/price', timeout=15), (200, b'[]'))
 
 
 if __name__ == '__main__':
