@@ -32,6 +32,8 @@ class ServerConcurrencyTest(unittest.TestCase):
         self._saved_origins = bitaxe_api.BitaxeAPIHandler.ALLOWED_ORIGINS
         bitaxe_api.BitaxeAPIHandler.ALLOWED_ORIGINS = []
         bitaxe_api.BITAXE_IPS[:] = []
+        self._saved_rss = dict(bitaxe_api._rss_cache)
+        bitaxe_api._rss_cache.clear()
         self.server = bitaxe_api.SERVER_CLASS(('127.0.0.1', 0), bitaxe_api.BitaxeAPIHandler)
         self.port = self.server.server_address[1]
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
@@ -47,6 +49,8 @@ class ServerConcurrencyTest(unittest.TestCase):
     def tearDown(self):
         bitaxe_api.BITAXE_IPS[:] = self._saved_ips
         bitaxe_api.BitaxeAPIHandler.ALLOWED_ORIGINS = self._saved_origins
+        bitaxe_api._rss_cache.clear()
+        bitaxe_api._rss_cache.update(self._saved_rss)
 
     def _get(self, path, timeout=FAST):
         conn = http.client.HTTPConnection('127.0.0.1', self.port, timeout=timeout)
@@ -104,6 +108,29 @@ class ServerConcurrencyTest(unittest.TestCase):
         status, body = done['result']
         self.assertEqual(status, 200)
         self.assertIn(b'"online": false', body)
+
+    def test_a_failed_fetch_does_not_discard_a_concurrent_success(self):
+        # Two requests miss the same cold feed at once: the first fetch hangs and then
+        # fails, the second succeeds meanwhile. The failure must keep the good copy,
+        # not overwrite it with the empty cache entry it saw when it started.
+        calls = []
+
+        def fetch(_target):
+            calls.append(1)
+            if len(calls) == 1:
+                self._hold()
+            return b'<rss/>'
+
+        with mock.patch.object(bitaxe_api, '_fetch_feed', fetch):
+            t, done = self._start_blocked('/api/rss?feed=optech')
+            status, body = self._get('/api/rss?feed=optech')
+            self.assertEqual((status, body), (200, b'<rss/>'))
+            self.release.set()
+            t.join(5)
+            # The released request serves the copy the other request just cached.
+            self.assertEqual(done['result'], (200, b'<rss/>'))
+            self.assertEqual(self._get('/api/rss?feed=optech'), (200, b'<rss/>'))
+        self.assertEqual(len(calls), 2)
 
     def test_an_idle_connection_does_not_block_the_next_request(self):
         # A browser preconnect: accepted, then nothing is ever sent on it.

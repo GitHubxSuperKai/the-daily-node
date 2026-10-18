@@ -104,6 +104,36 @@ class ConcurrentLookupTests(unittest.TestCase):
         self.assertEqual(second, 'v2.15.2')
         self.assertEqual(results, ['v2.15.3'])
 
+    def test_on_a_cold_cache_a_concurrent_caller_waits_for_the_tag(self):
+        # With nothing cached, an instant answer would be null, which the dashboard
+        # keeps until its next 6h poll; waiting for the one lookup in flight is better.
+        bitaxe_api._firmware_cache.update(latest=None, next_check=None)
+        release = threading.Event()
+        entered = threading.Event()
+        calls = []
+
+        def slow_urlopen(*_a, **_k):
+            calls.append(1)
+            entered.set()
+            release.wait(5)
+            return _resp({'tag_name': 'v2.15.3'})
+
+        results = []
+        with unittest.mock.patch.object(bitaxe_api.urllib.request, 'urlopen', side_effect=slow_urlopen):
+            first = threading.Thread(target=lambda: results.append(bitaxe_api.latest_firmware(now=1000.0)))
+            first.start()
+            self.assertTrue(entered.wait(5))
+            second = threading.Thread(target=lambda: results.append(bitaxe_api.latest_firmware(now=1000.0)))
+            second.start()
+            second.join(0.3)
+            self.assertTrue(second.is_alive(), 'the cold-cache caller answered before the lookup finished')
+            release.set()
+            first.join(5)
+            second.join(5)
+        # One lookup: the waiting caller re-checks the cache instead of fetching again.
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(results, ['v2.15.3', 'v2.15.3'])
+
 
 class FirmwareRouteTests(unittest.TestCase):
     """GET /api/firmware is wired to latest_firmware() and sits behind the origin gate."""

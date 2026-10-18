@@ -232,8 +232,9 @@ _setup_lock = threading.Lock()
 # /api/rss cache: feed key -> (time.monotonic() of the last attempt, body or None).
 # None marks a failed fetch with no earlier copy; a failed refetch keeps the old body.
 # Either way the attempt is stamped, so a feed is tried at most once per TTL.
-# No lock: each dict read and write is atomic, and two requests that miss the same key
-# at once both fetch it, which costs one extra fetch and nothing else.
+# No lock: each dict read and write is atomic. Two requests that miss the same key
+# at once both fetch it (one extra fetch), and a failing fetch re-reads the entry
+# before stamping it, so it never discards a copy another thread just cached.
 # The TTL must exceed the dashboard's 300s news poll (REFRESH_INTERVALS.news in
 # src/config.js), or every poll misses the cache and refetches every feed.
 RSS_CACHE_TTL  = 330
@@ -317,12 +318,16 @@ def latest_firmware(now=None):
     next_check = _firmware_cache['next_check']
     if next_check is not None and now < next_check:
         return _firmware_cache['latest']
-    # The server is threaded: one thread refreshes, any other caller meanwhile gets the
-    # cached value at once rather than queueing or making a second GitHub request.
-    if not _firmware_lock.acquire(blocking=False):
+    # The server is threaded: one thread refreshes. With a tag cached, any other caller
+    # meanwhile gets it at once; with none cached it waits for that lookup (bounded by
+    # FETCH_TIMEOUT) rather than answer null, which the dashboard would keep for 6h.
+    if not _firmware_lock.acquire(blocking=_firmware_cache['latest'] is None):
         return _firmware_cache['latest']
     try:
-        _refresh_firmware(now)
+        # Re-check: the thread that held the lock may have just refreshed the cache.
+        next_check = _firmware_cache['next_check']
+        if next_check is None or now >= next_check:
+            _refresh_firmware(now)
     finally:
         _firmware_lock.release()
     return _firmware_cache['latest']
@@ -611,7 +616,10 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
                 body = _fetch_feed(target)
             except Exception as e:
                 error = f'upstream {e.code}' if isinstance(e, urllib.error.HTTPError) else f'feed fetch failed: {e}'
-                stale = cached[1] if cached else None
+                # Re-read: another thread may have cached a good copy while this fetch
+                # was failing, and the entry read before the fetch must not replace it.
+                current = _rss_cache.get(key)
+                stale = current[1] if current else None
                 # Stamp the failure either way: retrying a hung upstream on every poll would
                 # hold a request for the full fetch deadline each time.
                 _rss_cache[key] = (time.monotonic(), stale)
