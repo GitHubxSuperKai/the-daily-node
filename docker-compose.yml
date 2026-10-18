@@ -23,14 +23,12 @@ services:
     healthcheck:
       # Probes /api/setup rather than /: it returns ~66 bytes where / is the
       # inlined dashboard bundle (~300 KB), which the probe would fetch and
-      # discard every interval on a single-threaded server. Both endpoints
-      # serve startup-cached state, so this is about cost, not fidelity —
-      # what it proves is that the request loop is still servicing requests.
-      # `retries: 3` is what prevents a false unhealthy: an unreachable miner
-      # can block request handling for ~6s (fetch_all_miners joins at
-      # FETCH_TIMEOUT+1), and 45s vs the dashboard's 30s poll keeps probes off
-      # that window most of the time — but three CONSECUTIVE collisions is the
-      # real safeguard.
+      # discard every interval. Both endpoints serve startup-cached state, so
+      # this is about cost, not fidelity — what it proves is that the server
+      # is still accepting and answering requests. The server is threaded, so
+      # the probe does not queue behind a slow miner fetch (up to ~6s:
+      # fetch_all_miners joins at FETCH_TIMEOUT+1); `retries: 3` stays as
+      # margin against a single slow probe.
       # ProxyHandler({}) because urlopen otherwise honours http_proxy from the
       # environment and would route a loopback probe through it.
       # Host and port are fixed — if you override `command:` with --port or
