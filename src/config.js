@@ -2,14 +2,27 @@
 // Configuration module for The Daily Node Command Center
 // Edit these values to match your setup
 
+// ─── RSS Feeds ────────────────────────────────────────
+// Every news source the dashboard knows. `key` is what the browser sends to the
+// same-origin /api/rss proxy (bitaxe_api.py holds the matching key -> upstream URL
+// map; tests/test_rss_proxy.py checks the two key sets agree). `url` is used only
+// for the rss2json fallback when /api/rss is unavailable (e.g. the dev server).
+// `on` is the default in the Settings panel (v2prefs feeds.*).
+const RSS_FEED_MAP = [
+  { key: 'bitcoinMagazine', label: 'Bitcoin Magazine', on: true,  url: 'https://bitcoinmagazine.com/.rss/full/' },
+  { key: 'coindesk',        label: 'CoinDesk',         on: true,  url: 'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml' },
+  { key: 'newsBitcoin',     label: 'News.Bitcoin.com', on: true,  url: 'https://news.bitcoin.com/feed/' },
+  { key: 'optech',          label: 'Bitcoin Optech',   on: false, url: 'https://bitcoinops.org/feed.xml' },
+  { key: 'nobsBitcoin',     label: 'No Bullshit Bitcoin', on: false, url: 'https://www.nobsbitcoin.com/rss/' },
+  { key: 'stackerNews',     label: 'Stacker News',     on: false, url: 'https://stacker.news/rss' },
+  { key: 'hashrateIndex',   label: 'Hashrate Index',   on: false, url: 'https://hashrateindex.com/blog/rss/' },
+  { key: 'tftc',            label: 'TFTC',             on: false, url: 'https://www.tftc.io/rss.xml' },
+];
+
 const CONFIG = {
-  // ─── RSS Feeds ────────────────────────────────────────
-  // Bitcoin news sources (all fetched and merged)
-  RSS_FEEDS: [
-    'https://bitcoinmagazine.com/.rss/full/',
-    'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml',
-    'https://news.bitcoin.com/feed/',
-  ],
+  // Feeds to fetch and merge: { key, url } entries from RSS_FEED_MAP. App replaces
+  // this from the user's v2 prefs on mount; the default is the `on` set.
+  RSS_FEEDS: RSS_FEED_MAP.filter(f => f.on).map(({ key, url }) => ({ key, url })),
 
   // ─── API & Network ────────────────────────────────────
   FETCH_TIMEOUT: 5000,
@@ -58,12 +71,6 @@ const CONFIG = {
   REFRESH_STAGGER_MS: 100,
 };
 
-
-const RSS_FEED_MAP = [
-  { key: 'bitcoinMagazine', url: 'https://bitcoinmagazine.com/.rss/full/' },
-  { key: 'coindesk',        url: 'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml' },
-  { key: 'newsBitcoin',     url: 'https://news.bitcoin.com/feed/' },
-];
 
 // ES6 exports
 export default CONFIG;
