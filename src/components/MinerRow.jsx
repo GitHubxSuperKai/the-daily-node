@@ -2,6 +2,7 @@ import React from 'react';
 import { useT } from '../theme';
 import { u } from '../utils/scale.js';
 import { fmtUptime } from '../utils/formatting.js';
+import { isFirmwareOutdated } from '../utils/firmware.js';
 
 function Dot({ status }) {
   const T = useT();
@@ -26,7 +27,7 @@ export function getMinerName(miner) {
   return `rig-${parts[parts.length - 1] || '(no IP)'}`;
 }
 
-export function MinerRow({ miner, ri: _ri, isLast }) {
+export function MinerRow({ miner, ri: _ri, isLast, latestFirmware }) {
   const T = useT();
   const tnum = React.useMemo(
     () => ({ fontFamily: T.mono, fontSize: u(11), textAlign: 'right', fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap' }),
@@ -46,6 +47,7 @@ export function MinerRow({ miner, ri: _ri, isLast }) {
   const accS     = md?.sharesAccepted || 0;
   const rejS     = md?.sharesRejected || 0;
   const pwrLimit = md?.powerLimit || null;
+  const fwOld    = !isOff && isFirmwareOutdated(md?.version, latestFirmware);
 
   const rowBase = { padding: `${u(5)} 0`, opacity: isOff ? 0.4 : 1 };
 
@@ -57,6 +59,17 @@ export function MinerRow({ miner, ri: _ri, isLast }) {
           {getMinerName(miner).split('_').map((part, i) => (
             <React.Fragment key={i}>{i > 0 && <>{`_`}<wbr /></>}{part}</React.Fragment>
           ))}
+          {fwOld && (
+            <span
+              title={`Firmware ${md.version} → ${latestFirmware} available`}
+              style={{
+                display: 'inline-block', marginLeft: u(4), padding: `0 ${u(3)}`,
+                border: `1px solid ${T.orange}`, color: T.orange,
+                fontFamily: T.sans, fontSize: u(8), fontWeight: 700, letterSpacing: u(0.6),
+                lineHeight: 1.4, verticalAlign: 'middle', whiteSpace: 'nowrap',
+              }}
+            >UPDATE</span>
+          )}
         </span>
       </div>
       <div style={{ ...rowBase, ...tnum, color: T.ink }}>{isOff ? '—' : hr.toFixed(2)}</div>

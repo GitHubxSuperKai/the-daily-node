@@ -73,6 +73,7 @@ export function makeMiner(overrides = {}) {
       sharesAccepted: 1200,
       sharesRejected: 3,
       powerLimit: 25,
+      version: 'v2.15.3',   // AxeOS firmware; matches the fixture's latestFirmware
       ...dataOverride,
     };
     for (const key of Object.keys(data)) {
@@ -165,6 +166,7 @@ export function makeProps(overrides = {}) {
     bitaxe: {
       miners: [makeMiner()],
       err: false, loading: false, lastOk: Date.now(), interval: 30000, refresh: vi.fn(),
+      latestFirmware: 'v2.15.3',
     },
     weather: {
       // wxHum and wxWind are preformatted strings from useWeather, not numbers.
@@ -220,7 +222,10 @@ export function makeDownProps(overrides = {}) {
       stale: false, loading: false, error: true, lastOk: null,
       refresh: vi.fn(), interval: 60000,
     },
-    bitaxe: { miners: [], err: true, loading: false, lastOk: null, interval: 30000, refresh: vi.fn() },
+    bitaxe: {
+      miners: [], err: true, loading: false, lastOk: null, interval: 30000, refresh: vi.fn(),
+      latestFirmware: null,
+    },
     weather: { data: null, err: true, lastOk: null, interval: 900000, refresh: vi.fn() },
     rss: { items: [], leadStory: null, err: true, lastOk: null, interval: 300000, refresh: vi.fn() },
     feedHealth: 'offline',

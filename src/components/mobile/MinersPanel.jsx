@@ -1,6 +1,7 @@
 import React from 'react';
 import { useT } from '../../theme.js';
 import { calcSoloOdds, fmtNum, fmtUptime } from '../../utils/formatting.js';
+import { isFirmwareOutdated } from '../../utils/firmware.js';
 
 function sectionLabel(T) {
   return {
@@ -116,6 +117,7 @@ function MinersPanel({ bitaxe, chain }) {
                 : null;
               const sharesRej = m.online && m.data ? (m.data.sharesRejected || 0) : null;
               const hasStats = watts !== null || uptime !== null || sharesAcc !== null;
+              const fwOld = m.online && m.data && isFirmwareOutdated(m.data.version, bitaxe.latestFirmware);
               return (
                 <div key={m.ip} style={{
                   paddingBottom: 12,
@@ -132,6 +134,16 @@ function MinersPanel({ bitaxe, chain }) {
                       <span style={{ fontFamily: T.sans, fontSize: 14, color: T.ink }}>
                         {hostname}
                       </span>
+                      {fwOld && (
+                        <span
+                          title={`Firmware ${m.data.version} → ${bitaxe.latestFirmware} available`}
+                          style={{
+                            padding: '1px 4px', border: `1px solid ${T.orange}`, color: T.orange,
+                            fontFamily: T.sans, fontSize: 9, fontWeight: 700, letterSpacing: 1,
+                            lineHeight: 1.3, whiteSpace: 'nowrap',
+                          }}
+                        >UPDATE</span>
+                      )}
                     </div>
                     <span style={{
                       fontFamily: T.mono, fontSize: 13,
