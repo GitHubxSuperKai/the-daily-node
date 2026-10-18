@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `/api/rss` in `bitaxe_api.py`: a same-origin news proxy. The dashboard asks for a feed by key (`?feed=optech`), the server fetches the matching URL from its fixed `RSS_FEEDS` map (no caller-supplied URLs, no redirects followed, 2 MB cap, 120s cache) and returns the raw XML, which the browser parses (`src/utils/feedXml.js`, RSS 2.0 and Atom). When `/api/rss` is unavailable, as on the plain dev server, a feed falls back to RSS2JSON as before.
-- Five more news feeds, off by default and switchable in Settings: Bitcoin Optech, No Bullshit Bitcoin, Stacker News, Hashrate Index and TFTC. They load through `/api/rss` only; RSS2JSON returned errors for all of them except Optech and No Bullshit Bitcoin when tested.
+- `/api/rss` in `bitaxe_api.py`: a same-origin news proxy. The dashboard asks for a feed by key (`?feed=optech`), the server fetches the matching URL from its fixed `RSS_FEEDS` map (no caller-supplied URLs, no redirects followed, 2 MB cap, a total fetch deadline) and returns the raw XML as inert `text/plain` (`nosniff`, sandboxing CSP), which the browser parses (`src/utils/feedXml.js`, RSS 2.0 and Atom). Each feed is fetched at most once per 330s, longer than the dashboard's 300s news poll: a failed refetch serves the previous copy, and a failure with no copy is not retried until the 330s are up, so a hung upstream can't stall the single-threaded server on every poll. When `/api/rss` is unavailable, as on the plain dev server, a feed falls back to RSS2JSON as before.
+- Five more news feeds, off by default and switchable in Settings: Bitcoin Optech, No Bullshit Bitcoin, Stacker News, Hashrate Index and TFTC. They load through `/api/rss`. Their RSS2JSON fallback is unreliable: in testing, RSS2JSON returned an error on every attempt for Stacker News, Hashrate Index and TFTC, and on one of three attempts for No Bullshit Bitcoin.
 
 ## [1.5.0] — 2026-10-17
 
