@@ -62,11 +62,22 @@ describe('useBitaxe', () => {
       expect(result.current.latestFirmware).toBeNull();
     });
 
-    it('keeps the miners and err state untouched when /api/firmware fails', async () => {
-      global.fetch = route(() => Promise.reject(new TypeError('fetch failed')));
+    it('leaves err and lastOk alone when /api/firmware fails', async () => {
+      // Reject only AFTER /api/miners has settled, so the miners success path
+      // cannot overwrite whatever the firmware failure did to err/lastOk.
+      let settled;
+      const firmwareSettled = new Promise((r) => { settled = r; });
+      global.fetch = route(() => new Promise((_, reject) => setTimeout(() => {
+        reject(new TypeError('fetch failed'));
+        setTimeout(settled, 0);
+      }, 50)));
       const { result } = renderHook(() => useBitaxe());
       await waitFor(() => expect(result.current.loading).toBe(false));
-      expect(result.current.err).toBe(false);
+      const lastOk = result.current.lastOk;
+      expect(lastOk).not.toBeNull();
+      await firmwareSettled;
+      await waitFor(() => expect(result.current.err).toBe(false));
+      expect(result.current.lastOk).toBe(lastOk);
       expect(result.current.latestFirmware).toBeNull();
     });
 
