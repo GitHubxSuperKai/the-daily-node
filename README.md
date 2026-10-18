@@ -16,7 +16,7 @@
 
 ## What it is
 
-A React dashboard that pulls live data from public APIs (Kraken, Mempool.space, CoinGecko, Open-Meteo, RSS feeds) and your local BitAxe miners. The frontend builds to a single `index.html` file with no runtime build step. A small Python proxy ([`bitaxe_api.py`](bitaxe_api.py)) serves both the dashboard and aggregates miner data into one JSON endpoint, so the browser never has to deal with cross-origin requests to your miners.
+A React dashboard that pulls live data from public APIs (Kraken, Mempool.space, CoinGecko, Open-Meteo, RSS feeds) and your local BitAxe miners. The frontend builds to a single `index.html` file with no runtime build step. A small Python proxy ([`bitaxe_api.py`](bitaxe_api.py)) serves both the dashboard and aggregates miner data into one JSON endpoint (it also looks up the latest ESP-Miner release on GitHub, cached for 6h), so the browser never has to deal with cross-origin requests to your miners.
 
 Built as a personal "field report" for a wall-mounted monitor. The layout is locked to 1920×1080 and scales to fit the browser window.
 
@@ -25,7 +25,7 @@ Built as a personal "field report" for a wall-mounted monitor. The layout is loc
 - 📈 **BTC price + chart** — Kraken (live price and a 1H / 24H / 7D / 30D / 1Y chart from OHLC data), CoinGecko (market cap, ATH)
 - 📰 **Bitcoin news feed** — aggregated from Bitcoin Magazine, CoinDesk, news.bitcoin.com
 - ⛓️ **Chain stats** — block height, hashrate, fees, difficulty + adjustment countdown (via Mempool.space)
-- ⛏️ **BitAxe fleet monitoring** — live hashrate, power, temps from your local miners
+- ⛏️ **BitAxe fleet monitoring** — live hashrate, power, temps from your local miners, plus an UPDATE badge on any miner running older firmware than the latest ESP-Miner release
 - 🌤️ **Weather widget** — Open-Meteo, with auto dark mode at sunset
 - 🌗 **Light + dark themes** — toggle manually or follow sunset
 - 📱 **Mobile layout** — responsive view at ≤900px with tab navigation, swipe gestures, and expandable weather tile

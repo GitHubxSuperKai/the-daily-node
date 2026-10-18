@@ -288,6 +288,37 @@ def fetch_all_miners():
     return [r for r in results if r is not None]
 
 
+# Latest ESP-Miner release, for the dashboard's "firmware update" badge. The URL is
+# a constant (no caller input reaches it), and releases/latest already excludes
+# drafts and prereleases. Unauthenticated GitHub API is 60 req/h per IP, so cache.
+FIRMWARE_RELEASE_URL = 'https://api.github.com/repos/bitaxeorg/ESP-Miner/releases/latest'
+FIRMWARE_TTL   = 6 * 60 * 60
+FIRMWARE_RETRY = 15 * 60
+_FIRMWARE_TAG  = re.compile(r'v?\d+\.\d+\.\d+[A-Za-z0-9.+-]{0,32}')
+_firmware_cache = {'latest': None, 'next_check': None}
+
+
+def latest_firmware(now=None):
+    """Latest release tag, cached; on failure, the last good value (or None)."""
+    now = time.time() if now is None else now
+    next_check = _firmware_cache['next_check']
+    if next_check is not None and now < next_check:
+        return _firmware_cache['latest']
+    try:
+        req = urllib.request.Request(FIRMWARE_RELEASE_URL, headers={
+            'User-Agent': 'DailyNode/1.0', 'Accept': 'application/vnd.github+json',
+        })
+        with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
+            tag = json.loads(resp.read(256 * 1024).decode()).get('tag_name')
+        if not isinstance(tag, str) or not _FIRMWARE_TAG.fullmatch(tag):
+            raise ValueError('unexpected tag_name')
+        _firmware_cache['latest'] = tag
+        _firmware_cache['next_check'] = now + FIRMWARE_TTL
+    except Exception:
+        _firmware_cache['next_check'] = now + FIRMWARE_RETRY
+    return _firmware_cache['latest']
+
+
 class BitaxeAPIHandler(BaseHTTPRequestHandler):
     ALLOWED_ORIGINS = []
     ALLOWED_PROXY_HOSTS = frozenset()
@@ -392,6 +423,8 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             self._cors()
             self.end_headers()
             self.wfile.write(body)
+        elif self.path == '/api/firmware':
+            self._json(200, {'latest': latest_firmware()})
         elif urlparse(self.path).path == '/api/rss':
             self._rss()
         elif self.path.startswith('/api/mempool-proxy'):

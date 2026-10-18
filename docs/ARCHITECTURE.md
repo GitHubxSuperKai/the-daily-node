@@ -45,6 +45,7 @@ External APIs
   ├── Kraken OHLC → useChartRange() → { points, domain } for the selected range
   ├── Mempool.space → useChain() → { height, hashrate, fees, difficulty }
   ├── BitAxe API → useBitaxe() → { miners, power, hashrate, temps }
+  ├── GitHub releases (via bitaxe_api.py /api/firmware) → useBitaxe() → latestFirmware
   ├── Open-Meteo API → useWeather() → { temp, icon, wind, sunrise/sunset }
   └── RSS Feeds (/api/rss proxy, RSS2JSON fallback) → useRSS() → { items, leadStory }
 
@@ -54,7 +55,7 @@ Custom Hooks (src/hooks/)
   ├── useBTC: Fetches BTC price, merges with market cap and ATH
   ├── useChartRange: Fetches the chart line for the selected range from Kraken OHLC
   ├── useChain: Aggregates chain stats from 5 Mempool endpoints
-  ├── useBitaxe: Polls local BitAxe API for miner health
+  ├── useBitaxe: Polls local BitAxe API for miner health, and /api/firmware for the latest ESP-Miner release
   ├── useWeather: Uses geo coords to fetch weather, auto dark mode on sunset
   ├── useRSS: Aggregates Bitcoin news from the enabled RSS feeds
   ├── useClock: Formats current time in 12h/24h
@@ -106,7 +107,7 @@ Fetches the chart line from Kraken OHLC for the selected range (1H, 24H, 7D, 30D
 Aggregates block height, hashrate, network difficulty, mempool stats, and fee estimates from Mempool.space using 5 parallel endpoint requests. Returns computed values: difficulty adjustment countdown, solo mining odds, estimated retarget date. Polls every 60s.
 
 ### **src/hooks/useBitaxe.js**
-Polls the server's `/api/miners` endpoint for miner fleet stats. Returns hashrate, power consumption, temperatures, and uptime per miner. Polls every 30s. Falls back gracefully if API unavailable.
+Polls the server's `/api/miners` endpoint for miner fleet stats. Returns hashrate, power consumption, temperatures, and uptime per miner. Polls every 30s. Falls back gracefully if API unavailable. Separately polls `/api/firmware` every 6h and exposes `latestFirmware`, the latest ESP-Miner release tag (or `null`); the server fetches it from the GitHub releases API (`api.github.com`) and caches it for 6h, retrying after 15m when a lookup fails. `MinerRow` and the mobile `MinersPanel` compare it with each miner's AxeOS `version` via `src/utils/firmware.js` and show an UPDATE badge when the miner is older. A failed lookup keeps the last known tag (on the client and the server), so it never hides a badge already showing; with no tag fetched yet there is simply no badge. The hook never touches `err` or `lastOk` for it.
 
 ### **src/hooks/useWeather.js**
 Fetches current weather from Open-Meteo API (no key required) using lat/lng coordinates. Returns temperature, weather code (WMO), wind speed, and sunrise/sunset times. Triggers auto dark mode at sunset. Polls every 15 minutes. Supports Celsius/Fahrenheit.
