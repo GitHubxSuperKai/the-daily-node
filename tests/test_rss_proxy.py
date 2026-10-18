@@ -172,8 +172,8 @@ class UpstreamFailureTest(RssProxyTestBase):
         self._assert_502()
 
     def test_failure_is_not_retried_within_ttl(self):
-        # Each retry of a hung upstream blocks the single-threaded server (and /api/miners)
-        # for up to the fetch deadline; the dashboard polls every 300s.
+        # Each retry of a hung upstream holds a request for up to the fetch deadline;
+        # the dashboard polls every 300s.
         _StubUpstream.status = 500
         self._assert_502()
         status, _, _ = self._get('/api/rss?feed=stub')
@@ -221,7 +221,7 @@ class UpstreamFailureTest(RssProxyTestBase):
 
     def test_trickling_upstream_is_cut_off_at_the_total_deadline(self):
         # The urllib timeout is per socket read, so a byte-at-a-time upstream would hold
-        # the single-threaded server indefinitely without an overall deadline.
+        # the request indefinitely without an overall deadline.
         saved = bitaxe_api.RSS_FETCH_DEADLINE
         bitaxe_api.RSS_FETCH_DEADLINE = 1
         try:
