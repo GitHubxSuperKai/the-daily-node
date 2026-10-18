@@ -14,6 +14,7 @@ import { useResettableInterval } from './useResettableInterval.js';
  *   loading:  true until the first response (success or fail)
  *   lastOk:   timestamp of the last successful fetch (null until first success)
  *   interval: refresh interval in ms (for feed-health tracking)
+ *   latestFirmware: latest ESP-Miner release tag from /api/firmware, or null
  *   refresh:  manual refresh trigger
  * }
  */
@@ -22,6 +23,7 @@ export function useBitaxe() {
   const [err, setErr] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [lastOk, setLastOk] = React.useState(null);
+  const [latestFirmware, setLatestFirmware] = React.useState(null);
 
   const fetchBitaxe = React.useCallback(async () => {
     try {
@@ -42,6 +44,18 @@ export function useBitaxe() {
 
   const { reset: resetBitaxe } = useResettableInterval(fetchBitaxe, CONFIG.REFRESH_INTERVALS.bitaxe);
 
+  // Kept out of err/lastOk: a failed release lookup only hides the update badge.
+  const fetchFirmware = React.useCallback(async () => {
+    try {
+      const r = await fetch('/api/firmware', { signal: AbortSignal.timeout(8000) });
+      if (!r.ok) return;
+      const body = await r.json();
+      setLatestFirmware(typeof body.latest === 'string' ? body.latest : null);
+    } catch { /* keep the last known value */ }
+  }, []);
+
+  useResettableInterval(fetchFirmware, CONFIG.REFRESH_INTERVALS.firmware);
+
   return {
     miners,
     err,
@@ -49,5 +63,6 @@ export function useBitaxe() {
     lastOk,
     interval: CONFIG.REFRESH_INTERVALS.bitaxe,
     refresh: resetBitaxe,
+    latestFirmware,
   };
 }

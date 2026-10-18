@@ -175,6 +175,7 @@ function Miners({ bitaxe, chain }) {
             miner={miner}
             ri={ri}
             isLast={ri === bitaxe.miners.length - 1}
+            latestFirmware={bitaxe.latestFirmware}
           />
         ))}
 

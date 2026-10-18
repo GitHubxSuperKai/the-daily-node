@@ -130,3 +130,33 @@ describe('MinersPanel — per-miner secondary stats row', () => {
     expect(screen.queryByText(/% up/)).toBeNull();
   });
 });
+
+describe('MinersPanel firmware badge', () => {
+  const fleet = (version, latestFirmware) => ({
+    miners: [makeMiner({ data: { version } }), makeOfflineMiner()],
+    latestFirmware,
+  });
+
+  it('shows an update badge on a miner running an older release', () => {
+    wrap(<MinersPanel bitaxe={fleet('v2.14.0', 'v2.15.3')} />);
+    const badge = screen.getByText('UPDATE');
+    expect(badge.getAttribute('title')).toBe('Firmware v2.14.0 → v2.15.3 available');
+    expect(screen.getAllByText('UPDATE')).toHaveLength(1);
+  });
+
+  it('sizes the badge in plain px, never the desktop u() scale', () => {
+    wrap(<MinersPanel bitaxe={fleet('v2.14.0', 'v2.15.3')} />);
+    expect(screen.getByText('UPDATE').getAttribute('style')).not.toMatch(/var\(--u\)/);
+  });
+
+  it.each([
+    ['the miner is current', 'v2.15.3', 'v2.15.3'],
+    ['the miner reports "Unknown"', 'Unknown', 'v2.15.3'],
+    ['the miner omits version', undefined, 'v2.15.3'],
+    ['the latest release is unknown', 'v2.14.0', null],
+    ['latestFirmware is absent', 'v2.14.0', undefined],
+  ])('shows no badge when %s', (_label, version, latest) => {
+    wrap(<MinersPanel bitaxe={fleet(version, latest)} />);
+    expect(screen.queryByText('UPDATE')).toBeNull();
+  });
+});

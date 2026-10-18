@@ -304,6 +304,7 @@ function routeAll(url) {
     default: break;
   }
   if (parsed.pathname === '/api/miners') return ok({ miners: [] });
+  if (parsed.pathname === '/api/firmware') return ok({ latest: 'v2.15.3' });
   return mempoolRouter(url);
 }
 
@@ -400,6 +401,8 @@ describe('fixture contract — healthy dashboard (makeProps)', () => {
   it('bitaxe envelope matches useBitaxe', async () => {
     const { result } = renderHook(() => useBitaxe());
     await waitFor(() => expect(result.current.loading).toBe(false));
+    // /api/firmware resolves independently of /api/miners.
+    await waitFor(() => expect(result.current.latestFirmware).not.toBeNull());
 
     // miners[] is server passthrough, so only the envelope is hook-derived here;
     // the per-miner shape is checked against bitaxe_api.py below.
@@ -632,7 +635,7 @@ describe('fixture contract — miner shape', () => {
     const TYPES = {
       hostname: 'string', hashRate: 'number', power: 'number', temp: 'number',
       vrTemp: 'number', uptimeSeconds: 'number', sharesAccepted: 'number',
-      sharesRejected: 'number', powerLimit: 'number',
+      sharesRejected: 'number', powerLimit: 'number', version: 'string',
     };
     expect(Object.keys(TYPES).sort()).toEqual(Object.keys(miner.data).sort());
     for (const [field, type] of Object.entries(TYPES)) {
