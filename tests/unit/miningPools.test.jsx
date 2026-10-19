@@ -62,6 +62,13 @@ describe('MiningPools', () => {
     expect(pct.style.color.replace(/\s/g, '')).toBe(hexToRgb(LIGHT.ink));
   });
 
+  it('paints a named pool above 40% in the concentration-risk red', () => {
+    const heavy = [{ name: 'Whale', slug: 'w', sharePct: '45.0', blockCount: 450 }, ...POOLS.slice(1)];
+    withTheme(<MiningPools pools={heavy} T={LIGHT} />);
+    expect(screen.getByText('45.0%').style.color.replace(/\s/g, '')).toBe(hexToRgb(LIGHT.red));
+    expect(screen.getByText('Concentration ⚠')).toBeTruthy();
+  });
+
   it('renders nothing without pools', () => {
     const { container } = withTheme(<MiningPools pools={[]} limit={6} T={LIGHT} />);
     expect(container.textContent).toBe('');

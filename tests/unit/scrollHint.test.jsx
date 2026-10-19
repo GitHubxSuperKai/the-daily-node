@@ -60,7 +60,7 @@ describe('ScrollHint', () => {
   it('re-measures when its ResizeObserver fires (content arriving after mount)', () => {
     const observers = [];
     const RealRO = globalThis.ResizeObserver;
-    globalThis.ResizeObserver = class { constructor(cb) { this.cb = cb; observers.push(this); } observe() {} disconnect() {} };
+    globalThis.ResizeObserver = class { constructor(cb) { this.cb = cb; this.targets = []; observers.push(this); } observe(t) { this.targets.push(t); } disconnect() {} };
     try {
       let geometry = { scrollHeight: 200, clientHeight: 200 };
       vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function () { return this.classList?.contains('scroll-hint') ? geometry.scrollHeight : 0; });
@@ -69,6 +69,9 @@ describe('ScrollHint', () => {
       const el = document.querySelector('.scroll-hint');
       expect(el.hasAttribute('data-more-below')).toBe(false);
       expect(observers).toHaveLength(1);
+      // In a fixed-height column the scroller's own box never resizes when content
+      // grows; only the inner content div does, so it must be among the targets.
+      expect(observers[0].targets).toContain(el.firstElementChild);
       geometry = { scrollHeight: 600, clientHeight: 200 };
       act(() => observers[0].cb([]));
       expect(el.hasAttribute('data-more-below')).toBe(true);
