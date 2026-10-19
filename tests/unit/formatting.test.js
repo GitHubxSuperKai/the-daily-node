@@ -326,12 +326,26 @@ describe('classifyTopic', () => {
     expect(classifyTopic('Nations adopt bitcoin reserves')).toBe('GLOBAL');
     expect(classifyTopic('Developers propose new BIP')).toBe('TECH');
   });
-  it('matches past and -ing forms the old stems caught (claim audit C10, 2026-10-19)', () => {
+  // Claim audit C10 + review round 3 (2026-10-19): a real-word comparison against the
+  // pre-PR substring classifier found these forms it filed and the whole-word rewrite dropped.
+  it('keeps every inflected or derived form the old substring stems filed', () => {
     const cases = {
-      MARKETS: ['hedges', 'hedging', 'rallying', 'rallied', 'funded', 'funding', 'exchanged', 'trading'],
+      MARKETS: ['hedges', 'hedger', 'hedgers', 'rallying', 'funded', 'funding', 'funder', 'funders', 'exchanged', 'marketed'],
+      MINING: ['halvings'],
+      REGULATION: ['governments', 'governmental', 'congressional', 'policymakers', 'complies', 'complied',
+        'noncompliance', 'deregulation', 'deregulate', 'illegal', 'legally', 'legalize', 'legalized'],
+      TECH: ['upgraded', 'forked', 'forking', 'hardfork', 'hardforks'],
+    };
+    for (const [topic, words] of Object.entries(cases)) {
+      for (const w of words) expect(classifyTopic(`Bitcoin ${w} today`), w).toBe(topic);
+    }
+  });
+  it('also matches -s/-ed/-ing forms the old stems never caught', () => {
+    const cases = {
+      MARKETS: ['hedging', 'rallied', 'trading'],
       MINING: ['mined', 'pooled'],
-      REGULATION: ['policymakers', 'complies', 'complied', 'taxed'],
-      TECH: ['upgraded', 'upgrading', 'forked', 'forking'],
+      REGULATION: ['taxed'],
+      TECH: ['upgrading'],
     };
     for (const [topic, words] of Object.entries(cases)) {
       for (const w of words) expect(classifyTopic(`Bitcoin ${w} today`), w).toBe(topic);
