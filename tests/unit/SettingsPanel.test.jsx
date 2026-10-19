@@ -163,3 +163,15 @@ describe('SettingsPanel — full render', () => {
     expect(screen.getByText(/REFRESH INTERVALS/i)).toBeTruthy();
   });
 });
+
+describe('SettingsPanel — stacking over the mobile tab bar', () => {
+  it('stacks above MobileTabBar so the tab bar cannot cover its last row', async () => {
+    const { MobileTabBar } = await import('../../src/components/mobile/MobileTabBar.jsx');
+    const { container } = renderPanel();
+    const panelZ = Number(container.firstChild.style.zIndex);
+    const bar = render(withTheme(<MobileTabBar activeTab="home" onChange={() => {}} />));
+    const barZ = Number(bar.getByRole('tablist').style.zIndex);
+    expect(barZ).toBeGreaterThan(0);
+    expect(panelZ).toBeGreaterThan(barZ);
+  });
+});
