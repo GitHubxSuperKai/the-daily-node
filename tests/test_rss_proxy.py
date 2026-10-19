@@ -81,7 +81,9 @@ class RssProxyTestBase(unittest.TestCase):
     def tearDownClass(cls):
         bitaxe_api.BitaxeAPIHandler.RSS_FEEDS = cls._saved_feeds
         cls.proxy.shutdown()
+        cls.proxy.server_close()
         cls.upstream.shutdown()
+        cls.upstream.server_close()
 
     def setUp(self):
         bitaxe_api.BitaxeAPIHandler.RSS_FEEDS = {'stub': self.stub_url}
