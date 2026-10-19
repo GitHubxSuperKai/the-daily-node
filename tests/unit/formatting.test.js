@@ -326,6 +326,17 @@ describe('classifyTopic', () => {
     expect(classifyTopic('Nations adopt bitcoin reserves')).toBe('GLOBAL');
     expect(classifyTopic('Developers propose new BIP')).toBe('TECH');
   });
+  it('matches past and -ing forms the old stems caught (claim audit C10, 2026-10-19)', () => {
+    const cases = {
+      MARKETS: ['hedges', 'hedging', 'rallying', 'rallied', 'funded', 'funding', 'exchanged', 'trading'],
+      MINING: ['mined', 'pooled'],
+      REGULATION: ['policymakers', 'complies', 'complied', 'taxed'],
+      TECH: ['upgraded', 'upgrading', 'forked', 'forking'],
+    };
+    for (const [topic, words] of Object.entries(cases)) {
+      for (const w of words) expect(classifyTopic(`Bitcoin ${w} today`), w).toBe(topic);
+    }
+  });
   it('returns MARKETS for price/market headlines', () => {
     expect(classifyTopic('Bitcoin ETF inflows hit record')).toBe('MARKETS');
     expect(classifyTopic('BTC price rally continues')).toBe('MARKETS');
