@@ -19,6 +19,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 import bitaxe_api  # noqa: E402
 
+# serve_forever's default 0.5s poll is what shutdown() waits out, once per server.
+POLL_INTERVAL = 0.05
+
 FEED_XML = b'<?xml version="1.0"?><rss><channel><title>Stub</title></channel></rss>'
 
 
@@ -75,7 +78,9 @@ class RssProxyTestBase(unittest.TestCase):
         cls.stub_url = f'http://127.0.0.1:{cls.upstream.server_address[1]}/feed'
         cls._saved_feeds = bitaxe_api.BitaxeAPIHandler.RSS_FEEDS
         for srv in (cls.proxy, cls.upstream):
-            threading.Thread(target=srv.serve_forever, daemon=True).start()
+            threading.Thread(
+                target=srv.serve_forever, kwargs={'poll_interval': POLL_INTERVAL}, daemon=True,
+            ).start()
 
     @classmethod
     def tearDownClass(cls):

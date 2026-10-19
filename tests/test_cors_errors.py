@@ -27,6 +27,8 @@ from history_daemon import (  # noqa: E402
 BITAXE_ORIGIN = 'http://127.0.0.1:3000'
 # Must be an exact entry in history_daemon.DEFAULT_ALLOWED_ORIGINS (string match, not IP check).
 HISTORY_ORIGIN = 'http://localhost:3000'
+# serve_forever's default 0.5s poll is what shutdown() waits out, once per server.
+POLL_INTERVAL = 0.05
 
 
 def _get(port, path, origin=None):
@@ -49,7 +51,8 @@ class BitaxeCatchAll404CORSTest(unittest.TestCase):
         bitaxe_api.BitaxeAPIHandler.ALLOWED_ORIGINS = []  # [] => no-Origin bypasses check
         cls.server = HTTPServer(('127.0.0.1', 0), bitaxe_api.BitaxeAPIHandler)
         cls.port = cls.server.server_address[1]
-        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread = threading.Thread(
+            target=cls.server.serve_forever, kwargs={'poll_interval': POLL_INTERVAL}, daemon=True)
         cls.thread.start()
 
     @classmethod
@@ -77,7 +80,8 @@ class HistoryDaemonErrorCORSTest(unittest.TestCase):
 
         cls.server = HTTPServer(('127.0.0.1', 0), HistoryHandler)
         cls.port = cls.server.server_address[1]
-        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread = threading.Thread(
+            target=cls.server.serve_forever, kwargs={'poll_interval': POLL_INTERVAL}, daemon=True)
         cls.thread.start()
 
     @classmethod
@@ -125,7 +129,8 @@ class HistoryDaemonAllowOriginTest(unittest.TestCase):
         HistoryHandler.db_path = db_path
         cls.server = HTTPServer(('127.0.0.1', 0), HistoryHandler)
         cls.port = cls.server.server_address[1]
-        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread = threading.Thread(
+            target=cls.server.serve_forever, kwargs={'poll_interval': POLL_INTERVAL}, daemon=True)
         cls.thread.start()
 
     @classmethod

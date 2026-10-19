@@ -17,6 +17,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import bitaxe_api  # noqa: E402
 
+# serve_forever's default 0.5s poll is what shutdown() waits out, once per server.
+POLL_INTERVAL = 0.05
+
 
 class _StubUpstream(BaseHTTPRequestHandler):
     """Configurable upstream. Set class attrs body / status before requests."""
@@ -56,8 +59,10 @@ class MempoolProxyTestBase(unittest.TestCase):
         cls._base_upstream = f'http://localhost:{cls.upstream_port}'
         cls._allow_bases(cls._base_upstream)
 
-        cls.proxy_thread = threading.Thread(target=cls.proxy.serve_forever, daemon=True)
-        cls.upstream_thread = threading.Thread(target=cls.upstream.serve_forever, daemon=True)
+        cls.proxy_thread = threading.Thread(
+            target=cls.proxy.serve_forever, kwargs={'poll_interval': POLL_INTERVAL}, daemon=True)
+        cls.upstream_thread = threading.Thread(
+            target=cls.upstream.serve_forever, kwargs={'poll_interval': POLL_INTERVAL}, daemon=True)
         cls.proxy_thread.start()
         cls.upstream_thread.start()
 
@@ -472,7 +477,8 @@ class RedirectTest(MempoolProxyTestBase):
 
         internal = HTTPServer(('127.0.0.1', 0), _InternalTargetHandler)
         internal_port = internal.server_address[1]
-        internal_thread = threading.Thread(target=internal.serve_forever, daemon=True)
+        internal_thread = threading.Thread(
+            target=internal.serve_forever, kwargs={'poll_interval': POLL_INTERVAL}, daemon=True)
         internal_thread.start()
 
         class _RedirectingUpstreamHandler(BaseHTTPRequestHandler):
@@ -487,7 +493,8 @@ class RedirectTest(MempoolProxyTestBase):
 
         redirecting = HTTPServer(('127.0.0.1', 0), _RedirectingUpstreamHandler)
         redirecting_port = redirecting.server_address[1]
-        redirecting_thread = threading.Thread(target=redirecting.serve_forever, daemon=True)
+        redirecting_thread = threading.Thread(
+            target=redirecting.serve_forever, kwargs={'poll_interval': POLL_INTERVAL}, daemon=True)
         redirecting_thread.start()
 
         try:
