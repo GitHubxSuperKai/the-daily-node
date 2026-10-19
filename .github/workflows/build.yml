@@ -91,15 +91,17 @@ jobs:
       # never server_close(). `-W error::ResourceWarning` cannot do this: a leaked
       # socket warns from socket.__del__ at interpreter exit, after unittest has set
       # the exit code, so Python prints "Exception ignored" and still exits 0. Scan
-      # the log instead. PYTHONWARNINGS makes the default-ignored warning print;
-      # `shell: bash` runs with pipefail, so a test failure still fails through tee.
+      # the log instead. PYTHONWARNINGS makes the default-ignored warning print; the
+      # leading `default` keeps unittest showing other warnings, which it stops doing
+      # once any warning option is set. `shell: bash` runs with pipefail, so a test
+      # failure still fails through tee.
       - name: Run python tests
         shell: bash
         env:
-          PYTHONWARNINGS: always::ResourceWarning
+          PYTHONWARNINGS: default,always::ResourceWarning
         run: |
-          npm run test:py 2>&1 | tee py-tests.log
-          if grep -nF 'ResourceWarning: ' py-tests.log; then
+          npm run test:py 2>&1 | tee "$RUNNER_TEMP/py-tests.log"
+          if grep -nF 'ResourceWarning: ' "$RUNNER_TEMP/py-tests.log"; then
             echo "::error::Python tests leaked a resource; see the ResourceWarning lines above"
             exit 1
           fi
