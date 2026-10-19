@@ -30,7 +30,9 @@ App (root)
 ```
 
 Shared leaf components — `Kicker`, `Num`, `Rule` — are used across several columns and are
-omitted above. `src/components/mobile/` holds a separate tree, gated by a 900px breakpoint.
+omitted above. Every scroll region (news list, network status, lead summary, Settings) is a
+`ScrollHint`: the scrollbar is hidden, and measured overflow shows as an edge fade plus a
+"More ↓" cue. `src/components/mobile/` holds a separate tree, gated by a 900px breakpoint.
 
 Only `RangeButtons` and the mobile tree are memoized (`React.memo`); the desktop components are not, and `App` re-renders every second via `useClock`. Callbacks returned by hooks use `useCallback`.
 

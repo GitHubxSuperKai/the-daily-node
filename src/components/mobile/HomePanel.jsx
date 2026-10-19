@@ -161,7 +161,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
         {wxExpanded && wx && (
           <div style={{ marginTop: 12 }}>
             {wx.hourly && wx.hourly.length > 0 && (
-              <div style={{
+              <div className="no-scrollbar" style={{
                 display: 'flex',
                 justifyContent: 'flex-start',
                 gap: 6,

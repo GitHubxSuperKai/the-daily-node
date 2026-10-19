@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Scrollbars are hidden everywhere: the news list, Network Status, the lead summary, the Settings panel and the mobile page. A new `ScrollHint` component marks overflow instead. It fades the content on whichever edge has more (a CSS mask, so it works in both themes) and shows a small "More ↓" cue that scrolls down when clicked. The edges are measured on mount, on scroll and on resize. This replaces the news list's always-visible thin scrollbar and its fade, which was switched on by item count (fewer than 8 stories) rather than by actual overflow, and the Network Status fade, which was only updated after a scroll.
+
 ## [1.6.0] — 2026-10-19
 
 ### Added
