@@ -59,6 +59,7 @@ class SetupEndpointTest(unittest.TestCase):
 
     def tearDown(self):
         self.server.shutdown()
+        self.server.server_close()
         os.unlink(self.cfg_path)
 
     def test_get_setup_returns_empty_when_unconfigured(self):
