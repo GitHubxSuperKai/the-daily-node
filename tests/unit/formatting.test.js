@@ -328,7 +328,8 @@ describe('classifyTopic', () => {
   });
   // Claim audit C10 + review rounds 3-4 (2026-10-19): comparisons against the pre-PR
   // substring classifier (a local vocabulary plus per-stem prefix x suffix generation)
-  // found these forms it filed and the whole-word rewrite dropped.
+  // found these forms it filed and the whole-word rewrite dropped. Not every alternative in
+  // the patterns is pinned here (e.g. the de-/over- prefixes on fund); scope is frozen.
   it('keeps the inflected and derived forms a comparison with the old substring classifier found', () => {
     const cases = {
       MARKETS: ['hedges', 'hedger', 'hedgers', 'unhedged', 'rallying', 'funded', 'funding', 'funder', 'funders',
@@ -351,6 +352,10 @@ describe('classifyTopic', () => {
     expect(classifyTopic('Central bankers warn on stablecoins')).toBe('GLOBAL');
     expect(classifyTopic('Bitcoin investigators probe a hack')).toBe('BITCOIN');
     expect(classifyTopic('Bitcoin investors return')).toBe('MARKETS');
+  });
+  it('does not read the adjective "taxing" as tax policy', () => {
+    expect(classifyTopic('A taxing week for Bitcoin')).not.toBe('REGULATION');
+    expect(classifyTopic('Bitcoin taxation rules change')).toBe('REGULATION');
   });
   it('also matches -s/-ed/-ing forms the old stems never caught', () => {
     const cases = {
