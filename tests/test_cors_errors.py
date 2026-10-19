@@ -58,7 +58,6 @@ class BitaxeCatchAll404CORSTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.server.shutdown()
-        cls.server.server_close()
 
     def test_unknown_route_404_includes_cors_header(self):
         status, headers = _get(self.port, '/api/nonexistent-route', origin=BITAXE_ORIGIN)
