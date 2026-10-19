@@ -7,8 +7,10 @@ import Num from './Num';
 import StatusDot from './StatusDot';
 import { OnThisDay } from './OnThisDay';
 import Weather from './Weather';
+import { MiningPools } from './NetworkStatusWidget';
+import { ScrollHint } from './ScrollHint';
 
-export function Sidebar({ clock, weather, prefs, sys }) {
+export function Sidebar({ clock, weather, prefs, sys, pools }) {
   const T = useT();
   return (
     <div
@@ -70,7 +72,11 @@ export function Sidebar({ clock, weather, prefs, sys }) {
           ))}
         </div>
       </div>
-      <div style={{ flex: 1 }} />
+      {/* Mining pools moved here from the chain column so Network Status fits at 1080.
+          The region takes the rail's spare height; on an On This Day date it scrolls. */}
+      <ScrollHint style={{ flex: 1 }}>
+        <MiningPools pools={pools} limit={6} T={T} />
+      </ScrollHint>
       <div
         style={{
           fontFamily: T.body,

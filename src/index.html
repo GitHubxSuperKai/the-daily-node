@@ -42,7 +42,8 @@
   /* SYNC: must match isMobile check in updateScale() and useViewportMode(900) in App.jsx */
   @media (max-width: 900px) {
     #canvas { width: 100vw; height: auto; min-height: 100vh; }
-    #stage { align-items: flex-start; overflow-y: auto; }
+    #stage { align-items: flex-start; overflow-y: auto; scrollbar-width: none; }
+    #stage::-webkit-scrollbar { display: none; }
   }
   @keyframes live-pulse {
     0%, 100% { opacity: 1; }
@@ -76,19 +77,39 @@
     to   { transform: translateX(-50%); }
   }
   a { text-decoration: none; color: inherit; }
-  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
-  .no-scrollbar::-webkit-scrollbar { display: none; }
-  /* Faint track + thumb always visible so the list reads as scrollable; the thumb darkens on hover or while scrolling. */
-  .news-scroll { scrollbar-width: thin; scrollbar-color: rgba(138,130,114,0.22) rgba(138,130,114,0.08); }
-  .news-scroll:hover, .news-scroll.is-scrolling { scrollbar-color: rgba(138,130,114,0.55) rgba(138,130,114,0.08); }
-  .news-scroll::-webkit-scrollbar { width: 4px; }
-  .news-scroll::-webkit-scrollbar-track { background: rgba(138,130,114,0.08); border-radius: 2px; }
-  .news-scroll::-webkit-scrollbar-thumb { background: rgba(138,130,114,0.22); border-radius: 2px; }
-  .news-scroll:hover::-webkit-scrollbar-thumb, .news-scroll.is-scrolling::-webkit-scrollbar-thumb { background: rgba(138,130,114,0.55); }
-  /* Bottom fade — passive hint that content continues */
-  .news-col-wrap { position: relative; display: flex; flex-direction: column; min-height: 0; }
-  .news-col-wrap::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 48px; background: linear-gradient(to bottom, transparent, var(--paper)); pointer-events: none; transition: opacity 0.3s; }
-  .news-col-wrap.at-bottom::after { opacity: 0; }
+  /* Scrollbars are hidden everywhere. Overflow is hinted by ScrollHint.jsx instead. */
+  .no-scrollbar, .scroll-hint { scrollbar-width: none; -ms-overflow-style: none; }
+  .no-scrollbar::-webkit-scrollbar, .scroll-hint::-webkit-scrollbar { display: none; }
+  /* ScrollHint sets data-more-above / data-more-below from measured overflow; the
+     mask fades the content itself on that edge, so it needs no theme colour. */
+  /* Capped at a quarter of the region so a short one (the lead summary) never fades away. */
+  .scroll-hint { --fade: min(calc(var(--u) * 44), 25%); outline: none; }
+  .scroll-hint[data-more-below] {
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent);
+            mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent);
+  }
+  .scroll-hint[data-more-above] {
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fade));
+            mask-image: linear-gradient(to bottom, transparent, #000 var(--fade));
+  }
+  .scroll-hint[data-more-above][data-more-below] {
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+            mask-image: linear-gradient(to bottom, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+  }
+  /* Inset: the mask clips anything outside the border box, an outset ring included. */
+  .scroll-hint:focus-visible { outline: 1px dotted var(--ink3); outline-offset: -2px; }
+  .scroll-more {
+    position: absolute; right: 0; bottom: 0;
+    border: none; cursor: pointer;
+    font-size: calc(var(--u) * 9); font-weight: 700;
+    letter-spacing: calc(var(--u) * 1.8); text-transform: uppercase;
+    padding: calc(var(--u) * 2) 0 calc(var(--u) * 2) calc(var(--u) * 6);
+  }
+  /* --u is pinned to 1px at <= 900px, so give the mobile layout real sizes. SYNC: 900px as above. */
+  @media (max-width: 900px) {
+    .scroll-hint { --fade: min(40px, 25%); }
+    .scroll-more { font-size: 10px; letter-spacing: 1.6px; padding: 4px 0 4px 8px; }
+  }
   :root {
     --u: 1px;       /* updated by JS — scale factor for 1920×1080 design */
     --u-scale: 1;   /* unitless version of --u for CSS transform: scale() */

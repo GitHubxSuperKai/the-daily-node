@@ -59,7 +59,86 @@ function Row({ label, value, valueColor, valueAlt, last, T }) {
   );
 }
 
-export function NetworkStatusWidget({ chain, T }) {
+// Mining-pool share bars. With `limit`, shows the top `limit` pools plus an
+// "Others" row for the rest, so the list has a fixed height (the desktop sidebar).
+// One pool past the limit is shown by name: an "Others (1)" row would take the same space.
+export function MiningPools({ pools, limit, T }) {
+  if (!pools || pools.length === 0) return null;
+  const shown = limit != null && pools.length > limit + 1 ? pools.slice(0, limit) : pools;
+  const rest = pools.slice(shown.length);
+  const rows = rest.length > 0
+    ? [...shown, {
+      name: `Others (${rest.length})`,
+      sharePct: rest.reduce((s, p) => s + (parseFloat(p.sharePct) || 0), 0).toFixed(1),
+      blockCount: rest.reduce((s, p) => s + (p.blockCount || 0), 0),
+      others: true,
+    }]
+    : shown;
+
+  const topPool = pools[0];
+  const poolRisk = topPool && parseFloat(topPool.sharePct) > 40;
+  const maxShare = rows.reduce((m, p) => Math.max(m, parseFloat(p.sharePct)), 0) || 1;
+
+  return (
+    <div style={{ paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
+      <SubLabel
+        right={poolRisk ? 'Concentration ⚠' : null}
+        alert={poolRisk}
+        T={T}
+      >
+        Mining Pools · 1,008 Blocks
+      </SubLabel>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        {rows.map((pool, i) => {
+          const share = parseFloat(pool.sharePct);
+          const isRisk = !pool.others && share > 40;
+          return (
+            <div key={pool.slug || pool.name || i} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: `${u(5)} 0`,
+              borderBottom: i < rows.length - 1 ? `1px solid ${T.rule3}` : 'none',
+            }}>
+              <div style={{
+                fontFamily: T.sans, fontSize: u(12), fontWeight: 400,
+                color: pool.others ? T.ink3 : T.ink2, fontStyle: pool.others ? 'italic' : 'normal',
+                width: u(100), flexShrink: 0, overflow: 'hidden',
+                textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {pool.name}
+              </div>
+              <div style={{
+                flex: 1, height: u(4), background: T.rule3, margin: `0 ${u(8)}`, position: 'relative',
+              }}>
+                <div style={{
+                  position: 'absolute', left: 0, top: 0, height: '100%',
+                  width: `${Math.min(100, (share / maxShare) * 100)}%`,
+                  background: isRisk ? T.red : pool.others ? T.ink4 : T.ink3,
+                }} />
+              </div>
+              <div style={{
+                fontFamily: T.num, fontSize: u(12), fontWeight: 400,
+                color: isRisk ? T.red : T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1',
+                width: u(38), textAlign: 'right', flexShrink: 0,
+              }}>
+                {pool.sharePct}%
+              </div>
+              <div style={{
+                fontFamily: T.num, fontSize: u(11), color: T.ink3,
+                width: u(28), textAlign: 'right', flexShrink: 0, fontFeatureSettings: '"tnum" 1, "lnum" 1',
+              }}>
+                {fmtNum(pool.blockCount || 0)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// showPools=false leaves the pool list to the caller (the desktop sidebar renders
+// it with MiningPools); the mobile Bitcoin panel keeps the full list inline.
+export function NetworkStatusWidget({ chain, T, showPools = true }) {
   const latestBlock = (chain.recentBlocks || [])[0];
   const pools = chain.pools || [];
   const d = chain.data;
@@ -108,14 +187,11 @@ export function NetworkStatusWidget({ chain, T }) {
   const blockWeight = latestBlock?.weight != null
     ? `${(latestBlock.weight / 1e6).toFixed(2)} MWU` : '—';
   const feeSpan = latestBlock?.feeRange?.length >= 2
-    ? `${Math.round(latestBlock.feeRange[0])} – ${Math.round(latestBlock.feeRange[latestBlock.feeRange.length - 1])} sat/vB`
+    ? `${Math.round(latestBlock.feeRange[0])} – ${Math.round(latestBlock.feeRange[latestBlock.feeRange.length - 1])}`
     : '—';
+  const medianFee = latestBlock?.medianFee != null ? `${latestBlock.medianFee}` : '—';
   const totalFees = latestBlock?.totalFees != null
     ? `${(latestBlock.totalFees / 1e8).toFixed(4)} BTC` : '—';
-
-  const topPool = pools[0];
-  const poolRisk = topPool && parseFloat(topPool.sharePct) > 40;
-  const maxShare = pools.reduce((m, p) => Math.max(m, parseFloat(p.sharePct)), 0) || 1;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -124,7 +200,7 @@ export function NetworkStatusWidget({ chain, T }) {
       <div style={{
         borderTop: `${u(3)} solid ${T.ink}`, borderBottom: `1px solid ${T.ink}`,
         display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-        padding: `${u(5)} 0`, marginBottom: u(16),
+        padding: `${u(5)} 0`, marginBottom: u(12),
       }}>
         <span style={{
           fontFamily: T.sans, fontSize: u(10), fontWeight: 700,
@@ -135,7 +211,7 @@ export function NetworkStatusWidget({ chain, T }) {
       </div>
 
       {/* Headline stats 3×2 */}
-      <div style={{ marginBottom: u(20) }}>
+      <div style={{ marginBottom: u(16) }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: `${u(12)} ${u(10)}` }}>
           {[
             { val: d ? fmtHashrate(d.hashrate) : '—', label: 'Hashrate',      size: 22, color: T.ink },
@@ -176,7 +252,7 @@ export function NetworkStatusWidget({ chain, T }) {
       </div>
 
       {/* Difficulty Adjustment */}
-      <div style={{ marginBottom: u(20), paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
+      <div style={{ marginBottom: u(16), paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
         <SubLabel right={diffAdjStr} rightColor={diffAdjCol} noBorder T={T}>
           Difficulty Adjustment
         </SubLabel>
@@ -214,7 +290,7 @@ export function NetworkStatusWidget({ chain, T }) {
       </div>
 
       {/* Mempool */}
-      <div style={{ marginBottom: u(20), paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
+      <div style={{ marginBottom: u(16), paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
         <SubLabel right={mempoolLabel} rightColor={mempoolColor} T={T}>
           Mempool
         </SubLabel>
@@ -231,7 +307,7 @@ export function NetworkStatusWidget({ chain, T }) {
       </div>
 
       {/* Latest Block */}
-      <div style={{ marginBottom: u(20), paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
+      <div style={{ marginBottom: showPools ? u(16) : 0, paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
         <SubLabel right={blockAge} rightColor={T.ink3} T={T}>
           Latest Block
         </SubLabel>
@@ -244,12 +320,9 @@ export function NetworkStatusWidget({ chain, T }) {
               #{fmtNum(latestBlock.height)}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: u(5) }}>
-              <Row label="Transactions" value={fmtNum(latestBlock.txCount)} T={T} />
-              <Row label="Block Weight" value={blockWeight} T={T} />
-              <Row label="Block Size"   value={fmtBlockSize(latestBlock.size)} T={T} />
-              <Row label="Fee Span"     value={feeSpan} T={T} />
-              <Row label="Median Fee"   value={latestBlock.medianFee != null ? `${latestBlock.medianFee} sat/vB` : '—'} T={T} />
-              <Row label="Total Fees"   value={totalFees} T={T} />
+              <Row label="Txs · Size · Weight" value={`${fmtNum(latestBlock.txCount)} · ${fmtBlockSize(latestBlock.size)} · ${blockWeight}`} T={T} />
+              <Row label="Fee Span · Median"   value={feeSpan === '—' && medianFee === '—' ? '—' : `${feeSpan} · ${medianFee} sat/vB`} T={T} />
+              <Row label="Total Fees"          value={totalFees} T={T} />
               <Row label="Mined By"     value={latestBlock.poolName || '—'} T={T} last />
             </div>
           </>
@@ -258,60 +331,7 @@ export function NetworkStatusWidget({ chain, T }) {
         )}
       </div>
 
-      {/* Mining Pools */}
-      {pools.length > 0 && (
-        <div style={{ paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
-          <SubLabel
-            right={poolRisk ? 'Concentration ⚠' : null}
-            alert={poolRisk}
-            T={T}
-          >
-            Mining Pools · 1,008 Blocks
-          </SubLabel>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {pools.map((pool, i) => {
-              const share = parseFloat(pool.sharePct);
-              const isRisk = share > 40;
-              return (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: `${u(5)} 0`,
-                  borderBottom: i < pools.length - 1 ? `1px solid ${T.rule3}` : 'none',
-                }}>
-                  <div style={{
-                    fontFamily: T.sans, fontSize: u(12), fontWeight: 400, color: T.ink2,
-                    width: u(100), flexShrink: 0, overflow: 'hidden',
-                    textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>
-                    {pool.name}
-                  </div>
-                  <div style={{
-                    flex: 1, height: u(4), background: T.rule3, margin: `0 ${u(8)}`, position: 'relative',
-                  }}>
-                    <div style={{
-                      position: 'absolute', left: 0, top: 0, height: '100%',
-                      width: `${(share / maxShare) * 100}%`, background: isRisk ? T.red : T.ink3,
-                    }} />
-                  </div>
-                  <div style={{
-                    fontFamily: T.num, fontSize: u(12), fontWeight: 400,
-                    color: isRisk ? T.red : T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1',
-                    width: u(38), textAlign: 'right', flexShrink: 0,
-                  }}>
-                    {pool.sharePct}%
-                  </div>
-                  <div style={{
-                    fontFamily: T.num, fontSize: u(11), color: T.ink3,
-                    width: u(28), textAlign: 'right', flexShrink: 0, fontFeatureSettings: '"tnum" 1, "lnum" 1',
-                  }}>
-                    {fmtNum(pool.blockCount || 0)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {showPools && <MiningPools pools={pools} T={T} />}
     </div>
   );
 }

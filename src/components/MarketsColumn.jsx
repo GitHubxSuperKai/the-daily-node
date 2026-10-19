@@ -10,6 +10,7 @@ import { mergeSeries, pctSince, latestHistoryMs } from '../utils/chartSeries.js'
 import { RANGES, windowSeries, axisLabels, chipTime } from '../utils/chartRange.js';
 import { ProofOfRead } from './ProofOfRead';
 import { LeadImage } from './LeadImage';
+import { ScrollHint } from './ScrollHint';
 import {
   fmtPrice,
   fmtPct,
@@ -167,12 +168,12 @@ export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartP
           {/* An image that fails to load hands the slot to the next qualifying story. */}
           <LeadImage key={lead.img} src={lead.img} onError={() => rss.skipLead && rss.skipLead(lead.img)} />
           {lead.snippet ? (
-            <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', minHeight: 0, fontFamily: T.body, fontSize: u(13.5), lineHeight: 1.5, color: T.ink2 }}>
+            <ScrollHint style={{ flex: 1, fontFamily: T.body, fontSize: u(13.5), lineHeight: 1.5, color: T.ink2 }}>
               <span style={{ fontFamily: T.serif, fontSize: u(44), fontWeight: 700, color: T.ink, float: 'left', lineHeight: 0.88, marginRight: u(8), marginTop: u(3) }}>
                 {lead.snippet.charAt(0)}
               </span>
               {lead.snippet.slice(1)}
-            </div>
+            </ScrollHint>
           ) : null}
         </div>
       ) : (
