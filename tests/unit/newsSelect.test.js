@@ -33,6 +33,7 @@ describe('isBitcoinRelevant', () => {
     expect(isBitcoinRelevant(item({ feedKey: 'newsBitcoin', hed: 'Hyperliquid Whale Down $9 Million This Week', cats: ['Market Updates', 'Bitcoin (BTC)'] }))).toBe(true);
     expect(isBitcoinRelevant(item({ feedKey: 'coindesk', hed: 'Whale moves $34 million in BTC', cats: [] }))).toBe(true);
     expect(isBitcoinRelevant(item({ feedKey: 'tftc', hed: 'Hashprice slides as difficulty climbs', cats: [] }))).toBe(true);
+    expect(isBitcoinRelevant(item({ feedKey: 'hashrateIndex', hed: 'Weekly ASIC Prices', cats: [] }))).toBe(true);
   });
   it('passes everything from Bitcoin-only feeds', () => {
     expect(isBitcoinRelevant(item({ feedKey: 'optech', hed: 'Newsletter #377', cats: [] }))).toBe(true);
@@ -81,6 +82,15 @@ describe('pickLead', () => {
     const a = item({ feedKey: 'coindesk', pubDate: hoursAgo(1), img: 'https://img.example/broken.jpg' });
     const b = item({ feedKey: 'coindesk', pubDate: hoursAgo(2) });
     expect(pickLead([a, b], NOW, new Set(['https://img.example/broken.jpg']))).toBe(b);
+  });
+  it('does not treat a future-dated primary story as recent', () => {
+    // A feed clock/timezone error must not pin a story to the top tier.
+    const future = item({ feedKey: 'coindesk', snippet: '', pubDate: hoursAgo(-3) });
+    const real = item({ feedKey: 'coindesk', pubDate: hoursAgo(1) });
+    expect(pickLead([future, real], NOW)).toBe(real);
+    // Small clock skew is tolerated.
+    const skewed = item({ feedKey: 'coindesk', pubDate: hoursAgo(-0.1) });
+    expect(pickLead([skewed, real], NOW)).toBe(skewed);
   });
   it('never leads with an undated item', () => {
     expect(pickLead([item({ pubDate: 'not a date' })], NOW)).toBeNull();

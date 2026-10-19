@@ -77,7 +77,7 @@ function NewsPanel({ rss }) {
         </div>
         {rest.length === 0 ? (
           <div style={{ fontFamily: T.num, fontSize: 12, color: T.ink3 }}>
-            {rss && rss.err ? 'Feed unavailable' : 'Loading…'}
+            {rss && rss.err ? 'Feed unavailable' : rss && rss.lastOk ? 'No Bitcoin headlines right now' : 'Loading…'}
           </div>
         ) : rest.map((it, i) => (
           <a

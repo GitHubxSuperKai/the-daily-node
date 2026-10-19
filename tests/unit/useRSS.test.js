@@ -192,4 +192,14 @@ describe('useRSS', () => {
     // The skipped story is not lost: it drops back into the list.
     expect(result.current.items.map(i => i.hed)).toContain('Bitcoin first');
   });
+
+  it('applies the per-feed cap of 10 after the Bitcoin filter, so off-topic items cannot crowd out on-topic ones', async () => {
+    // 10 off-topic items first, then 3 Bitcoin items: capping before filtering would keep none.
+    const offTopic = Array.from({ length: 10 }, (_, i) => ({ title: `Cardano update ${i}`, link: `https://example.com/off/${i}`, pubDate: recent(i + 1), categories: ['Tech'], description: '' }));
+    const onTopic = Array.from({ length: 3 }, (_, i) => ({ title: `Bitcoin story ${i}`, link: `https://example.com/on/${i}`, pubDate: recent(20 + i), categories: [], description: '' }));
+    global.fetch = onlyFeed('coindesk', [...offTopic, ...onTopic]);
+    const { result } = renderHook(() => useRSS());
+    await waitFor(() => expect(result.current.items.length).toBe(3));
+    expect(result.current.items.map(i => i.hed)).toEqual(['Bitcoin story 0', 'Bitcoin story 1', 'Bitcoin story 2']);
+  });
 });

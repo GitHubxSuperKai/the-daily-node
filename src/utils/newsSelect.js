@@ -12,10 +12,12 @@ const NEVER_LEAD_FEEDS = ['stackerNews'];
 const BITCOIN_ONLY_FEEDS = ['optech', 'nobsBitcoin'];
 
 const LEAD_WINDOW_MS = 6 * 60 * 60 * 1000;
+// A pubDate further ahead than this is a feed clock/timezone error, not a recent story.
+const FUTURE_SKEW_MS = 10 * 60 * 1000;
 const MIN_SNIPPET = 80;
 const NEWS_CAP = 30;
 
-const BITCOIN_WORDS = /\b(bitcoin\w*|btc|sats|satoshis?|lightning|mining|miners?|hashrate|hash rate|hashprice|halving|mempool|taproot|ordinals|saylor|microstrategy)\b/i;
+const BITCOIN_WORDS = /\b(bitcoin\w*|btc|sats|satoshis?|lightning|mining|miners?|hashrate|hash rate|hashprice|asics?|halving|mempool|taproot|ordinals|saylor|microstrategy)\b/i;
 
 function isBitcoinRelevant(it) {
   if (BITCOIN_ONLY_FEEDS.includes(it.feedKey)) return true;
@@ -38,7 +40,8 @@ function pickLead(pool, now = Date.now(), failedImgs = new Set()) {
     it.img && !failedImgs.has(it.img) && pubTime(it) != null &&
     !NEVER_LEAD_FEEDS.includes(it.feedKey) && it.topic !== 'PODCASTS' && !isPodcast(it));
   return (
-    eligible.find(it => LEAD_FEEDS.includes(it.feedKey) && now - pubTime(it) <= LEAD_WINDOW_MS) ||
+    eligible.find(it => LEAD_FEEDS.includes(it.feedKey) &&
+      now - pubTime(it) <= LEAD_WINDOW_MS && pubTime(it) - now <= FUTURE_SKEW_MS) ||
     eligible.find(it => (it.snippet || '').length >= MIN_SNIPPET) ||
     null
   );

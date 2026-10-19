@@ -8,7 +8,7 @@ import { isFresh } from '../utils/formatting.js';
 // the categorisation; each item's label is its outlet.
 const NEWS_SECTIONS = ['MARKETS', 'MINING', 'REGULATION', 'TECH', 'GLOBAL', 'BITCOIN', 'PODCASTS'];
 
-export function NewsColumn({ newsItems, rssErr }) {
+export function NewsColumn({ newsItems, rssErr, loaded }) {
   const T = useT();
   const grouped = NEWS_SECTIONS.reduce((acc, topic) => {
     const group = newsItems.filter(it => it.topic === topic);
@@ -66,7 +66,7 @@ export function NewsColumn({ newsItems, rssErr }) {
             </React.Fragment>
           )) : (
             <div style={{ fontFamily: T.num, fontSize: u(12), color: T.ink3, marginTop: u(16) }}>
-              {rssErr ? 'All feeds unavailable' : 'Loading headlines…'}
+              {rssErr ? 'All feeds unavailable' : loaded ? 'No Bitcoin headlines right now' : 'Loading headlines…'}
             </div>
           )}
         </div>
