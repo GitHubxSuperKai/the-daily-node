@@ -87,8 +87,22 @@ jobs:
           pip install ruff==0.16.10
           ruff check --output-format=github .
 
+      # Fails on any ResourceWarning, e.g. a test server stopped with shutdown() but
+      # never server_close(). `-W error::ResourceWarning` cannot do this: a leaked
+      # socket warns from socket.__del__ at interpreter exit, after unittest has set
+      # the exit code, so Python prints "Exception ignored" and still exits 0. Scan
+      # the log instead. PYTHONWARNINGS makes the default-ignored warning print;
+      # `shell: bash` runs with pipefail, so a test failure still fails through tee.
       - name: Run python tests
-        run: npm run test:py
+        shell: bash
+        env:
+          PYTHONWARNINGS: always::ResourceWarning
+        run: |
+          npm run test:py 2>&1 | tee py-tests.log
+          if grep -nF 'ResourceWarning: ' py-tests.log; then
+            echo "::error::Python tests leaked a resource; see the ResourceWarning lines above"
+            exit 1
+          fi
 
   # check:secrets reads the STAGED set, which is empty in a normal CI checkout —
   # a bare `npm run check:secrets` step would report "checked 0 staged files" and
