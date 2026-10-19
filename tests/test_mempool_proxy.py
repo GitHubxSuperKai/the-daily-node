@@ -72,7 +72,9 @@ class MempoolProxyTestBase(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.proxy.shutdown()
+        cls.proxy.server_close()
         cls.upstream.shutdown()
+        cls.upstream.server_close()
 
     def _get(self, path):
         """Return (status, body_bytes). Doesn't raise on 4xx/5xx."""
