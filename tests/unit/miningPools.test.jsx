@@ -12,6 +12,11 @@ const withTheme = (ui) => render(<ThemeCtx.Provider value={LIGHT}>{ui}</ThemeCtx
 
 afterEach(cleanup);
 
+const hexToRgb = (hex) => {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgb(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255})`;
+};
+
 describe('MiningPools', () => {
   const POOLS = [
     { name: 'Alpha', slug: 'a', sharePct: '31.0', blockCount: 310 },
@@ -39,6 +44,22 @@ describe('MiningPools', () => {
     withTheme(<MiningPools pools={POOLS} T={LIGHT} />);
     expect(screen.getByText('Delta')).toBeTruthy();
     expect(screen.queryByText(/^Others/)).toBeNull();
+  });
+
+  it('shows a single pool past the limit by name instead of an Others (1) row', () => {
+    withTheme(<MiningPools pools={POOLS} limit={3} T={LIGHT} />);
+    expect(screen.getByText('Delta')).toBeTruthy();
+    expect(screen.queryByText(/^Others/)).toBeNull();
+  });
+
+  it('never paints the Others row in the concentration-risk red', () => {
+    const many = [
+      { name: 'Alpha', slug: 'a', sharePct: '12.0', blockCount: 120 },
+      ...Array.from({ length: 8 }, (_, i) => ({ name: `Small${i}`, slug: `s${i}`, sharePct: '11.0', blockCount: 110 })),
+    ];
+    withTheme(<MiningPools pools={many} limit={1} T={LIGHT} />);
+    const pct = screen.getByText('88.0%');   // 8 hidden pools x 11.0, above the 40% risk line
+    expect(pct.style.color.replace(/\s/g, '')).toBe(hexToRgb(LIGHT.ink));
   });
 
   it('renders nothing without pools', () => {

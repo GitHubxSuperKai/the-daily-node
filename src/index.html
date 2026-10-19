@@ -82,7 +82,8 @@
   .no-scrollbar::-webkit-scrollbar, .scroll-hint::-webkit-scrollbar { display: none; }
   /* ScrollHint sets data-more-above / data-more-below from measured overflow; the
      mask fades the content itself on that edge, so it needs no theme colour. */
-  .scroll-hint { --fade: calc(var(--u) * 44); outline: none; }
+  /* Capped at a quarter of the region so a short one (the lead summary) never fades away. */
+  .scroll-hint { --fade: min(calc(var(--u) * 44), 25%); outline: none; }
   .scroll-hint[data-more-below] {
     -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent);
             mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent);
@@ -95,7 +96,8 @@
     -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
             mask-image: linear-gradient(to bottom, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
   }
-  .scroll-hint:focus-visible { outline: 1px dotted var(--ink3); outline-offset: 2px; }
+  /* Inset: the mask clips anything outside the border box, an outset ring included. */
+  .scroll-hint:focus-visible { outline: 1px dotted var(--ink3); outline-offset: -2px; }
   .scroll-more {
     position: absolute; right: 0; bottom: 0;
     border: none; cursor: pointer;
@@ -105,7 +107,7 @@
   }
   /* --u is pinned to 1px at <= 900px, so give the mobile layout real sizes. SYNC: 900px as above. */
   @media (max-width: 900px) {
-    .scroll-hint { --fade: 40px; }
+    .scroll-hint { --fade: min(40px, 25%); }
     .scroll-more { font-size: 10px; letter-spacing: 1.6px; padding: 4px 0 4px 8px; }
   }
   :root {

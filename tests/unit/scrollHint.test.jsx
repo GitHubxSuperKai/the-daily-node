@@ -2,7 +2,7 @@ import React from 'react';
 globalThis.React = React;
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import { ThemeCtx, LIGHT } from '../../src/theme.js';
 import { ScrollHint } from '../../src/components/ScrollHint.jsx';
 
@@ -52,6 +52,30 @@ describe('ScrollHint', () => {
     expect(el.hasAttribute('data-more-above')).toBe(true);
     expect(el.hasAttribute('data-more-below')).toBe(false);
     expect(screen.queryByRole('button', { name: /more/i })).toBeNull();
+  });
+
+  // Feeds load after mount, so the mount-time measure sees the empty state; the
+  // ResizeObserver callback is what notices content arriving. tests/setup.js
+  // stubs ResizeObserver with a no-op, so capture the callback here and fire it.
+  it('re-measures when its ResizeObserver fires (content arriving after mount)', () => {
+    const observers = [];
+    const RealRO = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class { constructor(cb) { this.cb = cb; observers.push(this); } observe() {} disconnect() {} };
+    try {
+      let geometry = { scrollHeight: 200, clientHeight: 200 };
+      vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function () { return this.classList?.contains('scroll-hint') ? geometry.scrollHeight : 0; });
+      vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(function () { return this.classList?.contains('scroll-hint') ? geometry.clientHeight : 0; });
+      withTheme(<ScrollHint><p>body</p></ScrollHint>);
+      const el = document.querySelector('.scroll-hint');
+      expect(el.hasAttribute('data-more-below')).toBe(false);
+      expect(observers).toHaveLength(1);
+      geometry = { scrollHeight: 600, clientHeight: 200 };
+      act(() => observers[0].cb([]));
+      expect(el.hasAttribute('data-more-below')).toBe(true);
+      expect(screen.getByRole('button', { name: /more/i })).toBeTruthy();
+    } finally {
+      globalThis.ResizeObserver = RealRO;
+    }
   });
 
   it('scrolls down by most of a page when the cue is clicked', () => {

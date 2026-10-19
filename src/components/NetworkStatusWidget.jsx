@@ -61,9 +61,10 @@ function Row({ label, value, valueColor, valueAlt, last, T }) {
 
 // Mining-pool share bars. With `limit`, shows the top `limit` pools plus an
 // "Others" row for the rest, so the list has a fixed height (the desktop sidebar).
+// One pool past the limit is shown by name: an "Others (1)" row would take the same space.
 export function MiningPools({ pools, limit, T }) {
   if (!pools || pools.length === 0) return null;
-  const shown = limit != null && pools.length > limit ? pools.slice(0, limit) : pools;
+  const shown = limit != null && pools.length > limit + 1 ? pools.slice(0, limit) : pools;
   const rest = pools.slice(shown.length);
   const rows = rest.length > 0
     ? [...shown, {
