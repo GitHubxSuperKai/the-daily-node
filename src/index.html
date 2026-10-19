@@ -79,12 +79,13 @@
   .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   /* News column — scrollbar fades in on scroll, out after idle */
-  .news-scroll { scrollbar-width: thin; scrollbar-color: rgba(138,130,114,0) transparent; }
-  .news-scroll.is-scrolling { scrollbar-color: rgba(138,130,114,0.45) transparent; }
-  .news-scroll::-webkit-scrollbar { width: 3px; }
-  .news-scroll::-webkit-scrollbar-track { background: transparent; }
-  .news-scroll::-webkit-scrollbar-thumb { background: rgba(138,130,114,0); border-radius: 2px; transition: background 0.2s ease; }
-  .news-scroll.is-scrolling::-webkit-scrollbar-thumb { background: rgba(138,130,114,0.45); }
+  /* Faint track + thumb always visible so the list reads as scrollable; the thumb darkens on hover or while scrolling. */
+  .news-scroll { scrollbar-width: thin; scrollbar-color: rgba(138,130,114,0.22) rgba(138,130,114,0.08); }
+  .news-scroll:hover, .news-scroll.is-scrolling { scrollbar-color: rgba(138,130,114,0.55) rgba(138,130,114,0.08); }
+  .news-scroll::-webkit-scrollbar { width: 4px; }
+  .news-scroll::-webkit-scrollbar-track { background: rgba(138,130,114,0.08); border-radius: 2px; }
+  .news-scroll::-webkit-scrollbar-thumb { background: rgba(138,130,114,0.22); border-radius: 2px; }
+  .news-scroll:hover::-webkit-scrollbar-thumb, .news-scroll.is-scrolling::-webkit-scrollbar-thumb { background: rgba(138,130,114,0.55); }
   /* Bottom fade — passive hint that content continues */
   .news-col-wrap { position: relative; display: flex; flex-direction: column; min-height: 0; }
   .news-col-wrap::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 48px; background: linear-gradient(to bottom, transparent, var(--paper)); pointer-events: none; transition: opacity 0.3s; }

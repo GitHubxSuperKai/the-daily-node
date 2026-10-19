@@ -16,16 +16,14 @@ function NewsPanel({ rss }) {
         <section style={{
           paddingBottom: 16,
           borderBottom: `1px solid ${T.rule2}`,
-          borderLeft: lead.topic === 'BREAKING' ? `3px solid ${T.red}` : 'none',
-          paddingLeft: lead.topic === 'BREAKING' ? 10 : 0,
         }}>
           <div style={{
             fontFamily: T.sans, fontSize: 9, fontWeight: 600, letterSpacing: 2,
             textTransform: 'uppercase',
-            color: lead.topic === 'BREAKING' ? T.red : T.orange,
+            color: T.orange,
             marginBottom: 8,
           }}>
-            {lead.topic === 'BREAKING' ? 'BREAKING' : `● ${lead.cat || 'TOP'}`} · {lead.src}
+            ● {lead.topic || 'TOP'} · {lead.src}
           </div>
           {lead.img && (
             <img
@@ -39,7 +37,8 @@ function NewsPanel({ rss }) {
                 display: 'block',
                 marginBottom: 10,
               }}
-              onError={function(e) { e.target.style.display = 'none'; }}
+              // Skip to the next qualifying story rather than show a lead without its image.
+              onError={() => rss.skipLead && rss.skipLead(lead.img)}
             />
           )}
           <a href={lead.link} target="_blank" rel="noopener noreferrer" style={{ WebkitTapHighlightColor: T.rule3, color: 'inherit' }}>
@@ -90,8 +89,6 @@ function NewsPanel({ rss }) {
               display: 'block',
               padding: '10px 0',
               borderBottom: `1px solid ${T.rule3}`,
-              borderLeft: it.topic === 'BREAKING' ? `3px solid ${T.red}` : 'none',
-              paddingLeft: it.topic === 'BREAKING' ? 10 : 0,
               WebkitTapHighlightColor: T.rule3,
               color: 'inherit',
             }}

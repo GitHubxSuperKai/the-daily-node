@@ -27,23 +27,25 @@ export const HOURLY = Array.from({ length: 8 }, (_, i) => ({
 
 export const NOW_SEC = Math.floor(Date.now() / 1000);
 
-// useRSS sets leadStory = all[0] and items = all.slice(1, 15) — items EXCLUDES
-// the lead. Overlapping them renders the same headline twice, which production
-// never does. Item shape: { hed, src, pubDate, t, link, img, snippet }.
+// useRSS picks leadStory via utils/newsSelect.js and items EXCLUDES it (capped at
+// 30). Overlapping them renders the same headline twice, which production never
+// does. Item shape: { feedKey, cats, audio, hed, src, pubDate, t, link, img, snippet, topic }.
 export const LEAD_STORY = {
   hed: 'Lead story', src: 'CoinDesk', pubDate: '2026-08-26T09:00:00Z', t: 'just now',
   link: 'https://example.com/lead', img: 'https://example.com/lead.jpg',
-  snippet: 'Lead story snippet.', topic: '', cat: 'BTC',
+  snippet: 'Lead story snippet.', topic: 'BITCOIN', feedKey: 'coindesk', cats: ['Bitcoin'], audio: false,
 };
 
 export const NEWS_ITEMS = [
   {
     hed: 'Top story', src: 'CoinDesk', pubDate: '2026-08-26T08:55:00Z', t: '5m ago',
-    link: 'https://example.com', img: null, snippet: 'Top story snippet.', topic: '', cat: 'BTC',
+    link: 'https://example.com', img: null, snippet: 'Top story snippet.', topic: 'MARKETS',
+    feedKey: 'coindesk', cats: ['Bitcoin'], audio: false,
   },
   {
     hed: 'Second story', src: 'Bitcoin Magazine', pubDate: '2026-08-26T08:51:00Z', t: '9m ago',
-    link: 'https://example.com/2', img: null, snippet: 'Second story snippet.', topic: '', cat: 'BTC',
+    link: 'https://example.com/2', img: null, snippet: 'Second story snippet.', topic: 'BITCOIN',
+    feedKey: 'bitcoinMagazine', cats: ['Bitcoin'], audio: false,
   },
 ];
 
@@ -185,7 +187,7 @@ export function makeProps(overrides = {}) {
     // leadStory is disjoint from items — see the LEAD_STORY note above.
     rss: {
       items: NEWS_ITEMS, leadStory: LEAD_STORY,
-      err: false, lastOk: Date.now(), interval: 300000, refresh: vi.fn(),
+      err: false, lastOk: Date.now(), interval: 300000, refresh: vi.fn(), skipLead: vi.fn(),
     },
     // useFeedHealth returns a STRING, which App passes straight through.
     // DesktopTicker compares it with ===, so an object silently disables its
@@ -227,7 +229,7 @@ export function makeDownProps(overrides = {}) {
       latestFirmware: null,
     },
     weather: { data: null, err: true, lastOk: null, interval: 900000, refresh: vi.fn() },
-    rss: { items: [], leadStory: null, err: true, lastOk: null, interval: 300000, refresh: vi.fn() },
+    rss: { items: [], leadStory: null, err: true, lastOk: null, interval: 300000, refresh: vi.fn(), skipLead: vi.fn() },
     feedHealth: 'offline',
     // With the fetch failing and nothing cached, useChartRange has no series to
     // show: points and domain stay null and failed is true.

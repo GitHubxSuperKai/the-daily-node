@@ -302,8 +302,29 @@ describe('fmtBestDiff', () => {
 });
 
 describe('classifyTopic', () => {
-  it('returns BREAKING for breaking/urgent headlines', () => {
-    expect(classifyTopic('Breaking: Bitcoin hits new ATH')).toBe('BREAKING');
+  it('never returns BREAKING: the word in a title is not a breaking-news signal', () => {
+    expect(classifyTopic('Breaking: Bitcoin hits new ATH')).not.toBe('BREAKING');
+    expect(classifyTopic('Parker Lewis: The Long End of the Curve Is Breaking')).not.toBe('BREAKING');
+    expect(classifyTopic('Urgent update for node operators')).not.toBe('BREAKING');
+  });
+  it('matches whole words only, so stems inside other words do not misfile', () => {
+    // Real headlines from the feeds (2026-10-19) that misfiled under stem matching.
+    expect(classifyTopic('MrBeast’s New Banking App Step Shows No Signs of Crypto')).not.toBe('REGULATION');
+    expect(classifyTopic('International donations flow to developers')).not.toBe('GLOBAL');
+    expect(classifyTopic('Exchange issues refund after outage')).toBe('MARKETS');
+    expect(classifyTopic('Miners bearing the cost of the halving')).toBe('MINING');
+    expect(classifyTopic('Bitcoin tradeoffs explained')).toBe('BITCOIN');
+  });
+  it('still matches inflected forms', () => {
+    expect(classifyTopic('US banning Chinese AI DeepSeek from government agency IT systems')).toBe('REGULATION');
+    expect(classifyTopic('Country bans bitcoin payments')).toBe('REGULATION');
+    expect(classifyTopic('Crypto markets slide')).toBe('MARKETS');
+    expect(classifyTopic('Regulators weigh new stablecoin policy')).toBe('REGULATION');
+    expect(classifyTopic('Bitcoin traders brace for CPI')).toBe('MARKETS');
+    expect(classifyTopic('Strive Buys 1,223 Bitcoin While Preparing a $630 Million Cash Raise')).toBe('BITCOIN');
+    expect(classifyTopic('El Salvador’s National Bitcoin Office Hosts Five November Events')).toBe('GLOBAL');
+    expect(classifyTopic('Nations adopt bitcoin reserves')).toBe('GLOBAL');
+    expect(classifyTopic('Developers propose new BIP')).toBe('TECH');
   });
   it('returns MARKETS for price/market headlines', () => {
     expect(classifyTopic('Bitcoin ETF inflows hit record')).toBe('MARKETS');
