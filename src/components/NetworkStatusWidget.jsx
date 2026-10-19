@@ -80,7 +80,7 @@ export function MiningPools({ pools, limit, T }) {
   const maxShare = rows.reduce((m, p) => Math.max(m, parseFloat(p.sharePct)), 0) || 1;
 
   return (
-    <div style={{ paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
+    <div data-pool-list="" style={{ paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
       <SubLabel
         right={poolRisk ? 'Concentration ⚠' : null}
         alert={poolRisk}
@@ -93,7 +93,7 @@ export function MiningPools({ pools, limit, T }) {
           const share = parseFloat(pool.sharePct);
           const isRisk = !pool.others && share > 40;
           return (
-            <div key={pool.slug || pool.name || i} style={{
+            <div key={pool.slug || pool.name || i} data-pool-row="" style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: `${u(5)} 0`,
               borderBottom: i < rows.length - 1 ? `1px solid ${T.rule3}` : 'none',
