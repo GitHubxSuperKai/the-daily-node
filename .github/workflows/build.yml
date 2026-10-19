@@ -89,9 +89,8 @@ jobs:
 
       # Fails on any ResourceWarning, e.g. a test server stopped with shutdown() but
       # never server_close(). `-W error::ResourceWarning` cannot do this: a leaked
-      # socket warns from socket.__del__ at interpreter exit, after unittest has set
-      # the exit code, so Python prints "Exception ignored" and still exits 0. Scan
-      # the log instead. PYTHONWARNINGS makes the default-ignored warning print; the
+      # socket warns from socket.__del__, and Python only prints an exception raised
+      # there ("Exception ignored"), so the run still exits 0. Scan the log instead. PYTHONWARNINGS makes the default-ignored warning print; the
       # leading `default` keeps unittest showing other warnings, which it stops doing
       # once any warning option is set. `shell: bash` runs with pipefail, so a test
       # failure still fails through tee.
