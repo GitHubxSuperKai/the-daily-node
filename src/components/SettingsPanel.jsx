@@ -56,9 +56,7 @@ export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSav
 
   return (
     <div
-      // Above MobileTabBar (zIndex 50): Settings is modal, so on mobile it covers
-      // the tab bar instead of hiding its own last row and More cue under it.
-      style={{ position: 'absolute', inset: 0, zIndex: 60 }}
+      style={{ position: 'absolute', inset: 0, zIndex: 10 }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{

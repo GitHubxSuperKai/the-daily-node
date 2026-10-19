@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- On mobile, the bottom tab bar no longer covers the end of the Settings panel. The tab bar (57px at 390×844) sat above the panel, hiding the Save/Cancel row and the "More ↓" cue and taking their taps. Settings now stacks above the tab bar while it is open, so the tabs are covered until it closes. Desktop is unchanged.
+- On mobile, the bottom tab bar no longer covers the end of the Settings panel. The tab bar (57px at 390×844) sat above the panel, hiding the Save/Cancel row and the "More ↓" cue and taking their taps. On mobile, Settings now sits in a layer fixed to the viewport and stacked above the tab bar, so the tabs are covered until it closes and the panel no longer scrolls away with the page behind it. Desktop is unchanged.
 
 ## [1.6.0] — 2026-10-19
 
