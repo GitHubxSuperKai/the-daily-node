@@ -24,6 +24,9 @@ import {
 // Fallback for callers that pass no chart (older tests); never mutated.
 const EMPTY_CHART = Object.freeze({ points: null, domain: null, stale: false, aged: false, failed: false });
 const NOOP = () => {};
+// The drop cap is two lines tall, so a dek of about two lines or less (~70 chars a
+// line at this width) leaves it standing beside a single line. Those render plain.
+export const DROP_CAP_MIN_CHARS = 150;
 
 export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartProp, range = '24h', onRangeChange }) {
   const T = useT();
@@ -82,6 +85,7 @@ export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartP
   const feeEco     = chain.data ? `${chain.data.feeEco} sat/vB` : '—';
 
   const lead       = rss.leadStory;
+  const dropCap    = (lead?.snippet?.length ?? 0) >= DROP_CAP_MIN_CHARS;
 
   return (
     <div
@@ -168,11 +172,17 @@ export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartP
           {/* An image that fails to load hands the slot to the next qualifying story. */}
           <LeadImage key={lead.img} src={lead.img} onError={() => rss.skipLead && rss.skipLead(lead.img)} />
           {lead.snippet ? (
-            <ScrollHint style={{ flex: 1, fontFamily: T.body, fontSize: u(13.5), lineHeight: 1.5, color: T.ink2 }}>
-              <span style={{ fontFamily: T.serif, fontSize: u(44), fontWeight: 700, color: T.ink, float: 'left', lineHeight: 0.88, marginRight: u(8), marginTop: u(3) }}>
-                {lead.snippet.charAt(0)}
-              </span>
-              {lead.snippet.slice(1)}
+            // A long dek splits the space with the image but keeps three lines; a short
+            // one takes just its own height, so the image can grow to full size.
+            <ScrollHint style={{ ...(dropCap ? { flex: '1 1 0', minHeight: u(60) } : { flex: '0 0 auto' }), fontFamily: T.body, fontSize: u(13.5), lineHeight: 1.5, color: T.ink2 }}>
+              {dropCap ? (
+                <>
+                  <span style={{ fontFamily: T.serif, fontSize: u(44), fontWeight: 700, color: T.ink, float: 'left', lineHeight: 0.88, marginRight: u(8), marginTop: u(3) }}>
+                    {lead.snippet.charAt(0)}
+                  </span>
+                  {lead.snippet.slice(1)}
+                </>
+              ) : lead.snippet}
             </ScrollHint>
           ) : null}
         </div>

@@ -18,7 +18,7 @@ vi.mock('../../src/components/LineChart', () => ({
   },
 }));
 
-import { MarketsColumn } from '../../src/components/MarketsColumn.jsx';
+import { MarketsColumn, DROP_CAP_MIN_CHARS } from '../../src/components/MarketsColumn.jsx';
 
 function wrap(ui) {
   return render(<ThemeCtx.Provider value={LIGHT}>{ui}</ThemeCtx.Provider>);
@@ -319,5 +319,46 @@ describe('MarketsColumn — chart range', () => {
     expect(captured.points).toBe(first.points);
     expect(captured.domain).toBe(first.domain);
     expect(captured.chipFormat).toBe(first.chipFormat);
+  });
+});
+
+describe('MarketsColumn — lead story', () => {
+  const leadWith = (snippet) => ({
+    rss: {
+      err: null, skipLead: vi.fn(),
+      leadStory: { hed: 'Lead headline', topic: 'BITCOIN', src: 'CoinDesk', t: '1h', link: 'https://example.com/lead', img: 'https://example.com/lead.jpg', snippet },
+    },
+  });
+  // The drop cap is the only floated span in the column.
+  const dropCapOf = (container) => [...container.querySelectorAll('span')].find(s => s.style.float === 'left') ?? null;
+  const dekOf = (container, snippet) =>
+    [...container.querySelectorAll('div')].filter(d => d.textContent === snippet).pop();
+
+  it('the threshold is about two lines of dek', () => {
+    expect(DROP_CAP_MIN_CHARS).toBe(150);
+  });
+
+  it('a short dek renders plain, with no drop cap', () => {
+    const snippet = 'Your day-ahead look for Oct. 19, 2026';
+    const { container } = mountRange(leadWith(snippet));
+    expect(dropCapOf(container)).toBeNull();
+    // Whole, not split into a first letter and the rest.
+    expect(screen.getByText(snippet)).toBeDefined();
+  });
+
+  it('a dek one char short of the threshold renders plain', () => {
+    const { container } = mountRange(leadWith('x'.repeat(DROP_CAP_MIN_CHARS - 1)));
+    expect(dropCapOf(container)).toBeNull();
+  });
+
+  it('a dek at the threshold gets the drop cap, and the body is the rest of the text', () => {
+    const snippet = 'B' + 'y'.repeat(DROP_CAP_MIN_CHARS - 1);
+    const { container } = mountRange(leadWith(snippet));
+    const cap = dropCapOf(container);
+    expect(cap).not.toBeNull();
+    expect(cap.textContent.trim()).toBe('B');
+    // The cap's letter is not repeated in the body.
+    expect(dekOf(container, snippet)).toBeDefined();
+    expect(container.textContent).not.toContain('B' + snippet);
   });
 });
