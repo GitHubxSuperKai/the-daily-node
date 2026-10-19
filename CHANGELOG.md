@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-10-19
+
 ### Added
 
 - `/api/rss` in `bitaxe_api.py`: a same-origin news proxy. The dashboard asks for a feed by key (`?feed=optech`), the server fetches the matching URL from its fixed `RSS_FEEDS` map (no caller-supplied URLs, no redirects followed, 2 MB cap, a time limit on reading the body) and returns the raw XML as inert `text/plain` (`nosniff`, sandboxing CSP), which the browser parses (`src/utils/feedXml.js`, RSS 2.0 and Atom). Each feed is fetched at most once per 330s, longer than the dashboard's 300s news poll: a failed refetch serves the previous copy, and a failure with no copy is not retried until the 330s are up, so a hung upstream isn't retried on every poll. When `/api/rss` is unavailable, as on the plain dev server, a feed falls back to RSS2JSON as before.
@@ -18,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The lead story under the chart is now picked by rule (`src/utils/newsSelect.js`) instead of being the newest item from any feed. First choice: the newest story from Bitcoin Magazine, CoinDesk or News.Bitcoin.com published in the last 6 hours that has an image. Otherwise: the newest item from any enabled feed with an image and at least 80 characters of summary. Stacker News and podcasts never lead. If the lead's image fails to load, the next qualifying story takes the slot (`useRSS` exposes `skipLead`); if nothing qualifies, the slot shows a placeholder. Previously a Stacker News post with no image and a "Comments"-only description could lead, rendered as a drop-cap "C".
 - The news feed drops items that are not about Bitcoin: an item stays if its title or tags mention Bitcoin (bitcoin, BTC, sats, Lightning, mining, hashrate and similar terms), and every item from Bitcoin Optech and No Bullshit Bitcoin stays. This removes Stacker News sports, AI and celebrity posts, and crypto-general stories from the other outlets. Through the `/api/rss` proxy, the 10-items-per-feed cap now applies after this filter. On the RSS2JSON fallback, RSS2JSON itself returns at most 10 items before the filter runs.
 - The news list holds up to 30 items (was 14). Each headline's label is its outlet name (from `RSS_FEED_MAP`) instead of the feed's raw first tag, and the separate source line is gone. The BREAKING section is removed and a Podcasts section (items tagged as podcasts or with an audio enclosure) is added at the end. The list's scrollbar now shows a faint track and thumb at all times, darkening on hover or scroll, instead of staying invisible until scrolled.
+- CI fails the **Run python tests** step in `build.yml` on any `ResourceWarning` (#213). A test server stopped with `shutdown()` but never `server_close()` leaks its listening socket, and the warning fires from `socket.__del__`, where Python only prints a raised exception ("Exception ignored"), so `-W error::ResourceWarning` cannot fail the run. The step sets `PYTHONWARNINGS=default,always::ResourceWarning`, tees the output to a log under `$RUNNER_TEMP` and fails if the log contains `ResourceWarning: `. The Python test servers now call `server_close()` in teardown (#209, #210), and the CORS, mempool-proxy and RSS-proxy test servers poll for shutdown every 0.05s instead of 0.5s (#211).
+- Dependencies (dev only; esbuild is unchanged, so the bundle is unaffected): eslint 10.12.0 → 10.13.0, vitest 5.0.3 → 5.0.5, jsdom 30.1.2 → 30.1.3 and playwright 1.64.0 → 1.64.1.
 
 ### Fixed
 
@@ -226,7 +230,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI: build verification + Pages auto-deploy.
 - Issue templates and PR template for structured triage.
 
-[Unreleased]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.2.0...v1.3.0
