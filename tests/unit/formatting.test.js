@@ -326,19 +326,31 @@ describe('classifyTopic', () => {
     expect(classifyTopic('Nations adopt bitcoin reserves')).toBe('GLOBAL');
     expect(classifyTopic('Developers propose new BIP')).toBe('TECH');
   });
-  // Claim audit C10 + review round 3 (2026-10-19): a real-word comparison against the
-  // pre-PR substring classifier found these forms it filed and the whole-word rewrite dropped.
-  it('keeps every inflected or derived form the old substring stems filed', () => {
+  // Claim audit C10 + review rounds 3-4 (2026-10-19): comparisons against the pre-PR
+  // substring classifier (a local vocabulary plus per-stem prefix x suffix generation)
+  // found these forms it filed and the whole-word rewrite dropped.
+  it('keeps the inflected and derived forms a comparison with the old substring classifier found', () => {
     const cases = {
-      MARKETS: ['hedges', 'hedger', 'hedgers', 'rallying', 'funded', 'funding', 'funder', 'funders', 'exchanged', 'marketed', 'marketing'],
-      MINING: ['halvings', 'hashrates'],
-      REGULATION: ['governments', 'governmental', 'congressional', 'policymakers', 'complies', 'complied',
-        'noncompliance', 'deregulation', 'deregulate', 'illegal', 'legally', 'legalize', 'legalized'],
-      TECH: ['upgraded', 'forked', 'forking', 'hardfork', 'hardforks'],
+      MARKETS: ['hedges', 'hedger', 'hedgers', 'unhedged', 'rallying', 'funded', 'funding', 'funder', 'funders',
+        'unfunded', 'crowdfund', 'crowdfunding', 'fundraising', 'exchanged', 'marketed', 'marketing', 'marketcap',
+        'reinvest', 'malinvestment', 'institutionally'],
+      MINING: ['halvings', 'hashrates', 'cryptomining'],
+      REGULATION: ['governments', 'governmental', 'intergovernmental', 'congressional', 'policymakers', 'policymaking',
+        'complies', 'complied', 'noncompliance', 'deregulation', 'deregulate', 'unregulated', 'nonregulated',
+        'overregulation', 'illegal', 'legally', 'legalize', 'legalized'],
+      TECH: ['upgraded', 'forked', 'forking', 'hardfork', 'hardforks', 'softfork', 'softforks', 'layer-2s'],
+      GLOBAL: ['nationwide', 'nationally', 'nationalized'],
     };
     for (const [topic, words] of Object.entries(cases)) {
       for (const w of words) expect(classifyTopic(`Bitcoin ${w} today`), w).toBe(topic);
     }
+  });
+  it('files central bankers under Global and no longer files investigators under Markets', () => {
+    // The old classifier sent "central bankers" to Regulation only through the `ban` misfire,
+    // and `invest` matched inside "investigators".
+    expect(classifyTopic('Central bankers warn on stablecoins')).toBe('GLOBAL');
+    expect(classifyTopic('Bitcoin investigators probe a hack')).toBe('BITCOIN');
+    expect(classifyTopic('Bitcoin investors return')).toBe('MARKETS');
   });
   it('also matches -s/-ed/-ing forms the old stems never caught', () => {
     const cases = {
