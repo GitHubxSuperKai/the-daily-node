@@ -55,6 +55,7 @@ class BitaxeCatchAll404CORSTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.server.shutdown()
+        cls.server.server_close()
 
     def test_unknown_route_404_includes_cors_header(self):
         status, headers = _get(self.port, '/api/nonexistent-route', origin=BITAXE_ORIGIN)
@@ -82,6 +83,7 @@ class HistoryDaemonErrorCORSTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.server.shutdown()
+        cls.server.server_close()
         import shutil
         shutil.rmtree(cls._tmpdir, ignore_errors=True)
 
@@ -129,6 +131,7 @@ class HistoryDaemonAllowOriginTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.server.shutdown()
+        cls.server.server_close()
         HistoryHandler.db_path, HistoryHandler.allowed_origins = cls._saved
         import shutil
         shutil.rmtree(cls._tmpdir, ignore_errors=True)
