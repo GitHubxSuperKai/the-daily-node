@@ -4,9 +4,11 @@ import { u } from '../utils/scale.js';
 import Kicker from './Kicker';
 import { isFresh } from '../utils/formatting.js';
 
-const NEWS_SECTIONS = ['BREAKING', 'MARKETS', 'MINING', 'REGULATION', 'TECH', 'GLOBAL', 'BITCOIN'];
+// Topics from classifyTopic, plus PODCASTS (set by useRSS). The section headers are
+// the categorisation; each item's label is its outlet.
+const NEWS_SECTIONS = ['MARKETS', 'MINING', 'REGULATION', 'TECH', 'GLOBAL', 'BITCOIN', 'PODCASTS'];
 
-export function NewsColumn({ newsItems, rssErr }) {
+export function NewsColumn({ newsItems, rssErr, loaded, hasLead }) {
   const T = useT();
   const grouped = NEWS_SECTIONS.reduce((acc, topic) => {
     const group = newsItems.filter(it => it.topic === topic);
@@ -50,26 +52,21 @@ export function NewsColumn({ newsItems, rssErr }) {
                     display: 'block',
                     padding: `${u(8)} 0`,
                     borderBottom: `1px solid ${T.rule3}`,
-                    borderLeft: it.topic === 'BREAKING' ? `${u(3)} solid ${T.red}` : 'none',
-                    paddingLeft: it.topic === 'BREAKING' ? u(10) : 0,
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: u(4) }}>
-                    <Kicker color={it.topic === 'BREAKING' ? T.red : T.ink3}>{it.cat}</Kicker>
+                    <Kicker color={T.ink3}>{it.src}</Kicker>
                     <span style={{ fontFamily: T.num, fontSize: u(10), color: isFresh(it.t) ? T.orange : T.ink3 }}>{it.t}</span>
                   </div>
                   <div style={{ fontFamily: T.body, fontSize: u(14.5), lineHeight: 1.3, color: T.ink, letterSpacing: u(-0.1) }}>
                     {it.hed}
-                  </div>
-                  <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: u(11), color: T.ink3, marginTop: u(2) }}>
-                    {it.src}
                   </div>
                 </a>
               ))}
             </React.Fragment>
           )) : (
             <div style={{ fontFamily: T.num, fontSize: u(12), color: T.ink3, marginTop: u(16) }}>
-              {rssErr ? 'All feeds unavailable' : 'Loading headlines…'}
+              {rssErr ? 'All feeds unavailable' : loaded ? (hasLead ? 'No more headlines right now' : 'No Bitcoin headlines right now') : 'Loading headlines…'}
             </div>
           )}
         </div>

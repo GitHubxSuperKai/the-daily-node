@@ -59,6 +59,15 @@ function atomEntry(entry) {
   };
 }
 
+// Plain text of an item description (HTML in a string). A DOMParser document is
+// inert: scripts do not run and images do not load. Unlike a tag-stripping regex,
+// this leaves no tag fragments behind and decodes entities (&amp; -> &).
+export function htmlToText(html) {
+  if (!html) return '';
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  return (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+}
+
 export function parseFeedXml(xml) {
   const doc = new DOMParser().parseFromString(xml, 'application/xml');
   if (doc.getElementsByTagName('parsererror').length) throw new Error('rss-parse');

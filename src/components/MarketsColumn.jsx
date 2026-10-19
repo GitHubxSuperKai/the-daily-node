@@ -154,11 +154,9 @@ export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartP
       <Rule dash />
       {/* Lead story */}
       {lead ? (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: u(8), overflow: 'hidden', minHeight: 0, borderLeft: lead.topic === 'BREAKING' ? `${u(3)} solid ${T.red}` : 'none', paddingLeft: lead.topic === 'BREAKING' ? u(10) : 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: u(8), overflow: 'hidden', minHeight: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <Kicker color={lead.topic === 'BREAKING' ? T.red : T.orange}>
-              {lead.topic === 'BREAKING' ? 'BREAKING' : `● ${lead.cat}`} · {lead.src}
-            </Kicker>
+            <Kicker color={T.orange}>● {lead.topic} · {lead.src}</Kicker>
             <Kicker color={isFresh(lead.t) ? T.orange : undefined}>{lead.t}</Kicker>
           </div>
           <a href={lead.link} target="_blank" rel="noopener noreferrer">
@@ -166,7 +164,8 @@ export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartP
               {lead.hed}
             </h1>
           </a>
-          {lead.img ? <LeadImage src={lead.img} domain={lead.src} /> : null}
+          {/* An image that fails to load hands the slot to the next qualifying story. */}
+          <LeadImage key={lead.img} src={lead.img} onError={() => rss.skipLead && rss.skipLead(lead.img)} />
           {lead.snippet ? (
             <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', minHeight: 0, fontFamily: T.body, fontSize: u(13.5), lineHeight: 1.5, color: T.ink2 }}>
               <span style={{ fontFamily: T.serif, fontSize: u(44), fontWeight: 700, color: T.ink, float: 'left', lineHeight: 0.88, marginRight: u(8), marginTop: u(3) }}>
@@ -178,9 +177,9 @@ export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartP
         </div>
       ) : (
         <>
-          <Kicker color={T.orange}>● {rss.err ? 'RSS unavailable' : 'Loading feed…'}</Kicker>
+          <Kicker color={T.orange}>● {rss.err ? 'RSS unavailable' : rss.lastOk ? 'Lead story' : 'Loading feed…'}</Kicker>
           <h1 style={{ fontFamily: T.serif, fontSize: u(32), fontWeight: 700, lineHeight: 1.04, letterSpacing: u(-1), color: T.ink4, margin: 0 }}>
-            {rss.err ? 'All feeds unavailable' : 'Fetching headlines…'}
+            {rss.err ? 'All feeds unavailable' : rss.lastOk ? 'No lead story right now' : 'Fetching headlines…'}
           </h1>
         </>
       )}

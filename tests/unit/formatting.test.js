@@ -302,8 +302,71 @@ describe('fmtBestDiff', () => {
 });
 
 describe('classifyTopic', () => {
-  it('returns BREAKING for breaking/urgent headlines', () => {
-    expect(classifyTopic('Breaking: Bitcoin hits new ATH')).toBe('BREAKING');
+  it('never returns BREAKING: the word in a title is not a breaking-news signal', () => {
+    expect(classifyTopic('Breaking: Bitcoin hits new ATH')).not.toBe('BREAKING');
+    expect(classifyTopic('Parker Lewis: The Long End of the Curve Is Breaking')).not.toBe('BREAKING');
+    expect(classifyTopic('Urgent update for node operators')).not.toBe('BREAKING');
+  });
+  it('matches whole words only, so stems inside other words do not misfile', () => {
+    // Real headlines from the feeds (2026-10-19) that misfiled under stem matching.
+    expect(classifyTopic('MrBeast’s New Banking App Step Shows No Signs of Crypto')).not.toBe('REGULATION');
+    expect(classifyTopic('International donations flow to developers')).not.toBe('GLOBAL');
+    expect(classifyTopic('Exchange issues refund after outage')).toBe('MARKETS');
+    expect(classifyTopic('Miners bearing the cost of the halving')).toBe('MINING');
+    expect(classifyTopic('Bitcoin tradeoffs explained')).toBe('BITCOIN');
+  });
+  it('still matches inflected forms', () => {
+    expect(classifyTopic('US banning Chinese AI DeepSeek from government agency IT systems')).toBe('REGULATION');
+    expect(classifyTopic('Country bans bitcoin payments')).toBe('REGULATION');
+    expect(classifyTopic('Crypto markets slide')).toBe('MARKETS');
+    expect(classifyTopic('Regulators weigh new stablecoin policy')).toBe('REGULATION');
+    expect(classifyTopic('Bitcoin traders brace for CPI')).toBe('MARKETS');
+    expect(classifyTopic('Strive Buys 1,223 Bitcoin While Preparing a $630 Million Cash Raise')).toBe('BITCOIN');
+    expect(classifyTopic('El Salvador’s National Bitcoin Office Hosts Five November Events')).toBe('GLOBAL');
+    expect(classifyTopic('Nations adopt bitcoin reserves')).toBe('GLOBAL');
+    expect(classifyTopic('Developers propose new BIP')).toBe('TECH');
+  });
+  // Claim audit C10 + review rounds 3-4 (2026-10-19): comparisons against the pre-PR
+  // substring classifier (a local vocabulary plus per-stem prefix x suffix generation)
+  // found these forms it filed and the whole-word rewrite dropped. Not every alternative in
+  // the patterns is pinned here (e.g. the de-/over- prefixes on fund); scope is frozen.
+  it('keeps the inflected and derived forms a comparison with the old substring classifier found', () => {
+    const cases = {
+      MARKETS: ['hedges', 'hedger', 'hedgers', 'unhedged', 'rallying', 'funded', 'funding', 'funder', 'funders',
+        'unfunded', 'crowdfund', 'crowdfunding', 'fundraising', 'exchanged', 'marketed', 'marketing', 'marketcap',
+        'reinvest', 'malinvestment', 'institutionally'],
+      MINING: ['halvings', 'hashrates', 'cryptomining'],
+      REGULATION: ['governments', 'governmental', 'intergovernmental', 'congressional', 'policymakers', 'policymaking',
+        'complies', 'complied', 'noncompliance', 'deregulation', 'deregulate', 'unregulated', 'nonregulated',
+        'overregulation', 'illegal', 'legally', 'legalize', 'legalized'],
+      TECH: ['upgraded', 'forked', 'forking', 'hardfork', 'hardforks', 'softfork', 'softforks', 'layer-2s'],
+      GLOBAL: ['nationwide', 'nationally', 'nationalized'],
+    };
+    for (const [topic, words] of Object.entries(cases)) {
+      for (const w of words) expect(classifyTopic(`Bitcoin ${w} today`), w).toBe(topic);
+    }
+  });
+  it('files central bankers under Global and no longer files investigators under Markets', () => {
+    // The old classifier sent "central bankers" to Regulation only through the `ban` misfire,
+    // and `invest` matched inside "investigators".
+    expect(classifyTopic('Central bankers warn on stablecoins')).toBe('GLOBAL');
+    expect(classifyTopic('Bitcoin investigators probe a hack')).toBe('BITCOIN');
+    expect(classifyTopic('Bitcoin investors return')).toBe('MARKETS');
+  });
+  it('does not read the adjective "taxing" as tax policy', () => {
+    expect(classifyTopic('A taxing week for Bitcoin')).not.toBe('REGULATION');
+    expect(classifyTopic('Bitcoin taxation rules change')).toBe('REGULATION');
+  });
+  it('also matches -s/-ed/-ing forms the old stems never caught', () => {
+    const cases = {
+      MARKETS: ['hedging', 'rallied', 'trading'],
+      MINING: ['mined', 'pooled'],
+      REGULATION: ['taxed'],
+      TECH: ['upgrading'],
+    };
+    for (const [topic, words] of Object.entries(cases)) {
+      for (const w of words) expect(classifyTopic(`Bitcoin ${w} today`), w).toBe(topic);
+    }
   });
   it('returns MARKETS for price/market headlines', () => {
     expect(classifyTopic('Bitcoin ETF inflows hit record')).toBe('MARKETS');

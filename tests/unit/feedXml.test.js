@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { parseFeedXml } from '../../src/utils/feedXml.js';
+import { describe, it, expect, vi } from 'vitest';
+import { parseFeedXml, htmlToText } from '../../src/utils/feedXml.js';
 
 const RSS = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/" xmlns:content="http://purl.org/rss/1.0/modules/content/">
@@ -109,5 +109,35 @@ describe('parseFeedXml — rejects what is not a feed', () => {
     ['an empty body', ''],
   ])('%s throws', (_, xml) => {
     expect(() => parseFeedXml(xml)).toThrow();
+  });
+});
+
+describe('htmlToText', () => {
+  it('strips markup and decodes entities', () => {
+    expect(htmlToText('<p>Bitcoin &amp; <b>Lightning</b> &lt;3</p>')).toBe('Bitcoin & Lightning <3');
+  });
+  it('leaves no tag fragment behind', () => {
+    // The old /<[^>]+>/ pass left an unclosed tag intact (CodeQL alert 203).
+    expect(htmlToText('Read more <script src=x')).not.toMatch(/<script/i);
+  });
+  it('parses in an inert DOMParser document, never the live one', () => {
+    // jsdom runs neither payload even in the live document, so a behavioural check
+    // cannot tell this apart from `div.innerHTML = html`, which in a real browser
+    // fetches <img src> and fires onerror. Pin the mechanism instead.
+    const parse = vi.spyOn(DOMParser.prototype, 'parseFromString');
+    const create = vi.spyOn(document, 'createElement');
+    try {
+      expect(htmlToText('<img src="x" onerror="alert(1)">hi')).toBe('hi');
+      expect(parse).toHaveBeenCalledWith(expect.any(String), 'text/html');
+      expect(create).not.toHaveBeenCalled();
+    } finally {
+      parse.mockRestore();
+      create.mockRestore();
+    }
+  });
+  it('collapses whitespace and handles empty input', () => {
+    expect(htmlToText('<p>one</p>\n\n<p>two</p>')).toBe('one two');
+    expect(htmlToText('')).toBe('');
+    expect(htmlToText(undefined)).toBe('');
   });
 });

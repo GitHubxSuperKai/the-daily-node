@@ -208,13 +208,17 @@ function fmtBestDiff(v) {
 }
 
 function classifyTopic(title) {
+  // Whole words only, spelling out the inflected and derived forms that matter
+  // (and the prefixes real headlines use, e.g. "unregulated", "softfork"): a bare
+  // stem misfiles, e.g. `ban` matched "Banking" and `nation` matched
+  // "international". No BREAKING topic: the word appearing in a title is not a
+  // breaking-news signal.
   const t = (title || '').toLowerCase();
-  if (/breaking|urgent/.test(t)) return 'BREAKING';
-  if (/etf|fund|inflow|outflow|rally|dump|\bprice\b|market|trade|exchange|bull|bear|\bspot\b|futures|options|invest|portfolio|microstrategy|blackrock|institutional|hedge/.test(t)) return 'MARKETS';
-  if (/mining|miner|hashrate|hash rate|difficulty|\bpool\b|asic|block reward|halving|antpool|foundry|f2pool|marathon|riot/.test(t)) return 'MINING';
-  if (/\bsec\b|regulat|legal|government|congress|senate|polic|ban|\bcourt\b|compli|\bkyc\b|\baml\b|treasury|\birs\b|\btax\b|\blaw\b/.test(t)) return 'REGULATION';
-  if (/lightning|protocol|upgrade|developer|wallet|layer.?2|taproot|ordinals|runes|\bbip\b|fork|\bnode\b/.test(t)) return 'TECH';
-  if (/el salvador|central bank|\bcbdc\b|reserve|national|strategic|country|nation|adopt/.test(t)) return 'GLOBAL';
+  if (/\b(etfs?|(crowd|de|over|un|self.?)?fund(s|ed|ing|ers?)?|fundrais(e|es|ed|ing|ers?)|inflows?|outflows?|rall(y|ies|ied|ying)|dump(s|ed|ing)?|prices?|market(s|ed|ing|caps?)?|trad(e|es|ed|ing|ers?)|exchang(e|es|ed|ing)|bulls?|bullish|bears?|bearish|spot|futures|options|(re|mal|over|under)?invest(s|ed|ing|ors?|ments?)?|portfolios?|microstrategy|blackrock|institutional(ly|i[sz]ation)?|(un)?hedg(e|es|ed|ing|ers?))\b/.test(t)) return 'MARKETS';
+  if (/\b((crypto)?mining|(crypto)?miners?|min(e|es|ed)|hashrates?|hash rates?|difficulty|pool(s|ed)?|asics?|block rewards?|halvings?|antpool|foundry|f2pool|marathon|riot)\b/.test(t)) return 'MINING';
+  if (/\b(sec|(de|un|non|over|self.?)?regulat\w*|(il)?legal\w*|(inter|anti.?)?government(s|al)?|congress\w*|senate|polic(y|ies)|policymak(ers?|ing)|bans?|banned|banning|debank\w*|courts?|(non)?compl(y|ies|ied|iance|iant)|kyc|aml|treasury|irs|tax(es|ed|ation)?|laws?)\b/.test(t)) return 'REGULATION';
+  if (/\b(lightning|protocols?|upgrad(e|es|ed|ing)|developers?|wallets?|layer.?2s?|taproot|ordinals|runes|bips?|((hard|soft).?)?fork(s|ed|ing)?|nodes?)\b/.test(t)) return 'TECH';
+  if (/\b(el salvador|central bank(s|ers?|ing)?|cbdcs?|reserves?|national(ly|i[sz]e[sd]?|ism)?|nationwide|strategic|country|countries|nations?|adopt\w*)\b/.test(t)) return 'GLOBAL';
   return 'BITCOIN';
 }
 
