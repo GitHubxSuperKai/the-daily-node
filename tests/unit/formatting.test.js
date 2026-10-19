@@ -330,8 +330,8 @@ describe('classifyTopic', () => {
   // pre-PR substring classifier found these forms it filed and the whole-word rewrite dropped.
   it('keeps every inflected or derived form the old substring stems filed', () => {
     const cases = {
-      MARKETS: ['hedges', 'hedger', 'hedgers', 'rallying', 'funded', 'funding', 'funder', 'funders', 'exchanged', 'marketed'],
-      MINING: ['halvings'],
+      MARKETS: ['hedges', 'hedger', 'hedgers', 'rallying', 'funded', 'funding', 'funder', 'funders', 'exchanged', 'marketed', 'marketing'],
+      MINING: ['halvings', 'hashrates'],
       REGULATION: ['governments', 'governmental', 'congressional', 'policymakers', 'complies', 'complied',
         'noncompliance', 'deregulation', 'deregulate', 'illegal', 'legally', 'legalize', 'legalized'],
       TECH: ['upgraded', 'forked', 'forking', 'hardfork', 'hardforks'],
