@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFeedXml } from '../../src/utils/feedXml.js';
+import { parseFeedXml, htmlToText } from '../../src/utils/feedXml.js';
 
 const RSS = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/" xmlns:content="http://purl.org/rss/1.0/modules/content/">
@@ -109,5 +109,26 @@ describe('parseFeedXml — rejects what is not a feed', () => {
     ['an empty body', ''],
   ])('%s throws', (_, xml) => {
     expect(() => parseFeedXml(xml)).toThrow();
+  });
+});
+
+describe('htmlToText', () => {
+  it('strips markup and decodes entities', () => {
+    expect(htmlToText('<p>Bitcoin &amp; <b>Lightning</b> &lt;3</p>')).toBe('Bitcoin & Lightning <3');
+  });
+  it('leaves no tag fragment behind', () => {
+    // The old /<[^>]+>/ pass left an unclosed tag intact (CodeQL alert 203).
+    expect(htmlToText('Read more <script src=x')).not.toMatch(/<script/i);
+    expect(htmlToText('a <scr<b>ipt>alert(1)</script> b')).not.toMatch(/<script/i);
+  });
+  it('does not run scripts or load images while parsing', () => {
+    globalThis.__htmlToTextRan = false;
+    htmlToText('<img src="x" onerror="globalThis.__htmlToTextRan = true"><script>globalThis.__htmlToTextRan = true</script>');
+    expect(globalThis.__htmlToTextRan).toBe(false);
+  });
+  it('collapses whitespace and handles empty input', () => {
+    expect(htmlToText('<p>one</p>\n\n<p>two</p>')).toBe('one two');
+    expect(htmlToText('')).toBe('');
+    expect(htmlToText(undefined)).toBe('');
   });
 });

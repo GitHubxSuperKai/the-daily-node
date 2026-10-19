@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import CONFIG, { RSS_FEED_MAP } from '../config.js';
 import { useResettableInterval } from './useResettableInterval.js';
 import { classifyTopic, timeAgo, safeUrl } from '../utils/formatting.js';
-import { parseFeedXml } from '../utils/feedXml.js';
+import { parseFeedXml, htmlToText } from '../utils/feedXml.js';
 import { isBitcoinRelevant, isPodcast, selectNews, pubTime } from '../utils/newsSelect.js';
 
 // rss2json caps a feed at 10 items; the proxy path keeps that cap (applied after the
@@ -64,9 +64,7 @@ export function useRSS() {
               (enclosureType.startsWith('image/') ? safeUrl(it.enclosure.link) : null) ||
               (it.description ? safeUrl((it.description.match(/<img\b[^>]*\bsrc=["']([^"']+)["']/i) || [])[1] || null) : null) ||
               null,
-            snippet: it.description
-              ? it.description.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 1000)
-              : '',
+            snippet: htmlToText(it.description).slice(0, 1000),
           };
           item.topic = isPodcast(item) ? 'PODCASTS' : classifyTopic(item.hed);
           return item;
