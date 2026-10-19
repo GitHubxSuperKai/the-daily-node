@@ -211,7 +211,7 @@ export function CommandCenter({
 
         {/* COL 2 — HEADLINES FEED */}
         <ErrorBoundary label="News">
-          <NewsColumn newsItems={newsItems} rssErr={rss.err} loaded={!!rss.lastOk} />
+          <NewsColumn newsItems={newsItems} rssErr={rss.err} loaded={!!rss.lastOk} hasLead={!!rss.leadStory} />
         </ErrorBoundary>
 
         {/* COL 3 — FIELD REPORT + CHAIN VITALS */}

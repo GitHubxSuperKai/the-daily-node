@@ -36,12 +36,12 @@ function pubTime(it) {
 
 // pool is sorted newest first.
 function pickLead(pool, now = Date.now(), failedImgs = new Set()) {
+  // A misdated (future) item sorts first, so the skew bound applies to both tiers.
   const eligible = pool.filter(it =>
-    it.img && !failedImgs.has(it.img) && pubTime(it) != null &&
+    it.img && !failedImgs.has(it.img) && pubTime(it) != null && pubTime(it) - now <= FUTURE_SKEW_MS &&
     !NEVER_LEAD_FEEDS.includes(it.feedKey) && it.topic !== 'PODCASTS' && !isPodcast(it));
   return (
-    eligible.find(it => LEAD_FEEDS.includes(it.feedKey) &&
-      now - pubTime(it) <= LEAD_WINDOW_MS && pubTime(it) - now <= FUTURE_SKEW_MS) ||
+    eligible.find(it => LEAD_FEEDS.includes(it.feedKey) && now - pubTime(it) <= LEAD_WINDOW_MS) ||
     eligible.find(it => (it.snippet || '').length >= MIN_SNIPPET) ||
     null
   );

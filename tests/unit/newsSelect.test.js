@@ -83,6 +83,11 @@ describe('pickLead', () => {
     const b = item({ feedKey: 'coindesk', pubDate: hoursAgo(2) });
     expect(pickLead([a, b], NOW, new Set(['https://img.example/broken.jpg']))).toBe(b);
   });
+  it('never leads with a misdated (future) item, even as the fallback', () => {
+    const future = item({ feedKey: 'tftc', pubDate: hoursAgo(-3) });
+    const real = item({ feedKey: 'tftc', pubDate: hoursAgo(9) });
+    expect(pickLead([future, real], NOW)).toBe(real);
+  });
   it('does not treat a future-dated primary story as recent', () => {
     // A feed clock/timezone error must not pin a story to the top tier.
     const future = item({ feedKey: 'coindesk', snippet: '', pubDate: hoursAgo(-3) });
