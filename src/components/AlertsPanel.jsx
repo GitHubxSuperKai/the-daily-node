@@ -121,7 +121,11 @@ export function AlertsPanel({ alerts, alertPrefs, onDismiss, now, timeFormat }) 
                   // tap's pointerdown comes before its emulated mouseenter, so the
                   // first tap only reveals the ×. A keyboard click (detail 0) has no press.
                   onPointerDown={() => { pressShown.current = showX; }}
-                  onClick={e => { if (e.detail === 0 || pressShown.current) onDismiss?.(a.id); }}
+                  onClick={e => {
+                    const shown = pressShown.current;
+                    pressShown.current = false;
+                    if (e.detail === 0 || shown) onDismiss?.(a.id);
+                  }}
                   style={{
                     gridRow: 1, gridColumn: 4, alignSelf: 'start', height: u(12), padding: 0,
                     border: 'none', background: 'none', cursor: 'pointer',

@@ -6,7 +6,7 @@ import { render, screen, cleanup, fireEvent, renderHook, act } from '@testing-li
 import { ThemeCtx, LIGHT } from '../../src/theme.js';
 import { AlertsPanel, watchingSentence, shortMessage } from '../../src/components/AlertsPanel.jsx';
 import { Sidebar } from '../../src/components/Sidebar.jsx';
-import { useAlerts, mergeAlert, HISTORY_KEY } from '../../src/hooks/useAlerts.js';
+import { useAlerts, mergeAlert, HISTORY_KEY, COOLDOWNS_KEY } from '../../src/hooks/useAlerts.js';
 
 const NOW = Date.UTC(2026, 9, 20, 22, 0, 0);
 const MIN = 60 * 1000;
@@ -89,7 +89,36 @@ describe('AlertsPanel', () => {
     expect(other.style.opacity).toBe('0');
     fireEvent.mouseLeave(x.parentElement);
     expect(x.style.opacity).toBe('0');
-    fireEvent.click(x);
+    // A mouse click: hover, press, click (detail 1).
+    fireEvent.mouseEnter(x.parentElement);
+    fireEvent.pointerDown(x);
+    fireEvent.click(x, { detail: 1 });
+    expect(dismissed).toEqual([a.id]);
+  });
+
+  it('dismisses on a keyboard click (detail 0) of the focused ×', () => {
+    const dismissed = [];
+    const a = alert('fee', 10, 'Fee spike: 64 sat/vB');
+    renderPanel({ alerts: [a], onDismiss: id => dismissed.push(id) });
+    const x = screen.getByRole('button', { name: 'Dismiss Fee spike alert' });
+    fireEvent.focus(x);
+    fireEvent.click(x, { detail: 0 });
+    expect(dismissed).toEqual([a.id]);
+  });
+
+  it('a click with no press of its own does not reuse an earlier press', () => {
+    const dismissed = [];
+    const a = alert('fee', 10, 'Fee spike: 64 sat/vB');
+    const b = alert('minerOffline', 20, 'Miner offline: rig-2');
+    renderPanel({ alerts: [a, b], onDismiss: id => dismissed.push(id) });
+    const xa = screen.getByRole('button', { name: 'Dismiss Fee spike alert' });
+    const xb = screen.getByRole('button', { name: 'Dismiss Miner offline alert' });
+    fireEvent.mouseEnter(xa.parentElement);
+    fireEvent.pointerDown(xa);
+    fireEvent.click(xa, { detail: 1 });
+    fireEvent.mouseLeave(xa.parentElement);
+    // A synthetic click on the hidden × of the other row, with no pointerdown.
+    fireEvent.click(xb, { detail: 1 });
     expect(dismissed).toEqual([a.id]);
   });
 
@@ -309,6 +338,32 @@ describe('useAlerts history', () => {
     expect(result.current.toasts).toHaveLength(1);
     expect(result.current.history).toHaveLength(1);
     expect(result.current.history[0]).toMatchObject({ id: 'fee-1', count: 2, since: now - 31 * MIN });
+  });
+
+  it('does not fire again after a dismiss and a remount while still in cooldown', () => {
+    const first = renderHook(({ t }) => useAlerts(t, prefs), { initialProps: { t: quiet } });
+    first.rerender({ t: { ...quiet, fastFee: 80 } });
+    expect(first.result.current.history).toHaveLength(1);
+    act(() => first.result.current.dismiss(first.result.current.history[0].id));
+    first.unmount();
+    // Reload mid-spike: the list is empty, but the cooldown was saved apart from it.
+    const { result } = renderHook(() => useAlerts({ ...quiet, fastFee: 80 }, prefs));
+    expect(result.current.toasts).toEqual([]);
+    expect(result.current.history).toEqual([]);
+    expect(Object.keys(JSON.parse(localStorage.getItem(COOLDOWNS_KEY)))).toEqual(['fee']);
+  });
+
+  it('ignores saved times in the future (a clock corrected backwards)', () => {
+    const later = Date.now() + 365 * 24 * 60 * MIN;
+    localStorage.setItem(HISTORY_KEY, JSON.stringify([
+      { id: 'fee-future', type: 'fee', message: 'Fee spike: 99', ts: later },
+    ]));
+    localStorage.setItem(COOLDOWNS_KEY, JSON.stringify({ price: later, blockTime: 'x' }));
+    const { result } = renderHook(() => useAlerts({ ...quiet, fastFee: 80 }, prefs));
+    // The future row is dropped and does not hold the fee cooldown, so the spike fires.
+    expect(result.current.toasts).toHaveLength(1);
+    expect(result.current.history.map(a => a.id)).not.toContain('fee-future');
+    expect(result.current.history).toHaveLength(1);
   });
 
   it('starts empty when storage holds garbage', () => {

@@ -9,12 +9,38 @@ const HISTORY_MS = 24 * 60 * 60 * 1000;
 const isAlert = a => a && typeof a.id === 'string' && typeof a.type === 'string'
   && typeof a.message === 'string' && Number.isFinite(a.ts);
 
+// A future time (saved under a clock that ran ahead and was then corrected) is dropped:
+// it would otherwise stay listed forever and hold that type's cooldown until then.
+const isRecent = (ts, now) => ts <= now && now - ts < HISTORY_MS;
+
 function loadAlertHistory(now = Date.now()) {
   try {
     const raw = JSON.parse(localStorage.getItem(HISTORY_KEY));
-    return Array.isArray(raw) ? raw.filter(a => isAlert(a) && now - a.ts < HISTORY_MS) : [];
+    return Array.isArray(raw) ? raw.filter(a => isAlert(a) && isRecent(a.ts, now)) : [];
   } catch {
     return [];
+  }
+}
+
+// Last fire time per type, saved apart from the list so a dismissed alert's cooldown
+// survives a reload too.
+const COOLDOWNS_KEY = 'dn.alerts.cooldowns.v1';
+
+function loadCooldowns(now = Date.now()) {
+  try {
+    const raw = JSON.parse(localStorage.getItem(COOLDOWNS_KEY));
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+    return Object.fromEntries(Object.entries(raw).filter(([, ts]) => Number.isFinite(ts) && isRecent(ts, now)));
+  } catch {
+    return {};
+  }
+}
+
+function saveCooldowns(cooldowns) {
+  try {
+    localStorage.setItem(COOLDOWNS_KEY, JSON.stringify(cooldowns));
+  } catch {
+    // localStorage unavailable: cooldowns last until reload, as before
   }
 }
 
@@ -51,12 +77,13 @@ function useAlerts(triggers, prefs) {
   const [toasts, setToasts] = React.useState([]);
   // Newest first.
   const [history, setHistory] = React.useState(() => loadAlertHistory());
-  // Last fire time per type. Seeded from the saved history, so a reload (or a remount
-  // across the 900px breakpoint) doesn't fire again, and list again, an alert whose
-  // cooldown is still running.
+  // Last fire time per type. Loaded from storage (and the saved list, for history written
+  // before the cooldowns were saved), so a reload, or a remount across the 900px
+  // breakpoint, doesn't fire again, and list again, an alert whose cooldown is still
+  // running, dismissed or not.
   const cooldowns = React.useRef(null);
   if (cooldowns.current === null) {
-    cooldowns.current = {};
+    cooldowns.current = loadCooldowns();
     for (const a of history) cooldowns.current[a.type] = Math.max(cooldowns.current[a.type] ?? 0, a.ts);
   }
   const historyLoaded = React.useRef(false);
@@ -76,6 +103,7 @@ function useAlerts(triggers, prefs) {
     const cooldownMs = (ap[type]?.cooldownMin ?? 30) * 60 * 1000;
     if (now - (cooldowns.current[type] ?? 0) < cooldownMs) return;
     cooldowns.current[type] = now;
+    saveCooldowns(cooldowns.current);
 
     const id = `${type}-${now}`;
     setToasts(prev => [...prev, { id, type, message, ts: now }]);
@@ -136,4 +164,4 @@ function useAlerts(triggers, prefs) {
   return { toasts, history, dismiss };
 }
 
-export { useAlerts, loadAlertHistory, mergeAlert, HISTORY_KEY, HISTORY_MS };
+export { useAlerts, loadAlertHistory, mergeAlert, HISTORY_KEY, HISTORY_MS, COOLDOWNS_KEY };
