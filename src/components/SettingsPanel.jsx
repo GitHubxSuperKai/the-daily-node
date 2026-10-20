@@ -39,11 +39,34 @@ export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSav
 
   // Modal focus: move focus in on open, keep Tab inside (on mobile the covered
   // tab bar stays in the tab order otherwise), and hand it back on close.
+  // Escape and the focusin guard listen on the document: a focused button that
+  // disables (MinersSection's Add/Remove while busy) drops focus to body, where
+  // the dialog's own keydown never fires. The guard only acts if focus then
+  // lands outside, so Chrome's Tab, which resumes beside the disabled button,
+  // is left alone.
   const dialogRef = React.useRef(null);
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
   React.useEffect(() => {
     const opener = document.activeElement;
     dialogRef.current?.focus();
-    return () => { if (opener?.isConnected) opener.focus(); };
+    // Skip an Escape that cancels an IME composition (browsers flag it with
+    // isComposing, keyCode 229, or both)
+    // or that a control inside already handled.
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || e.isComposing || e.keyCode === 229 || e.defaultPrevented) return;
+      onCloseRef.current();
+    };
+    const onFocusIn = (e) => {
+      if (dialogRef.current && !dialogRef.current.contains(e.target)) dialogRef.current.focus();
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('focusin', onFocusIn);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('focusin', onFocusIn);
+      if (opener?.isConnected) opener.focus();
+    };
   }, []);
   const trapTab = (e) => {
     if (e.key !== 'Tab') return;
@@ -111,6 +134,7 @@ export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSav
               </div>
               <button
                 onClick={onClose}
+                aria-label="Close settings"
                 style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: T.mono, fontSize: u(16), color: T.ink3, padding: u(4) }}
               >
                 ✕

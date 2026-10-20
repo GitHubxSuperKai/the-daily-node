@@ -24,6 +24,10 @@ import {
 // Fallback for callers that pass no chart (older tests); never mutated.
 const EMPTY_CHART = Object.freeze({ points: null, domain: null, stale: false, aged: false, failed: false });
 const NOOP = () => {};
+// The drop cap is two lines tall and wants a dek that wraps well past it. Under this
+// many chars (about two lines at ~70 a line) the dek renders plain, so a one-line dek
+// never leaves a lone capital beside it.
+export const DROP_CAP_MIN_CHARS = 150;
 
 export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartProp, range = '24h', onRangeChange }) {
   const T = useT();
@@ -82,6 +86,7 @@ export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartP
   const feeEco     = chain.data ? `${chain.data.feeEco} sat/vB` : '—';
 
   const lead       = rss.leadStory;
+  const dropCap    = (lead?.snippet?.length ?? 0) >= DROP_CAP_MIN_CHARS;
 
   return (
     <div
@@ -168,11 +173,18 @@ export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartP
           {/* An image that fails to load hands the slot to the next qualifying story. */}
           <LeadImage key={lead.img} src={lead.img} onError={() => rss.skipLead && rss.skipLead(lead.img)} />
           {lead.snippet ? (
-            <ScrollHint style={{ flex: 1, fontFamily: T.body, fontSize: u(13.5), lineHeight: 1.5, color: T.ink2 }}>
-              <span style={{ fontFamily: T.serif, fontSize: u(44), fontWeight: 700, color: T.ink, float: 'left', lineHeight: 0.88, marginRight: u(8), marginTop: u(3) }}>
-                {lead.snippet.charAt(0)}
-              </span>
-              {lead.snippet.slice(1)}
+            // A long dek asks for three lines (its flex basis) and takes any spare room; a
+            // short one asks for its own height, so the image can grow to full size. Both
+            // give way, behind the scroll hint, only once the image is at its minimum.
+            <ScrollHint style={{ flex: dropCap ? `1 1 ${u(60)}` : '0 1 auto', fontFamily: T.body, fontSize: u(13.5), lineHeight: 1.5, color: T.ink2 }}>
+              {dropCap ? (
+                <>
+                  <span style={{ fontFamily: T.serif, fontSize: u(44), fontWeight: 700, color: T.ink, float: 'left', lineHeight: 0.88, marginRight: u(8), marginTop: u(3) }}>
+                    {lead.snippet.charAt(0)}
+                  </span>
+                  {lead.snippet.slice(1)}
+                </>
+              ) : lead.snippet}
             </ScrollHint>
           ) : null}
         </div>
