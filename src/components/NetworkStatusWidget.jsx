@@ -60,7 +60,8 @@ function Row({ label, value, valueColor, valueAlt, last, T }) {
 }
 
 // Mining-pool share bars. With `limit`, shows the top `limit` pools plus an
-// "Others" row for the rest, so the list has a fixed height (the desktop sidebar).
+// "Others" row for the rest. The desktop sidebar derives `limit` from the space it
+// has (fitPoolLimit in utils/poolLimit.js).
 // One pool past the limit is shown by name: an "Others (1)" row would take the same space.
 export function MiningPools({ pools, limit, T }) {
   if (!pools || pools.length === 0) return null;
@@ -80,7 +81,7 @@ export function MiningPools({ pools, limit, T }) {
   const maxShare = rows.reduce((m, p) => Math.max(m, parseFloat(p.sharePct)), 0) || 1;
 
   return (
-    <div style={{ paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
+    <div data-pool-list="" style={{ paddingTop: u(12), borderTop: `1px solid ${T.rule3}` }}>
       <SubLabel
         right={poolRisk ? 'Concentration ⚠' : null}
         alert={poolRisk}
@@ -93,7 +94,7 @@ export function MiningPools({ pools, limit, T }) {
           const share = parseFloat(pool.sharePct);
           const isRisk = !pool.others && share > 40;
           return (
-            <div key={pool.slug || pool.name || i} style={{
+            <div key={pool.slug || pool.name || i} data-pool-row="" style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: `${u(5)} 0`,
               borderBottom: i < rows.length - 1 ? `1px solid ${T.rule3}` : 'none',
