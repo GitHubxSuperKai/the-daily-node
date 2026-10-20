@@ -377,7 +377,7 @@ describe('MarketsColumn — lead image and summary layout', () => {
     return roots[0];
   };
 
-  it('the image keeps its own ratio, crops from the bottom and yields space first', () => {
+  it('the image keeps its own ratio, anchors its crop to the top and yields space first', () => {
     const { container } = mountRange(lead('Short dek.'));
     const img = container.querySelector('img');
     expect(img.style.height).toBe('auto');
