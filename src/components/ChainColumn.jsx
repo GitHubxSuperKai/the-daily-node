@@ -13,7 +13,7 @@ export function ChainColumn({ bitaxe, chain }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0, overflow: 'hidden' }}>
       <Miners bitaxe={bitaxe} chain={chain} />
       {/* 26, not 32: the 10px label floor cost Network Status about 5px, and this gap gives it
-          back, so 2 miners with one wrapped rig name still fit at 1920x1080. */}
+          back, so 2 miners with one long rig name (e.g. nerdqaxe_plus_office) still fit at 1920x1080. */}
       <ScrollHint style={{ marginTop: u(26), flexShrink: 1 }}>
         <NetworkStatusWidget chain={chain} T={T} showPools={false} />
       </ScrollHint>
