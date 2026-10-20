@@ -79,6 +79,8 @@ export function AlertsPanel({ alerts, alertPrefs, onDismiss, now, timeFormat }) 
             const isNew = now - a.ts < NEW_MS;
             const c = colorOf(a.type);
             const showX = active === a.id;
+            // A condition that kept firing is one row with a repeat count (see mergeAlert).
+            const repeats = a.count > 1 && Number.isFinite(a.since);
             return (
               <div
                 key={a.id}
@@ -106,7 +108,8 @@ export function AlertsPanel({ alerts, alertPrefs, onDismiss, now, timeFormat }) 
                   fontFamily: T.sans, fontSize: u(10), letterSpacing: '0.14em', textTransform: 'uppercase',
                   color: isNew ? T.ink : T.ink2,
                 }}>
-                  {LABELS[a.type] || a.type}
+                  <span>{LABELS[a.type] || a.type}</span>
+                  {repeats && <span style={{ color: T.ink3 }}> ×{a.count}</span>}
                 </span>
                 <span style={{ fontFamily: T.body, fontSize: u(10), color: T.ink3, textAlign: 'right' }}>
                   {fmtAlertTime(a.ts, timeFormat)}
@@ -134,7 +137,7 @@ export function AlertsPanel({ alerts, alertPrefs, onDismiss, now, timeFormat }) 
                   color: isNew ? T.ink2 : T.ink3,
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 }}>
-                  {shortMessage(a.message)}
+                  {repeats ? `since ${fmtAlertTime(a.since, timeFormat)} · ` : ''}{shortMessage(a.message)}
                 </span>
               </div>
             );

@@ -6,7 +6,7 @@ import { render, screen, cleanup, fireEvent, renderHook, act } from '@testing-li
 import { ThemeCtx, LIGHT } from '../../src/theme.js';
 import { AlertsPanel, watchingSentence, shortMessage } from '../../src/components/AlertsPanel.jsx';
 import { Sidebar } from '../../src/components/Sidebar.jsx';
-import { useAlerts, HISTORY_KEY } from '../../src/hooks/useAlerts.js';
+import { useAlerts, mergeAlert, HISTORY_KEY } from '../../src/hooks/useAlerts.js';
 
 const NOW = Date.UTC(2026, 9, 20, 22, 0, 0);
 const MIN = 60 * 1000;
@@ -148,6 +148,79 @@ describe('AlertsPanel', () => {
   });
 });
 
+describe('repeats', () => {
+  const COOL = 10 * MIN;
+  const at = (type, ts, message = `${type} at ${ts}`) => ({ id: `${type}-${ts}`, type, message, ts });
+
+  it('folds a repeat within two cooldowns into the newest row of its type, moved to the top', () => {
+    const first = at('minerOffline', NOW - 12 * MIN, 'Miner offline: rig-2');
+    const fee = at('fee', NOW - 5 * MIN);
+    const next = mergeAlert([fee, first], at('minerOffline', NOW, 'Miner offline: rig-2, rig-3'), COOL);
+    expect(next).toHaveLength(2);
+    expect(next[0]).toEqual({
+      id: first.id, type: 'minerOffline', message: 'Miner offline: rig-2, rig-3',
+      ts: NOW, since: first.ts, count: 2,
+    });
+    expect(next[1]).toBe(fee);
+    // A third fire keeps the first `since` and counts on.
+    const third = mergeAlert(next, at('minerOffline', NOW + 11 * MIN), COOL);
+    expect(third[0]).toMatchObject({ id: first.id, since: first.ts, count: 3, ts: NOW + 11 * MIN });
+  });
+
+  it('starts a new row after a gap longer than two cooldowns, or for a different type', () => {
+    const old = at('fee', NOW - 21 * MIN);
+    expect(mergeAlert([old], at('fee', NOW), COOL).map(a => a.id)).toEqual([`fee-${NOW}`, old.id]);
+    expect(mergeAlert([old], at('price', NOW), COOL)).toHaveLength(2);
+    // Exactly two cooldowns still merges.
+    expect(mergeAlert([at('fee', NOW - 20 * MIN)], at('fee', NOW), COOL)).toHaveLength(1);
+  });
+
+  it('starts a new row once the earlier one was dismissed', () => {
+    // A dismissed row is gone from the history, so there is nothing to merge into.
+    const next = mergeAlert([], at('fee', NOW), COOL);
+    expect(next).toEqual([at('fee', NOW)]);
+  });
+
+  it('drops rows past 24 hours while merging', () => {
+    const stale = at('price', NOW - 25 * 60 * MIN);
+    expect(mergeAlert([stale], at('fee', NOW), COOL).map(a => a.type)).toEqual(['fee']);
+  });
+
+  it('shows the repeat count beside the label and when it started', () => {
+    const d = new Date(NOW - 50 * MIN);
+    const since = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    renderPanel({
+      alerts: [{ id: 'm', type: 'minerOffline', message: 'Miner offline: rig-2', ts: NOW - 5 * MIN, since: NOW - 50 * MIN, count: 6 }],
+    });
+    expect(screen.getByText('Miner offline')).toBeTruthy();
+    expect(screen.getByText('×6')).toBeTruthy();
+    expect(screen.getByText(`since ${since} · rig-2`)).toBeTruthy();
+    // One row, one alert.
+    expect(screen.getByText('1 in 24h · 1 new')).toBeTruthy();
+  });
+
+  it('a condition that keeps firing stays one row in the hook', () => {
+    let now = Date.now();
+    const spy = vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const prefs = { alerts: ON };
+    const t = { fastFee: 10, msSinceLastBlock: 60 * 1000, miners: [], btcPrice: null, priceHistory: [] };
+    const { result, rerender } = renderHook(({ fee }) => useAlerts({ ...t, fastFee: fee }, prefs), { initialProps: { fee: 80 } });
+    expect(result.current.history).toHaveLength(1);
+    // Fee cooldown is 30 min; fire again 31 and 62 min later while the spike continues.
+    now += 31 * MIN; rerender({ fee: 81 });
+    now += 31 * MIN; rerender({ fee: 82 });
+    expect(result.current.history).toHaveLength(1);
+    expect(result.current.history[0]).toMatchObject({ type: 'fee', count: 3 });
+    expect(result.current.history[0].message).toMatch(/82 sat\/vB/);
+    // Dismiss it: the next fire starts a fresh row.
+    act(() => result.current.dismiss(result.current.history[0].id));
+    now += 31 * MIN; rerender({ fee: 83 });
+    expect(result.current.history).toHaveLength(1);
+    expect(result.current.history[0].count).toBeUndefined();
+    spy.mockRestore();
+  });
+});
+
 describe('watchingSentence / shortMessage', () => {
   it('names each enabled alert, joined with "and"', () => {
     expect(watchingSentence({ fee: { enabled: true, threshold: 20 } })).toBe('All quiet. Watching fees above 20 sat/vB.');
@@ -227,13 +300,15 @@ describe('useAlerts history', () => {
     expect(result.current.toasts).toEqual([]);
   });
 
-  it('fires on remount once the saved alert is past its cooldown', () => {
+  it('fires on remount once the saved alert is past its cooldown, as a repeat of that row', () => {
     const now = Date.now();
     localStorage.setItem(HISTORY_KEY, JSON.stringify([
       { id: 'fee-1', type: 'fee', message: 'Fee spike: 80', ts: now - 31 * MIN },
     ]));
     const { result } = renderHook(() => useAlerts({ ...quiet, fastFee: 80 }, prefs));
-    expect(result.current.history).toHaveLength(2);
+    expect(result.current.toasts).toHaveLength(1);
+    expect(result.current.history).toHaveLength(1);
+    expect(result.current.history[0]).toMatchObject({ id: 'fee-1', count: 2, since: now - 31 * MIN });
   });
 
   it('starts empty when storage holds garbage', () => {

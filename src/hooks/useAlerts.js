@@ -26,6 +26,24 @@ function saveAlertHistory(history) {
   }
 }
 
+// Adds a fired alert to the history (newest first), dropping entries past 24 hours. A
+// condition that keeps firing stays one row: when the newest row of the same type last
+// fired within two cooldowns, it takes the new time and message, counts the repeat and
+// keeps `since`, its first time. A longer gap, or a dismissed row, starts a new row.
+function mergeAlert(history, alert, cooldownMs) {
+  const live = history.filter(a => alert.ts - a.ts < HISTORY_MS);
+  const i = live.findIndex(a => a.type === alert.type);
+  if (i >= 0 && alert.ts - live[i].ts <= 2 * cooldownMs) {
+    const prev = live[i];
+    const merged = {
+      ...prev, message: alert.message, ts: alert.ts,
+      since: prev.since ?? prev.ts, count: (prev.count ?? 1) + 1,
+    };
+    return [merged, ...live.slice(0, i), ...live.slice(i + 1)];
+  }
+  return [alert, ...live];
+}
+
 function useAlerts(triggers, prefs) {
   const { fastFee, msSinceLastBlock, miners, btcPrice, priceHistory } = triggers;
   const alertPrefs = prefs.alerts;
@@ -61,7 +79,7 @@ function useAlerts(triggers, prefs) {
 
     const id = `${type}-${now}`;
     setToasts(prev => [...prev, { id, type, message, ts: now }]);
-    setHistory(prev => [{ id, type, message, ts: now }, ...prev.filter(a => now - a.ts < HISTORY_MS)]);
+    setHistory(prev => mergeAlert(prev, { id, type, message, ts: now }, cooldownMs));
     const tid = setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
       pendingTimers.current = pendingTimers.current.filter(t => t !== tid);
@@ -118,4 +136,4 @@ function useAlerts(triggers, prefs) {
   return { toasts, history, dismiss };
 }
 
-export { useAlerts, loadAlertHistory, HISTORY_KEY, HISTORY_MS };
+export { useAlerts, loadAlertHistory, mergeAlert, HISTORY_KEY, HISTORY_MS };
