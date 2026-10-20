@@ -18,7 +18,7 @@ vi.mock('../../src/components/LineChart', () => ({
   },
 }));
 
-import { MarketsColumn } from '../../src/components/MarketsColumn.jsx';
+import { MarketsColumn, DROP_CAP_MIN_CHARS } from '../../src/components/MarketsColumn.jsx';
 
 function wrap(ui) {
   return render(<ThemeCtx.Provider value={LIGHT}>{ui}</ThemeCtx.Provider>);
@@ -319,5 +319,86 @@ describe('MarketsColumn — chart range', () => {
     expect(captured.points).toBe(first.points);
     expect(captured.domain).toBe(first.domain);
     expect(captured.chipFormat).toBe(first.chipFormat);
+  });
+});
+
+describe('MarketsColumn — lead story', () => {
+  const leadWith = (snippet) => ({
+    rss: {
+      err: null, skipLead: vi.fn(),
+      leadStory: { hed: 'Lead headline', topic: 'BITCOIN', src: 'CoinDesk', t: '1h', link: 'https://example.com/lead', img: 'https://example.com/lead.jpg', snippet },
+    },
+  });
+  // The drop cap is the only floated span in the column.
+  const dropCapOf = (container) => [...container.querySelectorAll('span')].find(s => s.style.float === 'left') ?? null;
+  const dekOf = (container, snippet) =>
+    [...container.querySelectorAll('div')].filter(d => d.textContent === snippet).pop();
+
+  it('the threshold is about two lines of dek', () => {
+    expect(DROP_CAP_MIN_CHARS).toBe(150);
+  });
+
+  it('a short dek renders plain, with no drop cap', () => {
+    const snippet = 'Your day-ahead look for Oct. 19, 2026';
+    const { container } = mountRange(leadWith(snippet));
+    expect(dropCapOf(container)).toBeNull();
+    // Whole, not split into a first letter and the rest.
+    expect(screen.getByText(snippet)).toBeDefined();
+  });
+
+  it('a dek one char short of the threshold renders plain', () => {
+    const { container } = mountRange(leadWith('x'.repeat(DROP_CAP_MIN_CHARS - 1)));
+    expect(dropCapOf(container)).toBeNull();
+  });
+
+  it('a dek at the threshold gets the drop cap, and the body is the rest of the text', () => {
+    const snippet = 'B' + 'y'.repeat(DROP_CAP_MIN_CHARS - 1);
+    const { container } = mountRange(leadWith(snippet));
+    const cap = dropCapOf(container);
+    expect(cap).not.toBeNull();
+    expect(cap.textContent.trim()).toBe('B');
+    // The cap's letter is not repeated in the body.
+    expect(dekOf(container, snippet)).toBeDefined();
+    expect(container.textContent).not.toContain('B' + snippet);
+  });
+});
+
+describe('MarketsColumn — lead image and summary layout', () => {
+  const lead = (snippet) => ({
+    rss: {
+      err: null, skipLead: vi.fn(),
+      leadStory: { hed: 'Lead headline', topic: 'BITCOIN', src: 'CoinDesk', t: '1h', link: 'https://example.com/lead', img: 'https://example.com/lead.jpg', snippet },
+    },
+  });
+  // ScrollHint spreads the summary's style onto its root, the only div with the dek's font size.
+  const summaryRoot = (container) => {
+    const roots = [...container.querySelectorAll('div')].filter(d => d.style.fontSize === 'calc(var(--u) * 13.5)');
+    expect(roots).toHaveLength(1);
+    return roots[0];
+  };
+
+  it('the image keeps its own ratio, anchors its crop to the top and yields space first', () => {
+    const { container } = mountRange(lead('Short dek.'));
+    const img = container.querySelector('img');
+    expect(img.style.height).toBe('auto');
+    expect(img.style.objectFit).toBe('cover');
+    expect(img.style.objectPosition).toBe('top');
+    expect(img.style.minHeight).toBe('calc(var(--u) * 160)');
+    expect(img.style.maxHeight).toBe('calc(var(--u) * 270)');
+    expect(img.style.flex).toBe('0 1000 auto');
+  });
+
+  it('a short dek asks only for its own height', () => {
+    const { container } = mountRange(lead('Short dek.'));
+    const root = summaryRoot(container);
+    expect(root.style.flex).toBe('0 1 auto');
+    expect(root.style.minHeight).toBe('0px');
+  });
+
+  it('a long dek asks for three lines as its basis, with no hard floor', () => {
+    const { container } = mountRange(lead('L'.repeat(DROP_CAP_MIN_CHARS)));
+    const root = summaryRoot(container);
+    expect(root.style.flex).toBe('1 1 calc(var(--u) * 60)');
+    expect(root.style.minHeight).toBe('0px');
   });
 });
