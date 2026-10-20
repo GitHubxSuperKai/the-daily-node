@@ -41,6 +41,9 @@ describe('BTC_HISTORY', () => {
     expect(at(7, 9)).toMatch(/^Second halving/);
     expect(at(8, 24)).toMatch(/SegWit/);
     expect(at(9, 11)).toMatch(/BitPay/);
+    // Celsius's petition was entered at 20:10 US Eastern on Jul 13, 2022: Jul 14 UTC.
+    expect(at(7, 14)).toMatch(/Celsius/);
+    expect(at(7, 13)).toBe('');
   });
 });
 
