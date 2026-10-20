@@ -9,14 +9,25 @@ const HISTORY_MS = 24 * 60 * 60 * 1000;
 const isAlert = a => a && typeof a.id === 'string' && typeof a.type === 'string'
   && typeof a.message === 'string' && Number.isFinite(a.ts);
 
-// A future time (saved under a clock that ran ahead and was then corrected) is dropped:
-// it would otherwise stay listed forever and hold that type's cooldown until then.
-const isRecent = (ts, now) => ts <= now && now - ts < HISTORY_MS;
+// A saved time later than now is clamped to now, in memory only. The clock may be behind
+// (a device with no RTC, before NTP sets it), so the row is real. Clamped, it holds that
+// type's cooldown for one cooldown from this mount (a reload, or a remount across the
+// 900px breakpoint). Storage keeps the saved time until the list or cooldowns are next
+// written, so a mount after the clock syncs gets it back, and one before then clamps
+// again, to that mount's now.
+const clampTs = (ts, now) => Math.min(ts, now);
+const isRecent = (ts, now) => now - ts < HISTORY_MS;
 
 function loadAlertHistory(now = Date.now()) {
   try {
     const raw = JSON.parse(localStorage.getItem(HISTORY_KEY));
-    return Array.isArray(raw) ? raw.filter(a => isAlert(a) && isRecent(a.ts, now)) : [];
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(isAlert).map(a => {
+      const ts = clampTs(a.ts, now);
+      // A repeat row's `since` never reads later than its time.
+      if (Number.isFinite(a.since) && a.since > ts) return { ...a, ts, since: ts };
+      return ts === a.ts ? a : { ...a, ts };
+    }).filter(a => isRecent(a.ts, now));
   } catch {
     return [];
   }
@@ -30,7 +41,10 @@ function loadCooldowns(now = Date.now()) {
   try {
     const raw = JSON.parse(localStorage.getItem(COOLDOWNS_KEY));
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
-    return Object.fromEntries(Object.entries(raw).filter(([, ts]) => Number.isFinite(ts) && isRecent(ts, now)));
+    return Object.fromEntries(Object.entries(raw)
+      .filter(([, ts]) => Number.isFinite(ts))
+      .map(([type, ts]) => [type, clampTs(ts, now)])
+      .filter(([, ts]) => isRecent(ts, now)));
   } catch {
     return {};
   }
@@ -63,7 +77,8 @@ function mergeAlert(history, alert, cooldownMs) {
     const prev = live[i];
     const merged = {
       ...prev, message: alert.message, ts: alert.ts,
-      since: prev.since ?? prev.ts, count: (prev.count ?? 1) + 1,
+      // A saved count that isn't a whole number from 1 (a string "5" would make "51") counts as 1.
+      since: prev.since ?? prev.ts, count: (Number.isInteger(prev.count) && prev.count >= 1 ? prev.count : 1) + 1,
     };
     return [merged, ...live.slice(0, i), ...live.slice(i + 1)];
   }

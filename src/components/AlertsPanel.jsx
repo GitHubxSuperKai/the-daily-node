@@ -3,6 +3,7 @@ import { useT } from '../theme';
 import { u } from '../utils/scale.js';
 import { fmtHHMM } from '../utils/formatting.js';
 import { useFitRows } from '../utils/fitRows.js';
+import { BLOCK_TIME_ALERT_MIN } from '../utils/alertThresholds.js';
 import Kicker from './Kicker';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -15,7 +16,7 @@ export function watchingSentence(alertPrefs) {
   const a = alertPrefs || {};
   const parts = [];
   if (a.fee?.enabled) parts.push(`fees above ${a.fee.threshold} sat/vB`);
-  if (a.blockTime?.enabled) parts.push('blocks over 15 min');
+  if (a.blockTime?.enabled) parts.push(`blocks over ${BLOCK_TIME_ALERT_MIN} min`);
   if (a.minerOffline?.enabled) parts.push('miners going offline');
   if (a.price?.enabled) parts.push(`price moves of ${a.price.pctThreshold}% in ${a.price.windowMin} min`);
   if (parts.length === 0) return null;
@@ -34,6 +35,23 @@ function fmtAlertTime(ts, timeFormat) {
   return fmtHHMM(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`, timeFormat);
 }
 
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// A repeat row's start time, with its day when that isn't today (local calendar days):
+// "21:10", "yesterday 21:10", "Mon 21:10" within the week, then "Oct 12 21:10".
+export function fmtSince(ts, now, timeFormat) {
+  const time = fmtAlertTime(ts, timeFormat);
+  const d = new Date(ts);
+  const startOf = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  // Round, not floor: a day across a DST change is 23 or 25 hours.
+  const days = Math.round((startOf(new Date(now)) - startOf(d)) / DAY_MS);
+  if (days <= 0) return time;
+  if (days === 1) return `yesterday ${time}`;
+  if (days < 7) return `${WEEKDAYS[d.getDay()]} ${time}`;
+  return `${MONTHS[d.getMonth()]} ${d.getDate()} ${time}`;
+}
+
 // The desktop sidebar's list of alerts fired in the last 24 hours, newest first. Fills the
 // space the rail has left and shows as many rows as fit. Each row has a dismiss × that
 // shows on hover (or keyboard focus).
@@ -42,6 +60,10 @@ export function AlertsPanel({ alerts, alertPrefs, onDismiss, now, timeFormat }) 
   const ref = React.useRef(null);
   const [active, setActive] = React.useState(null);
   const pressShown = React.useRef(false);
+  // After a keyboard dismiss, the row index whose × takes focus, so it doesn't drop to
+  // <body>: the next row's (now at that index), else the last, else the panel. A mouse or
+  // touch dismiss leaves focus alone, as moving it would show another row's ×.
+  const refocusAt = React.useRef(null);
 
   const anyEnabled = Object.values(alertPrefs || {}).some(a => a?.enabled);
   const recent = anyEnabled
@@ -49,6 +71,14 @@ export function AlertsPanel({ alerts, alertPrefs, onDismiss, now, timeFormat }) 
     : [];
   const fit = useFitRows(ref, recent.length);
   const newCount = recent.filter(a => now - a.ts < NEW_MS).length;
+
+  React.useLayoutEffect(() => {
+    const at = refocusAt.current;
+    if (at === null || !ref.current) return;
+    refocusAt.current = null;
+    const xs = ref.current.querySelectorAll('button');
+    (xs[Math.min(at, xs.length - 1)] || ref.current).focus();
+  });
 
   const countLabel = !anyEnabled ? 'Off'
     : recent.length === 0 ? 'None in 24h'
@@ -61,7 +91,8 @@ export function AlertsPanel({ alerts, alertPrefs, onDismiss, now, timeFormat }) 
   const colorOf = type => (type === 'minerOffline' ? T.red : type === 'blockTime' ? T.ink3 : T.orange);
 
   return (
-    <div ref={ref} data-alerts style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+    // tabIndex -1: focus lands here after a keyboard dismiss of the last row.
+    <div ref={ref} data-alerts tabIndex={-1} role="region" aria-label="Alerts" style={{ flex: 1, minHeight: 0, overflow: 'hidden', outline: 'none' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <Kicker>Alerts</Kicker>
         <span style={{ fontFamily: T.body, fontSize: u(10), color: T.ink3 }}>{countLabel}</span>
@@ -116,7 +147,8 @@ export function AlertsPanel({ alerts, alertPrefs, onDismiss, now, timeFormat }) 
                 </span>
                 <button
                   type="button"
-                  aria-label={`Dismiss ${LABELS[a.type] || a.type} alert`}
+                  // The time tells apart rows of one type.
+                  aria-label={`Dismiss ${LABELS[a.type] || a.type} alert from ${fmtAlertTime(a.ts, timeFormat)}`}
                   // Only a × that was visible when the press began dismisses. A touch
                   // tap's pointerdown comes before its emulated mouseenter, so the
                   // first tap only reveals the ×. A keyboard click (detail 0) has no press.
@@ -124,6 +156,7 @@ export function AlertsPanel({ alerts, alertPrefs, onDismiss, now, timeFormat }) 
                   onClick={e => {
                     const shown = pressShown.current;
                     pressShown.current = false;
+                    if (e.detail === 0) refocusAt.current = i;
                     if (e.detail === 0 || shown) onDismiss?.(a.id);
                   }}
                   style={{
@@ -141,7 +174,7 @@ export function AlertsPanel({ alerts, alertPrefs, onDismiss, now, timeFormat }) 
                   color: isNew ? T.ink2 : T.ink3,
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 }}>
-                  {repeats ? `since ${fmtAlertTime(a.since, timeFormat)} · ` : ''}{shortMessage(a.message)}
+                  {repeats ? `since ${fmtSince(a.since, now, timeFormat)} · ` : ''}{shortMessage(a.message)}
                 </span>
               </div>
             );

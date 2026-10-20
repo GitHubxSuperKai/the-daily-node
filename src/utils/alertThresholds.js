@@ -2,8 +2,11 @@ function checkFeeThreshold(fastFee, threshold) {
   return typeof fastFee === 'number' && typeof threshold === 'number' && fastFee > threshold;
 }
 
+// The block-time alert fires once the newest block is older than this.
+const BLOCK_TIME_ALERT_MIN = 15;
+
 function checkBlockTimeThreshold(msSinceLastBlock) {
-  return typeof msSinceLastBlock === 'number' && msSinceLastBlock > 15 * 60 * 1000;
+  return typeof msSinceLastBlock === 'number' && msSinceLastBlock > BLOCK_TIME_ALERT_MIN * 60 * 1000;
 }
 
 // Age of the newest block for the block-time alert, or null when it is unknown. While the
@@ -30,8 +33,8 @@ function checkPriceThreshold(currentUsd, historyPoints, pctThreshold, windowSeco
   return Math.abs((currentUsd - baseline.usd) / baseline.usd * 100) >= pctThreshold;
 }
 
-export { checkFeeThreshold, checkBlockTimeThreshold, msSinceLastBlockFor, checkMinerOfflineThreshold, checkPriceThreshold };
+export { BLOCK_TIME_ALERT_MIN, checkFeeThreshold, checkBlockTimeThreshold, msSinceLastBlockFor, checkMinerOfflineThreshold, checkPriceThreshold };
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { checkFeeThreshold, checkBlockTimeThreshold, msSinceLastBlockFor, checkMinerOfflineThreshold, checkPriceThreshold };
+  module.exports = { BLOCK_TIME_ALERT_MIN, checkFeeThreshold, checkBlockTimeThreshold, msSinceLastBlockFor, checkMinerOfflineThreshold, checkPriceThreshold };
 }

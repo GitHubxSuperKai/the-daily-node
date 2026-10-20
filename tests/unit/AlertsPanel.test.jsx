@@ -4,7 +4,8 @@ globalThis.React = React;
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent, renderHook, act } from '@testing-library/react';
 import { ThemeCtx, LIGHT } from '../../src/theme.js';
-import { AlertsPanel, watchingSentence, shortMessage } from '../../src/components/AlertsPanel.jsx';
+import { AlertsPanel, watchingSentence, shortMessage, fmtSince } from '../../src/components/AlertsPanel.jsx';
+import { BLOCK_TIME_ALERT_MIN } from '../../src/utils/alertThresholds.js';
 import { Sidebar } from '../../src/components/Sidebar.jsx';
 import { useAlerts, mergeAlert, HISTORY_KEY, COOLDOWNS_KEY } from '../../src/hooks/useAlerts.js';
 
@@ -81,8 +82,8 @@ describe('AlertsPanel', () => {
     const a = alert('fee', 10, 'Fee spike: 64 sat/vB');
     const b = alert('minerOffline', 20, 'Miner offline: rig-2');
     renderPanel({ alerts: [a, b], onDismiss: id => dismissed.push(id) });
-    const x = screen.getByRole('button', { name: 'Dismiss Fee spike alert' });
-    const other = screen.getByRole('button', { name: 'Dismiss Miner offline alert' });
+    const x = screen.getByRole('button', { name: /^Dismiss Fee spike alert/ });
+    const other = screen.getByRole('button', { name: /^Dismiss Miner offline alert/ });
     expect(x.style.opacity).toBe('0');
     fireEvent.mouseEnter(x.parentElement);
     expect(x.style.opacity).toBe('1');
@@ -100,7 +101,7 @@ describe('AlertsPanel', () => {
     const dismissed = [];
     const a = alert('fee', 10, 'Fee spike: 64 sat/vB');
     renderPanel({ alerts: [a], onDismiss: id => dismissed.push(id) });
-    const x = screen.getByRole('button', { name: 'Dismiss Fee spike alert' });
+    const x = screen.getByRole('button', { name: /^Dismiss Fee spike alert/ });
     fireEvent.focus(x);
     fireEvent.click(x, { detail: 0 });
     expect(dismissed).toEqual([a.id]);
@@ -111,8 +112,8 @@ describe('AlertsPanel', () => {
     const a = alert('fee', 10, 'Fee spike: 64 sat/vB');
     const b = alert('minerOffline', 20, 'Miner offline: rig-2');
     renderPanel({ alerts: [a, b], onDismiss: id => dismissed.push(id) });
-    const xa = screen.getByRole('button', { name: 'Dismiss Fee spike alert' });
-    const xb = screen.getByRole('button', { name: 'Dismiss Miner offline alert' });
+    const xa = screen.getByRole('button', { name: /^Dismiss Fee spike alert/ });
+    const xb = screen.getByRole('button', { name: /^Dismiss Miner offline alert/ });
     fireEvent.mouseEnter(xa.parentElement);
     fireEvent.pointerDown(xa);
     fireEvent.click(xa, { detail: 1 });
@@ -137,6 +138,7 @@ describe('AlertsPanel', () => {
     vi.stubGlobal('ResizeObserver', class {
       constructor(cb) { this.cb = cb; observers.push(this); }
       observe() {}
+      unobserve() {}
       disconnect() {}
     });
     const alerts = [alert('fee', 5, 'Fee spike: a'), alert('price', 6, 'b'), alert('blockTime', 7, 'c')];
@@ -156,7 +158,7 @@ describe('AlertsPanel', () => {
     const dismissed = [];
     const a = alert('fee', 10, 'Fee spike: 64 sat/vB');
     renderPanel({ alerts: [a], onDismiss: id => dismissed.push(id) });
-    const x = screen.getByRole('button', { name: 'Dismiss Fee spike alert' });
+    const x = screen.getByRole('button', { name: /^Dismiss Fee spike alert/ });
     // Touch order: pointerdown, then the emulated mouseenter, then click.
     fireEvent.pointerDown(x);
     fireEvent.mouseEnter(x.parentElement);
@@ -169,9 +171,68 @@ describe('AlertsPanel', () => {
     expect(dismissed).toEqual([a.id]);
   });
 
+  const hhmm = ts => {
+    const d = new Date(ts);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
+  it('names each × with its alert time, so rows of one type differ', () => {
+    const a = alert('fee', 10, 'Fee spike: 64 sat/vB');
+    const b = alert('fee', 200, 'Fee spike: 70 sat/vB');
+    renderPanel({ alerts: [a, b] });
+    const names = screen.getAllByRole('button').map(x => x.getAttribute('aria-label'));
+    expect(names).toEqual([`Dismiss Fee spike alert from ${hhmm(a.ts)}`, `Dismiss Fee spike alert from ${hhmm(b.ts)}`]);
+  });
+
+  // Holds the list and removes a dismissed alert, as the app does.
+  function Stateful({ initial }) {
+    const [alerts, setAlerts] = React.useState(initial);
+    return (
+      <ThemeCtx.Provider value={LIGHT}>
+        <AlertsPanel alerts={alerts} alertPrefs={ON} now={NOW} timeFormat="24h"
+          onDismiss={id => setAlerts(prev => prev.filter(x => x.id !== id))} />
+      </ThemeCtx.Provider>
+    );
+  }
+
+  it('after a keyboard dismiss, moves focus to the next row, else the last row, else the panel', () => {
+    const a = alert('fee', 10, 'Fee spike: a');
+    const b = alert('minerOffline', 20, 'Miner offline: b');
+    const c = alert('blockTime', 30, 'No block in 22 minutes');
+    const { container } = render(<Stateful initial={[a, b, c]} />);
+    const xOf = label => screen.getByRole('button', { name: new RegExp(`^Dismiss ${label} alert`) });
+    // Dismiss the first row: focus goes to the row that took its place.
+    xOf('Fee spike').focus();
+    fireEvent.click(xOf('Fee spike'), { detail: 0 });
+    expect(document.activeElement).toBe(xOf('Miner offline'));
+    // Dismiss the last row: focus goes to the row now last.
+    xOf('Block time').focus();
+    fireEvent.click(xOf('Block time'), { detail: 0 });
+    expect(document.activeElement).toBe(xOf('Miner offline'));
+    // Dismiss the only row: focus goes to the panel, not <body>.
+    fireEvent.click(xOf('Miner offline'), { detail: 0 });
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+    expect(document.activeElement).toBe(container.querySelector('[data-alerts]'));
+    // That fallback has a name for screen readers.
+    expect(document.activeElement).toBe(screen.getByRole('region', { name: 'Alerts' }));
+  });
+
+  it('a mouse dismiss does not move focus to another row (it would show that ×)', () => {
+    const a = alert('fee', 10, 'Fee spike: a');
+    const b = alert('minerOffline', 20, 'Miner offline: b');
+    render(<Stateful initial={[a, b]} />);
+    const x = screen.getByRole('button', { name: /^Dismiss Fee spike alert/ });
+    fireEvent.mouseEnter(x.parentElement);
+    fireEvent.pointerDown(x);
+    fireEvent.click(x, { detail: 1 });
+    const other = screen.getByRole('button', { name: /^Dismiss Miner offline alert/ });
+    expect(document.activeElement).not.toBe(other);
+    expect(other.style.opacity).toBe('0');
+  });
+
   it('shows the × on keyboard focus too', () => {
     renderPanel({ alerts: [alert('fee', 10, 'Fee spike: 64 sat/vB')] });
-    const x = screen.getByRole('button', { name: 'Dismiss Fee spike alert' });
+    const x = screen.getByRole('button', { name: /^Dismiss Fee spike alert/ });
     fireEvent.focus(x);
     expect(x.style.opacity).toBe('1');
   });
@@ -228,6 +289,36 @@ describe('repeats', () => {
     expect(screen.getByText('1 in 24h · 1 new')).toBeTruthy();
   });
 
+  it('counts on from 1 when a saved count is not a number', () => {
+    const prev = { ...at('fee', NOW - 5 * MIN), count: '5' };
+    expect(mergeAlert([prev], at('fee', NOW), COOL)[0].count).toBe(2);
+    expect(mergeAlert([{ ...prev, count: 5 }], at('fee', NOW), COOL)[0].count).toBe(6);
+    for (const bad of [0, -5, 1.5]) {
+      expect(mergeAlert([{ ...prev, count: bad }], at('fee', NOW), COOL)[0].count, String(bad)).toBe(2);
+    }
+  });
+
+  it('adds the day to "since" when the repeat started before today', () => {
+    // Local times, so the day is the viewer's calendar day.
+    const now = new Date(2026, 9, 21, 0, 30).getTime(); // Wed Oct 21, 00:30
+    const since = new Date(2026, 9, 20, 23, 10).getTime(); // Tue Oct 20, 23:10
+    renderPanel({
+      now,
+      alerts: [{ id: 'm', type: 'minerOffline', message: 'Miner offline: rig-2', ts: now - 5 * MIN, since, count: 6 }],
+    });
+    expect(screen.getByText('since yesterday 23:10 · rig-2')).toBeTruthy();
+  });
+
+  it('fmtSince: no day today, "yesterday", the weekday within a week, then the date', () => {
+    const now = new Date(2026, 9, 21, 9, 0).getTime(); // Wed Oct 21
+    const t = (d, h = 21, m = 10) => new Date(2026, 9, d, h, m).getTime();
+    expect(fmtSince(t(21, 0, 5), now, '24h')).toBe('00:05');
+    expect(fmtSince(t(20, 23, 59), now, '24h')).toBe('yesterday 23:59');
+    expect(fmtSince(t(19), now, '24h')).toBe('Mon 21:10');
+    expect(fmtSince(t(15), now, '24h')).toBe('Thu 21:10');
+    expect(fmtSince(t(14), now, '24h')).toBe('Oct 14 21:10');
+  });
+
   it('a condition that keeps firing stays one row in the hook', () => {
     let now = Date.now();
     const spy = vi.spyOn(Date, 'now').mockImplementation(() => now);
@@ -256,6 +347,10 @@ describe('watchingSentence / shortMessage', () => {
     expect(watchingSentence({ ...ON, price: { ...ON.price, enabled: true } }))
       .toBe('All quiet. Watching fees above 50 sat/vB, blocks over 15 min, miners going offline and price moves of 5% in 60 min.');
     expect(watchingSentence(OFF)).toBeNull();
+  });
+
+  it('takes the block-time minutes from the threshold the alert uses', () => {
+    expect(watchingSentence({ blockTime: { enabled: true } })).toBe(`All quiet. Watching blocks over ${BLOCK_TIME_ALERT_MIN} min.`);
   });
 
   it('drops only a known type prefix', () => {
@@ -353,18 +448,45 @@ describe('useAlerts history', () => {
     expect(Object.keys(JSON.parse(localStorage.getItem(COOLDOWNS_KEY)))).toEqual(['fee']);
   });
 
-  it('ignores saved times in the future (a clock corrected backwards)', () => {
-    const later = Date.now() + 365 * 24 * 60 * MIN;
+  // Saved times later than now: the clock is behind (no RTC, before NTP) or was ahead.
+  it('keeps a saved row from the future, clamped to now, holding its cooldown for one cooldown only', () => {
+    let now = Date.now();
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const later = now + 365 * 24 * 60 * MIN;
     localStorage.setItem(HISTORY_KEY, JSON.stringify([
-      { id: 'fee-future', type: 'fee', message: 'Fee spike: 99', ts: later },
+      { id: 'fee-future', type: 'fee', message: 'Fee spike: 99', ts: later, since: later + MIN, count: 3 },
     ]));
-    // `fee` is the type the test fires: a kept future cooldown would silence it.
-    localStorage.setItem(COOLDOWNS_KEY, JSON.stringify({ fee: later, blockTime: 'x' }));
-    const { result } = renderHook(() => useAlerts({ ...quiet, fastFee: 80 }, prefs));
-    // The future row is dropped and does not hold the fee cooldown, so the spike fires.
-    expect(result.current.toasts).toHaveLength(1);
-    expect(result.current.history.map(a => a.id)).not.toContain('fee-future');
+    const { result, rerender } = renderHook(({ fee }) => useAlerts({ ...quiet, fastFee: fee }, prefs), { initialProps: { fee: 80 } });
+    // The row is kept, at now, and its cooldown (30 min) silences the spike for now.
     expect(result.current.history).toHaveLength(1);
+    expect(result.current.history[0]).toMatchObject({ id: 'fee-future', ts: now, since: now });
+    expect(result.current.toasts).toEqual([]);
+    // One cooldown later it fires, as a repeat of that row: not silenced until `later`.
+    now += 31 * MIN; rerender({ fee: 81 });
+    expect(result.current.toasts).toHaveLength(1);
+    expect(result.current.history[0]).toMatchObject({ id: 'fee-future', count: 4 });
+  });
+
+  it('clamps a saved `since` later than its row\'s own time', () => {
+    const now = Date.now();
+    localStorage.setItem(HISTORY_KEY, JSON.stringify([
+      { id: 'fee-1', type: 'fee', message: 'Fee spike: 70', ts: now - 10 * MIN, since: now - 5 * MIN, count: 2 },
+    ]));
+    const { result } = renderHook(() => useAlerts(quiet, prefs));
+    expect(result.current.history[0]).toMatchObject({ ts: now - 10 * MIN, since: now - 10 * MIN });
+  });
+
+  it('clamps a saved future cooldown to now, so it silences one cooldown only', () => {
+    let now = Date.now();
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    // `fee` is the type the test fires; no saved row, so only the cooldown can silence it.
+    localStorage.setItem(COOLDOWNS_KEY, JSON.stringify({ fee: now + 365 * 24 * 60 * MIN, blockTime: 'x' }));
+    const { result, rerender } = renderHook(({ fee }) => useAlerts({ ...quiet, fastFee: fee }, prefs), { initialProps: { fee: 80 } });
+    expect(result.current.toasts).toEqual([]);
+    now += 29 * MIN; rerender({ fee: 81 });
+    expect(result.current.toasts).toEqual([]);
+    now += 2 * MIN; rerender({ fee: 82 });
+    expect(result.current.toasts).toHaveLength(1);
   });
 
   it('starts empty when storage holds garbage', () => {

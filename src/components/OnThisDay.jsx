@@ -124,7 +124,6 @@ export const BTC_HISTORY = [
   { mo:7,  d:9,  y:2016, t:'Second halving at block 420,000. Reward drops from 25 to 12.5 BTC.' },
   { mo:7,  d:11, y:2010, t:'Slashdot runs a front-page story on Bitcoin 0.3, bringing a wave of new users.' },
   { mo:7,  d:12, y:2015, t:'Bitcoin Core 0.11.0 is released, adding block file pruning so full nodes need far less disk space.' },
-  { mo:7,  d:13, y:2022, t:'Crypto lender Celsius files for Chapter 11 bankruptcy a month after freezing withdrawals.' },
   { mo:7,  d:14, y:2025, t:'Bitcoin trades above $120,000 for the first time.' },
   { mo:7,  d:15, y:2020, t:'Hackers hijack Twitter accounts of Obama, Musk and others to push a Bitcoin doubling scam.' },
   { mo:7,  d:17, y:2014, t:'New York\'s financial regulator proposes the BitLicense rules for virtual currency businesses.' },

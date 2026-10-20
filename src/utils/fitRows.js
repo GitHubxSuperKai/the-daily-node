@@ -21,6 +21,8 @@ export function fitRowCount({ regionPx, headerPx, rowPx, count, fallback = count
 // display: none), or there is nothing to measure next time.
 export function useFitRows(ref, count) {
   const [fit, setFit] = React.useState(count);
+  const observer = React.useRef(null);
+  const observedRow = React.useRef(null);
   const measure = React.useCallback(() => {
     const region = ref.current;
     const row = region && region.querySelector('[data-fit-row]');
@@ -43,7 +45,23 @@ export function useFitRows(ref, count) {
     // loading, a late web-font load), which is when the answer changes.
     const ro = new ResizeObserver(measure);
     ro.observe(ref.current);
-    return () => ro.disconnect();
+    observer.current = ro;
+    return () => {
+      ro.disconnect();
+      observer.current = null;
+      observedRow.current = null;
+    };
   }, [ref, measure]);
+
+  // A row's height can change while the region's doesn't (a web font swapping in), so the
+  // first row is observed too. It is re-checked each render: a new alert replaces it.
+  React.useLayoutEffect(() => {
+    const ro = observer.current;
+    const row = ref.current && ref.current.querySelector('[data-fit-row]');
+    if (!ro || row === observedRow.current) return;
+    if (observedRow.current) ro.unobserve(observedRow.current);
+    if (row) ro.observe(row);
+    observedRow.current = row;
+  });
   return fit;
 }
