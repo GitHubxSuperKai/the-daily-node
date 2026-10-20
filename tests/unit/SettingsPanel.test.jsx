@@ -258,15 +258,36 @@ describe('SettingsPanel — Escape and stray focus', () => {
     expect(props.onClose).not.toHaveBeenCalled();
   });
 
+  it('ignores Escape that cancels an IME composition', () => {
+    // Firefox/Safari report Escape with isComposing; Chrome reports keyCode 229.
+    const { props } = renderPanel();
+    const input = screen.getByLabelText(/Add miner IP/i);
+    input.focus();
+    fireEvent.keyDown(input, { key: 'Escape', isComposing: true });
+    fireEvent.keyDown(input, { key: 'Escape', keyCode: 229 });
+    expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it('ignores Escape a control inside has already handled', () => {
+    const { props } = renderPanel();
+    const input = screen.getByLabelText(/Add miner IP/i);
+    input.addEventListener('keydown', (e) => e.preventDefault());
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(props.onClose).not.toHaveBeenCalled();
+  });
+
   it('pulls focus back into the dialog when it lands outside', () => {
     const outside = document.createElement('button');
     document.body.appendChild(outside);
-    renderPanel();
-    const dialog = screen.getByRole('dialog');
-    document.activeElement.blur();
-    outside.focus();
-    expect(document.activeElement).toBe(dialog);
-    outside.remove();
+    try {
+      renderPanel();
+      const dialog = screen.getByRole('dialog');
+      document.activeElement.blur();
+      outside.focus();
+      expect(document.activeElement).toBe(dialog);
+    } finally {
+      outside.remove();
+    }
   });
 
   it('leaves focus moves inside the dialog alone', () => {
@@ -279,13 +300,21 @@ describe('SettingsPanel — Escape and stray focus', () => {
   it('stops listening once closed', () => {
     const outside = document.createElement('button');
     document.body.appendChild(outside);
-    const { unmount, props } = renderPanel();
-    unmount();
-    outside.focus();
-    expect(document.activeElement).toBe(outside);
-    fireEvent.keyDown(document.body, { key: 'Escape' });
-    expect(props.onClose).not.toHaveBeenCalled();
-    outside.remove();
+    const removed = vi.spyOn(document, 'removeEventListener');
+    try {
+      const { unmount, props } = renderPanel();
+      unmount();
+      // A leaked focusin guard is inert (dialogRef is null after unmount), so
+      // its removal is checked directly rather than through focus behaviour.
+      expect(removed.mock.calls.map((c) => c[0])).toEqual(expect.arrayContaining(['keydown', 'focusin']));
+      outside.focus();
+      expect(document.activeElement).toBe(outside);
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+      expect(props.onClose).not.toHaveBeenCalled();
+    } finally {
+      removed.mockRestore();
+      outside.remove();
+    }
   });
 });
 

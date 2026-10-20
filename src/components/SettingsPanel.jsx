@@ -50,7 +50,12 @@ export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSav
   React.useEffect(() => {
     const opener = document.activeElement;
     dialogRef.current?.focus();
-    const onKey = (e) => { if (e.key === 'Escape') onCloseRef.current(); };
+    // Skip an Escape that cancels an IME composition (keyCode 229 in Chrome)
+    // or that a control inside already handled.
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || e.isComposing || e.keyCode === 229 || e.defaultPrevented) return;
+      onCloseRef.current();
+    };
     const onFocusIn = (e) => {
       if (dialogRef.current && !dialogRef.current.contains(e.target)) dialogRef.current.focus();
     };
