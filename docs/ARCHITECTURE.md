@@ -16,7 +16,7 @@ App (root)
         │   │   ├── Weather -> WxGlyph
         │   │   ├── OnThisDay
         │   │   ├── StatusDot (system status lights)
-        │   │   └── MiningPools (top 6 + Others, in a ScrollHint)
+        │   │   └── MiningPools (as many as fit + Others, in a ScrollHint)
         │   ├── Column 1: MarketsColumn
         │   │   ├── BTC/USD price & change (rendered inline)
         │   │   ├── RangeButtons (1H / 24H / 7D / 30D / 1Y)
