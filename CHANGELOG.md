@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The desktop lead image is no longer forced into a 480×160 (3:1) box. It keeps its own aspect ratio, between 160 and 270 px tall, and gives up height to the headline and summary when they need it; the crop is now anchored to the top edge, so a title set across the top of the image stays whole instead of being half cut off under the headline (an image up to 3:1 loses only its bottom; a wider banner is still cropped at both sides, as before). A long summary asks for three lines and scrolls the rest. Only once the image is down to 160 px does the summary shrink below that, as it did before. Measured at 1920×1080 with an 800×450 image (full height 270 px) and the ATH line showing: with a two-line headline the image is 248 px beside a short summary, and 208 px beside a long one, whose summary area drops from 108 to 60 px; with a four-line headline it is 182 px beside a short summary, and 160 px beside a long one, whose summary keeps the 42 px it had before. Without the ATH line the image is 19 px taller in the first three of these cases. The mobile layout is unchanged.
 - The lead summary's drop cap is used only when the summary runs to 150 characters or more (about two lines at this width). A shorter one, such as "Your day-ahead look for Oct. 19, 2026", renders as plain text instead of a lone capital beside one line.
 
+### Fixed
+
+- On mobile, the bottom tab bar no longer covers the end of the Settings panel. The tab bar (57px at 390×844) sat above the panel, hiding the Save/Cancel row and the "More ↓" cue and taking their taps. On mobile, Settings now sits in a layer fixed to the viewport and stacked above the tab bar, so the tabs are covered until it closes and the panel no longer scrolls away with the page behind it. Desktop is unchanged.
+
 ## [1.6.0] — 2026-10-19
 
 ### Added

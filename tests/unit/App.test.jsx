@@ -126,6 +126,20 @@ describe('App — bootstrap and layout routing', () => {
     expectNoActWarnings();
   });
 
+  it('pins mobile Settings to the viewport above the tab bar', async () => {
+    // jsdom has no layout, so this pins the mechanism: a fixed ancestor (the
+    // panel must not scroll away with #stage) stacked above MobileTabBar.
+    setViewport(900);
+    await bootApp();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Open settings' })); });
+    let el = screen.getByRole('button', { name: 'Save' });
+    while (el && el.style?.position !== 'fixed') el = el.parentElement;
+    expect(el).toBeTruthy();
+    const barZ = Number(screen.getByRole('tablist').style.zIndex);
+    expect(barZ).toBeGreaterThan(0);
+    expect(Number(el.style.zIndex)).toBeGreaterThan(barZ);
+  });
+
   it('stays on the desktop tree one pixel above the breakpoint', async () => {
     setViewport(901);
     await bootApp();
