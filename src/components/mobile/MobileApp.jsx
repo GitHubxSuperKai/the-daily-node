@@ -73,6 +73,9 @@ function MobileApp(props) {
         position: 'relative',
         width: '100%',
         minHeight: '100vh',
+        // viewport-fit=cover lets the page run under the notch and home
+        // indicator; this keeps the header and every panel clear of them.
+        padding: 'env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px)',
         background: T.paper,
         color: T.ink,
         fontFamily: T.body,
