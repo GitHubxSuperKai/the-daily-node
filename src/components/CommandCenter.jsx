@@ -60,7 +60,7 @@ export function CommandCenter({
   const priceHistory = useHistory('price', '24h');
   const _yesterdayPrice = priceHistory.data.length > 0 ? priceHistory.data[0].usd : null;
 
-  const { toasts } = useAlerts(
+  const { toasts, history: alertHistory, dismiss: dismissAlert } = useAlerts(
     {
       fastFee:         chain.data?.feeFast ?? null,
       msSinceLastBlock,
@@ -201,7 +201,10 @@ export function CommandCenter({
       >
         {/* COL 0 — WORDMARK RAIL */}
         <ErrorBoundary label="Sidebar">
-          <Sidebar clock={clock} weather={weather} prefs={prefs} sys={sys} />
+          <Sidebar
+            clock={clock} weather={weather} prefs={prefs} sys={sys}
+            alerts={alertHistory} alertPrefs={v2prefs?.alerts} onDismissAlert={dismissAlert} now={freshNow}
+          />
         </ErrorBoundary>
 
         {/* COL 1 — MARKETS + LEAD STORY */}

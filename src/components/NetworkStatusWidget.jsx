@@ -60,8 +60,7 @@ function Row({ label, value, valueColor, valueAlt, last, T }) {
 }
 
 // Mining-pool share bars. With `limit`, shows the top `limit` pools plus an
-// "Others" row for the rest. Network Status passes no limit; usePoolLimit and
-// fitPoolLimit in utils/poolLimit.js can derive one from the space a caller has.
+// "Others" row for the rest. Network Status passes no limit, so every pool is listed.
 // One pool past the limit is shown by name: an "Others (1)" row would take the same space.
 export function MiningPools({ pools, limit, T }) {
   if (!pools || pools.length === 0) return null;

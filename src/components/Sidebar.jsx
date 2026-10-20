@@ -7,8 +7,9 @@ import Num from './Num';
 import StatusDot from './StatusDot';
 import { OnThisDay } from './OnThisDay';
 import Weather from './Weather';
+import { AlertsPanel } from './AlertsPanel';
 
-export function Sidebar({ clock, weather, prefs, sys }) {
+export function Sidebar({ clock, weather, prefs, sys, alerts, alertPrefs, onDismissAlert, now = Date.now() }) {
   const T = useT();
   return (
     <div
@@ -70,9 +71,15 @@ export function Sidebar({ clock, weather, prefs, sys }) {
           ))}
         </div>
       </div>
-      {/* Spare height, kept empty: Mining Pools lives in Network Status again. The
-          spacer keeps the colophon at the bottom of the rail. */}
-      <div style={{ flex: 1, minHeight: 0 }} />
+      <Rule dash />
+      {/* Alerts takes the rail's spare height (flex: 1), which keeps the colophon at the bottom. */}
+      <AlertsPanel
+        alerts={alerts}
+        alertPrefs={alertPrefs}
+        onDismiss={onDismissAlert}
+        now={now}
+        timeFormat={prefs?.timeFormat}
+      />
       <div
         style={{
           fontFamily: T.body,
