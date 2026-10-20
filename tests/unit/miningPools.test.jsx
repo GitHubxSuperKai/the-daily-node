@@ -85,7 +85,7 @@ describe('Mining pools placement', () => {
     expect(screen.queryByText(/Mining Pools/)).toBeNull();
   });
 
-  it('the desktop dashboard renders the pool list exactly once (in the sidebar)', () => {
+  it('the desktop dashboard renders the pool list exactly once (in Network Status)', () => {
     withTheme(<CommandCenter {...makeProps()} />);
     expect(screen.getAllByText(/Mining Pools/)).toHaveLength(1);
   });

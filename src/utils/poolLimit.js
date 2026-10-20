@@ -1,6 +1,7 @@
 import React from 'react';
 
-// How many pools the sidebar's Mining Pools list can name before folding the rest
+// How many pools a Mining Pools list (the desktop sidebar's, until it moved back into
+// Network Status) can name before folding the rest
 // into "Others", given the measured height of its region. Returns a `limit` for
 // MiningPools, which names `limit` pools plus an Others row, or every pool when
 // there are at most `limit + 1` (one extra pool shows by name, not as "Others (1)").
@@ -21,8 +22,9 @@ export function fitPoolLimit({ regionPx, headerPx, rowPx, count, fallback = 6 })
 
 // Measures a pools region and the MiningPools list rendered in it, and returns the
 // MiningPools limit that fits (see fitPoolLimit). Unused for now: it sized the desktop
-// sidebar pool list (PR #221) and is kept for a later fit-to-height list. The region's height comes from flex, not from
-// its content, so a new limit doesn't change what is measured next time.
+// sidebar pool list (PR #221) and is kept for a later fit-to-height list. The region's
+// height comes from flex, not from its content, so a new limit doesn't change what is
+// measured next time.
 export function usePoolLimit(ref, count) {
   const [limit, setLimit] = React.useState(6);
   const measure = React.useCallback(() => {

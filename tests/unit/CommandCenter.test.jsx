@@ -46,12 +46,18 @@ describe('CommandCenter — desktop smoke render', () => {
   });
 
   it('shows every Mining Pool inside Network Status, not in the sidebar', () => {
-    const { container, props } = renderCC();
+    // 12 pools, so a cap on the list would fold some into an "Others" row.
+    const pools = Array.from({ length: 12 }, (_, i) => ({
+      name: `Pool${i}`, slug: `p${i}`, sharePct: (8.3).toFixed(1), blockCount: 84,
+    }));
+    const base = makeProps();
+    const { container } = renderCC({ chain: { ...base.chain, pools } });
     const lists = container.querySelectorAll('[data-pool-list]');
     expect(lists.length).toBe(1);
     // The list sits in the same scroll region as the Network Status heading.
     expect(lists[0].closest('.scroll-hint').textContent).toMatch(/Network Status/i);
-    for (const pool of props.chain.pools) expect(lists[0].textContent).toContain(pool.name);
+    for (const pool of pools) expect(lists[0].textContent).toContain(pool.name);
+    expect(lists[0].textContent).not.toMatch(/Others \(/);
   });
 
   it('renders real values from the fixture, not blanks or NaN', () => {
