@@ -137,7 +137,7 @@ const REQUIRED_SAFE_AREA_STYLES = [
   `paddingBottom:"${inset('bottom')}"`,
   `paddingLeft:"${inset('left')}"`,
   `paddingRight:"${inset('right')}"`,
-  // App.jsx mobile Settings layer edges
+  // App.jsx mobile Settings inner box edges (the fixed layer itself is inset: 0)
   ...['top', 'right', 'bottom', 'left'].map(side => `${side}:"${inset(side)}"`),
 ];
 for (const style of REQUIRED_SAFE_AREA_STYLES) {

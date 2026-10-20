@@ -140,6 +140,20 @@ describe('App — bootstrap and layout routing', () => {
     expect(Number(el.style.zIndex)).toBeGreaterThan(barZ);
   });
 
+  it('covers the whole screen with the mobile Settings layer, safe-area strips included', async () => {
+    // If the fixed layer stopped at the safe-area insets, the strips beside it
+    // would belong to MobileApp and a swipe there would change the tab behind
+    // the open dialog. The insets go on an inner wrapper instead. jsdom drops
+    // env() values, so smoke check 10b pins those strings in the bundle.
+    setViewport(900);
+    await bootApp();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Open settings' })); });
+    let el = screen.getByRole('button', { name: 'Save' });
+    while (el && el.style?.position !== 'fixed') el = el.parentElement;
+    expect(el).toBeTruthy();
+    expect(el.style.inset).toBe('0px');
+  });
+
   it('stays on the desktop tree one pixel above the breakpoint', async () => {
     setViewport(901);
     await bootApp();
