@@ -44,7 +44,7 @@ App (root — owns all hooks, theme, localStorage prefs)
 └── ThemeCtx.Provider
     └── CommandCenter (4-column grid; App renders MobileApp instead at or below 900px)
         ├── Masthead + DesktopTicker (top chrome)
-        ├── Col 0: Sidebar (logo, clock, Weather, OnThisDay, StatusDot)
+        ├── Col 0: Sidebar (logo, clock, Weather, OnThisDay, StatusDot, AlertsPanel)
         ├── Col 1: MarketsColumn (price rendered inline, RangeButtons, LineChart, LeadImage, ProofOfRead)
         ├── Col 2: NewsColumn
         ├── Col 3: ChainColumn (Miners → FleetSummary/MinerRow, NetworkStatusWidget incl. MiningPools)

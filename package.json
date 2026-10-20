@@ -15,7 +15,6 @@
     "check:codeql": "node scripts/check-codeql-config.cjs",
     "check:docker-smoke": "node scripts/check-docker-smoke.cjs",
     "check:secrets": "node scripts/check-secrets.cjs",
-    "check:sidebar-fit": "node scripts/check-sidebar-fit.cjs",
     "verify:vendor": "node scripts/verify-vendor.cjs"
   },
   "engines": {

@@ -15,7 +15,8 @@ App (root)
         │   │   ├── Logo & Clock
         │   │   ├── Weather -> WxGlyph
         │   │   ├── OnThisDay
-        │   │   └── StatusDot (system status lights)
+        │   │   ├── StatusDot (system status lights)
+        │   │   └── AlertsPanel (alerts fired in the last 24h, as many as fit)
         │   ├── Column 1: MarketsColumn
         │   │   ├── BTC/USD price & change (rendered inline)
         │   │   ├── RangeButtons (1H / 24H / 7D / 30D / 1Y)

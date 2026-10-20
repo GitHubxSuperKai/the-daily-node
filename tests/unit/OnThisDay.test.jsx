@@ -1,5 +1,48 @@
 import { describe, it, expect } from 'vitest';
-import { getOnThisDay } from '../../src/components/OnThisDay.jsx';
+import { getOnThisDay, BTC_HISTORY } from '../../src/components/OnThisDay.jsx';
+
+describe('BTC_HISTORY', () => {
+  it('has at most one entry per calendar date', () => {
+    const keys = BTC_HISTORY.map(e => `${e.mo}-${e.d}`);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it('only uses real calendar dates', () => {
+    for (const e of BTC_HISTORY) {
+      // A leap year, so Feb 29 would count as real.
+      const dt = new Date(2024, e.mo - 1, e.d);
+      expect(dt.getMonth() + 1, `${e.mo}-${e.d}`).toBe(e.mo);
+      expect(dt.getDate(), `${e.mo}-${e.d}`).toBe(e.d);
+    }
+  });
+
+  it('has a plausible year and text that fits the sidebar', () => {
+    for (const e of BTC_HISTORY) {
+      expect(Number.isInteger(e.y), `${e.mo}-${e.d}`).toBe(true);
+      expect(e.y, `${e.mo}-${e.d}`).toBeGreaterThanOrEqual(1950);
+      expect(e.y, `${e.mo}-${e.d}`).toBeLessThanOrEqual(2026);
+      expect(e.t.trim().length, `${e.mo}-${e.d}`).toBeGreaterThan(0);
+      // Three lines at ~40 characters; the Genesis Block quote runs slightly over and clamps.
+      expect(e.t.length, `${e.mo}-${e.d}`).toBeLessThanOrEqual(130);
+    }
+  });
+
+  it('covers most of the year', () => {
+    expect(BTC_HISTORY.length).toBeGreaterThanOrEqual(200);
+  });
+
+  it('keeps the dates the verification pass corrected', () => {
+    const at = (mo, d) => getOnThisDay(new Date(2025, mo - 1, d))?.t ?? '';
+    expect(at(1, 12)).toMatch(/Hal Finney/);
+    expect(at(1, 9)).not.toMatch(/Hal Finney/);
+    expect(at(4, 20)).toMatch(/Fourth halving/);
+    expect(at(6, 9)).toMatch(/El Salvador/);
+    expect(at(6, 15)).toMatch(/BlackRock/);
+    expect(at(7, 9)).toMatch(/^Second halving/);
+    expect(at(8, 24)).toMatch(/SegWit/);
+    expect(at(9, 11)).toMatch(/BitPay/);
+  });
+});
 
 describe('getOnThisDay', () => {
   it('returns the matching entry on an exact date', () => {
@@ -12,8 +55,8 @@ describe('getOnThisDay', () => {
   });
 
   it('returns null when no entry matches the date', () => {
-    // Jan 2 has no entry in BTC_HISTORY
-    const entry = getOnThisDay(new Date(2025, 0, 2));
+    // Jan 1 has no entry in BTC_HISTORY
+    const entry = getOnThisDay(new Date(2025, 0, 1));
     expect(entry).toBeNull();
   });
 
@@ -35,9 +78,10 @@ describe('getOnThisDay', () => {
   });
 
   it('returns null for a date between two entries (not nearest-match)', () => {
-    // Jan 3 and Jan 9 are entries; Jan 5 should return null, not the nearest
-    const entry = getOnThisDay(new Date(2025, 0, 5));
-    expect(entry).toBeNull();
+    // Jan 12 and Jan 14 are entries; Jan 13 should return null, not the nearest
+    expect(getOnThisDay(new Date(2025, 0, 12))).not.toBeNull();
+    expect(getOnThisDay(new Date(2025, 0, 14))).not.toBeNull();
+    expect(getOnThisDay(new Date(2025, 0, 13))).toBeNull();
   });
 
   it('returns the Pizza Day entry on May 22', () => {
