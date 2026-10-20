@@ -143,7 +143,7 @@ Simple time formatter that updates every 1 second. Accepts `timeFormat` string (
 **Approach:** Inline `style` prop with CSS-in-JS. No external CSS files or SCSS. All color values pulled from `ThemeCtx` at render time, enabling instant dark mode toggle without reloading.
 
 **Theming:** Two complete themes (LIGHT/DARK) defined in `theme.js` as plain objects. Each theme includes:
-- **Ink shades:** ink (primary text), ink2, ink3, ink4 (decreasing contrast for secondary/tertiary text)
+- **Ink shades:** ink (primary text), ink2, ink3, ink4 (decreasing contrast; ink3 is the lightest shade for text, and ink4 is for non-text marks such as the pools "Others" bar and status dots)
 - **Paper shades:** paper (background), paper2 (secondary bg), paperHi (highlights)
 - **Rule colors:** rule (lines), rule2/rule3 (lighter dividers at different opacity)
 - **Semantic colors:** orange (accent), red (down/negative), green (up/positive)
