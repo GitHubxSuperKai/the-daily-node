@@ -11,9 +11,10 @@ const isAlert = a => a && typeof a.id === 'string' && typeof a.type === 'string'
 
 // A saved time later than now is clamped to now, in memory only. The clock may be behind
 // (a device with no RTC, before NTP sets it), so the row is real. Clamped, it holds that
-// type's cooldown for one cooldown from this load. Storage keeps the saved time until the
-// list or cooldowns are next written, so a reload after the clock syncs gets it back (and
-// a reload before then clamps again, to that load's now).
+// type's cooldown for one cooldown from this mount (a reload, or a remount across the
+// 900px breakpoint). Storage keeps the saved time until the list or cooldowns are next
+// written, so a mount after the clock syncs gets it back, and one before then clamps
+// again, to that mount's now.
 const clampTs = (ts, now) => Math.min(ts, now);
 const isRecent = (ts, now) => now - ts < HISTORY_MS;
 
