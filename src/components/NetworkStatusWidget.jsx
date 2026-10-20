@@ -267,7 +267,7 @@ export function NetworkStatusWidget({ chain, T, showPools = true }) {
           <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
             {fmtNum(remainingBlocks)} blocks remaining
             {projectedRetargetDateStr && (
-              <span style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3}}> ~ {projectedRetargetDateStr}</span>
+              <span style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, whiteSpace: 'nowrap' }}> ~ {projectedRetargetDateStr}</span>
             )}
           </div>
           <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
@@ -278,7 +278,7 @@ export function NetworkStatusWidget({ chain, T, showPools = true }) {
           <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
             Previous Adjustment
             {prevRetargetDateStr && (
-              <span style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3}}>: {prevRetargetDateStr}</span>
+              <span style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, whiteSpace: 'nowrap' }}>: {prevRetargetDateStr}</span>
             )}
           </div>
           <div style={{
