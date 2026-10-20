@@ -358,7 +358,8 @@ describe('useAlerts history', () => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify([
       { id: 'fee-future', type: 'fee', message: 'Fee spike: 99', ts: later },
     ]));
-    localStorage.setItem(COOLDOWNS_KEY, JSON.stringify({ price: later, blockTime: 'x' }));
+    // `fee` is the type the test fires: a kept future cooldown would silence it.
+    localStorage.setItem(COOLDOWNS_KEY, JSON.stringify({ fee: later, blockTime: 'x' }));
     const { result } = renderHook(() => useAlerts({ ...quiet, fastFee: 80 }, prefs));
     // The future row is dropped and does not hold the fee cooldown, so the spike fires.
     expect(result.current.toasts).toHaveLength(1);
