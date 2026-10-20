@@ -9,6 +9,10 @@ import {
   calcSoloOdds,
 } from '../utils/formatting.js';
 
+// Edge fade for the scrolling track. An invalid value here drops the whole mask
+// silently, so check the computed mask-image after changing it.
+const TRACK_FADE = `linear-gradient(to right, transparent, #000 ${u(32)}, #000 calc(100% - ${u(32)}), transparent)`;
+
 export function DesktopTicker({ btc: _btc, chain, bitaxe, feedHealth }) {
   const T = useT();
 
@@ -95,7 +99,8 @@ export function DesktopTicker({ btc: _btc, chain, bitaxe, feedHealth }) {
           ⏺
         </span>
       </span>
-      <div style={{ flex: 1, overflow: 'hidden' }}>
+      {/* Fade both ends so items slide in and out instead of being cut mid-word beside LIVE. */}
+      <div style={{ flex: 1, overflow: 'hidden', maskImage: TRACK_FADE, WebkitMaskImage: TRACK_FADE }}>
         <div
           style={{
             display: 'inline-flex',
