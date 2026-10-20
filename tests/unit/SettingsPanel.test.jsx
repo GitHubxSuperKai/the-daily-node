@@ -226,6 +226,69 @@ describe('SettingsPanel — modal dialog semantics and focus trap', () => {
   });
 });
 
+describe('SettingsPanel — Escape and stray focus', () => {
+  it('names the ✕ button "Close settings"', () => {
+    const { props } = renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: 'Close settings' }));
+    expect(props.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes on Escape from a control inside the dialog', () => {
+    const { props } = renderPanel();
+    const save = screen.getByRole('button', { name: /^Save$/ });
+    save.focus();
+    fireEvent.keyDown(save, { key: 'Escape' });
+    expect(props.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes on Escape after focus has dropped to body', () => {
+    // A focused button that disables (MinersSection's Add/Remove while busy)
+    // leaves focus on body, where the dialog's own keydown never fires.
+    const { props } = renderPanel();
+    document.activeElement.blur();
+    expect(document.activeElement).toBe(document.body);
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(props.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not close on other keys', () => {
+    const { props } = renderPanel();
+    fireEvent.keyDown(document.activeElement, { key: 'Enter' });
+    fireEvent.keyDown(document.body, { key: 'a' });
+    expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it('pulls focus back into the dialog when it lands outside', () => {
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    renderPanel();
+    const dialog = screen.getByRole('dialog');
+    document.activeElement.blur();
+    outside.focus();
+    expect(document.activeElement).toBe(dialog);
+    outside.remove();
+  });
+
+  it('leaves focus moves inside the dialog alone', () => {
+    renderPanel();
+    const save = screen.getByRole('button', { name: /^Save$/ });
+    save.focus();
+    expect(document.activeElement).toBe(save);
+  });
+
+  it('stops listening once closed', () => {
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    const { unmount, props } = renderPanel();
+    unmount();
+    outside.focus();
+    expect(document.activeElement).toBe(outside);
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(props.onClose).not.toHaveBeenCalled();
+    outside.remove();
+  });
+});
+
 describe('SettingsPanel — focus trap with the More cue showing', () => {
   afterEach(() => { vi.restoreAllMocks(); });
 
