@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ThemeCtx, LIGHT } from '../../src/theme.js';
 import { SettingsPanel } from '../../src/components/SettingsPanel.jsx';
@@ -161,5 +161,89 @@ describe('SettingsPanel — full render', () => {
     expect(screen.getByText(/RSS FEEDS/i)).toBeTruthy();
     expect(screen.getByText(/THEME/i)).toBeTruthy();
     expect(screen.getByText(/REFRESH INTERVALS/i)).toBeTruthy();
+  });
+});
+
+describe('SettingsPanel — modal dialog semantics and focus trap', () => {
+  const tabbable = (dialog) => [...dialog.querySelectorAll('button, [href], input, select, textarea, [tabindex]')]
+    .filter((el) => el.tabIndex >= 0 && !el.disabled && el.type !== 'hidden');
+
+  it('is a modal dialog named by its heading', () => {
+    renderPanel();
+    const dialog = screen.getByRole('dialog', { name: 'Settings' });
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+  });
+
+  it('moves focus into the dialog when it opens', () => {
+    renderPanel();
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+
+  it('wraps Tab from the last control to the first, and Shift+Tab back', () => {
+    renderPanel();
+    const dialog = screen.getByRole('dialog');
+    const items = tabbable(dialog);
+    expect(items.length).toBeGreaterThan(2);
+    const first = items[0], last = items[items.length - 1];
+    expect(last.textContent).toBe('Cancel');
+
+    last.focus();
+    fireEvent.keyDown(last, { key: 'Tab' });
+    expect(document.activeElement).toBe(first);
+
+    fireEvent.keyDown(first, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(last);
+  });
+
+  it('wraps Shift+Tab from the dialog itself (its initial focus) to the last control', () => {
+    renderPanel();
+    const dialog = screen.getByRole('dialog');
+    const items = tabbable(dialog);
+    dialog.focus();
+    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(items[items.length - 1]);
+  });
+
+  it('leaves Tab between inner controls to the browser', () => {
+    renderPanel();
+    const items = tabbable(screen.getByRole('dialog'));
+    items[1].focus();
+    const notPrevented = fireEvent.keyDown(items[1], { key: 'Tab' });
+    expect(notPrevented).toBe(true);
+    expect(document.activeElement).toBe(items[1]);
+  });
+
+  it('returns focus to the opener when it closes', () => {
+    const opener = document.createElement('button');
+    document.body.appendChild(opener);
+    opener.focus();
+    const { unmount } = renderPanel();
+    expect(document.activeElement).not.toBe(opener);
+    unmount();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+});
+
+describe('SettingsPanel — focus trap with the More cue showing', () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('skips the tabindex -1 More cue, so Tab from Cancel wraps to the first control', () => {
+    // jsdom has no layout; fake an overflowing scroller so ScrollHint renders
+    // its More cue, a tabindex -1 button placed after Cancel in the DOM.
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(100);
+    renderPanel();
+    const dialog = screen.getByRole('dialog');
+    const more = dialog.querySelector('.scroll-more');
+    expect(more).toBeTruthy();
+    expect(more.tabIndex).toBe(-1);
+    const cancel = screen.getByRole('button', { name: 'Cancel' });
+    const scroller = dialog.querySelector('.scroll-hint');
+    cancel.focus();
+    fireEvent.keyDown(cancel, { key: 'Tab' });
+    // The first tabbable is ScrollHint's focusable scroller (tabIndex 0).
+    expect(document.activeElement).toBe(scroller);
   });
 });

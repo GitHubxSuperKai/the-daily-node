@@ -37,6 +37,28 @@ export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSav
   }, []);
   const v2get = (path) => path.split('.').reduce((o, k) => o?.[k], v2local);
 
+  // Modal focus: move focus in on open, keep Tab inside (on mobile the covered
+  // tab bar stays in the tab order otherwise), and hand it back on close.
+  const dialogRef = React.useRef(null);
+  React.useEffect(() => {
+    const opener = document.activeElement;
+    dialogRef.current?.focus();
+    return () => { if (opener?.isConnected) opener.focus(); };
+  }, []);
+  const trapTab = (e) => {
+    if (e.key !== 'Tab') return;
+    const items = [...dialogRef.current.querySelectorAll('button, [href], input, select, textarea, [tabindex]')]
+      .filter((el) => el.tabIndex >= 0 && !el.disabled && el.type !== 'hidden');
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || active === dialogRef.current)) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault(); first.focus();
+    }
+  };
+
   const handleSave = () => {
     onSave(pendingPrefs);
     onSaveV2(v2local);
@@ -59,12 +81,20 @@ export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSav
       style={{ position: 'absolute', inset: 0, zIndex: 10 }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div style={{
-        position: 'absolute', top: 0, right: 0, bottom: 0,
-        width: 'min(' + u(480) + ', 100%)', background: T.paper,
-        borderLeft: '1px solid ' + T.rule, display: 'flex', flexDirection: 'column',
-        boxShadow: u(-8) + ' 0 ' + u(32) + ' rgba(0,0,0,0.14)',
-      }}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
+        tabIndex={-1}
+        onKeyDown={trapTab}
+        style={{
+          position: 'absolute', top: 0, right: 0, bottom: 0,
+          width: 'min(' + u(480) + ', 100%)', background: T.paper,
+          borderLeft: '1px solid ' + T.rule, display: 'flex', flexDirection: 'column',
+          boxShadow: u(-8) + ' 0 ' + u(32) + ' rgba(0,0,0,0.14)',
+          outline: 'none',
+        }}>
         {/* The panel keeps its background; only the inner scroller is masked. */}
         <ScrollHint style={{ flex: 1 }}>
           {/* Header */}
@@ -75,7 +105,7 @@ export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSav
                 <div style={{ fontFamily: T.sans, fontSize: u(9), fontWeight: 600, letterSpacing: u(3), textTransform: 'uppercase', color: T.ink3, marginBottom: u(4) }}>
                   Configuration
                 </div>
-                <div style={{ fontFamily: T.serif, fontSize: u(26), fontWeight: 800, letterSpacing: u(-0.8), color: T.ink, lineHeight: 1 }}>
+                <div id="settings-title" style={{ fontFamily: T.serif, fontSize: u(26), fontWeight: 800, letterSpacing: u(-0.8), color: T.ink, lineHeight: 1 }}>
                   Settings
                 </div>
               </div>
