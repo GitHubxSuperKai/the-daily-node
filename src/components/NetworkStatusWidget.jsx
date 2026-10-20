@@ -60,7 +60,8 @@ function Row({ label, value, valueColor, valueAlt, last, T }) {
 }
 
 // Mining-pool share bars. With `limit`, shows the top `limit` pools plus an
-// "Others" row for the rest, so the list has a fixed height (the desktop sidebar).
+// "Others" row for the rest. The desktop sidebar derives `limit` from the space it
+// has (fitPoolLimit in utils/poolLimit.js).
 // One pool past the limit is shown by name: an "Others (1)" row would take the same space.
 export function MiningPools({ pools, limit, T }) {
   if (!pools || pools.length === 0) return null;
