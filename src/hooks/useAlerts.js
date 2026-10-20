@@ -9,14 +9,21 @@ const HISTORY_MS = 24 * 60 * 60 * 1000;
 const isAlert = a => a && typeof a.id === 'string' && typeof a.type === 'string'
   && typeof a.message === 'string' && Number.isFinite(a.ts);
 
-// A future time (saved under a clock that ran ahead and was then corrected) is dropped:
-// it would otherwise stay listed forever and hold that type's cooldown until then.
-const isRecent = (ts, now) => ts <= now && now - ts < HISTORY_MS;
+// A saved time later than now is clamped to now. The clock may be behind (a device with no
+// RTC, before NTP sets it), so the row is real; clamped, it can hold that type's cooldown
+// for one cooldown at most, and stays listed for a day at most.
+const clampTs = (ts, now) => Math.min(ts, now);
+const isRecent = (ts, now) => now - ts < HISTORY_MS;
 
 function loadAlertHistory(now = Date.now()) {
   try {
     const raw = JSON.parse(localStorage.getItem(HISTORY_KEY));
-    return Array.isArray(raw) ? raw.filter(a => isAlert(a) && isRecent(a.ts, now)) : [];
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(isAlert).map(a => {
+      if (a.ts <= now) return a;
+      // A repeat row's `since` is clamped with it, so it never reads later than its time.
+      return Number.isFinite(a.since) ? { ...a, ts: now, since: clampTs(a.since, now) } : { ...a, ts: now };
+    }).filter(a => isRecent(a.ts, now));
   } catch {
     return [];
   }
@@ -30,7 +37,10 @@ function loadCooldowns(now = Date.now()) {
   try {
     const raw = JSON.parse(localStorage.getItem(COOLDOWNS_KEY));
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
-    return Object.fromEntries(Object.entries(raw).filter(([, ts]) => Number.isFinite(ts) && isRecent(ts, now)));
+    return Object.fromEntries(Object.entries(raw)
+      .filter(([, ts]) => Number.isFinite(ts))
+      .map(([type, ts]) => [type, clampTs(ts, now)])
+      .filter(([, ts]) => isRecent(ts, now)));
   } catch {
     return {};
   }
@@ -63,7 +73,8 @@ function mergeAlert(history, alert, cooldownMs) {
     const prev = live[i];
     const merged = {
       ...prev, message: alert.message, ts: alert.ts,
-      since: prev.since ?? prev.ts, count: (prev.count ?? 1) + 1,
+      // A saved count that isn't a number (a string "5" would make "51") counts as 1.
+      since: prev.since ?? prev.ts, count: (Number.isFinite(prev.count) ? prev.count : 1) + 1,
     };
     return [merged, ...live.slice(0, i), ...live.slice(i + 1)];
   }

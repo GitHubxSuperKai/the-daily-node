@@ -1,6 +1,7 @@
 import React from 'react';
 import { useT } from '../../theme';
 import { TweaksSection, TweaksRow, TweaksNumInput, TweaksCheckRow } from './helpers';
+import { BLOCK_TIME_ALERT_MIN } from '../../utils/alertThresholds.js';
 
 export function AlertsSection({ v2get, setV2Path }) {
   const T = useT();
@@ -21,7 +22,7 @@ export function AlertsSection({ v2get, setV2Path }) {
       </TweaksSection>
 
       <TweaksSection T={T}>
-        <TweaksCheckRow path="alerts.blockTime.enabled" label="Block time drift (&gt; 15 min without a block)" get={v2get} setPath={setV2Path} />
+        <TweaksCheckRow path="alerts.blockTime.enabled" label={`Block time drift (> ${BLOCK_TIME_ALERT_MIN} min without a block)`} get={v2get} setPath={setV2Path} />
         <TweaksRow label="Cooldown (min)" T={T}><TweaksNumInput path="alerts.blockTime.cooldownMin" min={5} max={1440} get={v2get} setPath={setV2Path} T={T} /></TweaksRow>
       </TweaksSection>
 
