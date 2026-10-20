@@ -1,3 +1,8 @@
+// DORMANT: Mining Pools moved back into Network Status, so the sidebar has no pool
+// list. Run as-is, this script finds the Network Status list by its label and reports
+// that region's overflow. Kept, with fitPoolLimit/usePoolLimit, for a future
+// fit-to-height list in the sidebar.
+//
 // Checks that the desktop sidebar's Mining Pools region fits at 1920x1080 without
 // scrolling, on a date with no On This Day entry (Feb 14) and on one with an entry
 // (Jan 3, the Genesis Block), where the entry takes rail height from the pools.

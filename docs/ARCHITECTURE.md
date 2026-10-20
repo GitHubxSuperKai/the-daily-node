@@ -15,8 +15,7 @@ App (root)
         │   │   ├── Logo & Clock
         │   │   ├── Weather -> WxGlyph
         │   │   ├── OnThisDay
-        │   │   ├── StatusDot (system status lights)
-        │   │   └── MiningPools (as many as fit + Others, in a ScrollHint)
+        │   │   └── StatusDot (system status lights)
         │   ├── Column 1: MarketsColumn
         │   │   ├── BTC/USD price & change (rendered inline)
         │   │   ├── RangeButtons (1H / 24H / 7D / 30D / 1Y)
@@ -26,12 +25,12 @@ App (root)
         │   ├── Column 2: NewsColumn (headline feed)
         │   └── Column 3: ChainColumn
         │       ├── Miners (BitAxe fleet) -> FleetSummary, MinerRow
-        │       └── NetworkStatusWidget (difficulty, hashrate, fees; pools shown on mobile only)
+        │       └── NetworkStatusWidget (difficulty, hashrate, fees, MiningPools; in a ScrollHint)
         └── SettingsPanel (overlay)
 ```
 
 Shared leaf components — `Kicker`, `Num`, `Rule` — are used across several columns and are
-omitted above. The desktop scroll regions (news list, network status, sidebar pools, lead
+omitted above. The desktop scroll regions (news list, network status, lead
 summary) and the Settings panel are each a `ScrollHint`: the scrollbar is hidden, and measured
 overflow shows as an edge fade plus a "More ↓" cue. The mobile page (`#stage`) and the hourly
 weather strip only hide their scrollbars. `src/components/mobile/` holds a separate tree, gated by a 900px breakpoint.

@@ -4,7 +4,9 @@ globalThis.React = React;
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, act } from '@testing-library/react';
 import { ThemeCtx, LIGHT } from '../../src/theme.js';
-import { fitPoolLimit } from '../../src/utils/poolLimit.js';
+import { fitPoolLimit, usePoolLimit } from '../../src/utils/poolLimit.js';
+import { MiningPools } from '../../src/components/NetworkStatusWidget.jsx';
+import { ScrollHint } from '../../src/components/ScrollHint.jsx';
 import { Sidebar } from '../../src/components/Sidebar.jsx';
 
 afterEach(() => {
@@ -64,18 +66,24 @@ describe('fitPoolLimit', () => {
   });
 });
 
-describe('Sidebar pool limit', () => {
+// The region the desktop sidebar used to give the list (PR #221): usePoolLimit is
+// kept for a later fit-to-height list, so it is tested on that markup directly.
+function PoolRegion({ pools }) {
+  const ref = React.useRef(null);
+  const limit = usePoolLimit(ref, pools.length);
+  return (
+    <div ref={ref} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <ScrollHint style={{ flex: 1 }}>
+        <MiningPools pools={pools} limit={limit} T={LIGHT} />
+      </ScrollHint>
+    </div>
+  );
+}
+
+describe('usePoolLimit', () => {
   const pools = Array.from({ length: 12 }, (_, i) => ({
     name: `Pool${i}`, slug: `p${i}`, sharePct: (8.3).toFixed(1), blockCount: 84,
   }));
-  const props = {
-    clock: { timeHM: '12:00', timeSec: '00', amPm: null, dayStr: 'Monday' },
-    weather: {},
-    prefs: { tempUnit: 'C', timeFormat: '24h' },
-    sys: [],
-    pools,
-  };
-
   // Fake layout: the region (the pools list's flex wrapper) is `regionPx` tall, the
   // list's label block 40px and each row 20px. Captures the ResizeObserver callback.
   function layout(regionPx) {
@@ -104,7 +112,7 @@ describe('Sidebar pool limit', () => {
 
   it('names as many pools as the region holds and re-measures on resize', () => {
     const { observers, size } = layout(40 + 20 * 8);
-    render(<ThemeCtx.Provider value={LIGHT}><Sidebar {...props} /></ThemeCtx.Provider>);
+    render(<ThemeCtx.Provider value={LIGHT}><PoolRegion pools={pools} /></ThemeCtx.Provider>);
     expect(named()).toBe(7);
     expect(screen.getByText('Others (5)')).toBeTruthy();
 
@@ -119,8 +127,20 @@ describe('Sidebar pool limit', () => {
   });
 
   it('keeps the top 6 plus Others when nothing can be measured', () => {
-    render(<ThemeCtx.Provider value={LIGHT}><Sidebar {...props} /></ThemeCtx.Provider>);
+    render(<ThemeCtx.Provider value={LIGHT}><PoolRegion pools={pools} /></ThemeCtx.Provider>);
     expect(named()).toBe(6);
     expect(screen.getByText('Others (6)')).toBeTruthy();
+  });
+});
+
+describe('Sidebar', () => {
+  it('no longer renders a Mining Pools list (it is back in Network Status)', () => {
+    const props = {
+      clock: { timeHM: '12:00', timeSec: '00', amPm: null, dayStr: 'Monday' },
+      weather: {}, prefs: { tempUnit: 'C', timeFormat: '24h' }, sys: [],
+    };
+    const { container } = render(<ThemeCtx.Provider value={LIGHT}><Sidebar {...props} /></ThemeCtx.Provider>);
+    expect(container.querySelector('[data-pool-list]')).toBeNull();
+    expect(screen.queryByText(/^Mining Pools · /)).toBeNull();
   });
 });

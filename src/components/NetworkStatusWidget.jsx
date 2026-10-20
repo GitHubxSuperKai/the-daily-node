@@ -60,8 +60,8 @@ function Row({ label, value, valueColor, valueAlt, last, T }) {
 }
 
 // Mining-pool share bars. With `limit`, shows the top `limit` pools plus an
-// "Others" row for the rest. The desktop sidebar derives `limit` from the space it
-// has (fitPoolLimit in utils/poolLimit.js).
+// "Others" row for the rest. Network Status passes no limit; usePoolLimit and
+// fitPoolLimit in utils/poolLimit.js can derive one from the space a caller has.
 // One pool past the limit is shown by name: an "Others (1)" row would take the same space.
 export function MiningPools({ pools, limit, T }) {
   if (!pools || pools.length === 0) return null;
@@ -137,8 +137,8 @@ export function MiningPools({ pools, limit, T }) {
   );
 }
 
-// showPools=false leaves the pool list to the caller (the desktop sidebar renders
-// it with MiningPools); the mobile Bitcoin panel keeps the full list inline.
+// showPools=false leaves the pool list to the caller. Both the desktop chain column
+// and the mobile Bitcoin panel show the full list inline.
 export function NetworkStatusWidget({ chain, T, showPools = true }) {
   const latestBlock = (chain.recentBlocks || [])[0];
   const pools = chain.pools || [];
