@@ -9,7 +9,7 @@ function SubLabel({ children, right, alert, rightColor, noBorder, T }) {
       paddingBottom: u(6), marginBottom: u(6), ...(!noBorder && { borderBottom: `1px solid ${T.rule3}` }),
     }}>
       <div style={{
-        fontFamily: T.sans, fontSize: u(9), fontWeight: 600,
+        fontFamily: T.sans, fontSize: u(10), fontWeight: 600,
         letterSpacing: u(1.4), textTransform: 'uppercase', color: T.ink3,
       }}>
         {children}
@@ -34,7 +34,7 @@ function Row({ label, value, valueColor, valueAlt, last, T }) {
       borderBottom: last ? 'none' : `1px solid ${T.rule3}`,
     }}>
       <div style={{
-        fontFamily: T.sans, fontSize: u(9), fontWeight: 600,
+        fontFamily: T.sans, fontSize: u(10), fontWeight: 600,
         letterSpacing: u(1.2), textTransform: 'uppercase', color: T.ink3,
       }}>
         {label}
@@ -42,8 +42,8 @@ function Row({ label, value, valueColor, valueAlt, last, T }) {
       <div style={{ display: 'flex', alignItems: 'baseline', gap: u(6) }}>
         {valueAlt && (
           <div style={{
-            fontFamily: T.num, fontSize: u(9), fontWeight: 400,
-            color: T.ink4, fontFeatureSettings: '"tnum" 1, "lnum" 1',
+            fontFamily: T.num, fontSize: u(10), fontWeight: 400,
+            color: T.ink3, fontFeatureSettings: '"tnum" 1, "lnum" 1',
           }}>
             {valueAlt}
           </div>
@@ -166,7 +166,7 @@ export function NetworkStatusWidget({ chain, T, showPools = true }) {
     : null;
   const prevDiffAdj = d?.previousDiffAdj;
   const prevDiffAdjStr = prevDiffAdj != null ? `${prevDiffAdj >= 0 ? '+' : ''}${prevDiffAdj.toFixed(2)}%` : '—';
-  const prevDiffAdjCol = prevDiffAdj == null ? T.ink4 : prevDiffAdj > 0 ? T.green : prevDiffAdj < 0 ? T.red : T.ink4;
+  const prevDiffAdjCol = prevDiffAdj == null ? T.ink3 : prevDiffAdj > 0 ? T.green : prevDiffAdj < 0 ? T.red : T.ink3;
   const prevRetargetDateStr = d?.previousRetargetDate != null
     ? safeISODate(d.previousRetargetDate * 1000)
     : null;
@@ -220,7 +220,7 @@ export function NetworkStatusWidget({ chain, T, showPools = true }) {
             { val: halvingBlocks != null ? `${halvingBlocks.toLocaleString()} blks` : '—', label: 'Halving',      size: 16, color: T.ink, sub: halvingBlocks != null ? `~${halvingYrs}yr` : null },
             { val: d ? fmtDiff(d.difficulty)   : '—', label: 'Difficulty',    size: 22, color: T.ink },
             { val: blockSubsidy  != null ? `${blockSubsidy} BTC`  : '—',                   label: 'Block Reward', size: 16, color: T.ink },
-            { val: blockSubsidy  != null ? `${Number((blockSubsidy / 2).toFixed(8))} BTC` : '—', label: 'Next Reward', size: 16, color: T.ink4 },
+            { val: blockSubsidy  != null ? `${Number((blockSubsidy / 2).toFixed(8))} BTC` : '—', label: 'Next Reward', size: 16, color: T.ink3 },
           ].map(({ val, label, size, color, sub }, i) => (
             <div key={i} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <div style={{
@@ -233,14 +233,14 @@ export function NetworkStatusWidget({ chain, T, showPools = true }) {
                 display: 'flex', alignItems: 'baseline', gap: u(5),
               }}>
                 <span style={{
-                  fontFamily: T.sans, fontSize: u(9), fontWeight: 600,
+                  fontFamily: T.sans, fontSize: u(10), fontWeight: 600,
                   letterSpacing: u(1.2), textTransform: 'uppercase', color: T.ink3,
                 }}>
                   {label}
                 </span>
                 {sub && (
                   <span style={{
-                    fontFamily: T.num, fontSize: u(9), color: T.ink4,
+                    fontFamily: T.num, fontSize: u(10), color: T.ink3,
                     fontFeatureSettings: '"tnum" 1, "lnum" 1',
                   }}>
                     {sub}
@@ -267,10 +267,10 @@ export function NetworkStatusWidget({ chain, T, showPools = true }) {
           <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
             {fmtNum(remainingBlocks)} blocks remaining
             {projectedRetargetDateStr && (
-              <span style={{ fontFamily: T.num, fontSize: u(9), color: T.ink4 }}> ~ {projectedRetargetDateStr}</span>
+              <span style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, whiteSpace: 'nowrap' }}> ~ {projectedRetargetDateStr}</span>
             )}
           </div>
-          <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink4, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
+          <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
             ~{remainingDays}d
           </div>
         </div>
@@ -278,7 +278,7 @@ export function NetworkStatusWidget({ chain, T, showPools = true }) {
           <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
             Previous Adjustment
             {prevRetargetDateStr && (
-              <span style={{ fontFamily: T.num, fontSize: u(9), color: T.ink4 }}>: {prevRetargetDateStr}</span>
+              <span style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, whiteSpace: 'nowrap' }}>: {prevRetargetDateStr}</span>
             )}
           </div>
           <div style={{
@@ -328,7 +328,7 @@ export function NetworkStatusWidget({ chain, T, showPools = true }) {
             </div>
           </>
         ) : (
-          <div style={{ fontFamily: T.num, fontSize: u(14), color: T.ink4 }}>—</div>
+          <div style={{ fontFamily: T.num, fontSize: u(14), color: T.ink3 }}>—</div>
         )}
       </div>
 

@@ -28,7 +28,7 @@ export function NewsColumn({ newsItems, rssErr, loaded, hasLead }) {
           <React.Fragment key={topic}>
             <div style={{ display: 'flex', alignItems: 'center', gap: u(10), padding: `${u(10)} 0 ${u(6)}` }}>
               <div style={{ flex: 1, borderTop: `1px solid ${T.rule2}` }} />
-              <span style={{ fontFamily: T.sans, fontSize: u(9), fontWeight: 600, letterSpacing: u(2.5), textTransform: 'uppercase', color: T.ink4 }}>{topic}</span>
+              <span style={{ fontFamily: T.sans, fontSize: u(10), fontWeight: 600, letterSpacing: u(2.5), textTransform: 'uppercase', color: T.ink3 }}>{topic}</span>
               <div style={{ flex: 1, borderTop: `1px solid ${T.rule2}` }} />
             </div>
             {group.map((it, i) => (

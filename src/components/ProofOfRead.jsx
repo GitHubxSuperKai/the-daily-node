@@ -4,6 +4,16 @@ import { u } from '../utils/scale.js';
 import { safeISODate } from '../utils/formatting.js';
 import Kicker from './Kicker';
 
+// ISO dates (with an optional leading "~") render as one unbreakable token, so a
+// narrow column never wraps one mid-value ("~2026-10-" / "30").
+const DATE_TOKEN = /(~?\d{4}-\d{2}-\d{2})/;
+
+function keepDatesWhole(text) {
+  return text.split(DATE_TOKEN).map((part, i) => (i % 2
+    ? <span key={i} style={{ whiteSpace: 'nowrap' }}>{part}</span>
+    : part));
+}
+
 export function ProofOfRead({ btc, chain, hashrate, mempoolTx, mempoolMB, feeFast, feeEco, btcPrice, btcLo, btcHi }) {
   const T = useT();
 
@@ -57,7 +67,7 @@ export function ProofOfRead({ btc, chain, hashrate, mempoolTx, mempoolMB, feeFas
         {[priceBullet, chainBullet].map((bullet, i) => (
           <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
             <span style={{ fontFamily: T.sans, fontSize: u(10), color: T.orange, marginTop: u(3), flexShrink: 0 }}>&#9670;</span>
-            <div style={{ fontFamily: T.body, fontSize: u(13), lineHeight: 1.5, color: T.ink2 }}>{bullet}</div>
+            <div style={{ fontFamily: T.body, fontSize: u(13), lineHeight: 1.5, color: T.ink2 }}>{keepDatesWhole(bullet)}</div>
           </div>
         ))}
       </div>

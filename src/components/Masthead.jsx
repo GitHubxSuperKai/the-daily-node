@@ -47,7 +47,7 @@ export function Masthead({ clock: _clock, wxSummary: _wxSummary, blockReward, re
   const btnBase = {
     cursor: 'pointer',
     fontFamily: T.sans,
-    fontSize: u(9),
+    fontSize: u(10),
     fontWeight: 700,
     letterSpacing: u(1.6),
     textTransform: 'uppercase',
@@ -69,11 +69,11 @@ export function Masthead({ clock: _clock, wxSummary: _wxSummary, blockReward, re
         {/* LEFT — edition info + rotating quote below */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: u(2) }}>
           <div style={metaStyle}>Home Miner Edition · Vol. XXI, Nº 007</div>
-          <div style={{ ...metaStyle, color: T.ink4 }}>Est. 2026 · Printed on the blockchain</div>
+          <div style={{ ...metaStyle, color: T.ink3 }}>Est. 2026 · Printed on the blockchain</div>
           <div style={{ marginTop: u(5), fontFamily: T.body, fontStyle: 'italic', fontSize: u(11), color: T.ink2, lineHeight: 1.4, maxWidth: u(340) }}>
             "{quote.text}"
           </div>
-          <div style={{ fontFamily: T.sans, fontSize: u(9), fontWeight: 600, letterSpacing: u(1.4), textTransform: 'uppercase', color: T.ink4, marginTop: u(2) }}>
+          <div style={{ fontFamily: T.sans, fontSize: u(10), fontWeight: 600, letterSpacing: u(1.4), textTransform: 'uppercase', color: T.ink3, marginTop: u(2) }}>
             — {quote.attr}
           </div>
         </div>
@@ -84,7 +84,7 @@ export function Masthead({ clock: _clock, wxSummary: _wxSummary, blockReward, re
             <div style={{ flex: 1, borderTop: `1px solid ${T.rule2}` }} />
             <div style={{
               fontFamily: T.sans,
-              fontSize: u(9),
+              fontSize: u(10),
               fontWeight: 600,
               letterSpacing: u(3.5),
               textTransform: 'uppercase',
@@ -119,7 +119,7 @@ export function Masthead({ clock: _clock, wxSummary: _wxSummary, blockReward, re
                 background: 'none',
                 border: 'none',
                 padding: `${u(5)} ${u(6)}`,
-                color: T.ink4,
+                color: T.ink3,
                 fontSize: u(14),
                 lineHeight: 1,
                 display: 'flex',
@@ -140,7 +140,7 @@ export function Masthead({ clock: _clock, wxSummary: _wxSummary, blockReward, re
               Block Reward {blockReward} · Era {rewardEra} of 33
             </div>
           )}
-          <div style={{ ...metaStyle, color: T.ink4, fontStyle: 'italic', fontFamily: T.body, fontSize: u(9), letterSpacing: u(0.3), textTransform: 'none' }}>
+          <div style={{ ...metaStyle, color: T.ink3, fontStyle: 'italic', fontFamily: T.body, fontSize: u(10), letterSpacing: u(0.3), textTransform: 'none' }}>
             "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
           </div>
         </div>

@@ -138,7 +138,7 @@ function Miners({ bitaxe, chain }) {
         <div style={{
           fontFamily: T.serif, fontSize: heroFontSize ? heroFontSize + 'px' : u(38),
           fontWeight: 800, fontStyle: 'italic',
-          color: oddsOneIn ? T.ink : T.ink4, lineHeight: 1, letterSpacing: -0.5,
+          color: oddsOneIn ? T.ink : T.ink3, lineHeight: 1, letterSpacing: -0.5,
           fontFeatureSettings: '"tnum"', whiteSpace: 'nowrap',
           height: heroSlotRef.current ? heroSlotRef.current + 'px' : undefined,
         }}>
@@ -157,9 +157,9 @@ function Miners({ bitaxe, chain }) {
         <div style={{ gridColumn: '1 / -1', borderTop: `1px solid ${T.rule2}`, padding: 0 }} />
         {HEADERS.map(({ label, fade }, i) => (
           <div key={`h${i}`} style={{
-            fontFamily: T.sans, fontSize: u(8), fontWeight: 700,
+            fontFamily: T.sans, fontSize: u(10), fontWeight: 700,
             letterSpacing: u(1.1), textTransform: 'uppercase',
-            color: fade ? T.ink4 : T.ink3,
+            color: fade ? T.ink3 : T.ink2,
             textAlign: i > 0 ? 'right' : 'left',
             whiteSpace: 'nowrap',
             padding: i === 0 ? `${u(3)} 0 ${u(3)} ${u(11)}` : `${u(3)} 0`,

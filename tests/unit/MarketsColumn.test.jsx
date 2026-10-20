@@ -19,6 +19,7 @@ vi.mock('../../src/components/LineChart', () => ({
 }));
 
 import { MarketsColumn, DROP_CAP_MIN_CHARS } from '../../src/components/MarketsColumn.jsx';
+import { ProofOfRead } from '../../src/components/ProofOfRead.jsx';
 
 function wrap(ui) {
   return render(<ThemeCtx.Provider value={LIGHT}>{ui}</ThemeCtx.Provider>);
@@ -400,5 +401,29 @@ describe('MarketsColumn — lead image and summary layout', () => {
     const root = summaryRoot(container);
     expect(root.style.flex).toBe('1 1 calc(var(--u) * 60)');
     expect(root.style.minHeight).toBe('0px');
+  });
+});
+
+describe('ProofOfRead — date tokens', () => {
+  // A date must never wrap mid-value ("~2026-10-" / "30") on the wall panel.
+  const chainData = {
+    feeFast: 4, diffAdj: 1, remainingBlocks: 500, height: 900000,
+    estimatedRetargetDate: Date.UTC(2026, 9, 30, 12), nextHalvingDate: '2028-04-01',
+  };
+  const props = { btc: { data: null }, hashrate: '1 EH/s', mempoolTx: '1', mempoolMB: '1 MB', feeFast: 4, feeEco: 1 };
+
+  it('renders the retarget date inside one nowrap span', () => {
+    const { container } = wrap(<ProofOfRead {...props} chain={{ data: chainData }} />);
+    const span = [...container.querySelectorAll('span')].find(s => s.textContent === '~2026-10-30');
+    expect(span).toBeTruthy();
+    expect(span.style.whiteSpace).toBe('nowrap');
+    expect(container.textContent).toContain('Next difficulty retarget ~2026-10-30.');
+  });
+
+  it('renders the halving date inside one nowrap span when it comes first', () => {
+    const { container } = wrap(<ProofOfRead {...props} chain={{ data: { ...chainData, height: 1049900, remainingBlocks: 2000 } }} />);
+    const span = [...container.querySelectorAll('span')].find(s => s.textContent === '2028-04-01');
+    expect(span).toBeTruthy();
+    expect(span.style.whiteSpace).toBe('nowrap');
   });
 });

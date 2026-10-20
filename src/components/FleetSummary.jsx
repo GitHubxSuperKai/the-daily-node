@@ -46,14 +46,14 @@ export function FleetSummary({ miners }) {
   return (
     <>
       <div style={{ gridColumn: '1 / -1', borderTop: `1px solid ${T.ink}`, padding: 0 }} />
-      <div style={{ padding: `${u(5)} 0`, fontFamily: T.sans, fontSize: u(9), fontWeight: 700, letterSpacing: u(1.1), textTransform: 'uppercase', color: T.ink, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
+      <div style={{ padding: `${u(5)} 0`, fontFamily: T.sans, fontSize: u(10), fontWeight: 700, letterSpacing: u(1.1), textTransform: 'uppercase', color: T.ink, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
         Fleet
       </div>
       <div style={{ ...ft, color: T.ink }}>{totalHashTH.toFixed(2)}</div>
       <div style={{ ...ft, color: avgEff > 25 ? T.red : T.ink }}>{avgEff.toFixed(1)}</div>
       <div style={{ ...ft, color: T.ink }}>{minUp != null ? `≥${fmtUptime(minUp)}` : '—'}</div>
       <div style={{ ...ft, color: T.ink }}>
-        {totalAcc.toLocaleString()}<span style={{ color: totalRej > 200 ? T.red : T.ink4 }}> /{totalRej}</span>
+        {totalAcc.toLocaleString()}<span style={{ color: totalRej > 200 ? T.red : T.ink3 }}> /{totalRej}</span>
       </div>
       <div style={{ ...ft, color: avgAsic > 69 ? T.red : T.ink }}>{Math.round(avgAsic)}°</div>
       <div style={{ ...ft, color: avgVr != null && avgVr > 69 ? T.red : T.ink }}>{avgVr != null ? `${Math.round(avgVr)}°` : '—'}</div>
