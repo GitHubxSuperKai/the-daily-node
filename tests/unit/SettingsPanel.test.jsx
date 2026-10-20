@@ -259,7 +259,7 @@ describe('SettingsPanel — Escape and stray focus', () => {
   });
 
   it('ignores Escape that cancels an IME composition', () => {
-    // Firefox/Safari report Escape with isComposing; Chrome reports keyCode 229.
+    // Browsers flag a composition key with isComposing, keyCode 229, or both.
     const { props } = renderPanel();
     const input = screen.getByLabelText(/Add miner IP/i);
     input.focus();
