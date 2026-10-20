@@ -92,7 +92,7 @@ export function AlertsPanel({ alerts, alertPrefs, onDismiss, now, timeFormat }) 
 
   return (
     // tabIndex -1: focus lands here after a keyboard dismiss of the last row.
-    <div ref={ref} data-alerts tabIndex={-1} style={{ flex: 1, minHeight: 0, overflow: 'hidden', outline: 'none' }}>
+    <div ref={ref} data-alerts tabIndex={-1} role="region" aria-label="Alerts" style={{ flex: 1, minHeight: 0, overflow: 'hidden', outline: 'none' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <Kicker>Alerts</Kicker>
         <span style={{ fontFamily: T.body, fontSize: u(10), color: T.ink3 }}>{countLabel}</span>

@@ -9,9 +9,11 @@ const HISTORY_MS = 24 * 60 * 60 * 1000;
 const isAlert = a => a && typeof a.id === 'string' && typeof a.type === 'string'
   && typeof a.message === 'string' && Number.isFinite(a.ts);
 
-// A saved time later than now is clamped to now. The clock may be behind (a device with no
-// RTC, before NTP sets it), so the row is real; clamped, it can hold that type's cooldown
-// for one cooldown at most, and stays listed for a day at most.
+// A saved time later than now is clamped to now, in memory only. The clock may be behind
+// (a device with no RTC, before NTP sets it), so the row is real. Clamped, it holds that
+// type's cooldown for one cooldown from this load. Storage keeps the saved time until the
+// list or cooldowns are next written, so a reload after the clock syncs gets it back (and
+// a reload before then clamps again, to that load's now).
 const clampTs = (ts, now) => Math.min(ts, now);
 const isRecent = (ts, now) => now - ts < HISTORY_MS;
 
@@ -20,9 +22,10 @@ function loadAlertHistory(now = Date.now()) {
     const raw = JSON.parse(localStorage.getItem(HISTORY_KEY));
     if (!Array.isArray(raw)) return [];
     return raw.filter(isAlert).map(a => {
-      if (a.ts <= now) return a;
-      // A repeat row's `since` is clamped with it, so it never reads later than its time.
-      return Number.isFinite(a.since) ? { ...a, ts: now, since: clampTs(a.since, now) } : { ...a, ts: now };
+      const ts = clampTs(a.ts, now);
+      // A repeat row's `since` never reads later than its time.
+      if (Number.isFinite(a.since) && a.since > ts) return { ...a, ts, since: ts };
+      return ts === a.ts ? a : { ...a, ts };
     }).filter(a => isRecent(a.ts, now));
   } catch {
     return [];
@@ -73,8 +76,8 @@ function mergeAlert(history, alert, cooldownMs) {
     const prev = live[i];
     const merged = {
       ...prev, message: alert.message, ts: alert.ts,
-      // A saved count that isn't a number (a string "5" would make "51") counts as 1.
-      since: prev.since ?? prev.ts, count: (Number.isFinite(prev.count) ? prev.count : 1) + 1,
+      // A saved count that isn't a whole number from 1 (a string "5" would make "51") counts as 1.
+      since: prev.since ?? prev.ts, count: (Number.isInteger(prev.count) && prev.count >= 1 ? prev.count : 1) + 1,
     };
     return [merged, ...live.slice(0, i), ...live.slice(i + 1)];
   }

@@ -213,6 +213,8 @@ describe('AlertsPanel', () => {
     fireEvent.click(xOf('Miner offline'), { detail: 0 });
     expect(screen.queryAllByRole('button')).toHaveLength(0);
     expect(document.activeElement).toBe(container.querySelector('[data-alerts]'));
+    // That fallback has a name for screen readers.
+    expect(document.activeElement).toBe(screen.getByRole('region', { name: 'Alerts' }));
   });
 
   it('a mouse dismiss does not move focus to another row (it would show that ×)', () => {
@@ -291,6 +293,9 @@ describe('repeats', () => {
     const prev = { ...at('fee', NOW - 5 * MIN), count: '5' };
     expect(mergeAlert([prev], at('fee', NOW), COOL)[0].count).toBe(2);
     expect(mergeAlert([{ ...prev, count: 5 }], at('fee', NOW), COOL)[0].count).toBe(6);
+    for (const bad of [0, -5, 1.5]) {
+      expect(mergeAlert([{ ...prev, count: bad }], at('fee', NOW), COOL)[0].count, String(bad)).toBe(2);
+    }
   });
 
   it('adds the day to "since" when the repeat started before today', () => {
@@ -460,6 +465,15 @@ describe('useAlerts history', () => {
     now += 31 * MIN; rerender({ fee: 81 });
     expect(result.current.toasts).toHaveLength(1);
     expect(result.current.history[0]).toMatchObject({ id: 'fee-future', count: 4 });
+  });
+
+  it('clamps a saved `since` later than its row\'s own time', () => {
+    const now = Date.now();
+    localStorage.setItem(HISTORY_KEY, JSON.stringify([
+      { id: 'fee-1', type: 'fee', message: 'Fee spike: 70', ts: now - 10 * MIN, since: now - 5 * MIN, count: 2 },
+    ]));
+    const { result } = renderHook(() => useAlerts(quiet, prefs));
+    expect(result.current.history[0]).toMatchObject({ ts: now - 10 * MIN, since: now - 10 * MIN });
   });
 
   it('clamps a saved future cooldown to now, so it silences one cooldown only', () => {
