@@ -6,6 +6,8 @@ import { mergeSeries, nearestIndex, fmtChipTime } from '../utils/chartSeries.js'
 const CONTAINER_STYLE = { width: '100%', height: '100%', display: 'block', flexShrink: 0, touchAction: 'pan-y' };
 const SVG_BLOCK = { display: 'block' };
 const SVG_DIMMED = { display: 'block', opacity: 0.4 };
+// Height of the band above and below the line that holds the hi/lo labels (10px mono).
+const LABEL_BAND = 14;
 
 function LineChart({ color, points, fill, vwap, historyPoints, showLabels, onHover, domain, dimmed, chipFormat }) {
   const T = useT();
@@ -91,6 +93,9 @@ function LineChart({ color, points, fill, vwap, historyPoints, showLabels, onHov
   // Bound-check during render: the clearing effect runs after commit, so the
   // first render of a shorter series still holds the old index.
   const hIdx = !dimmed && !useFallback && hoverIdx !== null && hoverIdx < series.length ? hoverIdx : null;
+  // With hi/lo labels on, reserve a band above and below the line for them, so the
+  // line never runs under the text. Only the mobile Bitcoin panel passes showLabels.
+  const pad = showLabels ? LABEL_BAND : 4;
   const { pts, minP, maxP, minIdx, maxIdx } = React.useMemo(() => {
     const out = { pts: [], minP: 0, maxP: 0, minIdx: 0, maxIdx: 0 };
     if (!(w > 0 && h > 0)) return out;
@@ -118,16 +123,16 @@ function LineChart({ color, points, fill, vwap, historyPoints, showLabels, onHov
     const span = (hasDomain ? dom1 : series[series.length - 1][0]) - t0;
     out.pts = series.map((p) => {
       const x = ((p[0] - t0) / span) * w;
-      const y = h - 4 - ((p[1] - lo) / range) * (h - 8);
+      const y = h - pad - ((p[1] - lo) / range) * (h - 2 * pad);
       return [x.toFixed(1), Math.max(2, Math.min(h - 2, y)).toFixed(1)];
     });
     return out;
-  }, [series, w, h, hasDomain, dom0, dom1, useFallback]);
+  }, [series, w, h, hasDomain, dom0, dom1, useFallback, pad]);
 
   let vwapY = null;
   if (w > 0 && h > 0 && !useFallback && vwap != null) {
     const range = maxP - minP || 1;
-    vwapY = Math.max(2, Math.min(h - 2, h - 4 - ((vwap - minP) / range) * (h - 8)));
+    vwapY = Math.max(2, Math.min(h - 2, h - pad - ((vwap - minP) / range) * (h - 2 * pad)));
   }
 
   const d = pts.length > 0
@@ -162,8 +167,9 @@ function LineChart({ color, points, fill, vwap, historyPoints, showLabels, onHov
             const minPt = pts[minIdx];
             const maxAnchor = parseFloat(maxPt[0]) > w / 2 ? 'end' : 'start';
             const minAnchor = parseFloat(minPt[0]) > w / 2 ? 'end' : 'start';
-            const maxY = Math.max(12, parseFloat(maxPt[1]) - 6);
-            const minY = Math.min(h - 2, parseFloat(minPt[1]) + 14);
+            // Baselines sit inside the reserved bands: the line spans [pad, h - pad].
+            const maxY = pad - 4;
+            const minY = h - 3;
             const labelStyle = { fill: T.ink3, fontSize: 10, fontFamily: T.mono, opacity: 0.85, pointerEvents: 'none' };
             return (
               <>

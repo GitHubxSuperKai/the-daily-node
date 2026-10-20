@@ -242,6 +242,26 @@ describe('LineChart labels and chip', () => {
     expect(maxB.getAttribute('text-anchor')).toBe('start');
   });
 
+  it('with showLabels the line stays out of the label bands and the labels sit in them', () => {
+    const { container } = mount({ points: even, showLabels: true });
+    const ys = parsePath(linePath(container).getAttribute('d')).map(p => p[1]);
+    expect(Math.min(...ys)).toBeCloseTo(14, 1);
+    expect(Math.max(...ys)).toBeCloseTo(H - 14, 1);
+    const [maxT, minT] = container.querySelectorAll('text');
+    // 10px text: the baseline is the label's bottom edge, its top is ~8px higher.
+    expect(Number(maxT.getAttribute('y'))).toBeLessThanOrEqual(14 - 3);
+    expect(Number(minT.getAttribute('y')) - 8).toBeGreaterThanOrEqual(H - 14);
+    expect(Number(minT.getAttribute('y'))).toBeLessThanOrEqual(H);
+  });
+
+  it('without showLabels (desktop) the line keeps its 4px insets', () => {
+    const { container } = mount({ points: even });
+    const ys = parsePath(linePath(container).getAttribute('d')).map(p => p[1]);
+    expect(Math.min(...ys)).toBeCloseTo(4, 1);
+    expect(Math.max(...ys)).toBeCloseTo(H - 4, 1);
+    expect(container.querySelectorAll('text')).toHaveLength(0);
+  });
+
   it('time chip shows fmtChipTime of the hovered point', () => {
     const { box, container } = mount({ points: even });
     move(box, 300);
