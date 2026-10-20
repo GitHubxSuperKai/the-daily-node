@@ -46,7 +46,7 @@ describe('CommandCenter — desktop smoke render', () => {
   });
 
   it('shows every Mining Pool inside Network Status, not in the sidebar', () => {
-    // 12 pools, so a cap on the list would fold some into an "Others" row.
+    // 12 pools: a cap of up to 10 (the fit code defaults to 6) would drop or fold some.
     const pools = Array.from({ length: 12 }, (_, i) => ({
       name: `Pool${i}`, slug: `p${i}`, sharePct: (8.3).toFixed(1), blockCount: 84,
     }));
