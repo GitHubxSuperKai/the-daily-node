@@ -41,6 +41,7 @@ export function AlertsPanel({ alerts, alertPrefs, onDismiss, now, timeFormat }) 
   const T = useT();
   const ref = React.useRef(null);
   const [active, setActive] = React.useState(null);
+  const pressShown = React.useRef(false);
 
   const anyEnabled = Object.values(alertPrefs || {}).some(a => a?.enabled);
   const recent = anyEnabled
@@ -113,7 +114,11 @@ export function AlertsPanel({ alerts, alertPrefs, onDismiss, now, timeFormat }) 
                 <button
                   type="button"
                   aria-label={`Dismiss ${LABELS[a.type] || a.type} alert`}
-                  onClick={() => onDismiss?.(a.id)}
+                  // Only a × that was visible when the press began dismisses. A touch
+                  // tap's pointerdown comes before its emulated mouseenter, so the
+                  // first tap only reveals the ×. A keyboard click (detail 0) has no press.
+                  onPointerDown={() => { pressShown.current = showX; }}
+                  onClick={e => { if (e.detail === 0 || pressShown.current) onDismiss?.(a.id); }}
                   style={{
                     gridRow: 1, gridColumn: 4, alignSelf: 'start', height: u(12), padding: 0,
                     border: 'none', background: 'none', cursor: 'pointer',

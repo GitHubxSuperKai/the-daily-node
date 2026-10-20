@@ -33,13 +33,20 @@ function useAlerts(triggers, prefs) {
   const [toasts, setToasts] = React.useState([]);
   // Newest first.
   const [history, setHistory] = React.useState(() => loadAlertHistory());
+  // Last fire time per type. Seeded from the saved history, so a reload (or a remount
+  // across the 900px breakpoint) doesn't fire again, and list again, an alert whose
+  // cooldown is still running.
+  const cooldowns = React.useRef(null);
+  if (cooldowns.current === null) {
+    cooldowns.current = {};
+    for (const a of history) cooldowns.current[a.type] = Math.max(cooldowns.current[a.type] ?? 0, a.ts);
+  }
   const historyLoaded = React.useRef(false);
   React.useEffect(() => {
     // Skip the first run: it would write back what was just read.
     if (!historyLoaded.current) { historyLoaded.current = true; return; }
     saveAlertHistory(history);
   }, [history]);
-  const cooldowns = React.useRef({});
   const pendingTimers = React.useRef([]);
 
   const alertPrefsRef = React.useRef(alertPrefs);

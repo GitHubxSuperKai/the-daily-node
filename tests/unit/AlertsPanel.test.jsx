@@ -123,6 +123,23 @@ describe('AlertsPanel', () => {
     expect(rows[0].style.visibility).toBe('hidden');
   });
 
+  it('does not dismiss on a press that began while the × was hidden (a touch tap)', () => {
+    const dismissed = [];
+    const a = alert('fee', 10, 'Fee spike: 64 sat/vB');
+    renderPanel({ alerts: [a], onDismiss: id => dismissed.push(id) });
+    const x = screen.getByRole('button', { name: 'Dismiss Fee spike alert' });
+    // Touch order: pointerdown, then the emulated mouseenter, then click.
+    fireEvent.pointerDown(x);
+    fireEvent.mouseEnter(x.parentElement);
+    fireEvent.click(x, { detail: 1 });
+    expect(dismissed).toEqual([]);
+    expect(x.style.opacity).toBe('1');
+    // The second tap, with the × showing, dismisses.
+    fireEvent.pointerDown(x);
+    fireEvent.click(x, { detail: 1 });
+    expect(dismissed).toEqual([a.id]);
+  });
+
   it('shows the × on keyboard focus too', () => {
     renderPanel({ alerts: [alert('fee', 10, 'Fee spike: 64 sat/vB')] });
     const x = screen.getByRole('button', { name: 'Dismiss Fee spike alert' });
@@ -197,6 +214,26 @@ describe('useAlerts history', () => {
     ]));
     const { result } = renderHook(() => useAlerts(quiet, prefs));
     expect(result.current.history.map(a => a.id)).toEqual(['fee-1']);
+  });
+
+  it('does not fire again on remount while a saved alert of that type is in cooldown', () => {
+    const now = Date.now();
+    localStorage.setItem(HISTORY_KEY, JSON.stringify([
+      { id: 'fee-1', type: 'fee', message: 'Fee spike: 80 sat/vB (threshold: 50)', ts: now - 5 * MIN },
+    ]));
+    // fastFee is still over the threshold, as after a reload mid-spike.
+    const { result } = renderHook(() => useAlerts({ ...quiet, fastFee: 80 }, prefs));
+    expect(result.current.history.map(a => a.id)).toEqual(['fee-1']);
+    expect(result.current.toasts).toEqual([]);
+  });
+
+  it('fires on remount once the saved alert is past its cooldown', () => {
+    const now = Date.now();
+    localStorage.setItem(HISTORY_KEY, JSON.stringify([
+      { id: 'fee-1', type: 'fee', message: 'Fee spike: 80', ts: now - 31 * MIN },
+    ]));
+    const { result } = renderHook(() => useAlerts({ ...quiet, fastFee: 80 }, prefs));
+    expect(result.current.history).toHaveLength(2);
   });
 
   it('starts empty when storage holds garbage', () => {
