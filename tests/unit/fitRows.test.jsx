@@ -56,14 +56,15 @@ describe('fitRowCount', () => {
 
 // A region whose rows follow the useFitRows contract: the first row stays laid out
 // (hidden) when none fit.
-function Region({ count }) {
+// `first` keys the first row, so changing it replaces that element (as a new alert does).
+function Region({ count, first = 0 }) {
   const ref = React.useRef(null);
   const n = useFitRows(ref, count);
   return (
     <div ref={ref} data-region>
       <div>header</div>
       {Array.from({ length: count }, (_, i) => (i < Math.max(n, 1) ? (
-        <div key={i} data-fit-row style={{ visibility: n === 0 ? 'hidden' : 'visible' }}>row{i}</div>
+        <div key={i === 0 ? `first-${first}` : i} data-fit-row style={{ visibility: n === 0 ? 'hidden' : 'visible' }}>row{i}</div>
       ) : null))}
     </div>
   );
@@ -77,13 +78,14 @@ describe('useFitRows', () => {
     vi.stubGlobal('ResizeObserver', class {
       constructor(cb) { this.cb = cb; this.targets = []; observers.push(this); }
       observe(t) { this.targets.push(t); }
-      disconnect() {}
+      unobserve(t) { this.targets = this.targets.filter(x => x !== t); }
+      disconnect() { this.targets = []; }
     });
-    const size = { regionPx };
+    const size = { regionPx, rowPx: 20 };
     vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function () {
       if (this.hasAttribute('data-fit-row')) {
         const i = [...this.parentElement.querySelectorAll('[data-fit-row]')].indexOf(this);
-        return { top: 40 + 20 * i, height: 20 };
+        return { top: 40 + size.rowPx * i, height: size.rowPx };
       }
       if (this.hasAttribute('data-region')) return { top: 0, height: size.regionPx };
       return { top: 0, height: 0 };
@@ -114,6 +116,27 @@ describe('useFitRows', () => {
     size.regionPx = 40 + 20 * 3;
     act(() => ro.cb());
     expect(shown()).toBe(3);
+  });
+
+  it('re-measures when the first row changes height while the region does not (a font swap)', () => {
+    const { observers, size } = layout(40 + 20 * 4);
+    const { rerender } = render(<Region count={6} />);
+    expect(shown()).toBe(4);
+    const ro = observers.find(o => o.targets.some(t => t.hasAttribute?.('data-region')));
+    const firstRow = () => screen.getByText('row0');
+    expect(ro.targets).toContain(firstRow());
+
+    // The web font swaps in: rows grow from 20 to 40px, the region stays the same.
+    size.rowPx = 40;
+    act(() => ro.cb());
+    expect(shown()).toBe(2);
+
+    // A new first row replaces the old element: it is observed instead.
+    const old = firstRow();
+    rerender(<Region count={6} first={1} />);
+    expect(firstRow()).not.toBe(old);
+    expect(ro.targets).toContain(firstRow());
+    expect(ro.targets).not.toContain(old);
   });
 
   it('shows every row when nothing can be measured', () => {
