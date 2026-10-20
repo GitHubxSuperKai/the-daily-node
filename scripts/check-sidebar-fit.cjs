@@ -19,7 +19,8 @@
 // attributes, so the check also runs against builds from before those existed; rows
 // then come from the list's structure, and the output says so. Red control: the
 // build before the pool list was sized to fit,
-//   git show db65f16:index.html > pre.html && node scripts/check-sidebar-fit.cjs pre.html
+//   git show db65f16:index.html > "${TMPDIR:-/tmp}/pre.html"
+//   node scripts/check-sidebar-fit.cjs "${TMPDIR:-/tmp}/pre.html"
 // fails on Jan 3 (with Google Fonts loaded: 82px overflow, 3 of 7 rows inside).
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -151,6 +152,7 @@ async function checkDate(browser, { label, day, otd }) {
     + ` rows-by=${r.rowSource} pool-list=${r.hasPoolList}`);
   console.log(`     ${r.names}`);
   if (r.fontsLoaded === 0) console.log('     WARNING: no web font loaded (offline?); measured with fallback fonts');
+  else if (r.fontsFailed > 0) console.log(`     WARNING: ${r.fontsFailed} web font face(s) failed; some text measured with fallback fonts`);
   if (problems.length) console.log(`     -> ${problems.join('; ')}`);
   return problems.length === 0;
 }
