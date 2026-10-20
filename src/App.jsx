@@ -178,7 +178,15 @@ function App() {
       {mode === 'mobile' && settingsOpen && (
         // Fixed, because #stage is the mobile page's scroller and an absolute
         // panel would scroll away with it; 60 sits above MobileTabBar's 50.
-        <div style={{ position: 'fixed', inset: 0, zIndex: 60 }}>
+        // Its edges sit on the safe-area insets rather than padding, because
+        // SettingsPanel's absolute inset: 0 fills the padding box anyway.
+        <div style={{
+          position: 'fixed', zIndex: 60,
+          top: 'env(safe-area-inset-top, 0px)',
+          right: 'env(safe-area-inset-right, 0px)',
+          bottom: 'env(safe-area-inset-bottom, 0px)',
+          left: 'env(safe-area-inset-left, 0px)',
+        }}>
           <SettingsPanel
             prefs={prefs}
             v2prefs={v2prefs}

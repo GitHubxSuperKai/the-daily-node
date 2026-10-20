@@ -20,6 +20,8 @@ function MobileTabBar({ activeTab, onChange }) {
         background: T.paper,
         borderTop: `1px solid ${T.rule2}`,
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        paddingLeft: 'env(safe-area-inset-left, 0px)',
+        paddingRight: 'env(safe-area-inset-right, 0px)',
         zIndex: 50,
       }}
     >
