@@ -24,8 +24,9 @@ import {
 // Fallback for callers that pass no chart (older tests); never mutated.
 const EMPTY_CHART = Object.freeze({ points: null, domain: null, stale: false, aged: false, failed: false });
 const NOOP = () => {};
-// The drop cap is two lines tall, so a dek of about two lines or less (~70 chars a
-// line at this width) leaves it standing beside a single line. Those render plain.
+// The drop cap is two lines tall and wants a dek that wraps well past it. Under this
+// many chars (about two lines at ~70 a line) the dek renders plain, so a one-line dek
+// never leaves a lone capital beside it.
 export const DROP_CAP_MIN_CHARS = 150;
 
 export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartProp, range = '24h', onRangeChange }) {
@@ -172,9 +173,10 @@ export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartP
           {/* An image that fails to load hands the slot to the next qualifying story. */}
           <LeadImage key={lead.img} src={lead.img} onError={() => rss.skipLead && rss.skipLead(lead.img)} />
           {lead.snippet ? (
-            // A long dek splits the space with the image but keeps three lines; a short
-            // one takes just its own height, so the image can grow to full size.
-            <ScrollHint style={{ ...(dropCap ? { flex: '1 1 0', minHeight: u(60) } : { flex: '0 0 auto' }), fontFamily: T.body, fontSize: u(13.5), lineHeight: 1.5, color: T.ink2 }}>
+            // A long dek asks for three lines (its flex basis) and takes any spare room; a
+            // short one asks for its own height, so the image can grow to full size. Both
+            // give way, behind the scroll hint, only once the image is at its minimum.
+            <ScrollHint style={{ flex: dropCap ? `1 1 ${u(60)}` : '0 1 auto', fontFamily: T.body, fontSize: u(13.5), lineHeight: 1.5, color: T.ink2 }}>
               {dropCap ? (
                 <>
                   <span style={{ fontFamily: T.serif, fontSize: u(44), fontWeight: 700, color: T.ink, float: 'left', lineHeight: 0.88, marginRight: u(8), marginTop: u(3) }}>

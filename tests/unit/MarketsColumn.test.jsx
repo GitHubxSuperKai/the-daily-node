@@ -362,3 +362,43 @@ describe('MarketsColumn — lead story', () => {
     expect(container.textContent).not.toContain('B' + snippet);
   });
 });
+
+describe('MarketsColumn — lead image and summary layout', () => {
+  const lead = (snippet) => ({
+    rss: {
+      err: null, skipLead: vi.fn(),
+      leadStory: { hed: 'Lead headline', topic: 'BITCOIN', src: 'CoinDesk', t: '1h', link: 'https://example.com/lead', img: 'https://example.com/lead.jpg', snippet },
+    },
+  });
+  // ScrollHint spreads the summary's style onto its root, the only div with the dek's font size.
+  const summaryRoot = (container) => {
+    const roots = [...container.querySelectorAll('div')].filter(d => d.style.fontSize === 'calc(var(--u) * 13.5)');
+    expect(roots).toHaveLength(1);
+    return roots[0];
+  };
+
+  it('the image keeps its own ratio, crops from the bottom and yields space first', () => {
+    const { container } = mountRange(lead('Short dek.'));
+    const img = container.querySelector('img');
+    expect(img.style.height).toBe('auto');
+    expect(img.style.objectFit).toBe('cover');
+    expect(img.style.objectPosition).toBe('top');
+    expect(img.style.minHeight).toBe('calc(var(--u) * 160)');
+    expect(img.style.maxHeight).toBe('calc(var(--u) * 270)');
+    expect(img.style.flex).toBe('0 1000 auto');
+  });
+
+  it('a short dek asks only for its own height', () => {
+    const { container } = mountRange(lead('Short dek.'));
+    const root = summaryRoot(container);
+    expect(root.style.flex).toBe('0 1 auto');
+    expect(root.style.minHeight).toBe('0px');
+  });
+
+  it('a long dek asks for three lines as its basis, with no hard floor', () => {
+    const { container } = mountRange(lead('L'.repeat(DROP_CAP_MIN_CHARS)));
+    const root = summaryRoot(container);
+    expect(root.style.flex).toBe('1 1 calc(var(--u) * 60)');
+    expect(root.style.minHeight).toBe('0px');
+  });
+});

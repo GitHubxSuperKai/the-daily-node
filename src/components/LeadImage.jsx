@@ -14,10 +14,13 @@ export function LeadImage({ src, onError }) {
         // The image's own ratio once loaded (16/9 reserves the box before then). It
         // grows to the full image when the headline leaves room and shrinks toward
         // 160 when it doesn't; minHeight is what lets it shrink at all, since a flex
-        // item's automatic minimum is its ratio height. Any crop then falls on the
-        // bottom edge, never on a title set across the top of the image.
+        // item's automatic minimum is its ratio height. The crop is anchored to the
+        // top, so a title set across the top of the image survives (an image wider
+        // than 3:1 at the 160 floor is cropped at the sides instead). The large
+        // shrink factor makes the image give way first; the summary below it only
+        // shrinks once the image is down to 160.
         aspectRatio: 'auto 16 / 9',
-        flex: '0 1 auto',
+        flex: '0 1000 auto',
         minHeight: u(160),
         maxHeight: u(270),
         objectFit: 'cover',
