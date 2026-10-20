@@ -257,7 +257,6 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
           label="Latest"
           fullWidth
           onClick={() => onNavigate('news')}
-          ariaLabel="More headlines — open News tab"
         >
           <div data-testid="headlines-tile">
             {more.map((it, i) => (

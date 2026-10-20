@@ -24,7 +24,7 @@ describe('MobileApp', () => {
 
   it('switches to Bitcoin panel when Bitcoin tab clicked', () => {
     wrap(<MobileApp {...baseProps()} />);
-    fireEvent.click(screen.getByRole('button', { name: /bitcoin/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^bitcoin$/i }));
     expect(screen.getByText(/^Network Status$/)).toBeDefined();
   });
 

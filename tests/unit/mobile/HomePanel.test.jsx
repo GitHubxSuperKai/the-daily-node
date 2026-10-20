@@ -86,6 +86,8 @@ describe('HomePanel', () => {
     expect(tile.textContent).not.toContain('Story 4');
     expect(screen.getByText('Feed · 2m ago')).toBeDefined();
     expect(tile.querySelectorAll('a')).toHaveLength(0);
+    // No aria-label: the headlines themselves name the button for screen readers.
+    expect(screen.getByRole('button', { name: /Story 1/ })).toBe(tile.closest('button'));
     fireEvent.click(tile);
     expect(onNavigate).toHaveBeenCalledWith('news');
   });
