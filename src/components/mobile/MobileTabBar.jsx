@@ -11,8 +11,11 @@ const TABS = [
 function MobileTabBar({ activeTab, onChange }) {
   const T = useT();
   return (
+    // Bottom navigation, not an ARIA tablist: the bar swaps the whole view (swipes
+    // do too) and has no arrow-key roving focus, so it stays a named <nav> whose
+    // buttons mark the current view with aria-current.
     <nav
-      role="tablist"
+      aria-label="Sections"
       style={{
         position: 'fixed',
         left: 0, right: 0, bottom: 0,

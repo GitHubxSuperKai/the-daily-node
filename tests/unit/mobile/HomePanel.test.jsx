@@ -68,6 +68,30 @@ describe('HomePanel', () => {
     expect(onNavigate).toHaveBeenCalledWith('news');
   });
 
+  it('shows no Latest tile when there are no further headlines', () => {
+    wrap(<HomePanel {...baseProps} onNavigate={() => {}} />);
+    expect(screen.queryByTestId('headlines-tile')).toBeNull();
+    expect(screen.queryByText('Latest')).toBeNull();
+  });
+
+  it('Latest tile lists the next three headlines and opens the News tab', () => {
+    const items = Array.from({ length: 10 }, (_, i) => ({
+      hed: `Story ${i + 1}`, link: `https://x/${i}`, src: 'Feed', t: `${i + 1}m ago`,
+    }));
+    const onNavigate = vi.fn();
+    wrap(<HomePanel {...baseProps} rss={{ ...baseProps.rss, items }} onNavigate={onNavigate} />);
+    const tile = screen.getByTestId('headlines-tile');
+    expect(tile.textContent).toContain('Story 1');
+    expect(tile.textContent).toContain('Story 3');
+    expect(tile.textContent).not.toContain('Story 4');
+    expect(screen.getByText('Feed · 2m ago')).toBeDefined();
+    expect(tile.querySelectorAll('a')).toHaveLength(0);
+    // No aria-label: the headlines themselves name the button for screen readers.
+    expect(screen.getByRole('button', { name: /Story 1/ })).toBe(tile.closest('button'));
+    fireEvent.click(tile);
+    expect(onNavigate).toHaveBeenCalledWith('news');
+  });
+
   it('weather tile has no expanded detail by default', () => {
     wrap(<HomePanel {...baseProps} onNavigate={() => {}} />);
     expect(screen.queryByText(/W 12 mph/i)).toBeNull();

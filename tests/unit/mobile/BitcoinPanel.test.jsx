@@ -44,6 +44,14 @@ const chainProps = {
   mempoolBlocks: [],
 };
 
+describe('BitcoinPanel — Network Status heading', () => {
+  it('has no Field Report label and exactly one Network Status heading', () => {
+    wrap(<BitcoinPanel btc={btcProps} chain={chainProps} />);
+    expect(screen.queryByText(/Field Report/i)).toBeNull();
+    expect(screen.getAllByText(/^Network Status$/)).toHaveLength(1);
+  });
+});
+
 describe('BitcoinPanel — Halving', () => {
   it('renders circulating supply', () => {
     wrap(<BitcoinPanel btc={btcProps} chain={chainProps} />);
@@ -123,9 +131,9 @@ describe('BitcoinPanel — chart readout', () => {
     expect(headline('—')).toBeDefined();
   });
 
-  it('chart wrapper has a 120px height', () => {
+  it('chart wrapper has a 140px height', () => {
     mount();
-    expect(screen.getByTestId('line-chart').parentElement.style.height).toBe('120px');
+    expect(screen.getByTestId('line-chart').parentElement.style.height).toBe('140px');
   });
 });
 
@@ -155,7 +163,7 @@ describe('BitcoinPanel — chart range', () => {
     for (const b of buttons) expect(b.style.minHeight).toBe('32px');
   });
 
-  it('range buttons sit directly above the 120px chart wrapper', () => {
+  it('range buttons sit directly above the 140px chart wrapper', () => {
     mount({ chart: chartOf(), range: '24h', onRangeChange: () => {} });
     const group = screen.getByRole('group', { name: 'Chart range' });
     expect(group.nextElementSibling).toBe(screen.getByTestId('line-chart').parentElement);

@@ -135,7 +135,7 @@ describe('App — bootstrap and layout routing', () => {
     let el = screen.getByRole('button', { name: 'Save' });
     while (el && el.style?.position !== 'fixed') el = el.parentElement;
     expect(el).toBeTruthy();
-    const barZ = Number(screen.getByRole('tablist').style.zIndex);
+    const barZ = Number(screen.getByRole('navigation', { name: 'Sections' }).style.zIndex);
     expect(barZ).toBeGreaterThan(0);
     expect(Number(el.style.zIndex)).toBeGreaterThan(barZ);
   });

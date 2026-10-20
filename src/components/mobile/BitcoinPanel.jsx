@@ -122,7 +122,7 @@ function BitcoinPanel({ btc, chain, chart: chartProp, range = '24h', onRangeChan
         minHeight={32}
         gap={4}
       />
-      <div style={{ height: 120 }}>
+      <div style={{ height: 140 }}>
         <LineChart
           color={T.orange}
           points={series}
@@ -135,9 +135,8 @@ function BitcoinPanel({ btc, chain, chart: chartProp, range = '24h', onRangeChan
         />
       </div>
 
-      {/* ── Field Report ── */}
+      {/* ── Network Status: the widget renders its own heading ── */}
       <section style={{ paddingBottom: 16, borderBottom: `1px solid ${T.rule2}` }}>
-        <div style={sectionLabel(T)}>Field Report</div>
         <NetworkStatusWidget chain={chain} T={T} />
       </section>
 
