@@ -163,3 +163,65 @@ describe('SettingsPanel — full render', () => {
     expect(screen.getByText(/REFRESH INTERVALS/i)).toBeTruthy();
   });
 });
+
+describe('SettingsPanel — modal dialog semantics and focus trap', () => {
+  const tabbable = (dialog) => [...dialog.querySelectorAll('button, [href], input, select, textarea, [tabindex]')]
+    .filter((el) => el.tabIndex >= 0 && !el.disabled && el.type !== 'hidden');
+
+  it('is a modal dialog named by its heading', () => {
+    renderPanel();
+    const dialog = screen.getByRole('dialog', { name: 'Settings' });
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+  });
+
+  it('moves focus into the dialog when it opens', () => {
+    renderPanel();
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+
+  it('wraps Tab from the last control to the first, and Shift+Tab back', () => {
+    renderPanel();
+    const dialog = screen.getByRole('dialog');
+    const items = tabbable(dialog);
+    expect(items.length).toBeGreaterThan(2);
+    const first = items[0], last = items[items.length - 1];
+    expect(last.textContent).toBe('Cancel');
+
+    last.focus();
+    fireEvent.keyDown(last, { key: 'Tab' });
+    expect(document.activeElement).toBe(first);
+
+    fireEvent.keyDown(first, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(last);
+  });
+
+  it('wraps Shift+Tab from the dialog itself (its initial focus) to the last control', () => {
+    renderPanel();
+    const dialog = screen.getByRole('dialog');
+    const items = tabbable(dialog);
+    dialog.focus();
+    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(items[items.length - 1]);
+  });
+
+  it('leaves Tab between inner controls to the browser', () => {
+    renderPanel();
+    const items = tabbable(screen.getByRole('dialog'));
+    items[1].focus();
+    const notPrevented = fireEvent.keyDown(items[1], { key: 'Tab' });
+    expect(notPrevented).toBe(true);
+    expect(document.activeElement).toBe(items[1]);
+  });
+
+  it('returns focus to the opener when it closes', () => {
+    const opener = document.createElement('button');
+    document.body.appendChild(opener);
+    opener.focus();
+    const { unmount } = renderPanel();
+    expect(document.activeElement).not.toBe(opener);
+    unmount();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+});
