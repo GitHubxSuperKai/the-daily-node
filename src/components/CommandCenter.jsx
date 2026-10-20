@@ -201,7 +201,7 @@ export function CommandCenter({
       >
         {/* COL 0 — WORDMARK RAIL */}
         <ErrorBoundary label="Sidebar">
-          <Sidebar clock={clock} weather={weather} prefs={prefs} sys={sys} pools={chain.pools} />
+          <Sidebar clock={clock} weather={weather} prefs={prefs} sys={sys} />
         </ErrorBoundary>
 
         {/* COL 1 — MARKETS + LEAD STORY */}

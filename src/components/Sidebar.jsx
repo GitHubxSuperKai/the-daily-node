@@ -7,48 +7,9 @@ import Num from './Num';
 import StatusDot from './StatusDot';
 import { OnThisDay } from './OnThisDay';
 import Weather from './Weather';
-import { MiningPools } from './NetworkStatusWidget';
-import { ScrollHint } from './ScrollHint';
-import { fitPoolLimit } from '../utils/poolLimit.js';
 
-// Measures the pools region and the rendered list, and returns the MiningPools
-// limit that fits (see fitPoolLimit). The region's height comes from flex, not from
-// its content, so a new limit doesn't change what is measured next time.
-function usePoolLimit(ref, count) {
-  const [limit, setLimit] = React.useState(6);
-  const measure = React.useCallback(() => {
-    const region = ref.current;
-    const list = region && region.querySelector('[data-pool-list]');
-    const row = list && list.querySelector('[data-pool-row]');
-    if (!row) return;
-    const rowRect = row.getBoundingClientRect();
-    const next = fitPoolLimit({
-      regionPx: region.getBoundingClientRect().height,
-      headerPx: rowRect.top - list.getBoundingClientRect().top,
-      rowPx: rowRect.height,
-      count,
-    });
-    setLimit(prev => (prev === next ? prev : next));
-  }, [ref, count]);
-
-  React.useLayoutEffect(() => {
-    measure();
-    if (typeof ResizeObserver === 'undefined') return undefined;
-    // The list is observed too, so a late web-font load that changes the row
-    // height re-measures. A new limit resizes the list but measures the same.
-    const ro = new ResizeObserver(measure);
-    ro.observe(ref.current);
-    const list = ref.current.querySelector('[data-pool-list]');
-    if (list) ro.observe(list);
-    return () => ro.disconnect();
-  }, [ref, measure]);
-  return limit;
-}
-
-export function Sidebar({ clock, weather, prefs, sys, pools }) {
+export function Sidebar({ clock, weather, prefs, sys }) {
   const T = useT();
-  const poolsRef = React.useRef(null);
-  const poolLimit = usePoolLimit(poolsRef, pools ? pools.length : 0);
   return (
     <div
       style={{
@@ -109,15 +70,9 @@ export function Sidebar({ clock, weather, prefs, sys, pools }) {
           ))}
         </div>
       </div>
-      {/* Mining pools moved here from the chain column so Network Status fits at 1080.
-          The region takes the rail's spare height, and the list names as many pools
-          as fit in it (the rest fold into "Others"), so On This Day dates don't push
-          rows behind the scroll hint. */}
-      <div ref={poolsRef} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        <ScrollHint style={{ flex: 1 }}>
-          <MiningPools pools={pools} limit={poolLimit} T={T} />
-        </ScrollHint>
-      </div>
+      {/* Spare height, kept empty: Mining Pools lives in Network Status again. The
+          spacer keeps the colophon at the bottom of the rail. */}
+      <div style={{ flex: 1, minHeight: 0 }} />
       <div
         style={{
           fontFamily: T.body,

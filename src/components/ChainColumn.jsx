@@ -5,17 +5,17 @@ import Miners from './Miners';
 import { NetworkStatusWidget } from './NetworkStatusWidget';
 import { ScrollHint } from './ScrollHint';
 
-// Mining pools live in the Sidebar on desktop, so Network Status fits a 1080 canvas
-// without scrolling for a small fleet; a bigger fleet scrolls behind the ScrollHint.
+// Network Status includes the Mining Pools list, so at 1080 it runs past the column
+// and scrolls behind the ScrollHint, whose fade and "More" cue mark the overflow.
 export function ChainColumn({ bitaxe, chain }) {
   const T = useT();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0, overflow: 'hidden' }}>
       <Miners bitaxe={bitaxe} chain={chain} />
-      {/* 26, not 32: the 10px label floor cost Network Status about 5px, and this gap gives it
-          back, so 2 miners with one long rig name (e.g. nerdqaxe_plus_office) still fit at 1920x1080. */}
+      {/* 26, not 32: set when Network Status fit the column (PR #230); kept so a little more
+          of it shows above the scroll hint. */}
       <ScrollHint style={{ marginTop: u(26), flexShrink: 1 }}>
-        <NetworkStatusWidget chain={chain} T={T} showPools={false} />
+        <NetworkStatusWidget chain={chain} T={T} showPools />
       </ScrollHint>
     </div>
   );

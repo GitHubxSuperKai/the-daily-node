@@ -45,6 +45,15 @@ describe('CommandCenter — desktop smoke render', () => {
     expectNoBoundaryFallback();
   });
 
+  it('shows every Mining Pool inside Network Status, not in the sidebar', () => {
+    const { container, props } = renderCC();
+    const lists = container.querySelectorAll('[data-pool-list]');
+    expect(lists.length).toBe(1);
+    // The list sits in the same scroll region as the Network Status heading.
+    expect(lists[0].closest('.scroll-hint').textContent).toMatch(/Network Status/i);
+    for (const pool of props.chain.pools) expect(lists[0].textContent).toContain(pool.name);
+  });
+
   it('renders real values from the fixture, not blanks or NaN', () => {
     // Pins two fields a fixture audit caught rendering wrong: clock.dayStr was
     // absent (the date line rendered empty) and btc.data.cap was a string, so
