@@ -120,6 +120,30 @@ for (const source of REQUIRED_CSP_SOURCES) {
 assert.ok(/(?:^|;)\s*frame-ancestors /.test(csp),
   'CSP missing frame-ancestors directive');
 
+// 10b. viewport-fit=cover and the safe-area insets it needs ship together. Without
+// cover, env(safe-area-inset-*) is 0 on notched iPhones; with cover but no insets, the
+// mobile page runs under the notch and home indicator. jsdom drops env() values from
+// inline styles, so the property:value pairs are checked here in the bundle, where
+// style keys and string values survive minification.
+const viewportMatch = html.match(/<meta name="viewport" content="([^"]*)"/);
+assert.ok(viewportMatch, 'viewport meta tag missing from output');
+assert.ok(viewportMatch[1].split(/\s*,\s*/).includes('viewport-fit=cover'),
+  'viewport meta lost viewport-fit=cover — env(safe-area-inset-*) resolves to 0 without it');
+const inset = side => `env(safe-area-inset-${side}, 0px)`;
+const REQUIRED_SAFE_AREA_STYLES = [
+  // MobileApp root: header and every panel
+  `padding:"${['top', 'right', 'bottom', 'left'].map(inset).join(' ')}"`,
+  // MobileTabBar (fixed, so the root padding does not reach it)
+  `paddingBottom:"${inset('bottom')}"`,
+  `paddingLeft:"${inset('left')}"`,
+  `paddingRight:"${inset('right')}"`,
+  // App.jsx mobile Settings layer edges
+  ...['top', 'right', 'bottom', 'left'].map(side => `${side}:"${inset(side)}"`),
+];
+for (const style of REQUIRED_SAFE_AREA_STYLES) {
+  assert.ok(html.includes(style), `missing safe-area inset style in bundle: ${style}`);
+}
+
 // 11. The 900px mobile breakpoint must stay in sync across all three checks.
 // The inline updateScale() script is copied into the output verbatim (only the
 // bundle is minified), so both sides are assertable against the built HTML.
