@@ -51,7 +51,7 @@ export function OnThisDay() {
       <div style={{ marginTop: 7 }}>
         <div style={{
           fontFamily: T.sans,
-          fontSize: u(9),
+          fontSize: u(10),
           fontWeight: 600,
           letterSpacing: u(2),
           textTransform: 'uppercase',

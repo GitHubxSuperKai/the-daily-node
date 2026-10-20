@@ -73,7 +73,7 @@ export function DesktopTicker({ btc: _btc, chain, bitaxe, feedHealth }) {
         style={{
           fontFamily: T.sans,
           fontWeight: 700,
-          fontSize: u(9),
+          fontSize: u(10),
           letterSpacing: u(2),
           color: T.ink3,
           display: 'flex',

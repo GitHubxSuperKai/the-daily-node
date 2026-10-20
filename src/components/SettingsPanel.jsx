@@ -125,7 +125,7 @@ export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSav
             <div style={{ borderTop: u(3) + ' solid ' + T.rule, borderBottom: '1px solid ' + T.rule, height: u(6), marginBottom: u(14) }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <div style={{ fontFamily: T.sans, fontSize: u(9), fontWeight: 600, letterSpacing: u(3), textTransform: 'uppercase', color: T.ink3, marginBottom: u(4) }}>
+                <div style={{ fontFamily: T.sans, fontSize: u(10), fontWeight: 600, letterSpacing: u(3), textTransform: 'uppercase', color: T.ink3, marginBottom: u(4) }}>
                   Configuration
                 </div>
                 <div id="settings-title" style={{ fontFamily: T.serif, fontSize: u(26), fontWeight: 800, letterSpacing: u(-0.8), color: T.ink, lineHeight: 1 }}>
@@ -164,7 +164,7 @@ export function SettingsPanel({ prefs, v2prefs, miners, onRefresh, onSave, onSav
             <div style={{ display: 'flex', alignItems: 'center', gap: u(10), marginTop: u(24), borderTop: '1px solid ' + T.rule2, paddingTop: u(18) }}>
               <button style={btnPrimary} onClick={handleSave}>Save</button>
               <button style={{ ...btnPrimary, background: 'transparent', color: T.ink3 }} onClick={onClose}>Cancel</button>
-              <span style={{ marginLeft: 'auto', fontSize: u(10), color: T.ink4, fontFamily: T.mono }}>{`v${__VERSION__}`}</span>
+              <span style={{ marginLeft: 'auto', fontSize: u(10), color: T.ink3, fontFamily: T.mono }}>{`v${__VERSION__}`}</span>
             </div>
           </div>
         </ScrollHint>

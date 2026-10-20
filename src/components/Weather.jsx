@@ -45,7 +45,7 @@ function Weather({ weather, prefs }) {
                 label = wx.wxSunriseTomorrow ? `↑ ${fmtHHMM(wx.wxSunriseTomorrow, prefs.timeFormat)}` : null;
               }
             }
-            return label ? <div style={{ fontFamily: T.num, fontSize: u(9), color: T.ink3, lineHeight: 1 }}>{label}</div> : null;
+            return label ? <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, lineHeight: 1 }}>{label}</div> : null;
           })()}
         </div>
         <div>
@@ -61,8 +61,8 @@ function Weather({ weather, prefs }) {
             <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3 }}>{fmtHour(h.hr, prefs.timeFormat)}</div>
             <div style={{ margin: `${u(3)} auto` }}><WxGlyph kind={wmoIcon(h.code, h.hr, null, wx.wxSunriseHr, wx.wxSunsetHr)} size={24} speed={wmoSpeed(h.code)} /></div>
             <Num size="xs" value={`${h.t}°`} />
-            {h.pop >= 30 && <div style={{ fontFamily: T.num, fontSize: u(9), color: T.ink3, marginTop: u(1) }}>{h.pop}%</div>}
-            {h.precip > 0 && <div style={{ fontFamily: T.num, fontSize: u(9), color: T.ink3 }}>{h.precip.toFixed(1)}mm</div>}
+            {h.pop >= 30 && <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, marginTop: u(1) }}>{h.pop}%</div>}
+            {h.precip > 0 && <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3 }}>{h.precip.toFixed(1)}mm</div>}
           </div>
         ))}
       </div>
@@ -82,9 +82,9 @@ function Weather({ weather, prefs }) {
         const cellLB = { padding: `${u(8)} ${u(8)} 0 0`,         borderRight: br, borderTop: br };
         const cellMB = { padding: `${u(8)} ${u(8)} 0 ${u(8)}`,  borderRight: br, borderTop: br };
         const cellRB = { padding: `${u(8)} 0 0 ${u(8)}`,         borderTop: br };
-        const lbl = { fontFamily: T.sans, fontSize: u(8), fontWeight: 600, letterSpacing: u(1.6), textTransform: 'uppercase', color: T.ink3, marginBottom: u(3) };
+        const lbl = { fontFamily: T.sans, fontSize: u(10), fontWeight: 600, letterSpacing: u(1.6), textTransform: 'uppercase', color: T.ink3, marginBottom: u(3) };
         const val = { fontFamily: T.num, fontSize: u(13), fontWeight: 400, letterSpacing: -0.5, lineHeight: 1, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1', fontOpticalSizing: 'auto' };
-        const sub = { fontFamily: T.num, fontSize: u(9), color: T.ink3, marginTop: u(2) };
+        const sub = { fontFamily: T.num, fontSize: u(10), color: T.ink3, marginTop: u(2) };
         return (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', marginTop: u(10), borderTop: br }}>
             <div style={cellL}>
@@ -114,7 +114,7 @@ function Weather({ weather, prefs }) {
               <div style={lbl}>{uvCellLabel}</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: u(4) }}>
                 <div style={{ ...val, color: uvColor }}>{uv}</div>
-                <div style={{ fontFamily: T.sans, fontSize: u(8), fontWeight: 600, color: uv >= 6 ? uvColor : T.ink3 }}>{uvLabel}</div>
+                <div style={{ fontFamily: T.sans, fontSize: u(10), fontWeight: 600, color: uv >= 6 ? uvColor : T.ink3 }}>{uvLabel}</div>
               </div>
               <div style={{ height: u(2), background: T.rule3, borderRadius: 2, marginTop: u(5) }}>
                 <div style={{ height: '100%', width: `${Math.min(uv / 11, 1) * 100}%`, background: uvColor, borderRadius: 2 }} />

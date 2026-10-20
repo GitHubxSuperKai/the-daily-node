@@ -132,7 +132,7 @@ export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartP
         </div>
       </div>
       {btc.data?.ath && (
-        <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink4, marginTop: u(-8), marginBottom: u(2) }}>
+        <div style={{ fontFamily: T.num, fontSize: u(10), color: T.ink3, marginTop: u(-8), marginBottom: u(2) }}>
           {'ATH $' + Math.round(btc.data.ath).toLocaleString() + (btc.data.athDate ? ' · ' + new Date(btc.data.athDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '') + ' · '}
           <span style={{ color: athAtNew ? T.green : T.red }}>{athAtNew ? '▲ new ATH' : ('▼ ' + Math.abs(athPct).toFixed(1) + '%')}</span>
         </div>
@@ -191,7 +191,7 @@ export function MarketsColumn({ btc, chain, rss, priceHistoryData, chart: chartP
       ) : (
         <>
           <Kicker color={T.orange}>● {rss.err ? 'RSS unavailable' : rss.lastOk ? 'Lead story' : 'Loading feed…'}</Kicker>
-          <h1 style={{ fontFamily: T.serif, fontSize: u(32), fontWeight: 700, lineHeight: 1.04, letterSpacing: u(-1), color: T.ink4, margin: 0 }}>
+          <h1 style={{ fontFamily: T.serif, fontSize: u(32), fontWeight: 700, lineHeight: 1.04, letterSpacing: u(-1), color: T.ink3, margin: 0 }}>
             {rss.err ? 'All feeds unavailable' : rss.lastOk ? 'No lead story right now' : 'Fetching headlines…'}
           </h1>
         </>
