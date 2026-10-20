@@ -7,13 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The mobile Home tab lists the next three headlines in a "Latest" tile under Top Story, filling the space that sat empty below it (about a quarter of the screen at 390×844). Tapping the tile opens the News tab. It is hidden when there are no headlines beyond the lead.
+
 ### Changed
 
 - Scrollbars are hidden everywhere: the news list, Network Status, the lead summary, the Settings panel and the mobile page. A new `ScrollHint` component marks overflow instead. It fades the content on whichever edge has more (a CSS mask, so it works in both themes) and shows a small "More ↓" cue that scrolls down when clicked. The edges are measured on mount, on scroll and on resize. This replaces the news list's always-visible thin scrollbar and its fade, which until the first scroll was set by item count rather than by actual overflow (hidden below 8 stories, shown at 8 or more, so 8 short stories that fit kept a permanent fade), and the Network Status fade, which was only updated after a scroll.
 - Mining Pools moved from the chain column to the sidebar's spare space, naming as many pools as fit in that space and folding the rest into an "Others" row. The count is re-measured when the space resizes, so on a date with an On This Day entry the list names fewer pools instead of hiding rows behind the scroll hint. Latest Block went from 7 rows to 4 ("Txs · Size · Weight", "Fee Span · Median", "Total Fees", "Mined By"), and Network Status spacing is tighter. At 1920×1080 the chain column now fits without scrolling with up to 2 miners; with more, it scrolls behind the hint. The mobile Bitcoin tab keeps the full pool list.
 - The desktop lead image is no longer forced into a 480×160 (3:1) box. It keeps its own aspect ratio, between 160 and 270 px tall, and gives up height to the headline and summary when they need it; the crop is now anchored to the top edge, so a title set across the top of the image stays whole instead of being half cut off under the headline (an image up to 3:1 loses only its bottom; a wider banner is still cropped at both sides, as before). A long summary asks for three lines and scrolls the rest. Only once the image is down to 160 px does the summary shrink below that, as it did before. Measured at 1920×1080 with an 800×450 image (full height 270 px) and the ATH line showing: with a two-line headline the image is 248 px beside a short summary, and 208 px beside a long one, whose summary area drops from 108 to 60 px; with a four-line headline it is 182 px beside a short summary, and 160 px beside a long one, whose summary keeps the 42 px it had before. Without the ATH line the image is 19 px taller in the first three of these cases. The mobile layout is unchanged.
 - The lead summary's drop cap is used only when the summary runs to 150 characters or more (about two lines at this width). A shorter one, such as "Your day-ahead look for Oct. 19, 2026", renders as plain text instead of a lone capital beside one line.
-- The mobile Home tab lists the next three headlines in a "Latest" tile under Top Story, filling the space that sat empty below it (about 40% of the screen at 390×844). Tapping the tile opens the News tab. It is hidden when there are no headlines beyond the lead.
 
 ### Fixed
 
