@@ -145,6 +145,7 @@ const GROUPS = [
       'scripts/check-docker-smoke.cjs',
       'scripts/check-review-paths.cjs',
       'scripts/check-secrets.cjs',
+      'scripts/check-sidebar-fit.cjs',
       'scripts/smoke-build.cjs',
       'scripts/verify-vendor.cjs',
       'scripts/capture-mobile.cjs',
