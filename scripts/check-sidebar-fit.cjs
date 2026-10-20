@@ -8,16 +8,21 @@
 // Not part of npm test or CI. Needs a local Chrome (channel 'chrome'; no bundled Playwright browser is installed).
 // Exits 1 if either date overflows.
 //
-// Determinism: the clock and timezone are fixed, mining pools and Open-Meteo are
-// mocked, and every other request is aborted except Google Fonts, which load so the
-// rows have their real height (the output reports document.fonts.status). Weather
-// must show the mocked forecast: with Weather on "unavailable" the pools region is
-// about 236px taller and the check would pass trivially.
+// Determinism: the clock and timezone (UTC) are fixed, mining pools and Open-Meteo
+// are mocked, and every other request is aborted except Google Fonts, which load so
+// the rows have their real height. The output counts the font faces that loaded and
+// warns when none did (offline): the verdict then rests on fallback-font geometry.
+// Weather must show the mocked forecast: with Weather on "unavailable" the pools
+// region is about 236px taller and the check would pass trivially.
 //
 // The region is found from its "Mining Pools · " label, not from the data-pool-*
-// attributes, so the check also runs against builds from before those existed (a
-// red control); rows then come from the list's structure, and the output says so.
+// attributes, so the check also runs against builds from before those existed; rows
+// then come from the list's structure, and the output says so. Red control: the
+// build before the pool list was sized to fit,
+//   git show db65f16:index.html > pre.html && node scripts/check-sidebar-fit.cjs pre.html
+// fails on Jan 3 (with Google Fonts loaded: 82px overflow, 3 of 7 rows inside).
 const path = require('path');
+const { pathToFileURL } = require('url');
 const { chromium } = require('playwright');
 
 const file = path.resolve(process.argv[2] || path.join(__dirname, '..', 'index.html'));
@@ -31,12 +36,10 @@ const POOLS = {
 
 const HI = 70;
 const LO = 50;
-// Open-Meteo forecast with hourly slots spanning the fixed instant, local time.
+// Open-Meteo forecast whose 24 hourly slots (local time) span the fixed noon instant,
+// leaving the 8 slots useWeather takes from it.
 function forecast(day) {
-  const time = [];
-  for (let d = 0; d < 2; d++) {
-    for (let h = 0; h < 24; h++) time.push(`${day}T${String(h).padStart(2, '0')}:00`);
-  }
+  const time = Array.from({ length: 24 }, (_, h) => `${day}T${String(h).padStart(2, '0')}:00`);
   const n = time.length;
   return {
     current: {
@@ -65,10 +68,9 @@ const DATES = [
 ];
 
 async function checkDate(browser, { label, day, otd }) {
-  const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 }, timezoneId: 'America/Los_Angeles' });
+  const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 }, timezoneId: 'UTC' });
   const page = await ctx.newPage();
-  // Both dates are in PST.
-  await page.clock.setFixedTime(new Date(`${day}T12:00:00-08:00`));
+  await page.clock.setFixedTime(new Date(`${day}T12:00:00Z`));
   await page.route('**/*', route => {
     const url = new URL(route.request().url());
     if (url.protocol === 'file:' || url.protocol === 'data:') return route.continue();
@@ -81,7 +83,7 @@ async function checkDate(browser, { label, day, otd }) {
     }
     return route.abort();
   });
-  await page.goto('file:///' + file.replace(/\\/g, '/'));
+  await page.goto(pathToFileURL(file).href);
 
   const findLabel = () => [...document.querySelectorAll('div')]
     .find(d => d.children.length === 0 && /^Mining Pools · /.test(d.textContent));
@@ -125,7 +127,9 @@ async function checkDate(browser, { label, day, otd }) {
       otdShown: document.body.innerText.includes('Genesis Block'),
       otdKicker: [...document.querySelectorAll('*')]
         .some(e => e.children.length === 0 && /^On This Day$/i.test(e.textContent.trim())),
-      fonts: document.fonts.status,
+      // document.fonts.status reads 'loaded' even when every face failed, so count.
+      fontsLoaded: [...document.fonts].filter(f => f.status === 'loaded').length,
+      fontsFailed: [...document.fonts].filter(f => f.status === 'error').length,
     };
   });
   await ctx.close();
@@ -143,9 +147,10 @@ async function checkDate(browser, { label, day, otd }) {
 
   console.log(`${problems.length ? 'FAIL' : 'PASS'} ${label}: region=${r.region}px content=${r.content}px`
     + ` rows=${r.rows} inside=${r.inside} moreBelow=${r.moreBelow} moreButton=${r.moreButton}`
-    + ` otd=${r.otdShown} weather=H${HI}/L${LO} fonts=${r.fonts} rows-by=${r.rowSource}`
-    + ` pool-list=${r.hasPoolList}`);
+    + ` otd=${r.otdShown} weather=H${HI}/L${LO} fonts=${r.fontsLoaded}-loaded/${r.fontsFailed}-failed`
+    + ` rows-by=${r.rowSource} pool-list=${r.hasPoolList}`);
   console.log(`     ${r.names}`);
+  if (r.fontsLoaded === 0) console.log('     WARNING: no web font loaded (offline?); measured with fallback fonts');
   if (problems.length) console.log(`     -> ${problems.join('; ')}`);
   return problems.length === 0;
 }
