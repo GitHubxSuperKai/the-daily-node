@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ThemeCtx, LIGHT } from '../../src/theme.js';
 import { SettingsPanel } from '../../src/components/SettingsPanel.jsx';
@@ -223,5 +223,27 @@ describe('SettingsPanel — modal dialog semantics and focus trap', () => {
     unmount();
     expect(document.activeElement).toBe(opener);
     opener.remove();
+  });
+});
+
+describe('SettingsPanel — focus trap with the More cue showing', () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('skips the tabindex -1 More cue, so Tab from Cancel wraps to the first control', () => {
+    // jsdom has no layout; fake an overflowing scroller so ScrollHint renders
+    // its More cue, a tabindex -1 button placed after Cancel in the DOM.
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(100);
+    renderPanel();
+    const dialog = screen.getByRole('dialog');
+    const more = dialog.querySelector('.scroll-more');
+    expect(more).toBeTruthy();
+    expect(more.tabIndex).toBe(-1);
+    const cancel = screen.getByRole('button', { name: 'Cancel' });
+    const scroller = dialog.querySelector('.scroll-hint');
+    cancel.focus();
+    fireEvent.keyDown(cancel, { key: 'Tab' });
+    // The first tabbable is ScrollHint's focusable scroller (tabIndex 0).
+    expect(document.activeElement).toBe(scroller);
   });
 });
