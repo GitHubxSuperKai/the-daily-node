@@ -24,8 +24,8 @@ describe('MobileApp', () => {
 
   it('switches to Bitcoin panel when Bitcoin tab clicked', () => {
     wrap(<MobileApp {...baseProps()} />);
-    fireEvent.click(screen.getByRole('button', { name: /bitcoin/i }));
-    expect(screen.getByText(/Field Report/i)).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: /^bitcoin$/i }));
+    expect(screen.getByText(/^Network Status$/)).toBeDefined();
   });
 
   it('switches to News panel when News tab clicked', () => {
@@ -37,7 +37,7 @@ describe('MobileApp', () => {
   it('HomePanel tile-click navigates to bitcoin tab', () => {
     wrap(<MobileApp {...baseProps()} />);
     fireEvent.click(screen.getByTestId('btc-tile'));
-    expect(screen.getByText(/Field Report/i)).toBeDefined();
+    expect(screen.getByText(/^Network Status$/)).toBeDefined();
   });
 
   it('switches to Miners panel when Miners tab clicked', () => {
@@ -53,7 +53,7 @@ describe('MobileApp', () => {
     const outer = container.firstChild;
     fireEvent.touchStart(outer, { touches: [{ clientX: 300, clientY: 200 }] });
     fireEvent.touchEnd(outer, { changedTouches: [{ clientX: 200, clientY: 205 }] });
-    expect(screen.getByText(/Field Report/i)).toBeDefined();
+    expect(screen.getByText(/^Network Status$/)).toBeDefined();
   });
 
   it('swipe right at home (leftmost tab) is a no-op', () => {
@@ -83,7 +83,7 @@ describe('MobileApp', () => {
     const outer = container.firstChild;
     fireEvent.touchStart(outer, { touches: [{ clientX: 300, clientY: 200 }] });
     fireEvent.touchEnd(outer, { changedTouches: [{ clientX: 200, clientY: 205 }] });
-    expect(screen.getByText(/Field Report/i)).toBeDefined();
+    expect(screen.getByText(/^Network Status$/)).toBeDefined();
     return { container, outer };
   }
 
@@ -93,7 +93,7 @@ describe('MobileApp', () => {
     expect(chart).not.toBeNull();
     fireEvent.touchStart(chart, { touches: [{ clientX: 300, clientY: 200 }] });
     fireEvent.touchEnd(outer, { changedTouches: [{ clientX: 150, clientY: 205 }] });
-    expect(screen.getByText(/Field Report/i)).toBeDefined();
+    expect(screen.getByText(/^Network Status$/)).toBeDefined();
   });
 
   it('a second finger landing off the chart does not re-arm a swipe for the chart finger', () => {
@@ -104,7 +104,7 @@ describe('MobileApp', () => {
     // e.touches[0] is still the chart finger when the second finger lands elsewhere.
     fireEvent.touchStart(outer, { touches: [onChart, { clientX: 100, clientY: 400, target: outer }] });
     fireEvent.touchEnd(outer, { changedTouches: [{ clientX: 150, clientY: 205 }] });
-    expect(screen.getByText(/Field Report/i)).toBeDefined();
+    expect(screen.getByText(/^Network Status$/)).toBeDefined();
   });
 
   it('a third finger landing off the chart does not re-arm a swipe either', () => {
@@ -117,7 +117,7 @@ describe('MobileApp', () => {
     fireEvent.touchStart(chart, { touches: [b, a] });         // A lands on the chart
     fireEvent.touchStart(outer, { touches: [b, a, c] });      // C lands off the chart; touches[0] is B
     fireEvent.touchEnd(outer, { touches: [b, c], changedTouches: [{ clientX: 150, clientY: 205 }] });
-    expect(screen.getByText(/Field Report/i)).toBeDefined();
+    expect(screen.getByText(/^Network Status$/)).toBeDefined();
   });
 
   it('once every finger has lifted, a fresh swipe off the chart switches tabs again', () => {
@@ -125,10 +125,10 @@ describe('MobileApp', () => {
     const chart = container.querySelector('[data-chart-scrub]');
     fireEvent.touchStart(chart, { touches: [{ clientX: 300, clientY: 200, target: chart }] });
     fireEvent.touchEnd(chart, { touches: [], changedTouches: [{ clientX: 150, clientY: 205 }] });
-    expect(screen.getByText(/Field Report/i)).toBeDefined();
+    expect(screen.getByText(/^Network Status$/)).toBeDefined();
     fireEvent.touchStart(outer, { touches: [{ clientX: 300, clientY: 200, target: outer }] });
     fireEvent.touchEnd(outer, { touches: [], changedTouches: [{ clientX: 150, clientY: 205 }] });
-    expect(screen.queryByText(/Field Report/i)).toBeNull();
+    expect(screen.queryByText(/^Network Status$/)).toBeNull();
   });
 
   it('range buttons render on the Bitcoin panel outside the chart scrub area', () => {
@@ -143,13 +143,13 @@ describe('MobileApp', () => {
     const button = container.querySelector('button[data-range="7d"]');
     fireEvent.touchStart(button, { touches: [{ clientX: 300, clientY: 200, target: button }] });
     fireEvent.touchEnd(outer, { touches: [], changedTouches: [{ clientX: 150, clientY: 205 }] });
-    expect(screen.queryByText(/Field Report/i)).toBeNull();
+    expect(screen.queryByText(/^Network Status$/)).toBeNull();
   });
 
   it('swipe that starts elsewhere on the Bitcoin panel still changes tab', () => {
     const { outer } = openBitcoinBySwipe();
     fireEvent.touchStart(outer, { touches: [{ clientX: 300, clientY: 200 }] });
     fireEvent.touchEnd(outer, { changedTouches: [{ clientX: 150, clientY: 205 }] });
-    expect(screen.queryByText(/Field Report/i)).toBeNull();
+    expect(screen.queryByText(/^Network Status$/)).toBeNull();
   });
 });

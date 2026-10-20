@@ -8,6 +8,9 @@ import {
 import CONFIG from '../../config.js';
 import { sourceFreshness } from '../../utils/freshness.js';
 
+// Headlines shown under Top Story; the full list is one tap away on the News tab.
+const HOME_HEADLINES = 3;
+
 function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate }) {
   const T = useT();
   const [wxExpanded, setWxExpanded] = React.useState(false);
@@ -24,6 +27,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
   const wx = weather && weather.data;
   const tempUnit = prefs.tempUnit === 'celsius' ? '°C' : '°F';
   const lead = rss?.leadStory ?? null;
+  const more = (rss?.items ?? []).slice(0, HOME_HEADLINES);
 
   const btcChange = btc.data ? btc.data.chgPct : null;
   const btcUp = btcChange != null && btcChange >= 0;
@@ -243,6 +247,35 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
           }}>
             {lead.hed}
+          </div>
+        </StatusTile>
+      )}
+
+      {/* Next headlines — full width; items already excludes the lead story */}
+      {more.length > 0 && (
+        <StatusTile
+          label="Latest"
+          fullWidth
+          onClick={() => onNavigate('news')}
+        >
+          <div data-testid="headlines-tile">
+            {more.map((it, i) => (
+              <div key={it.link || i} style={{
+                padding: '8px 0',
+                borderTop: i ? `1px solid ${T.rule3}` : 'none',
+              }}>
+                <div style={{
+                  fontFamily: T.body, fontSize: 14, lineHeight: 1.3, color: T.ink,
+                  overflow: 'hidden', textOverflow: 'ellipsis',
+                  display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                }}>
+                  {it.hed}
+                </div>
+                <div style={{ fontFamily: T.body, fontStyle: 'italic', fontSize: 11, color: T.ink3, marginTop: 3 }}>
+                  {it.src}{it.t ? ` · ${it.t}` : ''}
+                </div>
+              </div>
+            ))}
           </div>
         </StatusTile>
       )}

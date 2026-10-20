@@ -38,4 +38,13 @@ describe('MobileTabBar', () => {
     expect(screen.getByRole('button', { name: /news/i }).getAttribute('aria-current')).toBe('page');
     expect(screen.getByRole('button', { name: /^home$/i }).getAttribute('aria-current')).toBeNull();
   });
+
+  it('is a named navigation landmark, not a tablist of tabs', () => {
+    wrap(<MobileTabBar activeTab="home" onChange={() => {}} />);
+    const nav = screen.getByRole('navigation', { name: 'Sections' });
+    expect(nav.getAttribute('role')).toBeNull();
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(screen.queryAllByRole('tab')).toHaveLength(0);
+    expect(nav.querySelectorAll('button')).toHaveLength(4);
+  });
 });
