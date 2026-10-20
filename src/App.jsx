@@ -176,15 +176,19 @@ function App() {
       }
       </ErrorBoundary>
       {mode === 'mobile' && settingsOpen && (
-        <SettingsPanel
-          prefs={prefs}
-          v2prefs={v2prefs}
-          miners={bitaxe.miners}
-          onRefresh={bitaxe.refresh}
-          onSave={handleSaveSettings}
-          onSaveV2={handleSaveV2Prefs}
-          onClose={() => setSettingsOpen(false)}
-        />
+        // Fixed, because #stage is the mobile page's scroller and an absolute
+        // panel would scroll away with it; 60 sits above MobileTabBar's 50.
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60 }}>
+          <SettingsPanel
+            prefs={prefs}
+            v2prefs={v2prefs}
+            miners={bitaxe.miners}
+            onRefresh={bitaxe.refresh}
+            onSave={handleSaveSettings}
+            onSaveV2={handleSaveV2Prefs}
+            onClose={() => setSettingsOpen(false)}
+          />
+        </div>
       )}
     </ThemeCtx.Provider>
   );
