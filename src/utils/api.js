@@ -197,8 +197,8 @@ async function fetchWeather(lat, lng, tempUnit = 'fahrenheit', tzName = 'auto') 
 }
 
 /**
- * Fetch top mining pools from Mempool.space (7-day window)
- * Returns: [{ name, slug, blockCount, sharePct }] (top 6)
+ * Fetch mining pools from Mempool.space (7-day window)
+ * Returns: [{ name, slug, blockCount, sharePct }] (every pool, in API order)
  * opts: { baseUrl?: string }
  */
 async function fetchMiningPools(opts = {}) {
