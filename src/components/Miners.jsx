@@ -76,9 +76,12 @@ function Miners({ bitaxe, chain }) {
     { label: 'Watts',  fade: true  },
   ];
 
-  const noApi = bitaxe.err || (bitaxe.miners.length === 0 && !bitaxe.loading);
+  // Gate on the list alone, not err: on a failed fetch useBitaxe keeps the last
+  // good list (shown below, marked stale), and an all-offline fleet also sets err
+  // but is a real list of rigs that are down.
+  const noList = bitaxe.miners.length === 0 && !bitaxe.loading;
 
-  if (noApi) {
+  if (noList) {
     return (
       <div style={{ marginBottom: u(4) }}>
         <div style={{
@@ -128,6 +131,7 @@ function Miners({ bitaxe, chain }) {
           Field Report
         </span>
         <span style={{ fontFamily: T.body, fontSize: u(10), fontStyle: 'italic', color: T.ink3, whiteSpace: 'nowrap' }}>
+          {bitaxe.fetchFailed && <span style={{ color: T.orange }}>stale · </span>}
           {onlineCount}/{minerCount} active
         </span>
       </div>

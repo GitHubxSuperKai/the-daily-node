@@ -167,7 +167,7 @@ export function makeProps(overrides = {}) {
     },
     bitaxe: {
       miners: [makeMiner()],
-      err: false, loading: false, lastOk: Date.now(), interval: 30000, refresh: vi.fn(),
+      err: false, fetchFailed: false, loading: false, lastOk: Date.now(), interval: 30000, refresh: vi.fn(),
       latestFirmware: 'v2.15.3',
     },
     weather: {
@@ -225,7 +225,7 @@ export function makeDownProps(overrides = {}) {
       refresh: vi.fn(), interval: 60000,
     },
     bitaxe: {
-      miners: [], err: true, loading: false, lastOk: null, interval: 30000, refresh: vi.fn(),
+      miners: [], err: true, fetchFailed: true, loading: false, lastOk: null, interval: 30000, refresh: vi.fn(),
       latestFirmware: null,
     },
     weather: { data: null, err: true, lastOk: null, interval: 900000, refresh: vi.fn() },
