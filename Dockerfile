@@ -44,6 +44,14 @@ COPY --chown=app:app setup.html ./
 
 EXPOSE 3001
 
+# Same probe and timing as the docker-compose.yml healthcheck (see the comment
+# there for why /api/setup and the empty ProxyHandler); compose's own
+# healthcheck overrides this one. Kept identical by
+# tests/unit/dockerfileHealthcheck.test.js, and docker.yml's smoke job runs the
+# compose probe inside the built image. Port is fixed: if you run with --port,
+# override the healthcheck too.
+HEALTHCHECK --interval=45s --timeout=6s --start-period=15s --retries=3 CMD ["python3", "-c", "import urllib.request,sys; o=urllib.request.build_opener(urllib.request.ProxyHandler({})); r=o.open('http://127.0.0.1:3001/api/setup',timeout=5); r.read(); sys.exit(0 if r.status==200 else 1)"]
+
 # --bind 0.0.0.0 so the container is reachable from the host network.
 # BITAXE_IPS is supplied at runtime via -e or compose.
 CMD ["python", "bitaxe_api.py", "--bind", "0.0.0.0"]
