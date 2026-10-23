@@ -215,8 +215,9 @@ jobs:
       # image it ships against. A probe with a syntax error, a wrong path or a
       # wrong port resolves fine in `compose config` and only fails here.
       # Note the container is started by `docker run` without --health-cmd, so
-      # it has no health status to inspect; executing the probe is the
-      # equivalent assertion.
+      # its health status comes from the image's own HEALTHCHECK, which only
+      # reports after its first interval; executing the compose probe now is
+      # the immediate equivalent assertion.
       #
       # Two vacuity paths this shape closes -- the job shell is
       # `/usr/bin/bash -e {0}`: errexit, but NOT pipefail.

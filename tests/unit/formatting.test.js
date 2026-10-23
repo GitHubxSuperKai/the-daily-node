@@ -38,6 +38,18 @@ describe('fmtPct', () => {
   it('returns em-dash for null', () => {
     expect(fmtPct(null)).toBe('—');
   });
+  it('renders zero unsigned', () => {
+    expect(fmtPct(0)).toBe('0.00');
+    expect(fmtPct(-0)).toBe('0.00');
+  });
+  it('renders values that round to zero unsigned (no +0.00 / -0.00)', () => {
+    expect(fmtPct(0.001)).toBe('0.00');
+    expect(fmtPct(-0.004)).toBe('0.00');
+  });
+  it('still signs values that round away from zero', () => {
+    expect(fmtPct(0.005)).toBe('+0.01');
+    expect(fmtPct(-0.006)).toBe('-0.01');
+  });
 });
 
 describe('fmtVolUsd', () => {

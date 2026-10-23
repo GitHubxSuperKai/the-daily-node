@@ -126,6 +126,8 @@ To expose the server to other devices on your LAN (e.g. a wall display), add `--
       - "3002:3002"
     volumes:
       - daily-node-config:/data
+    healthcheck:
+      disable: true   # the image's HEALTHCHECK probes bitaxe_api.py on 3001, which this service doesn't run
     restart: unless-stopped
 ```
 
@@ -371,10 +373,19 @@ To expose to LAN (e.g., to view the dashboard from your phone on the same wifi):
 
     python bitaxe_api.py --bind 0.0.0.0 --allow-origin http://<lan-ip>:3000
 
-Notes:
-- The proxy validates `Origin`/`Referer` on every request and returns 403 for anything outside the allowlist.
-- The default allowlist covers `localhost` and `127.0.0.1` on ports 3000, 3001 and 3002, and any origin whose host is a private or loopback IP is allowed regardless of the list (`is_origin_allowed`). Add your LAN URL only when you open the dashboard by a host name or a non-private IP (e.g. Tailscale `100.x`); a private LAN IP needs no flag, and passing one only replaces the localhost defaults.
-- This is not authentication. Anyone on your LAN who can spoof the `Origin` header (trivial with `curl`) can reach the proxy. Treat your LAN as trusted, or run a reverse proxy with HTTP basic auth in front.
+### Origin / CORS and private-IP trust model
+
+The design assumption is that **the LAN is trusted** and the browser's same-origin policy is the thing being guarded: the origin check stops a page on some other site from making changes through the API in a visitor's browser. It does not keep the API's data private, and it does not stop a person on your network. What `bitaxe_api.py` actually does:
+
+- **Pages are not origin-checked.** `GET /`, `/index.html`, `/setup` and `/setup.html` are served to anyone who can reach the port; after that the dashboard's API calls are same-origin.
+- **Every `/api/*` request and every `OPTIONS` preflight is origin-checked** (`_check_origin`). The `Origin` header is used, falling back to `Referer`, and reduced to `scheme://host:port`. A malformed value gets `403 malformed origin`; one that fails `is_origin_allowed` gets `403 origin not allowed`.
+- **No `Origin` and no `Referer` is allowed.** Non-browser tools (`curl`, the Docker healthcheck) send neither. A browser always sends `Origin` on a `POST`, so writes from other sites are still refused, but this means the check protects writes, not reads, and it is not authentication. The dashboard's own same-origin requests still carry a `Referer` (and `POST`s an `Origin`) naming the dashboard's host, which is why that host must itself pass the check below.
+- **An origin is allowed if** it is in the allowlist, **or** its host is an IP literal that Python's `ipaddress` classes as private or loopback. That covers RFC 1918 (`10/8`, `172.16/12`, `192.168/16`), loopback, link-local (`169.254/16`, `fe80::/10`), IPv6 unique-local (`fc00::/7`) and a few reserved ranges; it does **not** cover CGNAT / Tailscale `100.64/10`. Why: opening the dashboard as `http://<lan-ip>:3001` from a phone should work with no flags, and a page whose origin is a private IP literal is by construction served from your own network, which is already trusted. Host names (`http://<lan-host>:3001`, `*.local`) are never auto-allowed, because deciding whether a name is "private" would mean resolving it, which a DNS-rebinding page controls.
+- **The allowlist** defaults to `localhost` and `127.0.0.1` on ports 3000, 3001 and 3002. Each `--allow-origin <origin>` (repeatable) must be the exact `scheme://host:port` and **replaces** the defaults rather than adding to them. Add one only when you open the dashboard by host name or a non-private IP (e.g. Tailscale `100.x`); a private LAN IP needs no flag.
+- **CORS headers** echo back only the origin that passed the check (`Access-Control-Allow-Origin: <that origin>`, never `*`), and requests with no origin get none. Every API response that passed the check also sends `Access-Control-Allow-Private-Network: true`, so Chrome's Private Network Access check does not block the dashboard's requests to a server on your network.
+- **Miner IPs must be private or loopback** (`validate_ips`, same `ipaddress` classification) when they come from `--ips`, `BITAXE_IPS` or `POST /api/setup` (which is what writes the config file). A hand-edited config file is loaded as-is, without that check. That is the real gate on what `/api/miners` will fetch (`http://<miner-ip>/api/system/info`): the setup endpoint has no authentication, so anyone who can reach the port can rewrite the miner list, but only to LAN addresses.
+
+So this is not authentication, and it does not make the API's data private. Anyone on your LAN can reach the API, spoof `Origin` (trivial with `curl`) and change the miner list. Treat your LAN as trusted, keep the default `127.0.0.1` bind when you don't need LAN access, or put a reverse proxy with HTTP basic auth in front. The outbound side is gated separately, not by origin: `/api/rss` only fetches the feed URLs in its server-side key allowlist, and `/api/mempool-proxy` only the destinations described below.
 
 ### Self-hosted mempool node (`/api/mempool-proxy`)
 
