@@ -332,6 +332,13 @@ describe('LineChart labels and chip', () => {
     expect(top).toBeLessThan(SHORT / 2);
   });
 
+  it('the chip stays at the bottom for a dot just above the bottom quarter', () => {
+    const { box, container } = mount({ points: even });
+    move(box, 150); // index 1: y = 73.5, just above 0.75 * 100
+    const top = parseFloat(q(container, 'chart-chip').querySelector('rect').getAttribute('y'));
+    expect(top).toBeGreaterThan(H / 2);
+  });
+
   // At full desktop (110) and mobile (140) height, 0.75 * h is the smaller term, so the
   // flip point is the bottom quarter, as before. The hovered dot sits between 0.75 * h and
   // h - 24, where dropping the 0.75 * h term would leave the chip at the bottom.
