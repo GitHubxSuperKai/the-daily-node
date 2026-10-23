@@ -55,6 +55,32 @@ describe('useBitaxe', () => {
     expect(result.current.lastOk).toBe(okAt);
   });
 
+  it('sets fetchFailed only for a failed fetch, not for an all-offline fleet', async () => {
+    const offline = {
+      ok: true,
+      json: async () => ({ miners: [{ ip: '192.168.1.11', online: false }], count: 1 }),
+    };
+    let fail = false;
+    global.fetch = vi.fn((url) => {
+      if (url === '/api/firmware') return Promise.resolve({ ok: false });
+      return fail ? Promise.reject(new TypeError('fetch failed')) : Promise.resolve(offline);
+    });
+    const { result } = renderHook(() => useBitaxe());
+    await waitFor(() => expect(result.current.lastOk).not.toBeNull());
+    // Every miner offline: err is set, but the fetch worked.
+    expect(result.current.err).toBe(true);
+    expect(result.current.fetchFailed).toBe(false);
+
+    fail = true;
+    await act(async () => { result.current.refresh(); });
+    await waitFor(() => expect(result.current.fetchFailed).toBe(true));
+    expect(result.current.miners).toHaveLength(1);
+
+    fail = false;
+    await act(async () => { result.current.refresh(); });
+    await waitFor(() => expect(result.current.fetchFailed).toBe(false));
+  });
+
   describe('latestFirmware', () => {
     const route = (firmware) => vi.fn((url) => {
       if (url === '/api/firmware') return firmware();
