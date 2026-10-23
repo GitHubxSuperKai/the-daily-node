@@ -361,6 +361,13 @@ describe('useRSS failed lead images after a network blip', () => {
     expect(result.current.items.length).toBeGreaterThan(0);
     expect(result.current.leadStory).toBeNull();
 
+    // A second stale round mid-outage (the flag is now set) must not clear either.
+    const before2 = global.fetch.mock.calls.length;
+    await act(async () => { result.current.refresh(); });
+    await waitFor(() => expect(global.fetch.mock.calls.length).toBeGreaterThan(before2));
+    await act(async () => {});
+    expect(result.current.leadStory).toBeNull();
+
     global.fetch = proxy(false);
     await act(async () => { result.current.refresh(); });
     await waitFor(() => expect(result.current.leadStory).not.toBeNull());
