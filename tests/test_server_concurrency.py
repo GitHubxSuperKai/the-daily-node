@@ -141,6 +141,8 @@ class ServerConcurrencyTest(unittest.TestCase):
             self.assertEqual(done['result'], (200, b'<rss/>'))
             self.assertEqual(self._get('/api/rss?feed=optech'), (200, b'<rss/>'))
         self.assertEqual(len(calls), 2)
+        # The copy is seconds old: the failed request must not mark it stale.
+        self.assertFalse(bitaxe_api._rss_cache['optech'][2])
 
     def test_an_idle_connection_does_not_block_the_next_request(self):
         # A browser preconnect: accepted, then nothing is ever sent on it.

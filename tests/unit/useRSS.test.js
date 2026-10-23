@@ -107,7 +107,7 @@ describe('useRSS', () => {
     }</channel></rss>`;
     global.fetch = vi.fn().mockImplementation(async (url) => {
       const u = new URL(String(url), 'http://localhost');
-      if (u.pathname === '/api/rss') return { ok: true, text: async () => xml(u.searchParams.get('feed')) };
+      if (u.pathname === '/api/rss') return { ok: true, headers: new Headers(), text: async () => xml(u.searchParams.get('feed')) };
       throw new Error(`unexpected fetch ${url}`);
     });
     const { result } = renderHook(() => useRSS());
@@ -232,7 +232,7 @@ describe('useRSS', () => {
       const items = u.searchParams.get('feed') === FEED
         ? `<item><title>Bitcoin story</title><link>https://example.com/1</link><pubDate>${pubDate}</pubDate></item>`
         : '';
-      return { ok: true, text: async () => `<rss version="2.0"><channel><title>x</title>${items}</channel></rss>` };
+      return { ok: true, headers: new Headers(), text: async () => `<rss version="2.0"><channel><title>x</title>${items}</channel></rss>` };
     });
 
     async function onlyItem() {
@@ -326,6 +326,51 @@ describe('useRSS failed lead images after a network blip', () => {
     await waitFor(() => expect(global.fetch.mock.calls.length).toBeGreaterThan(before));
     await act(async () => {});
     expect(result.current.leadStory).toBeNull();
+  });
+
+  // /api/rss on an internet-only outage: 200 with the proxy's cached copy, flagged stale.
+  const proxy = (stale) => vi.fn().mockImplementation(async (url) => {
+    const u = new URL(String(url), 'http://localhost');
+    if (u.pathname !== '/api/rss') throw new Error(`unexpected fetch ${url}`);
+    const key = u.searchParams.get('feed');
+    const items = [0, 1].map(i =>
+      `<item><title>${key} bitcoin ${i}</title><link>https://example.com/${key}/${i}</link>` +
+      `<media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://img.example/${key}/${i}.jpg"/>` +
+      `<pubDate>${new Date(Date.now() - (2 - i) * 60_000).toUTCString()}</pubDate></item>`).join('');
+    return {
+      ok: true,
+      headers: new Headers(stale ? { 'X-Feed-Stale': '1' } : {}),
+      text: async () => `<rss version="2.0"><channel><title>x</title>${items}</channel></rss>`,
+    };
+  });
+
+  it('retries failed lead images on the first fresh fetch after the proxy served only stale copies', async () => {
+    global.fetch = proxy(false);
+    const { result } = renderHook(() => useRSS());
+    await waitFor(() => expect(result.current.leadStory).not.toBeNull());
+    failEveryLead(result);
+
+    // Upstream outage behind the proxy: every feed answers 200 with its stale copy. Still
+    // shown, and not an error, but the images stay skipped until the upstream is back.
+    global.fetch = proxy(true);
+    const before = global.fetch.mock.calls.length;
+    await act(async () => { result.current.refresh(); });
+    await waitFor(() => expect(global.fetch.mock.calls.length).toBeGreaterThan(before));
+    await act(async () => {});
+    expect(result.current.err).toBe(false);
+    expect(result.current.items.length).toBeGreaterThan(0);
+    expect(result.current.leadStory).toBeNull();
+
+    // A second stale round mid-outage (the flag is now set) must not clear either.
+    const before2 = global.fetch.mock.calls.length;
+    await act(async () => { result.current.refresh(); });
+    await waitFor(() => expect(global.fetch.mock.calls.length).toBeGreaterThan(before2));
+    await act(async () => {});
+    expect(result.current.leadStory).toBeNull();
+
+    global.fetch = proxy(false);
+    await act(async () => { result.current.refresh(); });
+    await waitFor(() => expect(result.current.leadStory).not.toBeNull());
   });
 
   it('retries failed lead images when the browser comes back online', async () => {
