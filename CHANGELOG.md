@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Lead stories whose images failed to load during a network outage come back once the feeds load fresh again, or when the browser reports it is back online. They used to stay skipped until the page was reloaded. Behind the `/api/rss` proxy, a cached copy served because the upstream fetch failed now carries an `X-Feed-Stale: 1` header, so an internet outage that leaves the panel's own connection up is recognised too.
+- Lead stories whose images failed to load during a network outage come back once the feeds load fresh again, or when the browser reports it is back online. They used to stay skipped until the page was reloaded. Behind the `/api/rss` proxy, a cached copy served because the upstream fetch failed now carries an `X-Feed-Stale: 1` header, so an internet outage that leaves the panel's own connection up is recognised too, once it lasts long enough for a feed refresh to fail.
 - On the mobile Home tab, screen readers now read the Top Story tile's headline. The tile's button was labelled "Open News tab", which replaced its text, so the lead headline was never announced. The label is gone and the tile is named by its own text, as the Latest tile already is.
 
 ## [1.7.0] — 2026-10-20
