@@ -26,6 +26,12 @@ import bitaxe_api  # noqa: E402
 # How long the fast request may take. Generous for a slow CI runner, and far below
 # the time the blocked request is held (until the test releases it).
 FAST = 2
+# serve_forever's default 0.5s poll is what shutdown() waits out, once per test.
+POLL_INTERVAL = 0.05
+# The patched handler timeout, and how long the slow upstream below sleeps: well past
+# it, so the "may outlast" cases still prove the timeout does not bound upstream time.
+SHORT_TIMEOUT = 0.25
+OUTLAST = 4 * SHORT_TIMEOUT
 
 
 class ServerConcurrencyTest(unittest.TestCase):
@@ -38,7 +44,9 @@ class ServerConcurrencyTest(unittest.TestCase):
         bitaxe_api._rss_cache.clear()
         self.server = bitaxe_api.SERVER_CLASS(('127.0.0.1', 0), bitaxe_api.BitaxeAPIHandler)
         self.port = self.server.server_address[1]
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        threading.Thread(
+            target=self.server.serve_forever, kwargs={'poll_interval': POLL_INTERVAL}, daemon=True,
+        ).start()
         # Cleanups run last-registered first: anything a test registers later (releasing
         # a blocked handler, closing an idle socket) runs before this shutdown, which
         # would otherwise wait on a single-threaded server's stuck handler.
@@ -148,7 +156,7 @@ class ServerConcurrencyTest(unittest.TestCase):
     def _short_timeout(self):
         # setup() reads the class attribute per accepted connection, so patching it
         # after the server started applies to every connection the test then opens.
-        patcher = unittest.mock.patch.object(bitaxe_api.BitaxeAPIHandler, 'timeout', 1)
+        patcher = unittest.mock.patch.object(bitaxe_api.BitaxeAPIHandler, 'timeout', SHORT_TIMEOUT)
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -175,7 +183,7 @@ class ServerConcurrencyTest(unittest.TestCase):
         self._short_timeout()
 
         def slow_fetch(_target):
-            time.sleep(2)
+            time.sleep(OUTLAST)
             return b'<rss/>'
 
         with unittest.mock.patch.object(bitaxe_api, '_fetch_feed', slow_fetch):
@@ -195,7 +203,7 @@ class ServerConcurrencyTest(unittest.TestCase):
                 return b'{"hashRate": 1}'
 
         def slow_urlopen(*_args, **_kwargs):
-            time.sleep(2)
+            time.sleep(OUTLAST)
             return Resp()
 
         bitaxe_api.BITAXE_IPS[:] = ['127.0.0.1']
