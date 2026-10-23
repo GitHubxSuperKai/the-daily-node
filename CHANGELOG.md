@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A failed miners fetch no longer blanks the fleet. `useBitaxe` keeps the last good list (and its last-success time) through a failed fetch, so the sidebar, ticker and mobile Miners tab keep showing it, and the desktop Field Report keeps its table, with "stale" before the active count in its header, instead of saying "No miners connected". The Field Report also lists a fleet whose miners are all offline as offline rigs ("0/2 active", "no rigs online") instead of as no miners. `useBitaxe` sets `err` in both cases, so it has a new `fetchFailed` field that is true only after a failed fetch.
 - On the mobile Home tab, screen readers now read the Top Story tile's headline. The tile's button was labelled "Open News tab", which replaced its text, so the lead headline was never announced. The label is gone and the tile is named by its own text, as the Latest tile already is.
 
 ## [1.7.0] — 2026-10-20
