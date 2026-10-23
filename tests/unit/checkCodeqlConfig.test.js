@@ -32,6 +32,7 @@ const {
   checkCodeqlConfig,
   checkRepo,
   parseSimpleYaml,
+  readTriggers,
   YamlShapeError,
   PATHS_IGNORE_ALLOWED,
 } = require(path.join(REPO_ROOT, 'scripts', 'check-codeql-config.cjs'));
@@ -444,6 +445,79 @@ describe('check-codeql-config: workflow mutations that unhook the config', () =>
       name: 'the triggers are rewritten in flow style',
       workflow: GOOD_WORKFLOW.replace(/^on:\n[\s\S]*?\n(?=permissions:)/m, 'on: [push, pull_request]\n\n'),
     },
+    // Trigger SETTINGS. Every name above is intact in each of these, which is all the
+    // guard pinned until this round -- and each one silences the required Analyze checks
+    // (or stops main's alerts updating) as surely as deleting the trigger.
+    {
+      // Only fires when a PR closes, so the required checks never report on an open one.
+      name: 'pull_request gains types: [closed]',
+      workflow: GOOD_WORKFLOW.replace(/^( {2}pull_request:\n {4}branches: \[main\])$/m, '$1\n    types: [closed]'),
+    },
+    {
+      name: 'pull_request gains a paths: filter',
+      workflow: GOOD_WORKFLOW.replace(/^( {2}pull_request:\n {4}branches: \[main\])$/m, '$1\n    paths: [docs/**]'),
+    },
+    {
+      name: 'pull_request branches: is typo\'d',
+      workflow: GOOD_WORKFLOW.replace(/^( {2}pull_request:\n {4}branches: )\[main\]$/m, '$1[mian]'),
+    },
+    {
+      name: 'pull_request gains branches-ignore:',
+      workflow: GOOD_WORKFLOW.replace(/^( {2}pull_request:\n {4}branches: \[main\])$/m, '$1\n    branches-ignore: [main]'),
+    },
+    {
+      name: 'pull_request loses its branches: filter',
+      workflow: GOOD_WORKFLOW.replace(/^( {2}pull_request:)\n {4}branches: \[main\]$/m, '$1'),
+    },
+    {
+      name: 'pull_request gains a second branch',
+      workflow: GOOD_WORKFLOW.replace(/^( {2}pull_request:\n {4}branches: )\[main\]$/m, '$1[main, dev]'),
+    },
+    {
+      // Green everywhere, and main's alerts quietly stop tracking main.
+      name: 'push branches: points at a branch that does not exist',
+      workflow: GOOD_WORKFLOW.replace(/^( {2}push:\n {4}branches: )\[main\]$/m, '$1[nope]'),
+    },
+    {
+      name: 'push gains a paths: filter',
+      workflow: GOOD_WORKFLOW.replace(/^( {2}push:\n {4}branches: \[main\])$/m, '$1\n    paths: [docs/**]'),
+    },
+    {
+      name: 'the schedule cron is changed',
+      workflow: GOOD_WORKFLOW.replace('- cron: "0 9 * * 1"', '- cron: "0 9 31 2 *"'),
+    },
+    {
+      name: 'the schedule loses its cron entry',
+      workflow: GOOD_WORKFLOW.replace(/^ {4}- cron: .*\n/m, ''),
+    },
+    {
+      name: 'the schedule gains a second cron entry',
+      workflow: GOOD_WORKFLOW.replace(/^( {4}- cron: .*)$/m, '$1\n    - cron: "0 9 1 1 *"'),
+    },
+    {
+      // merge_group's only filter is `types:`, and narrowing it is the hang-forever
+      // failure this trigger exists to prevent.
+      name: 'merge_group gains a types: filter',
+      workflow: GOOD_WORKFLOW.replace(/^ {2}merge_group:$/m, '  merge_group:\n    types: [nope]'),
+    },
+    {
+      name: 'workflow_dispatch gains inputs',
+      workflow: GOOD_WORKFLOW.replace(/^ {2}workflow_dispatch:$/m, '  workflow_dispatch:\n    inputs:\n      x:\n        required: true'),
+    },
+    {
+      // Quoted keys are ordinary YAML. A reader that only knew the bare spelling would
+      // not see this key at all.
+      name: 'pull_request gains types: with a quoted key',
+      workflow: GOOD_WORKFLOW.replace(/^( {2}pull_request:\n {4}branches: \[main\])$/m, '$1\n    "types": [closed]'),
+    },
+    {
+      name: 'pull_request branches: is typo\'d inside quotes',
+      workflow: GOOD_WORKFLOW.replace(/^( {2}pull_request:\n {4}branches: )\[main\]$/m, '$1["mian"]'),
+    },
+    {
+      name: 'pull_request branches: is rewritten as a block sequence with a typo',
+      workflow: GOOD_WORKFLOW.replace(/^( {2}pull_request:\n {4}branches:) \[main\]$/m, '$1\n      - mian'),
+    },
   ];
 
   for (const { name, workflow } of CASES) {
@@ -640,4 +714,78 @@ describe('check-codeql-config: workflow assertions must not be satisfied by pros
       expect(check(GOOD_CONFIG, workflow)).toEqual([]);
     });
   }
+});
+
+describe('check-codeql-config: the on: block reader', () => {
+  // The structure the trigger assertion compares against EXPECTED_TRIGGERS. Pinned
+  // here as a literal so a reader that returned the right thing for the wrong reason
+  // (say, names only, with every setting read as null) cannot hide behind a pass.
+  it('reads the committed triggers, settings included', () => {
+    expect(readTriggers(GOOD_WORKFLOW)).toEqual([
+      ['push', { branches: ['main'] }],
+      ['pull_request', { branches: ['main'] }],
+      ['schedule', [{ cron: '0 9 * * 1' }]],
+      ['workflow_dispatch', null],
+      ['merge_group', null],
+    ]);
+  });
+
+  // Harmless reformats. Without these the settings pin is satisfied by a reader that
+  // rejects every workflow, and the quoting/comment tolerance below is untested.
+  const ACCEPT = [
+    ['a double-quoted branch', w => w.replace(/^( {2}pull_request:\n {4}branches: )\[main\]$/m, '$1["main"]')],
+    ['a single-quoted branch', w => w.replace(/^( {2}push:\n {4}branches: )\[main\]$/m, "$1['main']")],
+    ['a quoted branches: key', w => w.replace(/^( {2}pull_request:\n {4})branches:/m, '$1"branches":')],
+    ['spaces inside the flow brackets', w => w.replace(/^( {2}push:\n {4}branches: )\[main\]$/m, '$1[ main ]')],
+    ['a block sequence instead of [main]', w => w.replace(/^( {2}pull_request:\n {4}branches:) \[main\]$/m, '$1\n      - main')],
+    ['an inline comment on a nested line', w => w.replace(/^( {2}push:\n {4}branches: \[main\])$/m, '$1  # main only')],
+    ['a column-0 comment between nested lines', w => w.replace(/^( {2}push:)\n( {4}branches:)/m, '$1\n# why\n$2')],
+    ['an indented comment between nested lines', w => w.replace(/^( {2}push:)\n( {4}branches:)/m, '$1\n    # why\n$2')],
+    ['a single-quoted cron', w => w.replace('- cron: "0 9 * * 1"', "- cron: '0 9 * * 1'")],
+    ['a cron without its trailing comment', w => w.replace(/^( {4}- cron: "0 9 \* \* 1").*$/m, '$1')],
+    ['a deeper indent under one trigger', w => w.replace(/^( {2}push:\n) {4}(branches: \[main\])$/m, '$1        $2')],
+  ];
+  for (const [name, mutate] of ACCEPT) {
+    it(`accepts: ${name}`, () => {
+      const workflow = mutate(GOOD_WORKFLOW);
+      expect(workflow).not.toEqual(GOOD_WORKFLOW);
+      expect(check(GOOD_CONFIG, workflow)).toEqual([]);
+    });
+  }
+
+  // Valid YAML the reader does not model. Each must THROW, and the checker must turn
+  // that into a reported problem naming the shape -- not a crash, and not a pass on
+  // whatever the reader would have guessed.
+  const REFUSE = [
+    ['a flow mapping as a setting', w => w.replace(/^ {2}merge_group:$/m, '  merge_group: {}')],
+    ['an explicit key', w => w.replace(/^( {2}pull_request:\n {4}branches: \[main\])$/m, '$1\n    ? types\n    : [closed]')],
+    ['an anchor on a setting', w => w.replace(/^( {2}push:\n {4}branches: )\[main\]$/m, '$1&b [main]')],
+    ['an alias as a setting', w => w.replace(/^( {2}pull_request:\n {4}branches: )\[main\]$/m, '$1*b')],
+    ['a nested flow sequence', w => w.replace(/^( {2}push:\n {4}branches: )\[main\]$/m, '$1[[main]]')],
+    ['an empty flow item', w => w.replace(/^( {2}push:\n {4}branches: )\[main\]$/m, '$1[main,]')],
+    ['an inline value with a block under it', w => w.replace(/^( {2}push:)$/m, '$1 x')],
+    ['a dedented stray line', w => w.replace(/^( {4}branches: \[main\])$/m, '$1\n   stray: x')],
+    // Left of the trigger indent but not column 0, so no level of the reader claims it.
+    // If that line were dropped rather than refused, an added trigger would pass.
+    ['a trigger added left of its siblings', w => w.replace(/^ {2}merge_group:$/m, '  merge_group:\n pull_request_target:')],
+    ['a duplicate setting', w => w.replace(/^( {2}push:\n {4}branches: \[main\])$/m, '$1\n    branches: [main]')],
+    ['a duplicate trigger', w => w.replace(/^ {2}merge_group:$/m, '  merge_group:\n  push:')],
+    ['a tab in the block', w => w.replace(/^( {2}push:\n) {4}(branches:)/m, '$1\t$2')],
+  ];
+  for (const [name, mutate] of REFUSE) {
+    it(`fails loudly on: ${name}`, () => {
+      const workflow = mutate(GOOD_WORKFLOW);
+      expect(workflow).not.toEqual(GOOD_WORKFLOW);
+      expect(() => readTriggers(workflow)).toThrow(YamlShapeError);
+      const problems = check(GOOD_CONFIG, workflow);
+      expect(problems.join('\n')).toMatch(/on: block is no longer in a shape this guard can read/);
+    });
+  }
+
+  it('reports a workflow with no on: header rather than passing it', () => {
+    const workflow = GOOD_WORKFLOW.replace(/^on:$/m, 'onn:');
+    expect(workflow).not.toEqual(GOOD_WORKFLOW);
+    expect(readTriggers(workflow)).toBeNull();
+    expect(check(GOOD_CONFIG, workflow)).not.toEqual([]);
+  });
 });
