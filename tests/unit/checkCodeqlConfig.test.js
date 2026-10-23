@@ -431,6 +431,7 @@ describe('check-codeql-config: workflow mutations that unhook the config', () =>
     },
     // The reader's unreadable-line sentinel. Without it an added trigger in a shape the
     // reader cannot parse would be dropped and pass, which the bare form above can't show.
+    // The second is rejected either way (merge_group goes missing); it pins the shape.
     {
       name: 'a trigger is added with an inline value',
       workflow: GOOD_WORKFLOW.replace(/^ {2}merge_group:$/m, '  merge_group:\n  pull_request_target: {}'),
