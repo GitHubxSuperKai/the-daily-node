@@ -26,6 +26,12 @@ import history_daemon  # noqa: E402
 # How long the fast request may take. Generous for a slow CI runner, and far below
 # the time the blocked request is held (until the test releases it).
 FAST = 2
+# serve_forever's default 0.5s poll is what shutdown() waits out, once per test.
+POLL_INTERVAL = 0.05
+# The patched handler timeout, and how long the slow upstream below sleeps: well past
+# it, so the "may outlast" cases still prove the timeout does not bound upstream time.
+SHORT_TIMEOUT = 0.25
+OUTLAST = 4 * SHORT_TIMEOUT
 
 
 class HistoryDaemonConcurrencyTest(unittest.TestCase):
@@ -41,7 +47,9 @@ class HistoryDaemonConcurrencyTest(unittest.TestCase):
         history_daemon.HistoryHandler.db_path = self.db_path
         self.server = history_daemon.SERVER_CLASS(('127.0.0.1', 0), history_daemon.HistoryHandler)
         self.port = self.server.server_address[1]
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        threading.Thread(
+            target=self.server.serve_forever, kwargs={'poll_interval': POLL_INTERVAL}, daemon=True,
+        ).start()
         # Cleanups run last-registered first: anything a test registers later (releasing
         # a blocked handler, closing an idle socket) runs before this shutdown, which
         # would otherwise wait on a single-threaded server's stuck handler.
@@ -107,7 +115,7 @@ class HistoryDaemonConcurrencyTest(unittest.TestCase):
     def _short_timeout(self):
         # setup() reads the class attribute per accepted connection, so patching it
         # after the server started applies to every connection the test then opens.
-        patcher = unittest.mock.patch.object(history_daemon.HistoryHandler, 'timeout', 1)
+        patcher = unittest.mock.patch.object(history_daemon.HistoryHandler, 'timeout', SHORT_TIMEOUT)
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -135,7 +143,7 @@ class HistoryDaemonConcurrencyTest(unittest.TestCase):
         real_connect = sqlite3.connect
 
         def slow_connect(path, *args, **kwargs):
-            time.sleep(2)
+            time.sleep(OUTLAST)
             return real_connect(path, *args, **kwargs)
 
         # Process-wide patch, as in the blocked-query case above.

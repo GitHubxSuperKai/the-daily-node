@@ -7,7 +7,7 @@ import { useBitaxe } from './hooks/useBitaxe.js';
 import { useWeather } from './hooks/useWeather.js';
 import { useRSS } from './hooks/useRSS.js';
 import { useChartRange } from './hooks/useChartRange.js';
-import { useFeedHealth } from './hooks/useFeedHealth.js';
+import { useFeedHealth, feedHealthInputs } from './hooks/useFeedHealth.js';
 import { usePageRefresh } from './hooks/usePageRefresh.js';
 import { useViewportMode } from './hooks/useViewportMode.js';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
@@ -87,7 +87,7 @@ function App() {
   const rss = useRSS();
   const range = resolveRange(v2prefs);
   const chart = useChartRange(range);
-  const feedHealth = useFeedHealth([btc, { ...chain, contentStale: chain.stale }, weather, rss, bitaxe]);
+  const feedHealth = useFeedHealth(feedHealthInputs({ btc, chain, weather, rss, bitaxe }));
 
   // ─── Auto-Refresh (tab refocus + network restore) ─────────
   usePageRefresh([btc.refresh, chain.refresh, rss.refresh, weather.refresh, bitaxe.refresh, chart.refresh]);
