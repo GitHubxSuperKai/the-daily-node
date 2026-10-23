@@ -299,6 +299,11 @@ function parseSimpleYaml(text) {
 const BLOCK_KEY = /^(?:(['"])([^'"]+)\1|([A-Za-z0-9_-]+))\s*:(?:\s+(.*))?$/;
 
 function parseInline(raw, lineNo) {
+  // `- - x` is a nested sequence. parseScalar would hand back the string "- x", which
+  // can never match an expectation, but that is a guess at a shape -- refuse it instead.
+  if (/^-(\s|$)/.test(raw)) {
+    throw new YamlShapeError(`line ${lineNo}: nested sequence ${JSON.stringify(raw)} -- not a shape this guard reads.`);
+  }
   const flow = raw.match(/^\[(.*)\]$/);
   if (!flow) return parseScalar(raw, lineNo);
   if (flow[1].trim() === '') return [];
@@ -323,7 +328,9 @@ function setKey(obj, key, value, lineNo) {
 // Returns the `on:` block as ordered [trigger, settings] pairs, null when there is no
 // block-style `on:` header at all, or throws YamlShapeError. Callers report all three.
 function readTriggers(text) {
-  const all = text.replace(/^\uFEFF/, '').split('\n').map(l => l.replace(/\r$/, ''));
+  // No \r strip: every body goes through stripInlineComment's trim and the header
+  // regex's \s*, which absorb a CR -- a strip here was written and changed no verdict.
+  const all = text.split('\n');
   // Anchored at column 0, so a nested `on:` cannot stand in for it, and flow style
   // (`on: [push]`) finds no header and reports null.
   const start = all.findIndex(l => /^['"]?on['"]?\s*:\s*(?:#.*)?$/.test(l));

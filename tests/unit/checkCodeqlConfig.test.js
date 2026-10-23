@@ -744,6 +744,10 @@ describe('check-codeql-config: the on: block reader', () => {
     ['a single-quoted cron', w => w.replace('- cron: "0 9 * * 1"', "- cron: '0 9 * * 1'")],
     ['a cron without its trailing comment', w => w.replace(/^( {4}- cron: "0 9 \* \* 1").*$/m, '$1')],
     ['a deeper indent under one trigger', w => w.replace(/^( {2}push:\n) {4}(branches: \[main\])$/m, '$1        $2')],
+    // Every other case here runs on the LF-normalised file, so without this the reader's
+    // CRLF tolerance (its trims absorb the CR) is exercised only by `npm run check:codeql`
+    // on a Windows checkout.
+    ['CRLF line endings', w => w.replace(/\n/g, '\r\n')],
   ];
   for (const [name, mutate] of ACCEPT) {
     it(`accepts: ${name}`, () => {
@@ -771,6 +775,7 @@ describe('check-codeql-config: the on: block reader', () => {
     ['a duplicate setting', w => w.replace(/^( {2}push:\n {4}branches: \[main\])$/m, '$1\n    branches: [main]')],
     ['a duplicate trigger', w => w.replace(/^ {2}merge_group:$/m, '  merge_group:\n  push:')],
     ['a tab in the block', w => w.replace(/^( {2}push:\n) {4}(branches:)/m, '$1\t$2')],
+    ['a nested block sequence', w => w.replace(/^( {2}pull_request:\n {4}branches:) \[main\]$/m, '$1\n      - - main')],
   ];
   for (const [name, mutate] of REFUSE) {
     it(`fails loudly on: ${name}`, () => {
