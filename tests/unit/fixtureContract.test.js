@@ -12,7 +12,7 @@ import { useWeather } from '../../src/hooks/useWeather.js';
 import { useRSS } from '../../src/hooks/useRSS.js';
 import { useChartRange } from '../../src/hooks/useChartRange.js';
 import { useClock } from '../../src/hooks/useClock.js';
-import { useFeedHealth } from '../../src/hooks/useFeedHealth.js';
+import { useFeedHealth, feedHealthInputs } from '../../src/hooks/useFeedHealth.js';
 import { fmtMempoolMB, nextHalving, circulatingBTC, wmoDesc } from '../../src/utils/formatting.js';
 import CONFIG from '../../src/config.js';
 import { PREFS_DEFAULTS } from '../../src/utils/v2prefs.js';
@@ -727,19 +727,27 @@ describe('fixture contract — derived values inside the right type', () => {
 });
 
 describe('fixture contract — feedHealth', () => {
-  // Mirrors App.jsx's useFeedHealth call. If that call changes, this hand copy is
-  // the thing to update — the feed list is not exported from App.jsx to import.
-  const feedsOf = (p) => [p.btc, { ...p.chain, contentStale: p.chain.stale }, p.weather, p.rss, p.bitaxe];
+  // feedHealthInputs is the same builder App.jsx passes to useFeedHealth, so
+  // the feed list here cannot drift from the app's.
+
+  it('a stale chain (fresh lastOk) degrades health via contentStale', () => {
+    // Both fixtures carry chain.stale: false, so the two checks below would stay
+    // green if the stale -> contentStale mapping were dropped. This pins it.
+    const props = makeProps();
+    props.chain = { ...props.chain, stale: true };
+    const { result } = renderHook(() => useFeedHealth(feedHealthInputs(props)));
+    expect(result.current).toBe('degraded');
+  });
 
   it('makeProps feeds actually produce its declared feedHealth', () => {
     const props = makeProps();
-    const { result } = renderHook(() => useFeedHealth(feedsOf(props)));
+    const { result } = renderHook(() => useFeedHealth(feedHealthInputs(props)));
     expect(result.current).toBe(props.feedHealth);
   });
 
   it('makeDownProps feeds actually produce its declared feedHealth', () => {
     const props = makeDownProps();
-    const { result } = renderHook(() => useFeedHealth(feedsOf(props)));
+    const { result } = renderHook(() => useFeedHealth(feedHealthInputs(props)));
     expect(result.current).toBe(props.feedHealth);
   });
 });
