@@ -242,6 +242,27 @@ describe('LineChart labels and chip', () => {
     expect(maxB.getAttribute('text-anchor')).toBe('start');
   });
 
+  it('min label anchors by x position and sits at the min point', () => {
+    // Far-right min: anchors 'end' at x = W.
+    const falling = [0, 1, 2, 3, 4].map(i => [T0 + i * MIN, 140 - i * 10]);
+    const a = mount({ points: falling, showLabels: true });
+    const [, minA] = a.container.querySelectorAll('text');
+    expect(minA.getAttribute('text-anchor')).toBe('end');
+    expect(Number(minA.getAttribute('x'))).toBeCloseTo(W, 1);
+    a.unmount();
+
+    // Uneven spacing: the min is index 4 of 6 (right half by index) but sits at
+    // x ~ 0 by time, so it must anchor 'start'.
+    const uneven = [
+      [T0, 150], [T0 + MIN, 100], [T0 + 2 * MIN, 100],
+      [T0 + 3 * MIN, 100], [T0 + 4 * MIN, 50], [T0 + 1000 * MIN, 120],
+    ];
+    const b = mount({ points: uneven, showLabels: true });
+    const [, minB] = b.container.querySelectorAll('text');
+    expect(minB.getAttribute('text-anchor')).toBe('start');
+    expect(Number(minB.getAttribute('x'))).toBeLessThan(W / 2);
+  });
+
   it('with showLabels the line stays out of the label bands and the labels sit in them', () => {
     const { container } = mount({ points: even, showLabels: true });
     const ys = parsePath(linePath(container).getAttribute('d')).map(p => p[1]);
@@ -289,6 +310,59 @@ describe('LineChart labels and chip', () => {
     move(box, 0); // first = min, bottom of chart: chip flips up
     const topY = parseFloat(q(container, 'chart-chip').querySelector('rect').getAttribute('y'));
     expect(topY).toBeLessThan(H / 2);
+  });
+
+  it('on a short chart (desktop at small --u) the chip flips before it would cover the dot', () => {
+    const SHORT = 55; // u(110) at --u = 0.5
+    global.ResizeObserver = class {
+      constructor(cb) { this._cb = cb; }
+      observe() { this._cb([{ contentRect: { width: W, height: SHORT } }]); }
+      unobserve() {}
+      disconnect() {}
+    };
+    const { box, container } = mount({ points: even });
+    move(box, 150); // index 1: above the bottom quarter, but inside the bottom chip's band
+    const dotY = parseFloat(q(container, 'chart-hover-dot').getAttribute('cy'));
+    expect(dotY).toBeLessThan(SHORT * 0.75);
+    const rect = q(container, 'chart-chip').querySelector('rect');
+    const top = parseFloat(rect.getAttribute('y'));
+    const bottom = top + parseFloat(rect.getAttribute('height'));
+    // Dot (r = 4) and chip do not overlap.
+    expect(dotY - 4 > bottom || dotY + 4 < top).toBe(true);
+    expect(top).toBeLessThan(SHORT / 2);
+  });
+
+  it('the chip stays at the bottom for a dot just above the bottom quarter', () => {
+    const { box, container } = mount({ points: even });
+    move(box, 150); // index 1: y = 73.5, just above 0.75 * 100
+    const top = parseFloat(q(container, 'chart-chip').querySelector('rect').getAttribute('y'));
+    expect(top).toBeGreaterThan(H / 2);
+  });
+
+  // At full desktop (110) and mobile (140) height, 0.75 * h is the smaller term, so the
+  // flip point is the bottom quarter, as before. The hovered dot sits between 0.75 * h and
+  // h - 24, where dropping the 0.75 * h term would leave the chip at the bottom.
+  [
+    { height: 110, band: [82.5, 86] },
+    { height: 140, band: [105, 116] },
+  ].forEach(({ height, band }) => {
+    it(`the chip flip at full height ${height} is unchanged (bottom quarter)`, () => {
+      global.ResizeObserver = class {
+        constructor(cb) { this._cb = cb; }
+        observe() { this._cb([{ contentRect: { width: W, height } }]); }
+        unobserve() {}
+        disconnect() {}
+      };
+      // Middle point at 20% of the range: y = 4 + 0.8 * (height - 8).
+      const pts = [[T0, 100], [T0 + MIN, 120], [T0 + 2 * MIN, 200]];
+      const { box, container } = mount({ points: pts });
+      move(box, 300);
+      const dotY = parseFloat(q(container, 'chart-hover-dot').getAttribute('cy'));
+      expect(dotY).toBeGreaterThan(band[0]);
+      expect(dotY).toBeLessThanOrEqual(band[1]);
+      const top = parseFloat(q(container, 'chart-chip').querySelector('rect').getAttribute('y'));
+      expect(top).toBeLessThan(height / 2);
+    });
   });
 });
 
@@ -360,9 +434,10 @@ describe('LineChart fixed domain, dimmed state, chip format', () => {
 });
 
 describe('LineChart container', () => {
-  it('carries data-chart-scrub and touch-action pan-y', () => {
+  it('carries data-chart-scrub and touch-action pan-y pinch-zoom', () => {
     const { box } = mount({ points: even });
     expect(box.getAttribute('data-chart-scrub')).toBe('true');
-    expect(box.style.touchAction).toBe('pan-y');
+    // Vertical page scroll and pinch-zoom stay with the browser; horizontal drags scrub.
+    expect(box.style.touchAction).toBe('pan-y pinch-zoom');
   });
 });

@@ -3,11 +3,13 @@ import { useT } from '../theme';
 import { fmtPrice } from '../utils/formatting.js';
 import { mergeSeries, nearestIndex, fmtChipTime } from '../utils/chartSeries.js';
 
-const CONTAINER_STYLE = { width: '100%', height: '100%', display: 'block', flexShrink: 0, touchAction: 'pan-y' };
+const CONTAINER_STYLE = { width: '100%', height: '100%', display: 'block', flexShrink: 0, touchAction: 'pan-y pinch-zoom' };
 const SVG_BLOCK = { display: 'block' };
 const SVG_DIMMED = { display: 'block', opacity: 0.4 };
 // Height of the band above and below the line that holds the hi/lo labels (10px mono).
 const LABEL_BAND = 14;
+// Clear space kept between the hover dot and the time chip.
+const CHIP_GAP = 6;
 
 function LineChart({ color, points, fill, vwap, historyPoints, showLabels, onHover, domain, dimmed, chipFormat }) {
   const T = useT();
@@ -190,7 +192,11 @@ function LineChart({ color, points, fill, vwap, historyPoints, showLabels, onHov
             const chipW = label.length * 6 + 10;
             const chipH = 16;
             const cx = Math.max(chipW / 2, Math.min(w - chipW / 2, hx));
-            const chipY = hy > h * 0.75 ? 2 : h - chipH - 2;
+            // Flip the chip to the top when the dot is in the bottom quarter, or would sit
+            // under the bottom chip: the chip is fixed px while h scales with --u, so on a
+            // short chart the quarter is smaller than the chip.
+            const flipAt = Math.min(h * 0.75, h - chipH - 2 - CHIP_GAP);
+            const chipY = hy > flipAt ? 2 : h - chipH - 2;
             return (
               <>
                 <line data-testid="chart-crosshair" x1={hx} y1={0} x2={hx} y2={h}
