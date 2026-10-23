@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import CONFIG, { RSS_FEED_MAP } from '../config.js';
 import { useResettableInterval } from './useResettableInterval.js';
 import { classifyTopic, timeAgo, safeUrl } from '../utils/formatting.js';
@@ -41,6 +41,14 @@ export function useRSS() {
   const [failedImgs, setFailedImgs] = useState(() => new Set());
   const [err, setErr] = useState(false);
   const [lastOk, setLastOk] = useState(null);
+  // Whether the last fetch failed outright, read by the next one (fetchRSS is stable).
+  const hadErrRef = useRef(false);
+
+  // A network blip fails every lead image at once, so forget the failures when the
+  // network comes back. Keeps the same Set (no re-render) when nothing has failed.
+  const clearFailedImgs = useCallback(() => {
+    setFailedImgs(prev => (prev.size ? new Set() : prev));
+  }, []);
 
   const fetchRSS = useCallback(async () => {
     const feeds = CONFIG.RSS_FEEDS || [];
@@ -87,15 +95,30 @@ export function useRSS() {
       .sort((a, b) => (pubTime(b) ?? -Infinity) - (pubTime(a) ?? -Infinity));
 
     if (results.some(r => r.status === 'fulfilled')) {
+      // First success after a total failure: the outage likely failed the images too.
+      // This only sees outages that fail the feed fetches themselves. Behind /api/rss,
+      // bitaxe_api.py serves its cached copy with a 200 when the upstream is down, so an
+      // internet-only outage there shows up as successful fetches plus failing images,
+      // and nothing here clears them (the 'online' listener below doesn't fire either,
+      // since the panel's own connection stayed up).
+      if (hadErrRef.current) clearFailedImgs();
+      hadErrRef.current = false;
       setPool(all);
       setErr(false);
       setLastOk(Date.now());
     } else {
+      hadErrRef.current = true;
       setErr(true);
     }
-  }, []);
+  }, [clearFailedImgs]);
 
   const { reset: resetRSS } = useResettableInterval(fetchRSS, CONFIG.REFRESH_INTERVALS.news);
+
+  // The browser saw the connection drop and return (covers blips between fetches).
+  useEffect(() => {
+    window.addEventListener('online', clearFailedImgs);
+    return () => window.removeEventListener('online', clearFailedImgs);
+  }, [clearFailedImgs]);
 
   // Refresh relative times every minute (this also re-checks the lead's 6h window).
   useEffect(() => {

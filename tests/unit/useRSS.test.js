@@ -272,3 +272,78 @@ describe('useRSS', () => {
     });
   });
 });
+
+// A network blip fails every lead image at once; recovery must let them be retried.
+describe('useRSS failed lead images after a network blip', () => {
+  beforeEach(() => { vi.restoreAllMocks(); });
+
+  const up = () => vi.fn().mockResolvedValue(feedResp(2));
+
+  // Each lead's image fails to load, as all do during a blip, until no lead is left.
+  function failEveryLead(result) {
+    for (let i = 0; i < 10 && result.current.leadStory; i++) {
+      act(() => result.current.skipLead(result.current.leadStory.img));
+    }
+    expect(result.current.leadStory).toBeNull();
+  }
+
+  async function mountLoaded() {
+    global.fetch = up();
+    const hook = renderHook(() => useRSS());
+    await waitFor(() => expect(hook.result.current.leadStory).not.toBeNull());
+    return hook;
+  }
+
+  it('retries failed lead images on the first successful fetch after a fetch error', async () => {
+    const { result } = await mountLoaded();
+    failEveryLead(result);
+
+    global.fetch = vi.fn().mockRejectedValue(new TypeError('network'));
+    await act(async () => { result.current.refresh(); });
+    await waitFor(() => expect(result.current.err).toBe(true));
+    expect(result.current.leadStory).toBeNull();
+
+    global.fetch = up();
+    await act(async () => { result.current.refresh(); });
+    await waitFor(() => expect(result.current.err).toBe(false));
+    expect(result.current.leadStory).not.toBeNull();
+  });
+
+  it('clears once per outage: a later success with no outage keeps skipping', async () => {
+    const { result } = await mountLoaded();
+    failEveryLead(result);
+    global.fetch = vi.fn().mockRejectedValue(new TypeError('network'));
+    await act(async () => { result.current.refresh(); });
+    await waitFor(() => expect(result.current.err).toBe(true));
+    global.fetch = up();
+    await act(async () => { result.current.refresh(); });
+    await waitFor(() => expect(result.current.leadStory).not.toBeNull());
+
+    // Recovered. Images fail again with no outage this time: they stay skipped.
+    failEveryLead(result);
+    const before = global.fetch.mock.calls.length;
+    await act(async () => { result.current.refresh(); });
+    await waitFor(() => expect(global.fetch.mock.calls.length).toBeGreaterThan(before));
+    await act(async () => {});
+    expect(result.current.leadStory).toBeNull();
+  });
+
+  it('retries failed lead images when the browser comes back online', async () => {
+    const { result } = await mountLoaded();
+    failEveryLead(result);
+
+    act(() => { window.dispatchEvent(new Event('online')); });
+    expect(result.current.leadStory).not.toBeNull();
+  });
+
+  it('keeps skipping failed images across fetches when there was no outage', async () => {
+    const { result } = await mountLoaded();
+    failEveryLead(result);
+
+    const before = global.fetch.mock.calls.length;
+    await act(async () => { result.current.refresh(); });
+    await waitFor(() => expect(global.fetch.mock.calls.length).toBeGreaterThan(before));
+    await act(async () => {});
+    expect(result.current.leadStory).toBeNull();
+  });
+});
