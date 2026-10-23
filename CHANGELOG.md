@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- On the mobile Home tab, screen readers now read the Top Story tile's headline. The tile's button was labelled "Open News tab", which replaced its text, so the lead headline was never announced. The label is gone and the tile is named by its own text, as the Latest tile already is.
+
 ## [1.7.0] — 2026-10-20
 
 ### Added

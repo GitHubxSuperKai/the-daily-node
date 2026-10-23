@@ -64,7 +64,10 @@ describe('HomePanel', () => {
   it('Lead headline tile click navigates to news tab', () => {
     const onNavigate = vi.fn();
     wrap(<HomePanel {...baseProps} onNavigate={onNavigate} />);
-    fireEvent.click(screen.getByTestId('lead-tile'));
+    const tile = screen.getByTestId('lead-tile');
+    // No aria-label: the headline itself names the button for screen readers.
+    expect(screen.getByRole('button', { name: /Top story/ })).toBe(tile.closest('button'));
+    fireEvent.click(tile);
     expect(onNavigate).toHaveBeenCalledWith('news');
   });
 
