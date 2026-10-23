@@ -35,9 +35,9 @@ export function useBitaxe() {
       setErr(list.length > 0 && list.every(m => !m.online));
       setLastOk(Date.now());
     } catch {
-      // Transient failure: keep the last good miners and lastOk so the sidebar
-      // and the mobile Miners panel degrade to stale instead of blanking. The
-      // desktop Miners section still shows its no-miners state while err is set.
+      // Transient failure: keep the last good miners and lastOk so consumers
+      // degrade to stale instead of blanking. The exception is the desktop Miners
+      // section, which gates on err (Miners.jsx) and shows its no-miners state.
       setErr(true);
     } finally {
       setLoading(false);
