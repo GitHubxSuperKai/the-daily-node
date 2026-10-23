@@ -5,9 +5,11 @@ upstream HTTP server. Exercises the security boundaries with real HTTP
 requests — no monkeypatching of internals.
 """
 import json
+import socket
 import sys
 import threading
 import unittest
+import unittest.mock
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -19,6 +21,18 @@ import bitaxe_api  # noqa: E402
 
 # serve_forever's default 0.5s poll is what shutdown() waits out, once per server.
 POLL_INTERVAL = 0.05
+
+_real_getaddrinfo = socket.getaddrinfo
+
+
+def _ipv4_localhost(host, port, family=0, *args, **kwargs):
+    """getaddrinfo, but 'localhost' resolves to IPv4 only. The stubs listen on
+    127.0.0.1; on Windows 'localhost' tries ::1 first, and each refused connect there
+    costs ~2s before the IPv4 fallback. The base URLs must stay 'localhost' (the proxy
+    refuses loopback IP literals), so pin the family instead."""
+    if host == 'localhost':
+        family = socket.AF_INET
+    return _real_getaddrinfo(host, port, family, *args, **kwargs)
 
 
 class _StubUpstream(BaseHTTPRequestHandler):
@@ -46,6 +60,9 @@ class MempoolProxyTestBase(unittest.TestCase):
         bitaxe_api.BitaxeAPIHandler.ALLOWED_ORIGINS = []
         # Allow 'localhost' for stub upstream; production default is frozenset()
         bitaxe_api.BitaxeAPIHandler.ALLOWED_PROXY_HOSTS = frozenset({'localhost'})
+        resolver = unittest.mock.patch.object(socket, 'getaddrinfo', _ipv4_localhost)
+        resolver.start()
+        cls.addClassCleanup(resolver.stop)
 
         # Use port 0 — OS assigns an available port atomically, no TOCTOU race.
         cls.proxy = HTTPServer(('127.0.0.1', 0), bitaxe_api.BitaxeAPIHandler)
