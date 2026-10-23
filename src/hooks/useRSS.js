@@ -16,6 +16,14 @@ async function fetchViaProxy(key) {
   return parseFeedXml(await r.text());
 }
 
+// rss2json gives pubDate as "YYYY-MM-DD HH:MM:SS" in UTC with no zone, which
+// Date parses as local time. Mark that exact form as UTC; leave anything else alone.
+const RSS2JSON_DATE = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/;
+function rss2jsonDate(s) {
+  const m = typeof s === 'string' && s.match(RSS2JSON_DATE);
+  return m ? `${m[1]}T${m[2]}Z` : s;
+}
+
 async function fetchViaRss2json(feedUrl) {
   const apiKey = CONFIG.RSS2JSON_KEY ? `&api_key=${CONFIG.RSS2JSON_KEY}` : '';
   const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}${apiKey}`;
@@ -23,7 +31,7 @@ async function fetchViaRss2json(feedUrl) {
   if (!r.ok) throw new Error('rss');
   const j = await r.json();
   if (j.status !== 'ok') throw new Error('rss-status');
-  return { title: j.feed.title, items: j.items };
+  return { title: j.feed.title, items: j.items.map(it => ({ ...it, pubDate: rss2jsonDate(it.pubDate) })) };
 }
 
 export function useRSS() {
