@@ -630,13 +630,15 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
                 # was failing, and the entry read before the fetch must not replace it.
                 current = _rss_cache.get(key)
                 body = current[1] if current else None
+                # Stale only if it is the copy this request started with (or one already
+                # marked stale): a copy another thread just fetched is fresh.
+                stale = body is not None and (current is cached or current[2])
                 # Stamp the failure either way: retrying a hung upstream on every poll would
                 # hold a request for the full fetch deadline each time.
-                _rss_cache[key] = (time.monotonic(), body, body is not None)
+                _rss_cache[key] = (time.monotonic(), body, stale)
                 if body is None:
                     self._json(502, {'error': error})
                     return
-                stale = True
             else:
                 stale = False
                 _rss_cache[key] = (time.monotonic(), body, False)
