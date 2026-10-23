@@ -13,8 +13,10 @@ function fmtPrice(n) {
 
 function fmtPct(n) {
   if (n == null || isNaN(n)) return '—';
-  const sign = n >= 0 ? '+' : '';
-  return `${sign}${Number(n).toFixed(2)}`;
+  const s = Math.abs(Number(n)).toFixed(2);
+  // Zero (and anything that rounds to 0.00) is unsigned: no '+0.00' / '-0.00'.
+  if (Number(s) === 0) return s;
+  return `${n > 0 ? '+' : '-'}${s}`;
 }
 
 function fmtVolUsd(v) {
