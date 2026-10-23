@@ -41,6 +41,12 @@ describe('NewsColumn — empty states', () => {
     expect(screen.queryByText(/headlines right now/)).toBeNull();
   });
 
+  it('a feed error wins over the empty states with a lead still shown', () => {
+    mount({ rssErr: true, loaded: true, hasLead: true });
+    expect(screen.getByText('All feeds unavailable')).toBeDefined();
+    expect(screen.queryByText(/headlines right now/)).toBeNull();
+  });
+
   it('items present: renders them, no empty state', () => {
     mount({ newsItems: [ITEM], loaded: true, hasLead: false });
     expect(screen.getByText('Hashrate hits a new high')).toBeDefined();

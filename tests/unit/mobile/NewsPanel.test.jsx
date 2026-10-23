@@ -97,6 +97,12 @@ describe('NewsPanel — empty states', () => {
     expect(screen.getByText('Feed unavailable')).toBeDefined();
     expect(screen.queryByText(/headlines right now/)).toBeNull();
   });
+
+  it('a feed error wins over the empty states with a lead still shown', () => {
+    wrap(<NewsPanel rss={{ leadStory: leadNoImage, items: [], err: true, lastOk: 1 }} />);
+    expect(screen.getByText('Feed unavailable')).toBeDefined();
+    expect(screen.queryByText(/headlines right now/)).toBeNull();
+  });
 });
 
 describe('NewsPanel — lead image fallback', () => {
