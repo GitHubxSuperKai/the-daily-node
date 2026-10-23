@@ -82,6 +82,20 @@ describe('CommandCenter — desktop smoke render', () => {
     expect(props.onRangeChange).toHaveBeenCalledWith('30d');
   });
 
+  it('wires the lead into the news column empty state: lead shown -> "No more headlines"', () => {
+    const base = makeProps();
+    renderCC({ rss: { ...base.rss, items: [] } });
+    expect(screen.getByText('No more headlines right now')).toBeDefined();
+    expect(screen.queryByText('No Bitcoin headlines right now')).toBeNull();
+  });
+
+  it('wires the lead into the news column empty state: no lead -> "No Bitcoin headlines"', () => {
+    const base = makeProps();
+    renderCC({ rss: { ...base.rss, items: [], leadStory: null } });
+    expect(screen.getByText('No Bitcoin headlines right now')).toBeDefined();
+    expect(screen.getByText('No lead story right now')).toBeDefined();
+  });
+
   it('survives a fully degraded feed set — every source null or erroring', () => {
     // The all-APIs-down path, exercising the derived-value block (halvings,
     // blockReward, mempoolMB, the sys array) with nothing to derive from.

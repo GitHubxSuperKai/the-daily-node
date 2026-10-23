@@ -8,6 +8,10 @@ on:
   schedule:
     - cron: "0 9 * * 1"  # Mondays 09:00 UTC
   workflow_dispatch:
+  # No merge queue today. Both Analyze jobs are REQUIRED contexts, though, so if a
+  # queue is ever enabled a workflow without this trigger never reports on the queue's
+  # merge_group event and the queue waits on it forever. build.yml has the same trigger.
+  merge_group:
 
 permissions:
   contents: read
