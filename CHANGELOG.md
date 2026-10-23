@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The `/setup` page's 9px labels (the two masthead lines, the "First Edition" kicker and the byline) are now 10px, so no `/setup` text is under the 10px floor either.
+
 ## [1.7.0] — 2026-10-20
 
 ### Added
