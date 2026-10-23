@@ -131,7 +131,10 @@ const EXPECTED_MATRIX_KEYS = ['language'];
 // required Analyze contexts that never report for its event -- it hangs, it does not
 // fail. `push` keeps main's alerts current, and `schedule` catches new queries landing
 // against unchanged code. Pinned as a whole key set so an addition (a
-// `pull_request_target`, say) comes through here too.
+// `pull_request_target`, say) comes through here too. Only the trigger NAMES are
+// pinned, not the settings nested under them: `pull_request:` with `types: [closed]`
+// or a `branches:` typo passes here and silences the required checks just as surely
+// as deleting the trigger.
 const EXPECTED_TRIGGERS = ['push', 'pull_request', 'schedule', 'workflow_dispatch', 'merge_group'];
 
 // The complete ordered input set of each codeql-action step. Spot-checking
