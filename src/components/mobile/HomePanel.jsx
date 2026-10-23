@@ -238,7 +238,6 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
           label="Top Story"
           fullWidth
           onClick={() => onNavigate('news')}
-          ariaLabel="Open News tab"
         >
           <div data-testid="lead-tile" style={{
             fontFamily: T.serif, fontSize: 16, fontWeight: 700,

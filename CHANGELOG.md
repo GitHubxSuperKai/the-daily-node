@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `codeql.yml` now also runs on `merge_group`, closing the gap the `build.yml` entry under 1.5.0 left open. There is no merge queue today, but both `Analyze` jobs are required checks, and a queue waits forever on a required check that never reports for its event. `scripts/check-codeql-config.cjs` now pins the workflow's complete ordered trigger set (`push`, `pull_request`, `schedule`, `workflow_dispatch`, `merge_group`), so removing, commenting out or adding a trigger fails the build until `EXPECTED_TRIGGERS` is edited too; new cases in `tests/unit/checkCodeqlConfig.test.js` cover it. Only the trigger names are pinned, not the settings nested under them.
 - The `/setup` page's 9px labels (the two masthead lines, the "First Edition" kicker and the byline) are now 10px, so no `/setup` text is under the 10px floor either.
 
+### Fixed
+
+- On the mobile Home tab, screen readers now read the Top Story tile's headline. The tile's button was labelled "Open News tab", which replaced its text, so the lead headline was never announced. The label is gone and the tile is named by its own text, as the Latest tile already is.
+
 ## [1.7.0] — 2026-10-20
 
 ### Added
