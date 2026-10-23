@@ -72,6 +72,18 @@ describe('mergeSeries', () => {
     expect(mergeSeries('nope', { a: 1 })).toEqual([]);
   });
 
+  it('drops a history row with ts: null instead of placing it at the epoch', () => {
+    // Number(null) is 0, so without the explicit null check this row would land at 1970.
+    const out = mergeSeries([{ ts: null, usd: 5 }, H(1, 10), { ts: '', usd: 6 }], [C(2, 20)]);
+    expect(out).toEqual([[base + 60000, 10], [base + 120000, 20]]);
+    expect(out.some(([t]) => t === 0)).toBe(false);
+    expect(mergeSeries([{ ts: null, usd: 5 }], null)).toEqual([]);
+  });
+
+  it('drops a history row with usd: null instead of reading it as $0', () => {
+    expect(mergeSeries([{ ts: base / 1000, usd: null }, H(1, 10)], null)).toEqual([[base + 60000, 10]]);
+  });
+
   it('both empty: returns []', () => {
     expect(mergeSeries([], [])).toEqual([]);
     expect(mergeSeries(null, null)).toEqual([]);
