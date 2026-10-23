@@ -1,6 +1,6 @@
 {
   "name": "the-daily-node",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "Single-file React dashboard: Bitcoin price, news, weather, mining stats",
   "scripts": {
     "build": "node build.js",

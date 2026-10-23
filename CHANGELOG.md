@@ -7,17 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.1] — 2026-10-22
+
+### Added
+
+- The Docker image now has its own `HEALTHCHECK`, so a plain `docker run` reports a health status too. Before, only `docker-compose.yml` defined one. It is the same `/api/setup` probe with the same timing (every 45s, 6s timeout, 15s start period, 3 retries), and the compose healthcheck still overrides it. `tests/unit/dockerfileHealthcheck.test.js` checks that the two stay identical.
+
 ### Changed
 
 - `codeql.yml` now also runs on `merge_group`, closing the gap the `build.yml` entry under 1.5.0 left open. There is no merge queue today, but both `Analyze` jobs are required checks, and a queue waits forever on a required check that never reports for its event. `scripts/check-codeql-config.cjs` now pins the workflow's complete ordered trigger set (`push`, `pull_request`, `schedule`, `workflow_dispatch`, `merge_group`), so removing, commenting out or adding a trigger fails the build until `EXPECTED_TRIGGERS` is edited too; new cases in `tests/unit/checkCodeqlConfig.test.js` cover it. That first version pinned only the trigger names; the entry below extends it to their settings.
 - `scripts/check-codeql-config.cjs` now pins each trigger's settings as well as its name: the whole `on:` block, in order, is compared against `EXPECTED_TRIGGERS`. With names alone, `pull_request:` gaining `types: [closed]` or `paths: [docs/**]`, or a `branches: [mian]` typo, passed the guard while silencing both required `Analyze` checks, and `push: branches: [nope]` passed while main's alerts stopped updating. A new zero-dependency reader handles nested block mappings, sequences (`- cron:`) and single-line `[main]` sequences, and refuses everything else (flow mappings, explicit keys, anchors, aliases, misplaced indents, duplicates), so the guard fails rather than guessing. Comments, quoted keys and values, and `[main]` versus a block `- main` are accepted. Rejection, refusal and acceptance cases in `tests/unit/checkCodeqlConfig.test.js` cover it, and each assertion was mutation-checked.
 - The `/setup` page's 9px labels (the two masthead lines, the "First Edition" kicker and the byline) are now 10px, so no `/setup` text is under the 10px floor either.
+- `docs/SETUP.md` → "Threat model & network exposure" now describes how `bitaxe_api.py` actually checks where requests come from. The old note said `Origin`/`Referer` is checked on every request, but the HTML routes are never checked, and a request that has neither header is allowed. The section now covers which origins are allowed (the allowlist, or any private or loopback IP literal, but never a host name, because of DNS rebinding), that `--allow-origin` replaces the defaults instead of adding to them, the CORS headers sent back, and the miner-IP check on `POST /api/setup`.
 
 ### Fixed
 
 - A failed miners fetch no longer blanks the fleet. `useBitaxe` keeps the last good list (and its last-success time) through a failed fetch, so the sidebar, ticker and mobile Miners tab keep showing it, and the desktop Field Report keeps its table, with "stale" before the active count in its header, instead of saying "No miners connected". The Field Report also lists a fleet whose miners are all offline as offline rigs ("0/2 active", "no rigs online") instead of as no miners. `useBitaxe` sets `err` in both cases, so it has a new `fetchFailed` field that is true only after a failed fetch.
 - Lead stories whose images failed to load during a network outage come back once the feeds load fresh again, or when the browser reports it is back online. They used to stay skipped until the page was reloaded. Behind the `/api/rss` proxy, a cached copy served because the upstream fetch failed now carries an `X-Feed-Stale: 1` header, so an internet outage that leaves the panel's own connection up is recognised too, once it lasts long enough for a feed refresh to fail.
 - On the mobile Home tab, screen readers now read the Top Story tile's headline. The tile's button was labelled "Open News tab", which replaced its text, so the lead headline was never announced. The label is gone and the tile is named by its own text, as the Latest tile already is.
+- The status lights no longer flash red, and the badge no longer reads "offline", while the page is first loading. A source whose first fetch is still in flight (no success and no error yet) now shows a neutral grey dot, in the sidebar and on the mobile Home tab, and the badge stays "loading" until at least one feed has reported. After that, feeds still on their first fetch are not counted against it.
+- A price change that rounds to 0.00% now shows as `0.00`, with no sign. It used to show as `+0.00`, so a flat market looked like a gain, and a tiny fall showed as `-0.00`.
+- News timestamps from the RSS2JSON fallback (used when `/api/rss` isn't available, as on the dev server) are no longer hours off. RSS2JSON sends UTC times without a time zone, and the browser read them as local time, so west of UTC new items looked hours newer than they were ("just now" for News.Bitcoin.com). The wrong time also affected the newest-first order and the lead story's 6-hour window. Feeds loaded through `/api/rss`, and dates that already carry a zone, are unchanged.
+- On a short chart, the hover time chip now moves out of the way of the hover dot. The chip sits along the bottom of the chart and is a fixed 16px tall, but it only moved to the top once the dot was in the bottom quarter of the chart. On the desktop chart at a small scale (about 55px tall) that quarter is less than 16px, so the chip could cover the dot. It now flips as soon as it would overlap the dot; at full desktop and mobile chart heights it behaves as before.
+- Pinch-zoom is no longer blocked when the gesture starts on the chart. The chart allowed vertical scrolling only (`touch-action: pan-y`), which blocked pinch-zoom; it is now `pan-y pinch-zoom`. Not yet tested on iOS Safari.
 
 ## [1.7.0] — 2026-10-20
 
@@ -273,7 +285,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI: build verification + Pages auto-deploy.
 - Issue templates and PR template for structured triage.
 
-[Unreleased]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.7.1...HEAD
+[1.7.1]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.4.0...v1.5.0
