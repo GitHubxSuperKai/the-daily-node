@@ -332,11 +332,30 @@ describe('LineChart labels and chip', () => {
     expect(top).toBeLessThan(SHORT / 2);
   });
 
-  it('the chip flip at full desktop and mobile heights is unchanged (bottom quarter)', () => {
-    const { box, container } = mount({ points: even });
-    move(box, 150); // index 1: y = 73.5, below 0.75 * 100
-    const top = parseFloat(q(container, 'chart-chip').querySelector('rect').getAttribute('y'));
-    expect(top).toBeGreaterThan(H / 2);
+  // At full desktop (110) and mobile (140) height, 0.75 * h is the smaller term, so the
+  // flip point is the bottom quarter, as before. The hovered dot sits between 0.75 * h and
+  // h - 24, where dropping the 0.75 * h term would leave the chip at the bottom.
+  [
+    { height: 110, band: [82.5, 86] },
+    { height: 140, band: [105, 116] },
+  ].forEach(({ height, band }) => {
+    it(`the chip flip at full height ${height} is unchanged (bottom quarter)`, () => {
+      global.ResizeObserver = class {
+        constructor(cb) { this._cb = cb; }
+        observe() { this._cb([{ contentRect: { width: W, height } }]); }
+        unobserve() {}
+        disconnect() {}
+      };
+      // Middle point at 20% of the range: y = 4 + 0.8 * (height - 8).
+      const pts = [[T0, 100], [T0 + MIN, 120], [T0 + 2 * MIN, 200]];
+      const { box, container } = mount({ points: pts });
+      move(box, 300);
+      const dotY = parseFloat(q(container, 'chart-hover-dot').getAttribute('cy'));
+      expect(dotY).toBeGreaterThan(band[0]);
+      expect(dotY).toBeLessThanOrEqual(band[1]);
+      const top = parseFloat(q(container, 'chart-chip').querySelector('rect').getAttribute('y'));
+      expect(top).toBeLessThan(height / 2);
+    });
   });
 });
 
