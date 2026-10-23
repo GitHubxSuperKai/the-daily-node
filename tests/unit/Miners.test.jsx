@@ -63,4 +63,18 @@ describe('Miners', () => {
     expect(screen.getByText('1/1 active')).toBeDefined();
     expect(screen.queryByText(/stale/i)).toBeNull();
   });
+
+  it('marks the fleet stale after a failed fetch and clears it after a successful one', () => {
+    const view = (fetchFailed) => (
+      <ThemeCtx.Provider value={LIGHT}>
+        <Miners bitaxe={{ miners: [makeMiner()], loading: false, err: fetchFailed, fetchFailed }} chain={CHAIN} />
+      </ThemeCtx.Provider>
+    );
+    const { rerender } = render(view(false));
+    expect(screen.queryByText(/stale/i)).toBeNull();
+    rerender(view(true));
+    expect(screen.getByText(/stale/i).parentElement.textContent).toBe('stale · 1/1 active');
+    rerender(view(false));
+    expect(screen.queryByText(/stale/i)).toBeNull();
+  });
 });

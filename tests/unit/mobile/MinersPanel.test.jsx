@@ -160,3 +160,31 @@ describe('MinersPanel firmware badge', () => {
     expect(screen.queryByText('UPDATE')).toBeNull();
   });
 });
+
+describe('MinersPanel stale marker', () => {
+  // The props useBitaxe emits: a failed fetch keeps the last good list and sets
+  // fetchFailed (tests/unit/useBitaxe.test.js pins that); a success clears it.
+  const panel = (fetchFailed) => (
+    <ThemeCtx.Provider value={LIGHT}>
+      <MinersPanel bitaxe={{ ...twoMiners, loading: false, err: fetchFailed, fetchFailed }} />
+    </ThemeCtx.Provider>
+  );
+
+  it('marks the fleet line stale after a failed fetch and clears it after a successful one', () => {
+    const { rerender } = render(panel(false));
+    expect(screen.queryByText(/stale/i)).toBeNull();
+    rerender(panel(true));
+    const marker = screen.getByText(/stale/i);
+    expect(marker.parentElement.textContent).toMatch(/^stale · 1\/2 online · 1200\.00 TH\/s$/);
+    // Plain px only: the marker must not pull in the desktop u() scale.
+    expect(marker.getAttribute('style') || '').not.toMatch(/var\(--u\)/);
+    rerender(panel(false));
+    expect(screen.queryByText(/stale/i)).toBeNull();
+  });
+
+  it('does not mark stale when a failed fetch has no retained list', () => {
+    wrap(<MinersPanel bitaxe={{ miners: [], loading: false, err: true, fetchFailed: true }} />);
+    expect(screen.getByText(/no miners configured/i)).toBeDefined();
+    expect(screen.queryByText(/stale/i)).toBeNull();
+  });
+});

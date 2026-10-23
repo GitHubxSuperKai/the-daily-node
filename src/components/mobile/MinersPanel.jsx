@@ -2,6 +2,7 @@ import React from 'react';
 import { useT } from '../../theme.js';
 import { calcSoloOdds, fmtNum, fmtUptime } from '../../utils/formatting.js';
 import { isFirmwareOutdated } from '../../utils/firmware.js';
+import { StaleMark } from '../StaleMark.jsx';
 
 function sectionLabel(T) {
   return {
@@ -48,7 +49,7 @@ function MinersPanel({ bitaxe, chain }) {
         ) : (
           <>
             <div style={{ fontFamily: T.mono, fontSize: 16, color: T.ink, fontFeatureSettings: '"tnum" 1, "lnum" 1' }}>
-              {onlineCount}/{miners.length} online · {totalHashTHs.toFixed(2)} TH/s
+              <StaleMark bitaxe={bitaxe} />{onlineCount}/{miners.length} online · {totalHashTHs.toFixed(2)} TH/s
             </div>
             {combinedEff !== null && (
               <div style={{
