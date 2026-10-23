@@ -9,7 +9,7 @@ import { useResettableInterval } from './useResettableInterval.js';
  * is reachable same-origin. Direct-poll-by-IP from the browser is no longer supported.
  *
  * Returns: {
- *   miners:   array of { ip, online, data? } from the server
+ *   miners:   array of { ip, online, data? } from the server (last good list kept on fetch error)
  *   err:      true when the fetch fails or every miner is offline
  *   loading:  true until the first response (success or fail)
  *   lastOk:   timestamp of the last successful fetch (null until first success)
@@ -35,7 +35,9 @@ export function useBitaxe() {
       setErr(list.length > 0 && list.every(m => !m.online));
       setLastOk(Date.now());
     } catch {
-      setMiners([]);
+      // Transient failure: keep the last good miners and lastOk so consumers
+      // degrade to stale instead of blanking. The exception is the desktop Miners
+      // section, which gates on err (Miners.jsx) and shows its no-miners state.
       setErr(true);
     } finally {
       setLoading(false);

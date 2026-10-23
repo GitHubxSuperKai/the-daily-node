@@ -10,6 +10,11 @@ describe('sourceFreshness', () => {
     expect(sourceFreshness({ hasData: false, err: true, lastOk: null }, NOW)).toBe('down');
   });
 
+  it('returns pending (not down) before the first fetch has succeeded or failed', () => {
+    expect(sourceFreshness({ hasData: false, err: false, lastOk: null, interval: MIN }, NOW)).toBe('pending');
+    expect(sourceFreshness({ hasData: false, err: undefined, lastOk: null }, NOW)).toBe('pending');
+  });
+
   it('returns fresh for recent data, no error, content current', () => {
     expect(sourceFreshness({ hasData: true, err: false, lastOk: NOW - 10_000, interval: MIN }, NOW)).toBe('fresh');
   });

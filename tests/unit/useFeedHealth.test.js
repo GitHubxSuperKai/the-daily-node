@@ -50,10 +50,28 @@ describe('useFeedHealth', () => {
     expect(result.current).toBe('degraded');
   });
 
-  it('returns offline when lastOk is missing on all feeds', () => {
-    const feeds = [{ lastOk: null, interval: MIN }, { lastOk: null, interval: MIN }];
+  it('returns offline when every feed has failed without ever succeeding', () => {
+    const feeds = [{ lastOk: null, err: true, interval: MIN }, { lastOk: null, error: true, interval: MIN }];
     const { result } = renderHook(() => useFeedHealth(feeds));
     expect(result.current).toBe('offline');
+  });
+
+  it('stays loading on cold load while no feed has completed its first fetch', () => {
+    const feeds = [
+      { lastOk: null, err: false, interval: MIN },
+      { lastOk: null, error: false, interval: MIN },
+    ];
+    const { result } = renderHook(() => useFeedHealth(feeds));
+    expect(result.current).toBe('loading');
+  });
+
+  it('ignores still-pending feeds when judging the ones that have reported', () => {
+    const feeds = [
+      { lastOk: NOW - 10_000, interval: MIN },
+      { lastOk: null, err: false, interval: MIN },
+    ];
+    const { result } = renderHook(() => useFeedHealth(feeds));
+    expect(result.current).toBe('live');
   });
 
   it('contentStale: true on a single feed triggers degraded when other feeds are live', () => {
