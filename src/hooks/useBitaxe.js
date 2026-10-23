@@ -11,6 +11,8 @@ import { useResettableInterval } from './useResettableInterval.js';
  * Returns: {
  *   miners:   array of { ip, online, data? } from the server (last good list kept on fetch error)
  *   err:      true when the fetch fails or every miner is offline
+ *   fetchFailed: true when the last fetch failed, so `miners` is the retained (stale) list;
+ *             tells a failed fetch apart from a fresh all-offline fleet, which also sets err
  *   loading:  true until the first response (success or fail)
  *   lastOk:   timestamp of the last successful fetch (null until first success)
  *   interval: refresh interval in ms (for feed-health tracking)
@@ -21,6 +23,7 @@ import { useResettableInterval } from './useResettableInterval.js';
 export function useBitaxe() {
   const [miners, setMiners] = React.useState([]);
   const [err, setErr] = React.useState(false);
+  const [fetchFailed, setFetchFailed] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [lastOk, setLastOk] = React.useState(null);
   const [latestFirmware, setLatestFirmware] = React.useState(null);
@@ -33,12 +36,13 @@ export function useBitaxe() {
       const list = Array.isArray(body.miners) ? body.miners : [];
       setMiners(list);
       setErr(list.length > 0 && list.every(m => !m.online));
+      setFetchFailed(false);
       setLastOk(Date.now());
     } catch {
       // Transient failure: keep the last good miners and lastOk so consumers
-      // degrade to stale instead of blanking. The exception is the desktop Miners
-      // section, which gates on err (Miners.jsx) and shows its no-miners state.
+      // degrade to stale instead of blanking.
       setErr(true);
+      setFetchFailed(true);
     } finally {
       setLoading(false);
     }
@@ -61,6 +65,7 @@ export function useBitaxe() {
   return {
     miners,
     err,
+    fetchFailed,
     loading,
     lastOk,
     interval: CONFIG.REFRESH_INTERVALS.bitaxe,
