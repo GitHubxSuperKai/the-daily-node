@@ -63,10 +63,13 @@ describe('HomePanel', () => {
 
   it('Lead headline tile click navigates to news tab', () => {
     const onNavigate = vi.fn();
-    wrap(<HomePanel {...baseProps} onNavigate={onNavigate} />);
+    // A headline that shares no words with the "Top Story" label, so the name check
+    // cannot be satisfied by the label alone (the fixture's 'Top story' differs only in case).
+    const rss = { ...baseProps.rss, leadStory: { ...baseProps.rss.leadStory, hed: 'Fed holds rates' } };
+    wrap(<HomePanel {...baseProps} rss={rss} onNavigate={onNavigate} />);
     const tile = screen.getByTestId('lead-tile');
     // No aria-label: the headline itself names the button for screen readers.
-    expect(screen.getByRole('button', { name: /Top story/ })).toBe(tile.closest('button'));
+    expect(screen.getByRole('button', { name: /Fed holds rates/ })).toBe(tile.closest('button'));
     fireEvent.click(tile);
     expect(onNavigate).toHaveBeenCalledWith('news');
   });
