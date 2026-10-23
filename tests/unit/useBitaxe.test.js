@@ -33,6 +33,28 @@ describe('useBitaxe', () => {
     expect(result.current.err).toBe(true);
   });
 
+  it('keeps the last good miners and lastOk on a transient fetch error', async () => {
+    const good = {
+      ok: true,
+      json: async () => ({ miners: [{ ip: '192.168.1.10', online: true, data: { hashRate: 500 } }], count: 1 }),
+    };
+    let fail = false;
+    global.fetch = vi.fn((url) => {
+      if (url === '/api/firmware') return Promise.resolve({ ok: false });
+      return fail ? Promise.reject(new TypeError('fetch failed')) : Promise.resolve(good);
+    });
+    const { result } = renderHook(() => useBitaxe());
+    await waitFor(() => expect(result.current.lastOk).not.toBeNull());
+    const okAt = result.current.lastOk;
+
+    fail = true;
+    await act(async () => { result.current.refresh(); });
+    await waitFor(() => expect(result.current.err).toBe(true));
+    expect(result.current.miners).toHaveLength(1);
+    expect(result.current.miners[0].ip).toBe('192.168.1.10');
+    expect(result.current.lastOk).toBe(okAt);
+  });
+
   describe('latestFirmware', () => {
     const route = (firmware) => vi.fn((url) => {
       if (url === '/api/firmware') return firmware();
