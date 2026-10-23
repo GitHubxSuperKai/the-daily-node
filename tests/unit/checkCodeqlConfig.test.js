@@ -410,6 +410,29 @@ describe('check-codeql-config: workflow mutations that unhook the config', () =>
       name: 'a column-0 comment precedes an added input',
       workflow: GOOD_WORKFLOW.replace('          category:', '# note\n          upload: never\n          category:'),
     },
+    // Triggers. Dropping merge_group passes every other assertion: the workflow still
+    // scans, still uploads, and only a merge queue (none today) would notice -- by
+    // hanging on two required checks that never report.
+    {
+      name: 'the merge_group trigger is removed',
+      workflow: GOOD_WORKFLOW.replace(/^ {2}merge_group:\n/m, ''),
+    },
+    {
+      name: 'the merge_group trigger is commented out',
+      workflow: GOOD_WORKFLOW.replace(/^ {2}merge_group:$/m, '  # merge_group:'),
+    },
+    {
+      name: 'the pull_request trigger is removed',
+      workflow: GOOD_WORKFLOW.replace(/^ {2}pull_request:\n {4}branches: \[main\]\n/m, ''),
+    },
+    {
+      name: 'a trigger is added',
+      workflow: GOOD_WORKFLOW.replace(/^ {2}merge_group:$/m, '  merge_group:\n  pull_request_target:'),
+    },
+    {
+      name: 'the triggers are rewritten in flow style',
+      workflow: GOOD_WORKFLOW.replace(/^on:\n[\s\S]*?\n(?=permissions:)/m, 'on: [push, pull_request]\n\n'),
+    },
   ];
 
   for (const { name, workflow } of CASES) {
@@ -567,6 +590,14 @@ describe('check-codeql-config: workflow assertions must not be satisfied by pros
   // key set comes back short -- so the added-input cases still go red, for the wrong
   // reason, and the bug stays invisible. What breaks without the skip is the LEGITIMATE
   // comment: the guard rejects a workflow that is entirely fine.
+  it('accepts quoted trigger keys and comments inside the on: block', () => {
+    const workflow = GOOD_WORKFLOW
+      .replace(/^on:$/m, '"on":')
+      .replace(/^ {2}merge_group:$/m, '# queue\n  "merge_group": # required checks');
+    expect(workflow).not.toEqual(GOOD_WORKFLOW);
+    expect(check(GOOD_CONFIG, workflow)).toEqual([]);
+  });
+
   it('accepts a comment at column 0 inside a with: block', () => {
     const workflow = GOOD_WORKFLOW.replace('          queries:', '# why these queries\n          queries:');
     expect(workflow).not.toEqual(GOOD_WORKFLOW);

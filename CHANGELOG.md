@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `codeql.yml` now also runs on `merge_group`, closing the gap the `build.yml` entry under 1.5.0 left open. There is no merge queue today, but both `Analyze` jobs are required checks, and a queue waits forever on a required check that never reports for its event. `scripts/check-codeql-config.cjs` now pins the workflow's complete ordered trigger set (`push`, `pull_request`, `schedule`, `workflow_dispatch`, `merge_group`), so removing, commenting out or adding a trigger fails the build until `EXPECTED_TRIGGERS` is edited too; six new cases in `tests/unit/checkCodeqlConfig.test.js` cover it.
+
 ## [1.7.0] — 2026-10-20
 
 ### Added

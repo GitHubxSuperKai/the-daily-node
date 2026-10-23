@@ -15,10 +15,10 @@
 //      author imagined -- an earlier denylist elsewhere in this repo rejected the
 //      obvious cases and sailed straight past `^src/`, `/^.*/` and `/\.md$/`, each of
 //      which re-blinds an entire tree just as completely. ALLOWED_TOP_LEVEL_KEYS,
-//      PATHS_IGNORE_ALLOWED, EXPECTED_USES, EXPECTED_MATRIX_KEYS and the per-step
-//      EXPECTED_STEP_INPUTS are each compared with deepStrictEqual, so ANY edit --
-//      widening, narrowing, reordering, or adding something nobody here anticipated --
-//      fails until this file is edited too. That forced edit IS the review gate.
+//      PATHS_IGNORE_ALLOWED, EXPECTED_TRIGGERS, EXPECTED_USES, EXPECTED_MATRIX_KEYS and
+//      the per-step EXPECTED_STEP_INPUTS are each compared with deepStrictEqual, so ANY
+//      edit -- widening, narrowing, reordering, or adding something nobody here
+//      anticipated -- fails until this file is edited too. That forced edit IS the review gate.
 //
 //      This took two review rounds to get right, and the misses are worth recording
 //      because they were all the same mistake at different depths. Round one guarded
@@ -123,6 +123,16 @@ const EXPECTED_LANGUAGES_BINDING = '${{ matrix.language }}';
 // `matrix:` removes one from the expansion while `language:` still names it and the
 // binding still reads it, so that language is silently never scanned again.
 const EXPECTED_MATRIX_KEYS = ['language'];
+
+// The workflow's trigger set: the direct children of `on:`, in order. Every trigger
+// here is load-bearing for a different reason, and dropping any of them leaves the
+// file looking intact. `pull_request` and `merge_group` are the two that feed required
+// checks: without `merge_group`, a merge queue (none today) waits forever on two
+// required Analyze contexts that never report for its event -- it hangs, it does not
+// fail. `push` keeps main's alerts current, and `schedule` catches new queries landing
+// against unchanged code. Pinned as a whole key set so an addition (a
+// `pull_request_target`, say) comes through here too.
+const EXPECTED_TRIGGERS = ['push', 'pull_request', 'schedule', 'workflow_dispatch', 'merge_group'];
 
 // The complete ordered input set of each codeql-action step. Spot-checking
 // config-file/queries/languages left every other input unconstrained, and the
@@ -402,6 +412,36 @@ function checkCodeqlConfig({ configText, workflowText }) {
       );
     }
   };
+
+  // Direct children only: `branches:` under `push:` and `- cron:` under `schedule:`
+  // are not triggers. The header is anchored at column 0, so a nested `on:` cannot
+  // stand in for it, and flow style (`on: [push]`) finds no header and reports null.
+  // A line at the child indent this cannot read comes back as a sentinel, as above.
+  const triggerKeys = (() => {
+    const lines = wf.split('\n');
+    const i = lines.findIndex(l => /^['"]?on['"]?\s*:\s*(?:#.*)?$/.test(l));
+    if (i === -1) return null;
+    const keys = [];
+    let childIndent = null;
+    for (let j = i + 1; j < lines.length; j++) {
+      const line = lines[j];
+      if (line.trim() === '' || /^\s*#/.test(line)) continue;
+      const lead = line.match(/^\s*/)[0].length;
+      if (lead === 0) break;
+      if (childIndent === null) childIndent = lead;
+      if (lead > childIndent) continue;
+      const kv = line.match(/^\s*(?:(['"])([^'"]+)\1|([A-Za-z0-9_-]+))\s*:\s*(?:#.*)?$/);
+      keys.push(kv ? (kv[2] || kv[3]) : `<unreadable: ${line.trim()}>`);
+    }
+    return keys;
+  })();
+  if (!deepEqual(triggerKeys, EXPECTED_TRIGGERS)) {
+    problems.push(
+      `${WORKFLOW_REL} triggers on ${JSON.stringify(triggerKeys)}, expected exactly ${JSON.stringify(EXPECTED_TRIGGERS)}.`,
+      '  Without merge_group a merge queue waits forever on the two required Analyze checks; without',
+      '  pull_request they never report on PRs. If the change is deliberate, update EXPECTED_TRIGGERS too.',
+    );
+  }
 
   pinOne('config-file', EXPECTED_CONFIG_FILE,
     `Without it CodeQL ignores ${CONFIG_REL} entirely and every assertion above guards a dead file.`);

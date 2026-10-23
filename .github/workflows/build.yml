@@ -7,8 +7,8 @@ on:
   # No merge queue today (branch protection's `strict: true` serialises merges
   # instead). `build` and `secrets` are REQUIRED contexts, though, so if a queue is
   # ever enabled a workflow without this trigger never reports on the queue's
-  # merge_group event and the queue waits on it forever. codeql.yml's two required
-  # Analyze jobs have the same gap, so it needs this trigger too before a queue is enabled.
+  # merge_group event and the queue waits on it forever. codeql.yml carries it too, for
+  # its two required Analyze jobs.
   merge_group:
 
 jobs:
