@@ -1,8 +1,8 @@
 import React from 'react';
 globalThis.React = React;
 
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { ThemeCtx, LIGHT } from '../../../src/theme.js';
 import { NewsPanel } from '../../../src/components/mobile/NewsPanel.jsx';
 
@@ -70,5 +70,56 @@ describe('NewsPanel — lead story', () => {
     wrap(<NewsPanel rss={rssLong} />);
     const truncated = screen.getByText('A'.repeat(160) + '…');
     expect(truncated).toBeDefined();
+  });
+});
+
+describe('NewsPanel — empty states', () => {
+  it('loaded with no headlines and no lead: "No Bitcoin headlines right now"', () => {
+    wrap(<NewsPanel rss={{ leadStory: null, items: [], err: null, lastOk: 1 }} />);
+    expect(screen.getByText('No Bitcoin headlines right now')).toBeDefined();
+    expect(screen.queryByText('No more headlines right now')).toBeNull();
+  });
+
+  it('loaded with no headlines but a lead shown: "No more headlines right now"', () => {
+    wrap(<NewsPanel rss={{ leadStory: leadNoImage, items: [], err: null, lastOk: 1 }} />);
+    expect(screen.getByText('No more headlines right now')).toBeDefined();
+    expect(screen.queryByText('No Bitcoin headlines right now')).toBeNull();
+  });
+
+  it('not loaded yet: loading copy, neither empty state', () => {
+    wrap(<NewsPanel rss={{ leadStory: null, items: [], err: null, lastOk: null }} />);
+    expect(screen.getByText('Loading…')).toBeDefined();
+    expect(screen.queryByText(/headlines right now/)).toBeNull();
+  });
+
+  it('a feed error wins over the empty states', () => {
+    wrap(<NewsPanel rss={{ leadStory: null, items: [], err: true, lastOk: 1 }} />);
+    expect(screen.getByText('Feed unavailable')).toBeDefined();
+    expect(screen.queryByText(/headlines right now/)).toBeNull();
+  });
+});
+
+describe('NewsPanel — lead image fallback', () => {
+  it('an image load error calls skipLead with the failing image', () => {
+    const skipLead = vi.fn();
+    const { container } = wrap(<NewsPanel rss={{ ...rssWithImage, skipLead }} />);
+    fireEvent.error(container.querySelector('img'));
+    expect(skipLead).toHaveBeenCalledTimes(1);
+    expect(skipLead).toHaveBeenCalledWith('https://example.com/image.jpg');
+  });
+
+  it('an image load error without skipLead does not throw', () => {
+    const { container } = wrap(<NewsPanel rss={rssWithImage} />);
+    // React reports a throwing event handler on window, not to the caller, so
+    // .not.toThrow() alone would pass vacuously.
+    const errors = [];
+    const onWinError = (e) => { errors.push(e.error); e.preventDefault(); };
+    window.addEventListener('error', onWinError);
+    try {
+      fireEvent.error(container.querySelector('img'));
+    } finally {
+      window.removeEventListener('error', onWinError);
+    }
+    expect(errors).toEqual([]);
   });
 });

@@ -427,3 +427,47 @@ describe('ProofOfRead — date tokens', () => {
     expect(span.style.whiteSpace).toBe('nowrap');
   });
 });
+
+describe('MarketsColumn — no lead and lead-image fallback', () => {
+  const LEAD = { hed: 'Lead headline', topic: 'BITCOIN', src: 'CoinDesk', t: '1h', link: 'https://example.com/lead', img: 'https://example.com/lead.jpg', snippet: '' };
+
+  it('loaded with no lead: "No lead story right now"', () => {
+    mountRange({ rss: { leadStory: null, err: null, lastOk: 1 } });
+    expect(screen.getByText('No lead story right now')).toBeDefined();
+  });
+
+  it('not loaded yet: fetching copy, not the empty state', () => {
+    mountRange({ rss: { leadStory: null, err: null, lastOk: null } });
+    expect(screen.getByText('Fetching headlines…')).toBeDefined();
+    expect(screen.queryByText('No lead story right now')).toBeNull();
+  });
+
+  it('a feed error wins over the empty state', () => {
+    mountRange({ rss: { leadStory: null, err: true, lastOk: 1 } });
+    expect(screen.getByText('All feeds unavailable')).toBeDefined();
+    expect(screen.queryByText('No lead story right now')).toBeNull();
+  });
+
+  it('a lead image load error calls skipLead with the failing image', () => {
+    const skipLead = vi.fn();
+    const { container } = mountRange({ rss: { leadStory: LEAD, err: null, lastOk: 1, skipLead } });
+    fireEvent.error(container.querySelector('img'));
+    expect(skipLead).toHaveBeenCalledTimes(1);
+    expect(skipLead).toHaveBeenCalledWith('https://example.com/lead.jpg');
+  });
+
+  it('a lead image load error without skipLead does not throw', () => {
+    const { container } = mountRange({ rss: { leadStory: LEAD, err: null, lastOk: 1 } });
+    // React reports a throwing event handler on window, not to the caller, so
+    // .not.toThrow() alone would pass vacuously.
+    const errors = [];
+    const onWinError = (e) => { errors.push(e.error); e.preventDefault(); };
+    window.addEventListener('error', onWinError);
+    try {
+      fireEvent.error(container.querySelector('img'));
+    } finally {
+      window.removeEventListener('error', onWinError);
+    }
+    expect(errors).toEqual([]);
+  });
+});
