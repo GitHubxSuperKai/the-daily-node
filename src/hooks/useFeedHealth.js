@@ -1,6 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 
 /**
+ * Builds the feed list App hands to useFeedHealth. Exported so tests use the
+ * same list instead of a hand copy. useChain reports content staleness as
+ * `stale`; useFeedHealth reads `contentStale`.
+ */
+export function feedHealthInputs({ btc, chain, weather, rss, bitaxe }) {
+  return [btc, { ...chain, contentStale: chain.stale }, weather, rss, bitaxe];
+}
+
+/**
  * useFeedHealth Hook
  * Monitors health of all feeds (loading, live, degraded, offline)
  *
