@@ -88,6 +88,11 @@ export function useRSS() {
 
     if (results.some(r => r.status === 'fulfilled')) {
       // First success after a total failure: the outage likely failed the images too.
+      // This only sees outages that fail the feed fetches themselves. Behind /api/rss,
+      // bitaxe_api.py serves its cached copy with a 200 when the upstream is down, so an
+      // internet-only outage there shows up as successful fetches plus failing images,
+      // and nothing here clears them (the 'online' listener below doesn't fire either,
+      // since the panel's own connection stayed up).
       if (hadErrRef.current) clearFailedImgs();
       hadErrRef.current = false;
       setPool(all);

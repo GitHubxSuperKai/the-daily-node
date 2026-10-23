@@ -240,6 +240,25 @@ describe('useRSS failed lead images after a network blip', () => {
     expect(result.current.leadStory).not.toBeNull();
   });
 
+  it('clears once per outage: a later success with no outage keeps skipping', async () => {
+    const { result } = await mountLoaded();
+    failEveryLead(result);
+    global.fetch = vi.fn().mockRejectedValue(new TypeError('network'));
+    await act(async () => { result.current.refresh(); });
+    await waitFor(() => expect(result.current.err).toBe(true));
+    global.fetch = up();
+    await act(async () => { result.current.refresh(); });
+    await waitFor(() => expect(result.current.leadStory).not.toBeNull());
+
+    // Recovered. Images fail again with no outage this time: they stay skipped.
+    failEveryLead(result);
+    const before = global.fetch.mock.calls.length;
+    await act(async () => { result.current.refresh(); });
+    await waitFor(() => expect(global.fetch.mock.calls.length).toBeGreaterThan(before));
+    await act(async () => {});
+    expect(result.current.leadStory).toBeNull();
+  });
+
   it('retries failed lead images when the browser comes back online', async () => {
     const { result } = await mountLoaded();
     failEveryLead(result);
