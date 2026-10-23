@@ -235,8 +235,10 @@ REQUEST_TIMEOUT = 30
 # the file and the in-memory BITAXE_IPS/CONFIGURED must end up from the same request.
 _setup_lock = threading.Lock()
 
-# /api/rss cache: feed key -> (time.monotonic() of the last attempt, body or None).
-# None marks a failed fetch with no earlier copy; a failed refetch keeps the old body.
+# /api/rss cache: feed key -> (time.monotonic() of the last attempt, body or None, stale).
+# None marks a failed fetch with no earlier copy; a failed refetch keeps the old body
+# and sets stale, which is sent as X-Feed-Stale: 1 until a refetch succeeds (the
+# dashboard reads it to tell an upstream outage from a fresh 200).
 # Either way the attempt is stamped, so a feed is tried at most once per TTL.
 # No lock: each dict read and write is atomic. Two requests that miss the same key
 # at once both fetch it (one extra fetch), and a failing fetch re-reads the entry
@@ -615,7 +617,7 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
         target = self.RSS_FEEDS[key]
         cached = _rss_cache.get(key)
         if cached and time.monotonic() - cached[0] < RSS_CACHE_TTL:
-            body = cached[1]
+            _, body, stale = cached
             if body is None:
                 self._json(502, {'error': 'feed fetch failed recently; not retried yet'})
                 return
@@ -627,16 +629,17 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
                 # Re-read: another thread may have cached a good copy while this fetch
                 # was failing, and the entry read before the fetch must not replace it.
                 current = _rss_cache.get(key)
-                stale = current[1] if current else None
+                body = current[1] if current else None
                 # Stamp the failure either way: retrying a hung upstream on every poll would
                 # hold a request for the full fetch deadline each time.
-                _rss_cache[key] = (time.monotonic(), stale)
-                if stale is None:
+                _rss_cache[key] = (time.monotonic(), body, body is not None)
+                if body is None:
                     self._json(502, {'error': error})
                     return
-                body = stale
+                stale = True
             else:
-                _rss_cache[key] = (time.monotonic(), body)
+                stale = False
+                _rss_cache[key] = (time.monotonic(), body, False)
         self.send_response(200)
         # Third-party content on the dashboard's own origin: serve it so it can never
         # render as a document (an XHTML <script> in a feed opened directly would run
@@ -645,6 +648,8 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
         self.send_header('X-Content-Type-Options', 'nosniff')
         self.send_header('Content-Security-Policy', "default-src 'none'; sandbox")
         self.send_header('Content-Length', str(len(body)))
+        if stale:
+            self.send_header('X-Feed-Stale', '1')
         self._cors()
         self.end_headers()
         self.wfile.write(body)

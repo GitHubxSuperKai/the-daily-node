@@ -10,10 +10,12 @@ import { isBitcoinRelevant, isPodcast, selectNews, pubTime } from '../utils/news
 const PER_FEED_CAP = 10;
 
 // Same-origin proxy in bitaxe_api.py: returns the feed's raw XML for a known key.
+// X-Feed-Stale: 1 means the upstream fetch failed and this is the proxy's cached copy.
 async function fetchViaProxy(key) {
   const r = await fetch(`/api/rss?feed=${encodeURIComponent(key)}`, { signal: AbortSignal.timeout(CONFIG.FETCH_TIMEOUT) });
   if (!r.ok) throw new Error('rss-proxy');
-  return parseFeedXml(await r.text());
+  const stale = r.headers.get('X-Feed-Stale') === '1';
+  return { ...parseFeedXml(await r.text()), stale };
 }
 
 // rss2json gives pubDate as "YYYY-MM-DD HH:MM:SS" in UTC with no zone, which
@@ -41,7 +43,8 @@ export function useRSS() {
   const [failedImgs, setFailedImgs] = useState(() => new Set());
   const [err, setErr] = useState(false);
   const [lastOk, setLastOk] = useState(null);
-  // Whether the last fetch failed outright, read by the next one (fetchRSS is stable).
+  // Whether the last fetch got nothing fresh (every feed failed, or the proxy served only
+  // stale copies), read by the next one (fetchRSS is stable).
   const hadErrRef = useRef(false);
 
   // A network blip fails every lead image at once, so forget the failures when the
@@ -64,7 +67,7 @@ export function useRSS() {
         }
         const known = RSS_FEED_MAP.find(f => f.key === feed.key);
         const src = (known && known.label) || j.title || new URL(feed.url).hostname;
-        return j.items.map(it => {
+        const items = j.items.map(it => {
           const enclosureType = (it.enclosure && it.enclosure.type) || '';
           const item = {
             feedKey: feed.key,
@@ -85,24 +88,26 @@ export function useRSS() {
           item.topic = isPodcast(item) ? 'PODCASTS' : classifyTopic(item.hed);
           return item;
         }).filter(isBitcoinRelevant).slice(0, PER_FEED_CAP);
+        return { items, stale: !!j.stale };
       })
     );
 
     const all = results
       .filter(r => r.status === 'fulfilled')
-      .flatMap(r => r.value)
+      .flatMap(r => r.value.items)
       // Undated items sort last.
       .sort((a, b) => (pubTime(b) ?? -Infinity) - (pubTime(a) ?? -Infinity));
 
+    // Behind /api/rss an internet-only outage still answers 200 with the proxy's cached
+    // copy (flagged stale), and the 'online' listener below doesn't fire since the panel's
+    // own connection stayed up. So a round with no fresh feed counts as an outage here,
+    // though it still shows the cached stories and no error.
+    const fresh = results.some(r => r.status === 'fulfilled' && !r.value.stale);
+
     if (results.some(r => r.status === 'fulfilled')) {
-      // First success after a total failure: the outage likely failed the images too.
-      // This only sees outages that fail the feed fetches themselves. Behind /api/rss,
-      // bitaxe_api.py serves its cached copy with a 200 when the upstream is down, so an
-      // internet-only outage there shows up as successful fetches plus failing images,
-      // and nothing here clears them (the 'online' listener below doesn't fire either,
-      // since the panel's own connection stayed up).
-      if (hadErrRef.current) clearFailedImgs();
-      hadErrRef.current = false;
+      // First fresh fetch after an outage: the outage likely failed the images too.
+      if (fresh && hadErrRef.current) clearFailedImgs();
+      hadErrRef.current = !fresh;
       setPool(all);
       setErr(false);
       setLastOk(Date.now());
