@@ -44,7 +44,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
     { id: 'weather', label: 'Weather', state: sourceFreshness({ hasData: !!weather.data, err: weather.err, lastOk: weather.lastOk, interval: weather.interval }, freshNow) },
     { id: 'rss',     label: 'RSS',     state: sourceFreshness({ hasData: rss.items && rss.items.length > 0, err: rss.err, lastOk: rss.lastOk, interval: rss.interval }, freshNow) },
   ];
-  const dotColor = (state) => (state === 'fresh' ? T.green : state === 'stale' ? T.orange : T.red);
+  const dotColor = (state) => (state === 'fresh' ? T.green : state === 'stale' ? T.orange : state === 'pending' ? T.ink4 : T.red);
 
   return (
     <div style={{
