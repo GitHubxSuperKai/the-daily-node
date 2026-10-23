@@ -1,9 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { RSS_FEED_MAP } from '../../src/config.js';
 
 const CONFIG_FEED_URL = key => RSS_FEED_MAP.find(f => f.key === key).url;
 import { useRSS } from '../../src/hooks/useRSS.js';
+import { pubTime } from '../../src/utils/newsSelect.js';
 
 const feedResp = (count, prefix = 'a') => ({
   ok: true,
@@ -201,5 +202,62 @@ describe('useRSS', () => {
     const { result } = renderHook(() => useRSS());
     await waitFor(() => expect(result.current.items.length).toBe(3));
     expect(result.current.items.map(i => i.hed)).toEqual(['Bitcoin story 0', 'Bitcoin story 1', 'Bitcoin story 2']);
+  });
+
+  describe('useRSS pubDate zones', () => {
+    // rss2json returns pubDate as "YYYY-MM-DD HH:MM:SS" with no zone; the value is UTC.
+    // The bug only shows off UTC, so pin a zone with a non-zero offset.
+    const UTC_MS = Date.UTC(2026, 9, 23, 12, 0, 0);
+    const FEED = 'newsBitcoin';
+    let prevTZ;
+
+    beforeAll(() => {
+      prevTZ = process.env.TZ;
+      process.env.TZ = 'America/Los_Angeles';
+    });
+    afterAll(() => {
+      if (prevTZ === undefined) delete process.env.TZ;
+      else process.env.TZ = prevTZ;
+    });
+
+    const story = pubDate => ({ title: 'Bitcoin story', link: 'https://example.com/1', pubDate, categories: [], description: '' });
+
+    // /api/rss answers with raw XML for FEED; other feeds are empty.
+    const viaProxy = pubDate => vi.fn().mockImplementation(async (url) => {
+      const u = new URL(String(url), 'http://localhost');
+      const items = u.searchParams.get('feed') === FEED
+        ? `<item><title>Bitcoin story</title><link>https://example.com/1</link><pubDate>${pubDate}</pubDate></item>`
+        : '';
+      return { ok: true, text: async () => `<rss version="2.0"><channel><title>x</title>${items}</channel></rss>` };
+    });
+
+    async function onlyItem() {
+      const { result } = renderHook(() => useRSS());
+      await waitFor(() => expect(result.current.items.length).toBe(1));
+      return result.current.items[0];
+    }
+
+    it('runs in a zone with a non-zero UTC offset (else these tests prove nothing)', () => {
+      expect(new Date(UTC_MS).getTimezoneOffset()).not.toBe(0);
+    });
+
+    it('reads rss2json\'s zone-less "YYYY-MM-DD HH:MM:SS" pubDate as UTC', async () => {
+      global.fetch = onlyFeed(FEED, [story('2026-10-23 12:00:00')]);
+      expect(pubTime(await onlyItem())).toBe(UTC_MS);
+    });
+
+    it('leaves an already-zoned rss2json pubDate untouched', async () => {
+      global.fetch = onlyFeed(FEED, [story('2026-10-23T05:00:00-07:00')]);
+      const item = await onlyItem();
+      expect(item.pubDate).toBe('2026-10-23T05:00:00-07:00');
+      expect(pubTime(item)).toBe(UTC_MS);
+    });
+
+    it('leaves the /api/rss path\'s RFC 822 pubDate untouched', async () => {
+      global.fetch = viaProxy('Fri, 23 Oct 2026 08:00:00 -0400');
+      const item = await onlyItem();
+      expect(item.pubDate).toBe('Fri, 23 Oct 2026 08:00:00 -0400');
+      expect(pubTime(item)).toBe(UTC_MS);
+    });
   });
 });
