@@ -8,6 +8,7 @@ import {
   fmtBlockTime,
   calcSoloOdds,
 } from '../utils/formatting.js';
+import { StaleMark } from './StaleMark.jsx';
 
 // Edge fade for the scrolling track. An invalid value here drops the whole mask
 // silently, so check the computed mask-image after changing it.
@@ -49,13 +50,14 @@ export function DesktopTicker({ btc: _btc, chain, bitaxe, feedHealth }) {
     ['CLR', blocksToClr != null ? `${blocksToClr} blk` : '—', 'to clear', blocksToClrCol],
     ['SUPPLY', chain.data ? chain.data.circulating : '—', '', T.ink3],
     ['HALVING', chain.data?.nextHalvingDate || '—', halvingBlocksLeft !== '—' ? `${halvingBlocksLeft} blk` : '', T.ink3],
-    ['FLEET', onlineCount > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s` : bitaxe.err ? 'offline' : '…', onlineCount > 0 ? `${combinedEff} J/TH` : '', T.ink3],
+    ['FLEET', onlineCount > 0 ? `${totalHashrateTHS.toFixed(2)} TH/s` : bitaxe.err ? 'offline' : '…', onlineCount > 0 ? `${combinedEff} J/TH` : '', T.ink3, <StaleMark bitaxe={bitaxe} />],
     ['SOLO', `1:${soloOdds ? fmtNum(soloOdds.oddsPerDay) : '—'}/d`, etaStr, T.ink3],
   ];
 
-  const renderItem = ([k, v, s, sc], pfx) => (
+  const renderItem = ([k, v, s, sc, mark], pfx) => (
     <span key={pfx} style={{ display: 'inline-flex', alignItems: 'baseline', gap: u(5), paddingRight: u(36), flexShrink: 0 }}>
       <span style={{ color: T.ink3, letterSpacing: u(1) }}>{k}</span>
+      {mark}
       <b style={{ fontWeight: 600, color: T.ink }}>{v}</b>
       {s && <span style={{ color: sc }}>{s}</span>}
     </span>

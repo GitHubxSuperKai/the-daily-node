@@ -4,6 +4,7 @@ import { u } from '../utils/scale.js';
 import { calcSoloOdds } from '../utils/formatting';
 import { MinerRow, fmtPower } from './MinerRow.jsx';
 import { FleetSummary } from './FleetSummary.jsx';
+import { StaleMark } from './StaleMark.jsx';
 
 function Miners({ bitaxe, chain }) {
   const T = useT();
@@ -131,7 +132,7 @@ function Miners({ bitaxe, chain }) {
           Field Report
         </span>
         <span style={{ fontFamily: T.body, fontSize: u(10), fontStyle: 'italic', color: T.ink3, whiteSpace: 'nowrap' }}>
-          {bitaxe.fetchFailed && <span style={{ color: T.orange }}>stale · </span>}
+          <StaleMark bitaxe={bitaxe} />
           {onlineCount}/{minerCount} active
         </span>
       </div>
