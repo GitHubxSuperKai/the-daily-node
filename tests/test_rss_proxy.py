@@ -22,6 +22,8 @@ import bitaxe_api  # noqa: E402
 # serve_forever's default 0.5s poll is what shutdown() waits out, once per server.
 POLL_INTERVAL = 0.05
 
+_hits_lock = threading.Lock()
+
 FEED_XML = b'<?xml version="1.0"?><rss><channel><title>Stub</title></channel></rss>'
 
 
@@ -32,9 +34,18 @@ class _StubUpstream(BaseHTTPRequestHandler):
     location = None
     trickle = False
     hits = 0
+    # Headers of the last GET, as the upstream actually received them.
+    received_headers = None
+    # Optional callable(hit_number), run before replying; lets a test hold replies.
+    gate = None
 
     def do_GET(self):
-        type(self).hits += 1
+        with _hits_lock:  # the stub is threaded: two concurrent GETs need distinct numbers
+            type(self).hits += 1
+            hit = type(self).hits
+        type(self).received_headers = self.headers
+        if self.gate:
+            self.gate(hit)
         if self.trickle:
             # One byte every 0.2s against a large Content-Length: each read returns well
             # inside any per-read socket timeout, so only a deadline across reads can stop it.
@@ -69,10 +80,12 @@ class _StubUpstream(BaseHTTPRequestHandler):
 
 
 class RssProxyTestBase(unittest.TestCase):
+    proxy_server = HTTPServer
+
     @classmethod
     def setUpClass(cls):
         bitaxe_api.BitaxeAPIHandler.ALLOWED_ORIGINS = []
-        cls.proxy = HTTPServer(('127.0.0.1', 0), bitaxe_api.BitaxeAPIHandler)
+        cls.proxy = cls.proxy_server(('127.0.0.1', 0), bitaxe_api.BitaxeAPIHandler)
         # Threading, so a trickling response can't hold the stub for the next test.
         cls.upstream = ThreadingHTTPServer(('127.0.0.1', 0), _StubUpstream)
         cls.stub_url = f'http://127.0.0.1:{cls.upstream.server_address[1]}/feed'
@@ -98,6 +111,8 @@ class RssProxyTestBase(unittest.TestCase):
         _StubUpstream.location = None
         _StubUpstream.trickle = False
         _StubUpstream.hits = 0
+        _StubUpstream.received_headers = None
+        _StubUpstream.gate = None
 
     def _expire_cache(self):
         fetched_at, *rest = bitaxe_api._rss_cache['stub']
@@ -140,6 +155,16 @@ class HappyPathTest(RssProxyTestBase):
         self._expire_cache()
         self._get('/api/rss?feed=stub')
         self.assertEqual(_StubUpstream.hits, 2)
+
+    def test_upstream_receives_the_proxy_user_agent_and_no_client_headers(self):
+        # Asserted on the request the upstream got, not on the Request the proxy builds:
+        # some feeds refuse urllib's default "Python-urllib/3.x" agent.
+        self._get('/api/rss?feed=stub', headers={'Cookie': 'session=secret', 'User-Agent': 'browser/1.0'})
+        self.assertEqual(_StubUpstream.hits, 1)
+        received = _StubUpstream.received_headers
+        self.assertEqual(received['User-Agent'], 'DailyNode/1.0')
+        # Nothing from the dashboard's own request is forwarded to the third party.
+        self.assertIsNone(received['Cookie'])
 
 
 class RejectionTest(RssProxyTestBase):
@@ -270,6 +295,61 @@ class UpstreamFailureTest(RssProxyTestBase):
     def test_oversized_body_rejected(self):
         _StubUpstream.body = b'x' * bitaxe_api.RSS_SIZE_LIMIT
         self._assert_502()
+
+
+class RepeatedFailureTest(RssProxyTestBase):
+    """Two failed refetches against one expired cached copy."""
+
+    # Threaded like production (main() serves on ThreadingHTTPServer), so two requests
+    # can be in flight against the same expired entry at once.
+    proxy_server = ThreadingHTTPServer
+
+    def _assert_stale_copy(self, status, headers, body):
+        self.assertEqual((status, body), (200, FEED_XML))
+        self.assertEqual(headers['X-Feed-Stale'], '1')
+
+    def test_copy_survives_two_failed_refetches_in_a_row(self):
+        self._get('/api/rss?feed=stub')
+        _StubUpstream.status = 500
+        for _ in range(2):
+            self._expire_cache()
+            self._assert_stale_copy(*self._get('/api/rss?feed=stub'))
+        self.assertEqual(_StubUpstream.hits, 3)
+        self.assertEqual(bitaxe_api._rss_cache['stub'][1:], (FEED_XML, True))
+
+    def test_two_concurrent_failures_both_serve_the_marked_copy(self):
+        # Both requests miss the same expired entry and fetch. The gate holds the
+        # second upstream reply until the first failure is stamped, so the second
+        # request re-reads an entry that is no longer the one it started with: it
+        # must still keep the body and still mark it stale.
+        self._get('/api/rss?feed=stub')
+        self._expire_cache()
+        expired = bitaxe_api._rss_cache['stub']
+        _StubUpstream.status = 500
+        both_in_flight = threading.Barrier(2, timeout=5)
+
+        def gate(hit):
+            both_in_flight.wait()
+            if hit == 3:
+                deadline = time.monotonic() + 5
+                while bitaxe_api._rss_cache['stub'] is expired and time.monotonic() < deadline:
+                    time.sleep(0.01)
+
+        _StubUpstream.gate = staticmethod(gate)
+        results = [None, None]
+
+        def fetch(i):
+            results[i] = self._get('/api/rss?feed=stub')
+
+        threads = [threading.Thread(target=fetch, args=(i,)) for i in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=10)
+        self.assertEqual(_StubUpstream.hits, 3, 'both requests must have refetched')
+        for result in results:
+            self._assert_stale_copy(*result)
+        self.assertEqual(bitaxe_api._rss_cache['stub'][1:], (FEED_XML, True))
 
 
 class FeedMapContractTest(unittest.TestCase):
