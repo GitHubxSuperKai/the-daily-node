@@ -776,6 +776,8 @@ describe('check-codeql-config: the on: block reader', () => {
     ['a duplicate trigger', w => w.replace(/^ {2}merge_group:$/m, '  merge_group:\n  push:')],
     ['a tab in the block', w => w.replace(/^( {2}push:\n) {4}(branches:)/m, '$1\t$2')],
     ['a nested block sequence', w => w.replace(/^( {2}pull_request:\n {4}branches:) \[main\]$/m, '$1\n      - - main')],
+    // The reader takes one on: block; a second one later in the file must not be ignored.
+    ['a second on: block', w => `${w}\non:\n  issues:\n`],
   ];
   for (const [name, mutate] of REFUSE) {
     it(`fails loudly on: ${name}`, () => {

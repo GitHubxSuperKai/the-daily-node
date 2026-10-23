@@ -333,8 +333,14 @@ function readTriggers(text) {
   const all = text.split('\n');
   // Anchored at column 0, so a nested `on:` cannot stand in for it, and flow style
   // (`on: [push]`) finds no header and reports null.
-  const start = all.findIndex(l => /^['"]?on['"]?\s*:\s*(?:#.*)?$/.test(l));
-  if (start === -1) return null;
+  const headers = all.flatMap((l, j) => (/^['"]?on['"]?\s*:\s*(?:#.*)?$/.test(l) ? [j] : []));
+  if (headers.length === 0) return null;
+  // Exactly one, like the workflow checks' pinOne: a second block later in the file would
+  // otherwise be ignored while GitHub (or a lenient parser) reads it.
+  if (headers.length > 1) {
+    throw new YamlShapeError(`lines ${headers.map(j => j + 1).join(', ')}: more than one on: block`);
+  }
+  const start = headers[0];
 
   // Collect the block: everything indented below the header. Comments are skipped
   // BEFORE the outdent test, so a `#` at column 0 cannot end the block early and hide
