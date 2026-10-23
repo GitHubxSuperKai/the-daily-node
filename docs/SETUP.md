@@ -126,6 +126,8 @@ To expose the server to other devices on your LAN (e.g. a wall display), add `--
       - "3002:3002"
     volumes:
       - daily-node-config:/data
+    healthcheck:
+      disable: true   # the image's HEALTHCHECK probes bitaxe_api.py on 3001, which this service doesn't run
     restart: unless-stopped
 ```
 
