@@ -124,18 +124,35 @@ const EXPECTED_LANGUAGES_BINDING = '${{ matrix.language }}';
 // binding still reads it, so that language is silently never scanned again.
 const EXPECTED_MATRIX_KEYS = ['language'];
 
-// The workflow's trigger set: the direct children of `on:`, in order. Every trigger
-// here is load-bearing for a different reason, and dropping any of them leaves the
-// file looking intact. `pull_request` and `merge_group` are the two that feed required
-// checks: without `merge_group`, a merge queue (none today) waits forever on two
-// required Analyze contexts that never report for its event -- it hangs, it does not
-// fail. `push` keeps main's alerts current, and `schedule` catches new queries landing
-// against unchanged code. Pinned as a whole key set so an addition (a
-// `pull_request_target`, say) comes through here too. Only the trigger NAMES are
-// pinned, not the settings nested under them: `pull_request:` with `types: [closed]`
-// or a `branches:` typo passes here and silences the required checks just as surely
-// as deleting the trigger.
-const EXPECTED_TRIGGERS = ['push', 'pull_request', 'schedule', 'workflow_dispatch', 'merge_group'];
+// The workflow's whole `on:` block: every trigger, in order, with everything nested
+// under it. Every trigger here is load-bearing for a different reason, and dropping any
+// of them leaves the file looking intact. `pull_request` and `merge_group` are the two
+// that feed required checks: without `merge_group`, a merge queue (none today) waits
+// forever on two required Analyze contexts that never report for its event -- it
+// hangs, it does not fail. `push` keeps main's alerts current, and `schedule` catches
+// new queries landing against unchanged code.
+//
+// The settings are pinned as well as the names, because the names alone were the same
+// denylist one level down: `pull_request:` + `types: [closed]`, `paths: [docs/**]` or a
+// `branches: [mian]` typo silences the required checks as surely as deleting the
+// trigger, and `push: branches: [nope]` quietly stops keeping main's alerts current --
+// all with every name intact. Each setting is a complete value, so an ADDED filter
+// (`branches-ignore:`, `paths-ignore:`, `types:`) fails exactly like an edited one.
+//
+// Pairs rather than an object, because deepStrictEqual on an object ignores key order
+// and the trigger order was pinned before this was. Nested mappings ARE objects:
+// `branches:` before or after `types:` means the same thing to GitHub.
+//
+// Read by readTriggers below, which normalises harmless formatting -- comments, quoted
+// keys and values, `[main]` vs a block `- main` -- and refuses every shape it does not
+// model rather than guessing at it.
+const EXPECTED_TRIGGERS = [
+  ['push', { branches: ['main'] }],
+  ['pull_request', { branches: ['main'] }],
+  ['schedule', [{ cron: '0 9 * * 1' }]],
+  ['workflow_dispatch', null],
+  ['merge_group', null],
+];
 
 // The complete ordered input set of each codeql-action step. Spot-checking
 // config-file/queries/languages left every other input unconstrained, and the
@@ -266,6 +283,147 @@ function parseSimpleYaml(text) {
   }
 
   return out;
+}
+
+// ── The workflow's `on:` block ────────────────────────────────────────────────
+//
+// The same posture one level deeper. Handles exactly: nested block mappings, block
+// sequences of scalars or of mappings (`- cron: ...`), `key:` with nothing under it
+// (null), plain and quoted scalars, and ONE flow shape -- a single-line sequence of
+// scalars, `[main]`, because that is how the committed workflow writes its branch
+// filters. That exception is narrow on purpose: each item still goes through
+// parseScalar, so a nested `[`/`{`, an anchor or an alias inside it throws, and a
+// flow MAPPING (`{}`) is refused outright. Everything else throws YamlShapeError.
+
+// A key line: bare or quoted key, the colon, then an optional inline value.
+const BLOCK_KEY = /^(?:(['"])([^'"]+)\1|([A-Za-z0-9_-]+))\s*:(?:\s+(.*))?$/;
+
+function parseInline(raw, lineNo) {
+  // `- - x` is a nested sequence. parseScalar would hand back the string "- x", which
+  // can never match an expectation, but that is a guess at a shape -- refuse it instead.
+  if (/^-(\s|$)/.test(raw)) {
+    throw new YamlShapeError(`line ${lineNo}: nested sequence ${JSON.stringify(raw)} -- not a shape this guard reads.`);
+  }
+  const flow = raw.match(/^\[(.*)\]$/);
+  if (!flow) return parseScalar(raw, lineNo);
+  if (flow[1].trim() === '') return [];
+  return flow[1].split(',').map(item => {
+    if (item.trim() === '') {
+      throw new YamlShapeError(`line ${lineNo}: empty item in flow sequence ${JSON.stringify(raw)}`);
+    }
+    return parseScalar(item.trim(), lineNo);
+  });
+}
+
+// A plain object whose keys are set with defineProperty, so a key spelled `__proto__`
+// becomes an own property rather than replacing the prototype -- and so the result
+// compares equal to an object literal under deepStrictEqual, which checks prototypes.
+function setKey(obj, key, value, lineNo) {
+  if (Object.prototype.hasOwnProperty.call(obj, key)) {
+    throw new YamlShapeError(`line ${lineNo}: duplicate key '${key}'`);
+  }
+  Object.defineProperty(obj, key, { value, enumerable: true, writable: true, configurable: true });
+}
+
+// Returns the `on:` block as ordered [trigger, settings] pairs, null when there is no
+// block-style `on:` header at all, or throws YamlShapeError. Callers report all three.
+function readTriggers(text) {
+  // No \r strip: every body goes through stripInlineComment's trim and the header
+  // regex's \s*, which absorb a CR -- a strip here was written and changed no verdict.
+  const all = text.split('\n');
+  // Anchored at column 0, so a nested `on:` cannot stand in for it, and flow style
+  // (`on: [push]`) finds no header and reports null.
+  const headers = all.flatMap((l, j) => (/^['"]?on['"]?\s*:\s*(?:#.*)?$/.test(l) ? [j] : []));
+  if (headers.length === 0) return null;
+  // Exactly one, like the workflow checks' pinOne: a second block later in the file would
+  // otherwise be ignored while GitHub (or a lenient parser) reads it.
+  if (headers.length > 1) {
+    throw new YamlShapeError(`lines ${headers.map(j => j + 1).join(', ')}: more than one on: block`);
+  }
+  const start = headers[0];
+
+  // Collect the block: everything indented below the header. Comments are skipped
+  // BEFORE the outdent test, so a `#` at column 0 cannot end the block early and hide
+  // what follows -- the lesson blockKeys learned the hard way.
+  const lines = [];
+  for (let j = start + 1; j < all.length; j++) {
+    const line = all[j];
+    const lineNo = j + 1;
+    if (line.trim() === '' || /^\s*#/.test(line)) continue;
+    if (line.includes('\t')) {
+      throw new YamlShapeError(`line ${lineNo}: tab character -- YAML forbids tabs for indentation`);
+    }
+    const lead = line.match(/^ */)[0].length;
+    if (lead === 0) break;
+    lines.push({ lead, body: stripInlineComment(line.slice(lead)), lineNo });
+  }
+  if (lines.length === 0) return [];
+
+  // Each level reads only lines at exactly its own indent and returns on the first that
+  // is not, so a line at an indent no level claims ends every level above it and is
+  // left unconsumed -- which the check after the top-level read turns into a throw.
+  // That one check is the whole misplaced-indent defence; a per-node "nothing deeper
+  // follows" check was written too, and neutering it changed no verdict.
+  let i = 0;
+
+  const parseBlock = indent => (/^-(\s|$)/.test(lines[i].body) ? parseSeq(indent) : parseMap(indent));
+
+  function parseValue(rest, indent, lineNo) {
+    i++;
+    if (rest !== undefined && rest !== '') return parseInline(rest, lineNo);
+    if (i < lines.length && lines[i].lead > indent) return parseBlock(lines[i].lead);
+    return null;
+  }
+
+  function parseMap(indent) {
+    const out = {};
+    while (i < lines.length && lines[i].lead === indent) {
+      const { body, lineNo } = lines[i];
+      const kv = body.match(BLOCK_KEY);
+      if (!kv) {
+        throw new YamlShapeError(
+          `line ${lineNo}: cannot read ${JSON.stringify(body)} as a key inside on: -- this guard ` +
+          'models plain block mappings and sequences only (no explicit keys, anchors, or flow mappings).',
+        );
+      }
+      const key = kv[2] || kv[3];
+      setKey(out, key, parseValue(kv[4], indent, lineNo), lineNo);
+    }
+    return out;
+  }
+
+  function parseSeq(indent) {
+    const out = [];
+    while (i < lines.length && lines[i].lead === indent && /^-(\s|$)/.test(lines[i].body)) {
+      const { body, lineNo } = lines[i];
+      const item = body.replace(/^-\s*/, '');
+      if (item === '') throw new YamlShapeError(`line ${lineNo}: empty sequence item`);
+      if (BLOCK_KEY.test(item)) {
+        // `- cron: ...` is a mapping whose first key sits where the item text starts.
+        // Re-seat that line at its real column and read the mapping from there, so
+        // continuation keys aligned under it belong to the same item.
+        const col = indent + (body.length - item.length);
+        lines[i] = { lead: col, body: item, lineNo };
+        out.push(parseMap(col));
+      } else {
+        i++;
+        out.push(parseInline(item, lineNo));
+      }
+    }
+    return out;
+  }
+
+  const top = parseBlock(lines[0].lead);
+  if (Array.isArray(top)) {
+    throw new YamlShapeError(`line ${lines[0].lineNo}: on: holds a sequence, expected a mapping of triggers`);
+  }
+  if (i < lines.length) {
+    throw new YamlShapeError(
+      `line ${lines[i].lineNo}: ${JSON.stringify(lines[i].body)} is at an indent this guard cannot place ` +
+      'inside on: -- it will not guess which block it belongs to.',
+    );
+  }
+  return Object.entries(top);
 }
 
 // ── The checks ────────────────────────────────────────────────────────────────
@@ -416,33 +574,27 @@ function checkCodeqlConfig({ configText, workflowText }) {
     }
   };
 
-  // Direct children only: `branches:` under `push:` and `- cron:` under `schedule:`
-  // are not triggers. The header is anchored at column 0, so a nested `on:` cannot
-  // stand in for it, and flow style (`on: [push]`) finds no header and reports null.
-  // A line at the child indent this cannot read comes back as a sentinel, as above.
-  const triggerKeys = (() => {
-    const lines = wf.split('\n');
-    const i = lines.findIndex(l => /^['"]?on['"]?\s*:\s*(?:#.*)?$/.test(l));
-    if (i === -1) return null;
-    const keys = [];
-    let childIndent = null;
-    for (let j = i + 1; j < lines.length; j++) {
-      const line = lines[j];
-      if (line.trim() === '' || /^\s*#/.test(line)) continue;
-      const lead = line.match(/^\s*/)[0].length;
-      if (lead === 0) break;
-      if (childIndent === null) childIndent = lead;
-      if (lead > childIndent) continue;
-      const kv = line.match(/^\s*(?:(['"])([^'"]+)\1|([A-Za-z0-9_-]+))\s*:\s*(?:#.*)?$/);
-      keys.push(kv ? (kv[2] || kv[3]) : `<unreadable: ${line.trim()}>`);
-    }
-    return keys;
-  })();
-  if (!deepEqual(triggerKeys, EXPECTED_TRIGGERS)) {
+  // The whole `on:` block, settings included. A shape readTriggers cannot model is a
+  // reported problem, never a crash and never a pass -- the same conversion the config
+  // half does for parseSimpleYaml.
+  let triggers;
+  try {
+    triggers = readTriggers(wf);
+  } catch (err) {
+    if (!(err instanceof YamlShapeError)) throw err;
+    triggers = undefined;
     problems.push(
-      `${WORKFLOW_REL} triggers on ${JSON.stringify(triggerKeys)}, expected exactly ${JSON.stringify(EXPECTED_TRIGGERS)}.`,
+      `${WORKFLOW_REL} on: block is no longer in a shape this guard can read: ${err.message}`,
+      '  Either restore plain block YAML, or update scripts/check-codeql-config.cjs deliberately.',
+    );
+  }
+  if (triggers !== undefined && !deepEqual(triggers, EXPECTED_TRIGGERS)) {
+    problems.push(
+      `${WORKFLOW_REL} on: is ${JSON.stringify(triggers)},`,
+      `  expected exactly ${JSON.stringify(EXPECTED_TRIGGERS)}.`,
       '  Without merge_group a merge queue waits forever on the two required Analyze checks; without',
-      '  pull_request they never report on PRs. If the change is deliberate, update EXPECTED_TRIGGERS too.',
+      '  pull_request -- or with a types:, paths: or branches: filter that excludes ordinary PRs -- they',
+      '  never report. If the change is deliberate, update EXPECTED_TRIGGERS too.',
     );
   }
 
@@ -587,6 +739,7 @@ module.exports = {
   checkCodeqlConfig,
   checkRepo,
   parseSimpleYaml,
+  readTriggers,
   YamlShapeError,
   PATHS_IGNORE_ALLOWED,
 };
