@@ -99,6 +99,10 @@ class RssProxyTestBase(unittest.TestCase):
         _StubUpstream.trickle = False
         _StubUpstream.hits = 0
 
+    def _expire_cache(self):
+        fetched_at, *rest = bitaxe_api._rss_cache['stub']
+        bitaxe_api._rss_cache['stub'] = (fetched_at - bitaxe_api.RSS_CACHE_TTL - 1, *rest)
+
     def _get(self, path, headers=None):
         url = f'http://127.0.0.1:{self.proxy.server_address[1]}{path}'
         req = urllib.request.Request(url, headers=headers or {})
@@ -133,8 +137,7 @@ class HappyPathTest(RssProxyTestBase):
 
     def test_expired_cache_entry_is_refetched(self):
         self._get('/api/rss?feed=stub')
-        fetched_at, body = bitaxe_api._rss_cache['stub']
-        bitaxe_api._rss_cache['stub'] = (fetched_at - bitaxe_api.RSS_CACHE_TTL - 1, body)
+        self._expire_cache()
         self._get('/api/rss?feed=stub')
         self.assertEqual(_StubUpstream.hits, 2)
 
@@ -189,8 +192,7 @@ class UpstreamFailureTest(RssProxyTestBase):
 
     def test_failed_refetch_serves_the_stale_copy(self):
         self._get('/api/rss?feed=stub')
-        fetched_at, body = bitaxe_api._rss_cache['stub']
-        bitaxe_api._rss_cache['stub'] = (fetched_at - bitaxe_api.RSS_CACHE_TTL - 1, body)
+        self._expire_cache()
         _StubUpstream.status = 500
         status, _, got = self._get('/api/rss?feed=stub')
         self.assertEqual(status, 200)
@@ -201,11 +203,37 @@ class UpstreamFailureTest(RssProxyTestBase):
         self.assertEqual((status, got), (200, FEED_XML))
         self.assertEqual(_StubUpstream.hits, 2)
 
+    def test_fresh_copy_is_not_marked_stale(self):
+        _, headers, _ = self._get('/api/rss?feed=stub')
+        self.assertIsNone(headers['X-Feed-Stale'])
+        # Served again from cache within the TTL: still fresh.
+        _, headers, _ = self._get('/api/rss?feed=stub')
+        self.assertIsNone(headers['X-Feed-Stale'])
+
+    def test_stale_copy_is_marked_until_a_refetch_succeeds(self):
+        # The dashboard reads this to tell an upstream outage (cached copy, 200) from a
+        # fresh fetch, since the panel's own connection stays up through it.
+        self._get('/api/rss?feed=stub')
+        self._expire_cache()
+        _StubUpstream.status = 500
+        status, headers, _ = self._get('/api/rss?feed=stub')
+        self.assertEqual(status, 200)
+        self.assertEqual(headers['X-Feed-Stale'], '1')
+        # Re-served from the re-stamped cache within the TTL: still stale.
+        _, headers, _ = self._get('/api/rss?feed=stub')
+        self.assertEqual(headers['X-Feed-Stale'], '1')
+        self.assertEqual(_StubUpstream.hits, 2)
+        # The upstream recovers: the next refetch is fresh again.
+        self._expire_cache()
+        _StubUpstream.status = 200
+        status, headers, _ = self._get('/api/rss?feed=stub')
+        self.assertEqual(status, 200)
+        self.assertIsNone(headers['X-Feed-Stale'])
+
     def test_cached_failure_is_retried_after_ttl(self):
         _StubUpstream.status = 500
         self._assert_502()
-        fetched_at, _ = bitaxe_api._rss_cache['stub']
-        bitaxe_api._rss_cache['stub'] = (fetched_at - bitaxe_api.RSS_CACHE_TTL - 1, None)
+        self._expire_cache()
         _StubUpstream.status = 200
         status, _, got = self._get('/api/rss?feed=stub')
         self.assertEqual((status, got), (200, FEED_XML))
