@@ -35,8 +35,9 @@ export function useBitaxe() {
       setErr(list.length > 0 && list.every(m => !m.online));
       setLastOk(Date.now());
     } catch {
-      // Transient failure: keep the last good miners and lastOk so the fleet
-      // view degrades to stale instead of blanking.
+      // Transient failure: keep the last good miners and lastOk so the sidebar
+      // and the mobile Miners panel degrade to stale instead of blanking. The
+      // desktop Miners section still shows its no-miners state while err is set.
       setErr(true);
     } finally {
       setLoading(false);
