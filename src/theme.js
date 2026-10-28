@@ -23,7 +23,7 @@ export const LIGHT = {
   rule: 'rgba(26,23,20,1)',
   rule2: 'rgba(26,23,20,0.18)',
   rule3: 'rgba(26,23,20,0.08)',
-  orange: '#c8641a',
+  orange: '#aa5516',
   red: '#9c2a1a',
   green: '#3a6b2e',
 };
@@ -42,7 +42,7 @@ export const DARK = {
   rule2: 'rgba(232,226,214,0.12)',
   rule3: 'rgba(232,226,214,0.06)',
   orange: '#d4743a',
-  red: '#c44040',
+  red: '#cb5757',
   green: '#5a9b4e',
 };
 
