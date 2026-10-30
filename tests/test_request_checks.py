@@ -42,7 +42,8 @@ class TestIsHostAllowed(unittest.TestCase):
         self.assertTrue(is_host_allowed('node.example:3001', ['http://node.example:3000']))
 
     def test_malformed(self):
-        self.assertFalse(is_host_allowed(':3001', DEFAULT_ORIGINS))
+        for host in (':3001', '[', '[::1', 'a]:1'):
+            self.assertFalse(is_host_allowed(host, DEFAULT_ORIGINS), host)
 
 
 class TestRequestChecks(unittest.TestCase):
@@ -91,6 +92,19 @@ class TestRequestChecks(unittest.TestCase):
                 self.assertEqual(status, 403)
                 self.assertEqual(body, b'Forbidden: host not allowed')
                 self.assertIsNone(headers.get('Access-Control-Allow-Origin'))
+
+    def test_malformed_host_refused(self):
+        for host in ('[', '[::1'):
+            with self.subTest(host=host):
+                status, _, body = self._get('/api/setup', {'Host': host})
+                self.assertEqual(status, 403)
+                self.assertEqual(body, b'Forbidden: host not allowed')
+
+    def test_malformed_origin_refused(self):
+        status, _, body = self._get('/api/setup', {
+            'Host': f'127.0.0.1:{self.port}', 'Origin': 'http://['})
+        self.assertEqual(status, 403)
+        self.assertEqual(body, b'Forbidden: malformed origin')
 
     def test_dashboard_hosts_still_served(self):
         for host in (f'127.0.0.1:{self.port}', f'localhost:{self.port}',

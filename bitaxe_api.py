@@ -220,7 +220,10 @@ def is_host_allowed(host_header, allowlist):
     (non-browser tools) is allowed; browsers always send one."""
     if not host_header:
         return True
-    host = urlparse(f'//{host_header}').hostname
+    try:
+        host = urlparse(f'//{host_header}').hostname
+    except ValueError:
+        return False
     if not host:
         return False
     host = host.lower()
@@ -417,7 +420,10 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
                 return self._forbid(b'Forbidden: origin not allowed')
             self._matched_origin = ''
             return True
-        parsed = urlparse(origin)
+        try:
+            parsed = urlparse(origin)
+        except ValueError:
+            return self._forbid(b'Forbidden: malformed origin')
         if not parsed.scheme or not parsed.netloc:
             self.send_response(403)
             self.send_header('Content-Type', 'text/plain')
