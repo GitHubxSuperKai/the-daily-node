@@ -213,6 +213,26 @@ def is_origin_allowed(origin, allowlist):
         return True
     return origin in allowlist
 
+
+def is_host_allowed(host_header, allowlist):
+    """Return True if the request's Host names this server the way the dashboard does:
+    an IP literal, localhost, or the host of an allowlisted origin. A missing Host
+    (non-browser tools) is allowed; browsers always send one."""
+    if not host_header:
+        return True
+    host = urlparse(f'//{host_header}').hostname
+    if not host:
+        return False
+    host = host.lower()
+    try:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
+        pass
+    if host == 'localhost':
+        return True
+    return any((urlparse(o).hostname or '').lower() == host for o in allowlist)
+
 # Mutable runtime list — finalized in __main__ after parsing args/env/config.
 # Setup endpoint mutates this in place when user submits IPs.
 BITAXE_IPS = []
@@ -379,10 +399,22 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
     _setup_page = None
     _dashboard = None
 
+    def _forbid(self, reason):
+        self.send_response(403)
+        self.send_header('Content-Type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(reason)
+        return False
+
     def _check_origin(self):
+        if not is_host_allowed(self.headers.get('Host'), BitaxeAPIHandler.ALLOWED_ORIGINS):
+            return self._forbid(b'Forbidden: host not allowed')
         origin = self.headers.get('Origin') or self.headers.get('Referer')
-        # No Origin header = same-origin fetch or direct tool access — allow.
+        # No Origin header = same-origin fetch or direct tool access — allow, unless the
+        # browser says the request came from another site.
         if not origin:
+            if self.headers.get('Sec-Fetch-Site', '').lower() in ('cross-site', 'same-site'):
+                return self._forbid(b'Forbidden: origin not allowed')
             self._matched_origin = ''
             return True
         parsed = urlparse(origin)
@@ -667,6 +699,8 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
 
     def _cors(self):
         origin = getattr(self, '_matched_origin', '')
+        # The allow-origin value depends on the request's Origin, so caches must key on it.
+        self.send_header('Vary', 'Origin')
         if origin:
             self.send_header('Access-Control-Allow-Origin', origin.replace('\r', '').replace('\n', ''))
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
