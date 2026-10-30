@@ -314,6 +314,7 @@ to cover but does not actually exercise.`,
       'tests/test_rss_proxy.py',
       'tests/test_server_concurrency.py',
       'tests/test_origin_allowlist.py',
+      'tests/test_request_checks.py',
     ],
   },
 ];
