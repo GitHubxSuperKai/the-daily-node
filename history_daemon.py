@@ -259,6 +259,10 @@ def resolve_allowed_origins(cli_origins):
     return origins or DEFAULT_ALLOWED_ORIGINS
 
 
+_SQLITE_INT_MIN = -(2 ** 63)
+_SQLITE_INT_MAX = 2 ** 63 - 1
+
+
 class HistoryHandler(BaseHTTPRequestHandler):
     timeout = REQUEST_TIMEOUT  # applied to the client socket by StreamRequestHandler
     db_path = None
@@ -334,8 +338,22 @@ class HistoryHandler(BaseHTTPRequestHandler):
         metric  = parts[1]
         params  = parse_qs(parsed.query)
         now     = int(time.time())
-        ts_from = int(params.get('from', [now - 86400])[0])
-        ts_to   = int(params.get('to',   [now])[0])
+        try:
+            ts_from = int(params.get('from', [now - 86400])[0])
+            ts_to   = int(params.get('to',   [now])[0])
+            # SQLite binds only signed 64-bit integers; anything wider raises
+            # OverflowError at execute time, which would surface as a 500.
+            if not all(_SQLITE_INT_MIN <= v <= _SQLITE_INT_MAX for v in (ts_from, ts_to)):
+                raise ValueError('out of range')
+        except ValueError:
+            body = json.dumps({'error': "'from' and 'to' must be 64-bit integer unix timestamps"}).encode()
+            self.send_response(400)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(body)))
+            self._send_cors()
+            self.end_headers()
+            self.wfile.write(body)
+            return
         bucket = params.get('bucket', ['min'])[0]
         if bucket not in ('min', 'hour', 'day'):
             bucket = 'min'

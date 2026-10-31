@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `bitaxe_api.py` answers an `Origin` or `Referer` that `urlparse` can't parse (such as an unbalanced `[`) with a `403`. The `ValueError` used to escape the request handler, so the client got no response.
 - `history_daemon.py` closes its SQLite connection when a history query fails. It used to be left for the garbage collector.
+- `history_daemon.py` answers a `from` or `to` query value that is not an integer, or is outside the signed 64-bit range SQLite binds, with a `400` and a JSON `error` body. A non-integer used to raise inside the request handler, so the connection closed with no response, and an out-of-range value got a `500`.
 
 ## [1.7.1] — 2026-10-22
 
