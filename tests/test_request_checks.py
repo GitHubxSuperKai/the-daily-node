@@ -7,7 +7,6 @@ import sys
 import threading
 import unittest
 from http.server import ThreadingHTTPServer
-from urllib.parse import urlparse
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import bitaxe_api  # noqa: E402
@@ -16,15 +15,6 @@ from bitaxe_api import is_host_allowed  # noqa: E402
 POLL_INTERVAL = 0.05
 DEFAULT_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000']
 
-
-def _urlparse_keeps_bracket_junk():
-    try:
-        return urlparse('//[::1]x:3001').hostname is not None
-    except ValueError:
-        return False
-
-
-_URLPARSE_KEEPS_BRACKET_JUNK = _urlparse_keeps_bracket_junk()
 
 READ_PATHS = [
     '/api/setup',
@@ -69,13 +59,24 @@ class TestIsHostAllowed(unittest.TestCase):
                      '[other.example]', '[]:3001'):
             self.assertFalse(is_host_allowed(host, allowlist), host)
 
-    @unittest.skipIf(_URLPARSE_KEEPS_BRACKET_JUNK,
-                     "this Python's urlparse returns '::1' for text around brackets")
     def test_text_around_brackets_refused(self):
-        # is_host_allowed relies on urlparse to reject these; some patch releases
-        # (3.12.0 among them) return '::1' instead, so the result follows the interpreter.
-        for host in ('[::1]x:3001', 'x[::1]:3001'):
+        # Checked before urlparse, whose patch releases differ here (3.12.0 reads '::1').
+        for host in ('[::1]x:3001', 'x[::1]:3001', '[::1]:x', '[::1]:3001x', '[::1]]:3001',
+                     '[[::1]:3001', '[::1]:30:01', 'localhost:3001]'):
             self.assertFalse(is_host_allowed(host, DEFAULT_ORIGINS), host)
+
+    def test_userinfo_path_query_fragment_refused(self):
+        # urlparse would read the host after '@' or before '/', '?' or '#'; the host must
+        # not be read out of userinfo or a path, so these are refused.
+        allowlist = DEFAULT_ORIGINS + ['http://node.example:3000']
+        for host in ('other.example@127.0.0.1:3001', '@localhost', 'node.example@node.example',
+                     '127.0.0.1/x', 'localhost:3001/', '[::1]:3001/x', '127.0.0.1?x',
+                     'localhost#x', 'node.example:3000?', '[::1]#'):
+            self.assertFalse(is_host_allowed(host, allowlist), host)
+
+    def test_bracketed_ipv6_port_forms_allowed(self):
+        for host in ('[::1]:3001', '[::1]', '[::1]:'):
+            self.assertTrue(is_host_allowed(host, []), host)
 
 
 class TestRequestChecks(unittest.TestCase):
@@ -136,7 +137,9 @@ class TestRequestChecks(unittest.TestCase):
                 self.assertIsNone(headers.get('Access-Control-Allow-Origin'))
 
     def test_malformed_host_refused(self):
-        for host in ('[', '[::1'):
+        for host in ('[', '[::1', f'other.example@127.0.0.1:{self.port}',
+                     f'127.0.0.1:{self.port}/x', f'localhost:{self.port}?x',
+                     f'localhost:{self.port}#x', f'[::1]x:{self.port}', f'[::1]:{self.port}x'):
             with self.subTest(host=host):
                 status, _, body = self._get('/api/setup', {'Host': host})
                 self.assertEqual(status, 403)
