@@ -1,7 +1,6 @@
-"""history_daemon applies the same request checks as bitaxe_api's API routes, to every
-route: the Host allowlist (bitaxe_api.is_host_allowed, covered in test_request_checks.py)
-the Referer allowlist when there is no Origin, and the Sec-Fetch-Site check when there
-is neither."""
+"""history_daemon runs the request checks bitaxe_api's _check_origin runs, on every
+route: the Host allowlist (bitaxe_api.is_host_allowed, covered in test_request_checks.py),
+the Origin (or Referer) allowlist, and the Sec-Fetch-Site check when neither is sent."""
 import http.client
 import os
 import shutil
@@ -174,6 +173,48 @@ class TestHistoryDaemonHost(unittest.TestCase):
             'Host': f'127.0.0.1:{self.port}', 'Origin': DASHBOARD,
             'Referer': 'https://other.example/'})
         self.assertEqual(status, 200)
+        status, _, body = self._request('GET', '/history/price', {
+            'Host': f'127.0.0.1:{self.port}', 'Origin': 'https://other.example',
+            'Referer': f'{DASHBOARD}/'})
+        self.assertEqual(status, 403)
+        self.assertEqual(body, b'Forbidden: origin not allowed')
+
+    def test_other_origin_refused(self):
+        for origin in ('https://other.example', 'http://localhost:3000'):  # not in this allowlist
+            for method in ('GET', 'OPTIONS'):
+                with self.subTest(origin=origin, method=method):
+                    status, headers, body = self._request(method, '/history/price', {
+                        'Host': f'127.0.0.1:{self.port}', 'Origin': origin})
+                    self.assertEqual(status, 403)
+                    self.assertEqual(body, b'Forbidden: origin not allowed')
+                    self.assertIsNone(headers.get('Access-Control-Allow-Origin'))
+
+    def test_malformed_origin_refused(self):
+        for origin in ('null', 'http://[', 'http://'):
+            with self.subTest(origin=origin):
+                status, _, body = self._request('GET', '/history/price', {
+                    'Host': f'127.0.0.1:{self.port}', 'Origin': origin})
+                self.assertEqual(status, 403)
+                self.assertEqual(body, b'Forbidden: malformed origin')
+
+    def test_mixed_case_origin_matched_and_echoed_normalised(self):
+        status, headers, _ = self._request('GET', '/history/price', {
+            'Host': f'127.0.0.1:{self.port}', 'Origin': 'HTTP://Node.Example:3001'})
+        self.assertEqual(status, 200)
+        self.assertEqual(headers.get('Access-Control-Allow-Origin'), DASHBOARD)
+
+    def test_vary_origin_on_every_answered_response(self):
+        for method, path, expected in (('GET', '/history/price', 200),
+                                       ('GET', '/history/nope', 404),
+                                       ('OPTIONS', '/history/price', 204)):
+            for origin in (DASHBOARD, None):
+                with self.subTest(method=method, path=path, origin=origin):
+                    headers = {'Host': f'127.0.0.1:{self.port}'}
+                    if origin:
+                        headers['Origin'] = origin
+                    status, resp_headers, _ = self._request(method, path, headers)
+                    self.assertEqual(status, expected)
+                    self.assertEqual(resp_headers.get('Vary'), 'Origin')
 
 
 if __name__ == '__main__':

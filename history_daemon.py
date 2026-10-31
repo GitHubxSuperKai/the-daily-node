@@ -247,7 +247,9 @@ DEFAULT_ALLOWED_ORIGINS = frozenset({
 
 
 def resolve_allowed_origins(cli_origins):
-    """The CORS allowlist: the --allow-origin values if any were given (they replace the
+    """The origin allowlist, used for CORS and by HistoryHandler._check_request (the
+    Origin or Referer a browser request names, and which host names Host may carry):
+    the --allow-origin values if any were given (they replace the
     localhost defaults, the same rule bitaxe_api's flag follows), otherwise the defaults.
     Unlike bitaxe_api this does NOT auto-allow private-IP origins: every origin a
     dashboard is opened from must be listed exactly. Values are trimmed, lowercased (a
@@ -261,6 +263,7 @@ class HistoryHandler(BaseHTTPRequestHandler):
     timeout = REQUEST_TIMEOUT  # applied to the client socket by StreamRequestHandler
     db_path = None
     allowed_origins = DEFAULT_ALLOWED_ORIGINS
+    _matched_origin = ''  # set per request by _check_request, echoed by _send_cors
 
     def log_message(self, fmt, *args):
         pass  # silence default access log
@@ -273,36 +276,39 @@ class HistoryHandler(BaseHTTPRequestHandler):
         return False
 
     def _check_request(self):
-        """Request checks shared in spirit with bitaxe_api's _check_origin. The Host must
+        """The checks bitaxe_api's _check_origin applies, in the same order. The Host must
         pass is_host_allowed (an IP literal, localhost, or the host of an allowed origin).
-        With no Origin, a Referer must reduce to an allowed origin; with neither, the
-        request is refused when the browser marks it cross-site or same-site. Non-browser
-        tools send none of these headers, and the dashboard's own cross-origin fetch
-        always sends Origin. A request with an Origin is left to the CORS allowlist.
-        Sends a 403 and returns False on failure."""
+        The Origin, or the Referer when there is no Origin, is reduced to
+        scheme://host:port and must be an allowed origin. With neither, the request is
+        refused when the browser marks it cross-site or same-site; non-browser tools send
+        none of these headers. Unlike bitaxe_api, private-IP origins are not auto-allowed
+        (see resolve_allowed_origins). Sends a 403 and returns False on failure."""
+        self._matched_origin = ''
         if not is_host_allowed(self.headers.get('Host'), self.allowed_origins):
             return self._forbid(b'Forbidden: host not allowed')
-        if self.headers.get('Origin'):
-            return True
-        referer = self.headers.get('Referer')
-        if not referer:
+        origin = self.headers.get('Origin') or self.headers.get('Referer')
+        if not origin:
             if self.headers.get('Sec-Fetch-Site', '').lower() in ('cross-site', 'same-site'):
                 return self._forbid(b'Forbidden: origin not allowed')
             return True
         try:
-            parsed = urlparse(referer)
+            parsed = urlparse(origin)
         except ValueError:
             return self._forbid(b'Forbidden: malformed origin')
         if not parsed.scheme or not parsed.netloc:
             return self._forbid(b'Forbidden: malformed origin')
-        if f'{parsed.scheme}://{parsed.netloc}'.lower() not in self.allowed_origins:
+        origin = f'{parsed.scheme}://{parsed.netloc}'.lower()
+        if origin not in self.allowed_origins:
             return self._forbid(b'Forbidden: origin not allowed')
+        self._matched_origin = origin
         return True
 
     def _send_cors(self):
-        origin = self.headers.get('Origin', '')
-        if origin in self.allowed_origins:
-            self.send_header('Access-Control-Allow-Origin', origin.replace('\r', '').replace('\n', ''))
+        # The allow-origin value depends on the request's Origin, so caches must key on it.
+        self.send_header('Vary', 'Origin')
+        if self._matched_origin:
+            self.send_header('Access-Control-Allow-Origin',
+                             self._matched_origin.replace('\r', '').replace('\n', ''))
 
     def do_OPTIONS(self):
         if not self._check_request():
