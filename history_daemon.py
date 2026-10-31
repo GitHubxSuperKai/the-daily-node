@@ -288,8 +288,18 @@ class HistoryHandler(BaseHTTPRequestHandler):
         metric  = parts[1]
         params  = parse_qs(parsed.query)
         now     = int(time.time())
-        ts_from = int(params.get('from', [now - 86400])[0])
-        ts_to   = int(params.get('to',   [now])[0])
+        try:
+            ts_from = int(params.get('from', [now - 86400])[0])
+            ts_to   = int(params.get('to',   [now])[0])
+        except ValueError:
+            body = json.dumps({'error': "'from' and 'to' must be integer unix timestamps"}).encode()
+            self.send_response(400)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(body)))
+            self._send_cors()
+            self.end_headers()
+            self.wfile.write(body)
+            return
         bucket = params.get('bucket', ['min'])[0]
         if bucket not in ('min', 'hour', 'day'):
             bucket = 'min'
@@ -297,9 +307,11 @@ class HistoryHandler(BaseHTTPRequestHandler):
         sql = METRIC_QUERIES[metric][bucket]
         try:
             conn             = sqlite3.connect(self.db_path)
-            conn.row_factory = sqlite3.Row
-            rows             = conn.execute(sql, (ts_from, ts_to)).fetchall()
-            conn.close()
+            try:
+                conn.row_factory = sqlite3.Row
+                rows             = conn.execute(sql, (ts_from, ts_to)).fetchall()
+            finally:
+                conn.close()
             data = [dict(r) for r in rows]
         except Exception as e:
             print(f'[api] query error: {e}', file=sys.stderr)

@@ -3,6 +3,7 @@
 Without CORS headers on error responses, cross-origin clients (the dashboard on a
 different port) receive an opaque network failure instead of a readable error body.
 """
+import json
 import os
 import sqlite3
 import sys
@@ -109,6 +110,26 @@ class HistoryDaemonErrorCORSTest(unittest.TestCase):
             self.assertEqual(headers.get('Access-Control-Allow-Origin'), HISTORY_ORIGIN)
         finally:
             HistoryHandler.db_path = original
+
+    def test_non_integer_from_to_400_includes_cors_header(self):
+        """A non-integer from/to must get a readable 400, not a dropped connection."""
+        for query in ('from=abc', 'to=abc', 'from=1.5', 'from=1&to=xyz'):
+            with self.subTest(query=query):
+                req = urllib.request.Request(
+                    f'http://127.0.0.1:{self.port}/history/price?{query}',
+                    headers={'Origin': HISTORY_ORIGIN})
+                with self.assertRaises(urllib.error.HTTPError) as ctx:
+                    urllib.request.urlopen(req).close()
+                with ctx.exception as err:
+                    self.assertEqual(err.code, 400)
+                    self.assertEqual(err.headers.get('Access-Control-Allow-Origin'), HISTORY_ORIGIN)
+                    self.assertEqual(err.headers.get('Content-Type'), 'application/json')
+                    self.assertIn('error', json.loads(err.read()))
+
+    def test_integer_from_to_still_200(self):
+        status, headers = _get(self.port, '/history/price?from=0&to=1', origin=HISTORY_ORIGIN)
+        self.assertEqual(status, 200)
+        self.assertEqual(headers.get('Access-Control-Allow-Origin'), HISTORY_ORIGIN)
 
 
 class HistoryDaemonAllowOriginTest(unittest.TestCase):
