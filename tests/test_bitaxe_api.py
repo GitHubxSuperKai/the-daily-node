@@ -1,7 +1,9 @@
 import os
 import sys
 import tempfile
+import threading
 import unittest
+import unittest.mock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -60,6 +62,35 @@ class ValidateIPsTests(unittest.TestCase):
         ok, errors = bitaxe_api.validate_ips(['8.8.8.8'])
         self.assertEqual(ok, [])
         self.assertEqual(len(errors), 1)
+
+
+class FetchAllMinersTests(unittest.TestCase):
+    def setUp(self):
+        self._saved_ips = list(bitaxe_api.BITAXE_IPS)
+        self.release = threading.Event()
+        self.addCleanup(self.release.set)  # let the stuck worker thread finish
+
+    def tearDown(self):
+        bitaxe_api.BITAXE_IPS[:] = self._saved_ips
+
+    def test_a_miner_still_fetching_after_the_join_is_reported_offline(self):
+        # urlopen's timeout bounds each socket operation, not the whole fetch, so a
+        # worker can outlast the join. It must come back offline, not go missing.
+        bitaxe_api.BITAXE_IPS[:] = ['10.0.0.1', '10.0.0.2', '10.0.0.3']
+
+        def fetch(ip):
+            if ip == '10.0.0.2':
+                self.release.wait(10)
+            return {'ip': ip, 'online': True, 'data': {}}
+
+        with unittest.mock.patch.object(bitaxe_api, 'fetch_miner', fetch), \
+                unittest.mock.patch.object(bitaxe_api, 'FETCH_TIMEOUT', -0.9):  # join waits 0.1s
+            miners = bitaxe_api.fetch_all_miners()
+
+        self.assertEqual([m['ip'] for m in miners], ['10.0.0.1', '10.0.0.2', '10.0.0.3'])
+        self.assertEqual(miners[1], {'ip': '10.0.0.2', 'online': False, 'error': 'timed out'})
+        self.assertTrue(miners[0]['online'])
+        self.assertTrue(miners[2]['online'])
 
 
 if __name__ == '__main__':
