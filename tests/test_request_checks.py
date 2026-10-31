@@ -144,6 +144,27 @@ class TestRequestChecks(unittest.TestCase):
                 self.assertEqual(body, b'Forbidden: malformed origin')
                 self.assertIsNone(headers.get('Access-Control-Allow-Origin'))
 
+    def test_other_site_referer_refused(self):
+        # With no Origin the Referer stands in for it, so a request whose Referer names
+        # another site is refused by the allowlist, whatever Sec-Fetch-Site says.
+        for site in ('cross-site', None):
+            with self.subTest(site=site):
+                headers = {'Host': f'127.0.0.1:{self.port}',
+                           'Referer': 'https://other.example/page.html'}
+                if site:
+                    headers['Sec-Fetch-Site'] = site
+                status, resp_headers, body = self._get('/api/setup', headers)
+                self.assertEqual(status, 403)
+                self.assertEqual(body, b'Forbidden: origin not allowed')
+                self.assertIsNone(resp_headers.get('Access-Control-Allow-Origin'))
+
+    def test_allowed_referer_served(self):
+        status, headers, _ = self._get('/api/setup', {
+            'Host': f'localhost:{self.port}', 'Referer': 'http://localhost:3000/index.html',
+            'Sec-Fetch-Site': 'same-site'})
+        self.assertEqual(status, 200)
+        self.assertEqual(headers.get('Access-Control-Allow-Origin'), 'http://localhost:3000')
+
     def test_malformed_origin_refused(self):
         status, _, body = self._get('/api/setup', {
             'Host': f'127.0.0.1:{self.port}', 'Origin': 'http://['})
