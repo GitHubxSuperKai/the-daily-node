@@ -314,10 +314,14 @@ class HistoryHandler(BaseHTTPRequestHandler):
 
         sql = METRIC_QUERIES[metric][bucket]
         try:
-            conn             = sqlite3.connect(self.db_path)
-            conn.row_factory = sqlite3.Row
-            rows             = conn.execute(sql, (ts_from, ts_to)).fetchall()
-            conn.close()
+            conn = sqlite3.connect(self.db_path)
+            # Closed on every path: a failed query (e.g. a missing table) must not leak
+            # the connection. sqlite3's own context manager commits but never closes.
+            try:
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute(sql, (ts_from, ts_to)).fetchall()
+            finally:
+                conn.close()
             data = [dict(r) for r in rows]
         except Exception as e:
             print(f'[api] query error: {e}', file=sys.stderr)
