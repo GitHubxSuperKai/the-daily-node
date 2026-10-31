@@ -1,6 +1,7 @@
 """history_daemon applies the same request checks as bitaxe_api's API routes, to every
 route: the Host allowlist (bitaxe_api.is_host_allowed, covered in test_request_checks.py)
-and the Sec-Fetch-Site check for a request with no Origin or Referer."""
+the Referer allowlist when there is no Origin, and the Sec-Fetch-Site check when there
+is neither."""
 import http.client
 import os
 import shutil
@@ -130,17 +131,48 @@ class TestHistoryDaemonHost(unittest.TestCase):
                 status, _, _ = self._request('GET', '/history/price', headers)
                 self.assertEqual(status, 200)
 
-    def test_cross_site_with_origin_or_referer_is_not_refused_by_this_check(self):
-        # With an Origin the CORS allowlist decides; this check covers only requests
-        # that name no origin at all. The dashboard's fetch (another port) is same-site.
+    def test_same_site_with_allowed_origin_or_referer_served(self):
+        # The dashboard's fetch (another port) is same-site and carries an Origin.
         status, headers, _ = self._request('GET', '/history/price', {
             'Host': f'node.example:{self.port}', 'Origin': DASHBOARD,
             'Sec-Fetch-Site': 'same-site'})
         self.assertEqual(status, 200)
         self.assertEqual(headers.get('Access-Control-Allow-Origin'), DASHBOARD)
+        for referer in (f'{DASHBOARD}/', f'{DASHBOARD}/index.html?x=1', 'HTTP://Node.Example:3001/'):
+            with self.subTest(referer=referer):
+                status, _, _ = self._request('GET', '/history/price', {
+                    'Host': f'127.0.0.1:{self.port}', 'Referer': referer,
+                    'Sec-Fetch-Site': 'same-site'})
+                self.assertEqual(status, 200)
+
+    def test_other_site_referer_refused(self):
+        # Another site, or the dashboard's host on a port that is not allowed.
+        for referer in ('https://other.example/page.html', 'http://node.example:9999/'):
+            for site in ('cross-site', None):
+                for method in ('GET', 'OPTIONS'):
+                    with self.subTest(referer=referer, site=site, method=method):
+                        headers = {'Host': f'127.0.0.1:{self.port}', 'Referer': referer}
+                        if site:
+                            headers['Sec-Fetch-Site'] = site
+                        status, resp_headers, body = self._request(
+                            method, '/history/price', headers)
+                        self.assertEqual(status, 403)
+                        self.assertEqual(body, b'Forbidden: origin not allowed')
+                        self.assertIsNone(resp_headers.get('Access-Control-Allow-Origin'))
+
+    def test_malformed_referer_refused(self):
+        for referer in ('http://[', 'not a url', '/index.html', 'http://'):
+            with self.subTest(referer=referer):
+                status, _, body = self._request('GET', '/history/price', {
+                    'Host': f'127.0.0.1:{self.port}', 'Referer': referer})
+                self.assertEqual(status, 403)
+                self.assertEqual(body, b'Forbidden: malformed origin')
+
+    def test_origin_takes_precedence_over_referer(self):
+        # As in bitaxe_api, a present Origin is what counts; the Referer is not checked.
         status, _, _ = self._request('GET', '/history/price', {
-            'Host': f'127.0.0.1:{self.port}', 'Referer': f'{DASHBOARD}/',
-            'Sec-Fetch-Site': 'same-site'})
+            'Host': f'127.0.0.1:{self.port}', 'Origin': DASHBOARD,
+            'Referer': 'https://other.example/'})
         self.assertEqual(status, 200)
 
 

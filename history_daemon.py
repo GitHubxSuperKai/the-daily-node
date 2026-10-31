@@ -273,17 +273,30 @@ class HistoryHandler(BaseHTTPRequestHandler):
         return False
 
     def _check_request(self):
-        """The request checks bitaxe_api's _check_origin runs before its CORS check.
-        The Host must pass is_host_allowed (an IP literal, localhost, or the host of an
-        allowed origin). A request with no Origin and no Referer is refused when the
-        browser marks it cross-site or same-site; non-browser tools send none of these
-        headers, and the dashboard's own cross-origin fetch always sends Origin. Sends a
-        403 and returns False on failure."""
+        """Request checks shared in spirit with bitaxe_api's _check_origin. The Host must
+        pass is_host_allowed (an IP literal, localhost, or the host of an allowed origin).
+        With no Origin, a Referer must reduce to an allowed origin; with neither, the
+        request is refused when the browser marks it cross-site or same-site. Non-browser
+        tools send none of these headers, and the dashboard's own cross-origin fetch
+        always sends Origin. A request with an Origin is left to the CORS allowlist.
+        Sends a 403 and returns False on failure."""
         if not is_host_allowed(self.headers.get('Host'), self.allowed_origins):
             return self._forbid(b'Forbidden: host not allowed')
-        if not (self.headers.get('Origin') or self.headers.get('Referer')):
+        if self.headers.get('Origin'):
+            return True
+        referer = self.headers.get('Referer')
+        if not referer:
             if self.headers.get('Sec-Fetch-Site', '').lower() in ('cross-site', 'same-site'):
                 return self._forbid(b'Forbidden: origin not allowed')
+            return True
+        try:
+            parsed = urlparse(referer)
+        except ValueError:
+            return self._forbid(b'Forbidden: malformed origin')
+        if not parsed.scheme or not parsed.netloc:
+            return self._forbid(b'Forbidden: malformed origin')
+        if f'{parsed.scheme}://{parsed.netloc}'.lower() not in self.allowed_origins:
+            return self._forbid(b'Forbidden: origin not allowed')
         return True
 
     def _send_cors(self):
