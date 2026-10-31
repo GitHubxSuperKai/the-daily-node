@@ -17,6 +17,8 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+from bitaxe_api import is_host_allowed
+
 DEFAULT_DB     = os.path.expanduser('~/.daily-node/history.db')
 POLL_PRICE_S   = 30
 POLL_CHAIN_S   = 60
@@ -245,7 +247,9 @@ DEFAULT_ALLOWED_ORIGINS = frozenset({
 
 
 def resolve_allowed_origins(cli_origins):
-    """The CORS allowlist: the --allow-origin values if any were given (they replace the
+    """The origin allowlist, used for CORS and by HistoryHandler._check_request (the
+    Origin or Referer a browser request names, and which host names Host may carry):
+    the --allow-origin values if any were given (they replace the
     localhost defaults, the same rule bitaxe_api's flag follows), otherwise the defaults.
     Unlike bitaxe_api this does NOT auto-allow private-IP origins: every origin a
     dashboard is opened from must be listed exactly. Values are trimmed, lowercased (a
@@ -263,16 +267,56 @@ class HistoryHandler(BaseHTTPRequestHandler):
     timeout = REQUEST_TIMEOUT  # applied to the client socket by StreamRequestHandler
     db_path = None
     allowed_origins = DEFAULT_ALLOWED_ORIGINS
+    _matched_origin = ''  # set per request by _check_request, echoed by _send_cors
 
     def log_message(self, fmt, *args):
         pass  # silence default access log
 
+    def _forbid(self, reason):
+        self.send_response(403)
+        self.send_header('Content-Type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(reason)
+        return False
+
+    def _check_request(self):
+        """The checks bitaxe_api's _check_origin applies, in the same order. The Host must
+        pass is_host_allowed (an IP literal, localhost, or the host of an allowed origin).
+        The Origin, or the Referer when there is no Origin, is reduced to
+        scheme://host:port and must be an allowed origin. With neither, the request is
+        refused when the browser marks it cross-site or same-site; non-browser tools send
+        none of these headers. Unlike bitaxe_api, private-IP origins are not auto-allowed
+        (see resolve_allowed_origins). Sends a 403 and returns False on failure."""
+        self._matched_origin = ''
+        if not is_host_allowed(self.headers.get('Host'), self.allowed_origins):
+            return self._forbid(b'Forbidden: host not allowed')
+        origin = self.headers.get('Origin') or self.headers.get('Referer')
+        if not origin:
+            if self.headers.get('Sec-Fetch-Site', '').lower() in ('cross-site', 'same-site'):
+                return self._forbid(b'Forbidden: origin not allowed')
+            return True
+        try:
+            parsed = urlparse(origin)
+        except ValueError:
+            return self._forbid(b'Forbidden: malformed origin')
+        if not parsed.scheme or not parsed.netloc:
+            return self._forbid(b'Forbidden: malformed origin')
+        origin = f'{parsed.scheme}://{parsed.netloc}'.lower()
+        if origin not in self.allowed_origins:
+            return self._forbid(b'Forbidden: origin not allowed')
+        self._matched_origin = origin
+        return True
+
     def _send_cors(self):
-        origin = self.headers.get('Origin', '')
-        if origin in self.allowed_origins:
-            self.send_header('Access-Control-Allow-Origin', origin.replace('\r', '').replace('\n', ''))
+        # The allow-origin value depends on the request's Origin, so caches must key on it.
+        self.send_header('Vary', 'Origin')
+        if self._matched_origin:
+            self.send_header('Access-Control-Allow-Origin',
+                             self._matched_origin.replace('\r', '').replace('\n', ''))
 
     def do_OPTIONS(self):
+        if not self._check_request():
+            return
         self.send_response(204)
         self._send_cors()
         self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
@@ -280,6 +324,8 @@ class HistoryHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        if not self._check_request():
+            return
         parsed = urlparse(self.path)
         parts  = parsed.path.strip('/').split('/')
 
@@ -314,10 +360,12 @@ class HistoryHandler(BaseHTTPRequestHandler):
 
         sql = METRIC_QUERIES[metric][bucket]
         try:
-            conn             = sqlite3.connect(self.db_path)
+            conn = sqlite3.connect(self.db_path)
+            # Closed on every path: a failed query (e.g. a missing table) must not leak
+            # the connection. sqlite3's own context manager commits but never closes.
             try:
                 conn.row_factory = sqlite3.Row
-                rows             = conn.execute(sql, (ts_from, ts_to)).fetchall()
+                rows = conn.execute(sql, (ts_from, ts_to)).fetchall()
             finally:
                 conn.close()
             data = [dict(r) for r in rows]
