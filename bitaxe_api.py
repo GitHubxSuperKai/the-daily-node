@@ -213,7 +213,8 @@ def is_origin_allowed(origin, allowlist):
         return True
     return origin in allowlist
 
-# A bracketed Host: '[', no further brackets, ']', then nothing or ':' and ASCII digits.
+# A bracketed Host: '[', no further brackets, ']', then nothing, or ':' followed by any
+# number of ASCII digits.
 _BRACKETED_HOST_RE = re.compile(r'\[[^\[\]]*\](?::[0-9]*)?')
 
 def is_host_allowed(host_header, allowlist):

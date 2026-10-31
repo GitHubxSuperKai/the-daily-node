@@ -62,12 +62,12 @@ class TestIsHostAllowed(unittest.TestCase):
     def test_text_around_brackets_refused(self):
         # Checked before urlparse, whose patch releases differ here (3.12.0 reads '::1').
         for host in ('[::1]x:3001', 'x[::1]:3001', '[::1]:x', '[::1]:3001x', '[::1]]:3001',
-                     '[[::1]:3001', '[::1]:30:01'):
+                     '[[::1]:3001', '[::1]:30:01', 'localhost:3001]'):
             self.assertFalse(is_host_allowed(host, DEFAULT_ORIGINS), host)
 
     def test_userinfo_path_query_fragment_refused(self):
-        # urlparse would read the host after '@' or before '/', '?' or '#'; the whole
-        # header must be the host (and port), so these are refused.
+        # urlparse would read the host after '@' or before '/', '?' or '#'; the host must
+        # not be read out of userinfo or a path, so these are refused.
         allowlist = DEFAULT_ORIGINS + ['http://node.example:3000']
         for host in ('other.example@127.0.0.1:3001', '@localhost', 'node.example@node.example',
                      '127.0.0.1/x', 'localhost:3001/', '[::1]:3001/x', '127.0.0.1?x',
