@@ -77,7 +77,10 @@ class TestHistoryDaemonHost(unittest.TestCase):
                 self.assertIsNone(headers.get('Access-Control-Allow-Origin'))
 
     def test_malformed_and_bracketed_host_refused(self):
-        for host in ('[', '[::1', f'[node.example]:{self.port}', f'[127.0.0.1]:{self.port}'):
+        for host in ('[', '[::1', f'[node.example]:{self.port}', f'[127.0.0.1]:{self.port}',
+                     f'other.example@127.0.0.1:{self.port}', f'127.0.0.1:{self.port}/x',
+                     f'localhost:{self.port}?x', f'localhost:{self.port}#x',
+                     f'[::1]x:{self.port}', f'[::1]:{self.port}x'):
             with self.subTest(host=host):
                 status, _, body = self._request('GET', '/history/price', {'Host': host})
                 self.assertEqual(status, 403)

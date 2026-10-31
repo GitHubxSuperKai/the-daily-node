@@ -213,13 +213,23 @@ def is_origin_allowed(origin, allowlist):
         return True
     return origin in allowlist
 
+# A bracketed Host: '[', no further brackets, ']', then nothing or ':' and ASCII digits.
+_BRACKETED_HOST_RE = re.compile(r'\[[^\[\]]*\](?::[0-9]*)?')
 
 def is_host_allowed(host_header, allowlist):
     """Return True if the request's Host names this server the way the dashboard does:
     an IP literal, localhost, or the host of an allowlisted origin. A missing Host
-    (non-browser tools) is allowed; browsers always send one."""
+    (non-browser tools) is allowed; browsers always send one.
+
+    urlparse would read a host out of userinfo or path forms ('@', '/', '?', '#'), and
+    its patch releases differ on text around IPv6 brackets, so those shapes are refused
+    here, before it runs."""
     if not host_header:
         return True
+    if any(c in host_header for c in '@/?#'):
+        return False
+    if ('[' in host_header or ']' in host_header) and not _BRACKETED_HOST_RE.fullmatch(host_header):
+        return False
     try:
         host = urlparse(f'//{host_header}').hostname
     except ValueError:
