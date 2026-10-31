@@ -114,7 +114,7 @@ class HistoryDaemonErrorCORSTest(unittest.TestCase):
 class HistoryDaemonAllowOriginTest(unittest.TestCase):
     """--allow-origin lets a deployed dashboard (served from another host:port) read the
     daemon. Without it the allowlist is localhost-only, so a dashboard on a LAN host gets
-    no Access-Control-Allow-Origin and the browser discards every history response."""
+    403 origin not allowed, with no Access-Control-Allow-Origin."""
 
     DASHBOARD = 'http://dashboard.example:3001'
 
@@ -145,9 +145,11 @@ class HistoryDaemonAllowOriginTest(unittest.TestCase):
         HistoryHandler.allowed_origins = self._saved[1]
 
     def test_default_allowlist_rejects_a_lan_dashboard(self):
-        _, headers = _get(self.port, '/history/price', origin=self.DASHBOARD)
+        status, headers = _get(self.port, '/history/price', origin=self.DASHBOARD)
+        self.assertEqual(status, 403)
         self.assertIsNone(headers.get('Access-Control-Allow-Origin'))
-        _, headers = _get(self.port, '/history/price', origin=HISTORY_ORIGIN)
+        status, headers = _get(self.port, '/history/price', origin=HISTORY_ORIGIN)
+        self.assertEqual(status, 200)
         self.assertEqual(headers.get('Access-Control-Allow-Origin'), HISTORY_ORIGIN)
 
     def test_configured_origin_is_allowed_and_replaces_the_defaults(self):
@@ -155,7 +157,8 @@ class HistoryDaemonAllowOriginTest(unittest.TestCase):
         status, headers = _get(self.port, '/history/price', origin=self.DASHBOARD)
         self.assertEqual(status, 200)
         self.assertEqual(headers.get('Access-Control-Allow-Origin'), self.DASHBOARD)
-        _, headers = _get(self.port, '/history/price', origin=HISTORY_ORIGIN)
+        status, headers = _get(self.port, '/history/price', origin=HISTORY_ORIGIN)
+        self.assertEqual(status, 403)
         self.assertIsNone(headers.get('Access-Control-Allow-Origin'),
                           'an explicit --allow-origin list replaces the localhost defaults')
 
