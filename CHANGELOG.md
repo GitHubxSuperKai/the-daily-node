@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `bitaxe_api.py`'s `/api/miners` lists a miner whose fetch is still running when the server stops waiting for it (after at least `FETCH_TIMEOUT + 1`, 6 seconds) as offline, with the error `timed out`, in its configured position. It used to leave that miner out, so the response's `miners` list and `count` came up one short. The dashboard does not see this entry yet: its `/api/miners` request gives up after 5 seconds, before the server answers, and it keeps showing the last good list, if it has one, as stale.
+
 ## [1.8.0] — 2026-10-31
 
 ### Changed

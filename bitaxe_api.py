@@ -341,7 +341,12 @@ def fetch_all_miners():
     for t in threads:
         t.join(timeout=FETCH_TIMEOUT + 1)
 
-    return [r for r in results if r is not None]
+    # A worker still running past the join (urlopen's timeout bounds each socket
+    # operation, not the whole fetch, so a slow connect plus a slow read can outlast it)
+    # reports offline in its slot. Dropping it would hide the miner from the fleet and
+    # from the dashboard's miner-offline alert.
+    return [r if r is not None else {'ip': ip, 'online': False, 'error': 'timed out'}
+            for ip, r in zip(ips, results)]
 
 
 # Latest ESP-Miner release, for the dashboard's "firmware update" badge. The URL is
