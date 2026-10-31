@@ -68,7 +68,7 @@ class BitaxeCatchAll404CORSTest(unittest.TestCase):
 
 
 class HistoryDaemonErrorCORSTest(unittest.TestCase):
-    """404 (bad route) and 500 (DB error) in history_daemon must carry CORS headers."""
+    """404 (bad route), 400 (bad from/to) and 500 (DB error) in history_daemon must carry CORS headers."""
 
     @classmethod
     def setUpClass(cls):
