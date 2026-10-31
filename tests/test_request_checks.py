@@ -1,5 +1,6 @@
-"""Request checks on the API routes: the Host the request names, and the
-Sec-Fetch-Site a browser sends when there is no Origin or Referer."""
+"""Request checks on the API routes (_check_origin), on GET, OPTIONS and POST: the
+Host the request names, the Origin or Referer, and the Sec-Fetch-Site a browser sends
+when there is neither."""
 import http.client
 import os
 import sys
