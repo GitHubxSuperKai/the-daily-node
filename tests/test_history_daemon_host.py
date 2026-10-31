@@ -1,5 +1,6 @@
-"""history_daemon applies the same Host check as bitaxe_api's API routes
-(bitaxe_api.is_host_allowed, covered in test_request_checks.py), to every route."""
+"""history_daemon applies the same request checks as bitaxe_api's API routes, to every
+route: the Host allowlist (bitaxe_api.is_host_allowed, covered in test_request_checks.py)
+and the Sec-Fetch-Site check for a request with no Origin or Referer."""
 import http.client
 import os
 import shutil
@@ -109,6 +110,38 @@ class TestHistoryDaemonHost(unittest.TestCase):
             'Host': f'node.example:{self.port}'})
         self.assertEqual(status, 403)
         self.assertEqual(body, b'Forbidden: host not allowed')
+
+    def test_headerless_request_from_other_site_refused(self):
+        for site in ('cross-site', 'same-site', 'CROSS-SITE'):
+            for method in ('GET', 'OPTIONS'):
+                with self.subTest(site=site, method=method):
+                    status, headers, body = self._request(method, '/history/price', {
+                        'Host': f'127.0.0.1:{self.port}', 'Sec-Fetch-Site': site})
+                    self.assertEqual(status, 403)
+                    self.assertEqual(body, b'Forbidden: origin not allowed')
+                    self.assertIsNone(headers.get('Access-Control-Allow-Origin'))
+
+    def test_headerless_same_origin_or_direct_request_served(self):
+        for site in ('same-origin', 'none', None):
+            with self.subTest(site=site):
+                headers = {'Host': f'127.0.0.1:{self.port}'}
+                if site:
+                    headers['Sec-Fetch-Site'] = site
+                status, _, _ = self._request('GET', '/history/price', headers)
+                self.assertEqual(status, 200)
+
+    def test_cross_site_with_origin_or_referer_is_not_refused_by_this_check(self):
+        # With an Origin the CORS allowlist decides; this check covers only requests
+        # that name no origin at all. The dashboard's fetch (another port) is same-site.
+        status, headers, _ = self._request('GET', '/history/price', {
+            'Host': f'node.example:{self.port}', 'Origin': DASHBOARD,
+            'Sec-Fetch-Site': 'same-site'})
+        self.assertEqual(status, 200)
+        self.assertEqual(headers.get('Access-Control-Allow-Origin'), DASHBOARD)
+        status, _, _ = self._request('GET', '/history/price', {
+            'Host': f'127.0.0.1:{self.port}', 'Referer': f'{DASHBOARD}/',
+            'Sec-Fetch-Site': 'same-site'})
+        self.assertEqual(status, 200)
 
 
 if __name__ == '__main__':

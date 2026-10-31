@@ -265,17 +265,26 @@ class HistoryHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass  # silence default access log
 
-    def _check_host(self):
-        """The same Host check bitaxe_api applies to its API routes (is_host_allowed):
-        an IP literal, localhost, or the host of an allowed origin. Sends a 403 and
-        returns False otherwise."""
-        if is_host_allowed(self.headers.get('Host'), self.allowed_origins):
-            return True
+    def _forbid(self, reason):
         self.send_response(403)
         self.send_header('Content-Type', 'text/plain')
         self.end_headers()
-        self.wfile.write(b'Forbidden: host not allowed')
+        self.wfile.write(reason)
         return False
+
+    def _check_request(self):
+        """The request checks bitaxe_api's _check_origin runs before its CORS check.
+        The Host must pass is_host_allowed (an IP literal, localhost, or the host of an
+        allowed origin). A request with no Origin and no Referer is refused when the
+        browser marks it cross-site or same-site; non-browser tools send none of these
+        headers, and the dashboard's own cross-origin fetch always sends Origin. Sends a
+        403 and returns False on failure."""
+        if not is_host_allowed(self.headers.get('Host'), self.allowed_origins):
+            return self._forbid(b'Forbidden: host not allowed')
+        if not (self.headers.get('Origin') or self.headers.get('Referer')):
+            if self.headers.get('Sec-Fetch-Site', '').lower() in ('cross-site', 'same-site'):
+                return self._forbid(b'Forbidden: origin not allowed')
+        return True
 
     def _send_cors(self):
         origin = self.headers.get('Origin', '')
@@ -283,7 +292,7 @@ class HistoryHandler(BaseHTTPRequestHandler):
             self.send_header('Access-Control-Allow-Origin', origin.replace('\r', '').replace('\n', ''))
 
     def do_OPTIONS(self):
-        if not self._check_host():
+        if not self._check_request():
             return
         self.send_response(204)
         self._send_cors()
@@ -292,7 +301,7 @@ class HistoryHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        if not self._check_host():
+        if not self._check_request():
             return
         parsed = urlparse(self.path)
         parts  = parsed.path.strip('/').split('/')
