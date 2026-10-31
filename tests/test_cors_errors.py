@@ -111,9 +111,11 @@ class HistoryDaemonErrorCORSTest(unittest.TestCase):
         finally:
             HistoryHandler.db_path = original
 
-    def test_non_integer_from_to_400_includes_cors_header(self):
-        """A non-integer from/to must get a readable 400, not a dropped connection."""
-        for query in ('from=abc', 'to=abc', 'from=1.5', 'from=1&to=xyz'):
+    def test_invalid_from_to_400_includes_cors_header(self):
+        """A non-integer or out-of-64-bit-range from/to must get a readable 400, not a
+        dropped connection (non-integer) or a 500 (sqlite OverflowError)."""
+        for query in ('from=abc', 'to=abc', 'from=1.5', 'from=1&to=xyz',
+                      f'from={2 ** 63}', f'to=-{2 ** 63 + 1}', 'to=' + '9' * 40):
             with self.subTest(query=query):
                 req = urllib.request.Request(
                     f'http://127.0.0.1:{self.port}/history/price?{query}',
@@ -130,6 +132,11 @@ class HistoryDaemonErrorCORSTest(unittest.TestCase):
         status, headers = _get(self.port, '/history/price?from=0&to=1', origin=HISTORY_ORIGIN)
         self.assertEqual(status, 200)
         self.assertEqual(headers.get('Access-Control-Allow-Origin'), HISTORY_ORIGIN)
+
+    def test_64bit_bounds_still_200(self):
+        status, _ = _get(self.port, f'/history/price?from=-{2 ** 63}&to={2 ** 63 - 1}',
+                         origin=HISTORY_ORIGIN)
+        self.assertEqual(status, 200)
 
 
 class HistoryDaemonAllowOriginTest(unittest.TestCase):
