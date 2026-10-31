@@ -425,18 +425,10 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
         except ValueError:
             return self._forbid(b'Forbidden: malformed origin')
         if not parsed.scheme or not parsed.netloc:
-            self.send_response(403)
-            self.send_header('Content-Type', 'text/plain')
-            self.end_headers()
-            self.wfile.write(b'Forbidden: malformed origin')
-            return False
+            return self._forbid(b'Forbidden: malformed origin')
         origin = f"{parsed.scheme}://{parsed.netloc}"
         if not is_origin_allowed(origin, BitaxeAPIHandler.ALLOWED_ORIGINS):
-            self.send_response(403)
-            self.send_header('Content-Type', 'text/plain')
-            self.end_headers()
-            self.wfile.write(b'Forbidden: origin not allowed')
-            return False
+            return self._forbid(b'Forbidden: origin not allowed')
         self._matched_origin = origin  # store for _cors() to use
         return True
 
