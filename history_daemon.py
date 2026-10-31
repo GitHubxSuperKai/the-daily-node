@@ -17,6 +17,8 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+from bitaxe_api import is_host_allowed
+
 DEFAULT_DB     = os.path.expanduser('~/.daily-node/history.db')
 POLL_PRICE_S   = 30
 POLL_CHAIN_S   = 60
@@ -263,12 +265,26 @@ class HistoryHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass  # silence default access log
 
+    def _check_host(self):
+        """The same Host check bitaxe_api applies to its API routes (is_host_allowed):
+        an IP literal, localhost, or the host of an allowed origin. Sends a 403 and
+        returns False otherwise."""
+        if is_host_allowed(self.headers.get('Host'), self.allowed_origins):
+            return True
+        self.send_response(403)
+        self.send_header('Content-Type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b'Forbidden: host not allowed')
+        return False
+
     def _send_cors(self):
         origin = self.headers.get('Origin', '')
         if origin in self.allowed_origins:
             self.send_header('Access-Control-Allow-Origin', origin.replace('\r', '').replace('\n', ''))
 
     def do_OPTIONS(self):
+        if not self._check_host():
+            return
         self.send_response(204)
         self._send_cors()
         self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
@@ -276,6 +292,8 @@ class HistoryHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        if not self._check_host():
+            return
         parsed = urlparse(self.path)
         parts  = parsed.path.strip('/').split('/')
 
