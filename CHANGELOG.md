@@ -9,11 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `bitaxe_api.py` checks more than `Origin`/`Referer` on `/api/*` requests and `OPTIONS` preflights. The `Host` header must be an IP literal, `localhost`, or the host of an allowlisted origin (any port), otherwise `403 host not allowed`; a request with no `Host` passes. A request with no `Origin` and no `Referer` is refused with `403 origin not allowed` when the browser marks it `Sec-Fetch-Site: cross-site` or `same-site`. CORS responses now send `Vary: Origin`. The dashboard's own requests, IP and `localhost` access, and header-less tools such as `curl` and the Docker healthcheck are unaffected. A reverse proxy in front must forward the client's `Host` (nginx: `proxy_set_header Host $host;`), proxy to an IP or `localhost` upstream, or use an upstream name that is the host of an allowlisted origin. `docs/SETUP.md` describes the checks.
+- `bitaxe_api.py` checks more than `Origin`/`Referer` on `/api/*` requests and `OPTIONS` preflights. The `Host` header must be an IP literal, `localhost`, or the host of an allowlisted origin (any port), otherwise `403 host not allowed`; a request with no `Host` passes. A request with no `Origin` and no `Referer` is refused with `403 origin not allowed` when the browser marks it `Sec-Fetch-Site: cross-site` or `same-site`. CORS responses now send `Vary: Origin`. The dashboard's own requests and IP or `localhost` access are unaffected, including tools such as `curl` and the Docker healthcheck that connect by IP or `localhost`; a tool that connects by host name is refused unless that name is the host of an allowlisted origin. A reverse proxy in front must forward the client's `Host` (nginx: `proxy_set_header Host $host;`), proxy to an IP or `localhost` upstream, or use an upstream name that is the host of an allowlisted origin. `docs/SETUP.md` describes the checks.
 
 ### Fixed
 
-- `bitaxe_api.py` answers a `Host` or `Origin`/`Referer` that `urlparse` can't parse (such as an unbalanced `[`) with a `403`. The `ValueError` used to escape the request handler, so the client got no response.
+- `bitaxe_api.py` answers an `Origin` or `Referer` that `urlparse` can't parse (such as an unbalanced `[`) with a `403`. The `ValueError` used to escape the request handler, so the client got no response.
 
 ## [1.7.1] — 2026-10-22
 
