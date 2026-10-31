@@ -7,22 +7,31 @@ const HISTORY_REFRESH_MS = 10 * 60 * 1000;
 
 function useHistory(metric, range) {
   const [state, setState] = React.useState({ data: [], loading: true, error: null });
+  const ctrlRef = React.useRef(null);
 
   const fetchHistory = React.useCallback(() => {
+    // Abort the previous request so a stale or post-unmount response never
+    // reaches setState (React 19 reads window.event there, which throws once
+    // a test environment has torn jsdom down).
+    ctrlRef.current?.abort();
+    const ctrl = new AbortController();
+    ctrlRef.current = ctrl;
     setState(prev => ({ ...prev, loading: true, error: null }));
     const to     = Math.floor(Date.now() / 1000);
     const from   = to - (RANGE_SECONDS[range] ?? 86400);
     const bucket = RANGE_BUCKET[range] ?? 'min';
     const url    = `${CONFIG.HISTORY_BASE}/history/${metric}?from=${from}&to=${to}&bucket=${bucket}`;
 
-    fetch(url)
+    fetch(url, { signal: ctrl.signal })
       .then(r => {
         if (!r.ok) throw new Error(`${r.status}`);
         return r.json();
       })
-      .then(data => setState({ data, loading: false, error: null }))
-      .catch(err => setState({ data: [], loading: false, error: err.message }));
+      .then(data => { if (!ctrl.signal.aborted) setState({ data, loading: false, error: null }); })
+      .catch(err => { if (!ctrl.signal.aborted) setState({ data: [], loading: false, error: err.message }); });
   }, [metric, range]);
+
+  React.useEffect(() => () => ctrlRef.current?.abort(), []);
 
   const { reset } = useResettableInterval(fetchHistory, HISTORY_REFRESH_MS);
 
