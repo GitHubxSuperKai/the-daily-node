@@ -255,6 +255,12 @@ BITAXE_IPS = []
 CONFIGURED = False
 PORT          = 3001
 FETCH_TIMEOUT = 5
+# Total seconds /api/miners waits for the whole fleet, shared by every worker. It must
+# stay under the dashboard's 5s abort on that request (AbortSignal.timeout in
+# src/hooks/useBitaxe.js), with a second left to serialize and deliver the response;
+# otherwise a miner still fetching never reaches the dashboard as offline.
+# tests/test_bitaxe_api.py checks it against the hook's value.
+MINERS_DEADLINE = 4
 # A thread per connection, so a request waiting on an upstream (a miner, a feed, the
 # mempool proxy) or a connection that never sends a request (a browser's idle preconnect)
 # can't hold every other request. tests/test_server_concurrency.py fails on HTTPServer.
@@ -335,18 +341,23 @@ def fetch_all_miners():
     def worker(i, ip):
         results[i] = fetch_miner(ip)
 
+    # One deadline for all the joins, so the wait is MINERS_DEADLINE at most however
+    # many miners hang, rather than a fresh timeout per stuck worker. It starts before
+    # the threads do, so starting them counts against the client's budget too.
+    deadline = time.monotonic() + MINERS_DEADLINE
     threads = [threading.Thread(target=worker, args=(i, ip)) for i, ip in enumerate(ips)]
     for t in threads:
         t.start()
     for t in threads:
-        t.join(timeout=FETCH_TIMEOUT + 1)
+        t.join(timeout=max(0, deadline - time.monotonic()))
 
-    # A worker still running past the join (urlopen's timeout bounds each socket
-    # operation, not the whole fetch, so a slow connect plus a slow read can outlast it)
-    # reports offline in its slot. Dropping it would hide the miner from the fleet and
-    # from the dashboard's miner-offline alert.
-    return [r if r is not None else {'ip': ip, 'online': False, 'error': 'timed out'}
-            for ip, r in zip(ips, results)]
+    # A worker still running at the deadline reports offline in its slot. urlopen's
+    # FETCH_TIMEOUT bounds each socket operation, not the whole fetch, and exceeds
+    # MINERS_DEADLINE anyway, so a slow miner can still be fetching. Dropping it would
+    # hide the miner from the fleet and from the dashboard's miner-offline alert. The
+    # worker carries on in the background and its late result is discarded.
+    late = {'online': False, 'error': f'no response within {MINERS_DEADLINE}s'}
+    return [r if r is not None else {'ip': ip, **late} for ip, r in zip(ips, results)]
 
 
 # Latest ESP-Miner release, for the dashboard's "firmware update" badge. The URL is
