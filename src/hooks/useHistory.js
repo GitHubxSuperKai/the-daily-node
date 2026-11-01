@@ -12,7 +12,8 @@ function useHistory(metric, range) {
   const fetchHistory = React.useCallback(() => {
     // Abort the previous request so a stale or post-unmount response never
     // reaches setState (React 19 reads window.event there, which throws once
-    // a test environment has torn jsdom down).
+    // a test environment has torn jsdom down). Covered by "refetch aborts the
+    // previous request" in tests/unit/useHistory.test.js.
     ctrlRef.current?.abort();
     const ctrl = new AbortController();
     ctrlRef.current = ctrl;
