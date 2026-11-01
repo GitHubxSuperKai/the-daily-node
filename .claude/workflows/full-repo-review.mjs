@@ -243,6 +243,7 @@ for correctness only.`,
       'tests/unit/checkDockerSmoke.test.js',
       'tests/unit/dockerfileHealthcheck.test.js',
       'tests/unit/checkReviewPaths.test.js',
+      'tests/unit/checkDependabotLiveness.test.js',
     ],
     // Its own group rather than a line in tests-harness: this reviews repo tooling,
     // not the dashboard, so the shared React brief would frame it wrongly — and a
@@ -285,7 +286,15 @@ workflow's own GROUPS list. Same frame. Each case copies the real guard into a
 throwaway repo beside a fixture workflow file. Look for: a failing branch of the
 guard that no case reaches, must-PASS controls that would also pass against a guard
 rejecting nothing, source mutations whose replace() no longer matches, and fixture
-counts that do not follow from the files the case created.`,
+counts that do not follow from the files the case created.
+
+checkDependabotLiveness.test.js tests scripts/check-dependabot-liveness.cjs, the
+report-only check that a Dependabot ecosystem's update job is still succeeding. Same
+frame. Its core property is fail-closed: a config entry with no matching runs must
+fail. Look for: a fail case with no paired must-pass control, a run-name format the
+matcher accepts that counts a targeted (PR refresh / security) job as liveness, a
+config shape the hand-written YAML reader silently mis-reads instead of throwing, and
+threshold maths that only hold on the fixture's chosen timestamps.`,
   },
   {
     key: 'tests-python',

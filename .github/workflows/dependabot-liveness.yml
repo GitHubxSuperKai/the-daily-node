@@ -1,0 +1,41 @@
+name: Dependabot liveness
+
+# Report-only. Fails -- and the failed-run notification is the alert -- when any
+# entry in .github/dependabot.yml has no SUCCESSFUL Dependabot update job within its
+# threshold (weekly: 9 days). PR silence cannot tell idle from stalled; the update-job
+# runs can. Logic, threshold rationale and tests: scripts/check-dependabot-liveness.cjs
+# and tests/unit/checkDependabotLiveness.test.js.
+#
+# Thursday 17:17 UTC: Monday's jobs (~04:15Z and, for npm, ~16:05Z) are then ~3 days
+# old when healthy and ~10 days old after one missed Monday, so the 9-day threshold
+# sits a day clear of both. Re-run from the Actions tab via workflow_dispatch.
+on:
+  schedule:
+    - cron: '17 17 * * 4'
+  workflow_dispatch:
+
+# Read-only. actions: read lists the Dependabot Updates runs; contents: read is what
+# actions/checkout needs to fetch the script and dependabot.yml. No write scope at
+# all: no issues, no PRs, no auto-fix.
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      # No `npm ci`: the script is zero-dependency.
+
+      - name: Check Dependabot update jobs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-dependabot-liveness.cjs
