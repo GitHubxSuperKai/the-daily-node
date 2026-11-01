@@ -57,13 +57,17 @@ const statusOf = (entries, runs) => evaluate({ entries, runs, now: NOW });
 describe('the real .github/dependabot.yml', () => {
   const text = fs.readFileSync(path.join(REPO_ROOT, '.github', 'dependabot.yml'), 'utf8');
 
-  it('parses to exactly the configured ecosystems, ignoring nested groups', () => {
-    expect(parseDependabotConfig(text)).toEqual([
-      entry('npm'),
-      entry('github-actions'),
-      entry('pip'),
-      entry('docker'),
-    ]);
+  // Expected entries come from an independent line scan, not a hardcoded list, so
+  // adding or removing an ecosystem in dependabot.yml does not break this test -- but
+  // the parser silently dropping or inventing an entry still does. The scan is valid
+  // for this file only because every entry uses `directory: /` and a weekly schedule,
+  // which the second assertion pins.
+  it('parses one entry per package-ecosystem line, ignoring nested groups', () => {
+    const scanned = [...text.matchAll(/^\s*- package-ecosystem:\s*(\S+)\s*$/gm)].map(m => m[1]);
+    expect(scanned.length).toBeGreaterThan(0);
+    expect(parseDependabotConfig(text)).toEqual(scanned.map(eco => entry(eco)));
+    expect(text.match(/^\s*directory:\s*\/\s*$/gm)).toHaveLength(scanned.length);
+    expect(text.match(/^\s*interval:\s*weekly\s*$/gm)).toHaveLength(scanned.length);
   });
 
   it('parses identically with CRLF line endings', () => {
