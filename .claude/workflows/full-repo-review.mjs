@@ -144,6 +144,7 @@ const GROUPS = [
     label: 'Repo Tooling Scripts (CI gates / smoke build / vendor check / capture utilities)',
     files: [
       'scripts/check-codeql-config.cjs',
+      'scripts/check-dependabot-liveness.cjs',
       'scripts/check-docker-smoke.cjs',
       'scripts/check-review-paths.cjs',
       'scripts/check-secrets.cjs',
