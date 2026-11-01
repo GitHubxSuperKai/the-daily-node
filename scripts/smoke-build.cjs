@@ -26,9 +26,11 @@ assert.ok(fs.existsSync(OUT), 'index.html was not created');
 const html = fs.readFileSync(OUT, 'utf8');
 assert.ok(html.length > 250_000, `output suspiciously small (${html.length} bytes) — vendor inlining or app code may be missing`);
 
-// 3. Output must contain the concatenated marker that build.js replaces
+// 3. build.js replaces this placeholder in src/index.html with the esbuild bundle.
+//    The name dates from the old concat build. It is kept because build.js
+//    and src/index.html both match on it.
 assert.ok(!html.includes('/* MODULES CONCATENATED BY build.js */'),
-  'placeholder was not replaced — build did not concat modules');
+  'placeholder was not replaced — build did not insert the bundle');
 
 // 4. Sanity-check that key components landed in the bundle.
 // Note: minification mangles function/variable names, so we check string
@@ -45,9 +47,9 @@ for (const m of REQUIRED_MARKERS) {
   assert.ok(html.includes(m), `missing required marker in bundle: ${m}`);
 }
 
-// 5. No raw ES import/export statements should survive the regex strip
-//    build.js strips: combined default+named, default-only, named-only, bare imports, and exports.
-//    Any leak would cause a blank page in the browser.
+// 5. No raw ES import/export statements should reach the page. esbuild bundles to
+//    an IIFE, so none should, but the page loads it as a classic <script>, where
+//    one would throw a SyntaxError and leave the page blank.
 const importLeak = html.match(/^\s*import\s+/m);
 assert.ok(!importLeak,
   `import statement survived build (would blank-page the app): ${importLeak && importLeak[0].trim()}`);

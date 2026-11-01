@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The leftovers from the old concat build are gone. Lint, the test setup and the page no longer declare the shared globals that build used (`React`, the hooks, `u`, `useT`, `_svgUid` and the rest), so a file that uses a name without importing it now fails lint and the tests, instead of quietly working through a global. The one file that relied on this, `src/hooks/useViewportMode.js`, now imports React. No runtime behaviour changes.
+- `config.js`, `alertThresholds.js`, `autoTheme.js` and `ipValidation.js` no longer carry a `module.exports` block next to their ES exports. The block never ran and caused four esbuild warnings on every build, which now builds with none. The smoke test's check that `alertThresholds` is in the bundle looked for a name that only survived minification inside that dead block, so it proved nothing. It now matches a fragment of `checkPriceThreshold`, and it fails when that code is missing.
+
 ## [1.8.1] — 2026-10-31
 
 ### Changed
