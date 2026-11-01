@@ -2,59 +2,6 @@ import js from '@eslint/js';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 
-// Cross-file globals from the concat build: each src/ file references
-// identifiers declared in other src/ files. build.js strips imports and
-// concatenates everything into one <script> block, so these all resolve at
-// runtime — but ESLint sees them as undefined per-file unless declared here.
-const concatGlobals = {
-  React: 'readonly',
-  ReactDOM: 'readonly',
-  useState: 'readonly',
-  useEffect: 'readonly',
-  useRef: 'readonly',
-  useCallback: 'readonly',
-  useMemo: 'readonly',
-  useContext: 'readonly',
-  // utils/scale.js
-  u: 'readonly',
-  // theme.js
-  ThemeCtx: 'readonly',
-  useT: 'readonly',
-  LIGHT: 'readonly',
-  DARK: 'readonly',
-  // utils/svg.js — mutable module-level counter
-  _svgUid: 'writable',
-  // utils/formatting.js
-  classifyTopic: 'readonly',
-  timeAgo: 'readonly',
-  wmoDesc: 'readonly',
-  wmoIcon: 'readonly',
-  // utils/alertThresholds.js
-  checkPriceThreshold: 'readonly',
-  checkFeeThreshold: 'readonly',
-  checkBlockTimeThreshold: 'readonly',
-  checkMinerOfflineThreshold: 'readonly',
-  // hooks/
-  useAlerts: 'readonly',
-  useHistory: 'readonly',
-  useResettableInterval: 'readonly',
-  useLayoutSize: 'readonly',
-  usePageRefresh: 'readonly',
-  useFeedHealth: 'readonly',
-  useBTC: 'readonly',
-  useChain: 'readonly',
-  useBitaxe: 'readonly',
-  useRSS: 'readonly',
-  useWeather: 'readonly',
-  useClock: 'readonly',
-  useViewportMode: 'readonly',
-  // src/utils/*.js use a dual export pattern: `if (typeof module !== ...)`
-  // to remain testable under Node. In-browser the typeof check is undefined.
-  module: 'readonly',
-  // build-time constant injected by esbuild define
-  __VERSION__: 'readonly',
-};
-
 export default [
   js.configs.recommended,
   {
@@ -67,7 +14,11 @@ export default [
       },
       globals: {
         ...globals.browser,
-        ...concatGlobals,
+        // src/utils/*.js still use a dual export pattern,
+        // `if (typeof module !== 'undefined') module.exports = ...`.
+        module: 'readonly',
+        // build-time constant injected by esbuild define
+        __VERSION__: 'readonly',
       },
     },
     plugins: {
