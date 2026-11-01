@@ -47,8 +47,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // weekly = 9. A weekly job's successes are ~7 days apart. The largest gap between
 // successful full runs in this repo's history when nothing was wrong is 8.13 days: npm's
 // Monday job ran on a Tuesday (2026-10-05 16:05Z -> 10-13 19:09Z). 9 days leaves ~0.9
-// days of headroom over that, so a manual dispatch can go red only in the day or so
-// after a job that ran a day late. The scheduled check runs Thursday 17:17 UTC (see the
+// days of headroom over that: a healthy entry goes red only once a weekly job runs
+// more than ~2 days late. The scheduled check runs Thursday 17:17 UTC (see the
 // workflow): healthy entries are then ~3-3.5 days old, and ONE missed Monday makes them
 // ~10-10.5 days old -- over 9 with a day to spare, so a single missed week is flagged at
 // the first scheduled check after it. (npm's job runs 09:00 America/Los_Angeles: ~16:05Z
@@ -296,7 +296,8 @@ function formatReport({ ok, results }, { lookbackDays } = {}) {
       : 'One or more Dependabot entries have NO successful update run within threshold.',
     ...results.filter(r => r.hint).map(r => `- ${r.ecosystem} in ${r.directory}: ${r.hint}`),
   ];
-  if (lookbackDays) lines.push(`(Run history read back ${lookbackDays} days; "-" means none in that window.)`);
+  // A blank line first, or markdown renders the footer inside the last hint bullet.
+  if (lookbackDays) lines.push('', `(Run history read back ${lookbackDays} days; "-" means none in that window.)`);
   return lines.join('\n');
 }
 

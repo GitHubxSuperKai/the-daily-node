@@ -283,6 +283,22 @@ describe('evaluate: not-scheduled hint', () => {
     expect(oldTargeted.hint).toBeNull();
   });
 
+  it('a targeted FAILURE is not evidence', () => {
+    const missing = hintOf([entry('npm')], [run(targeted('npm_and_yarn', 'eslint'), 1, 'failure')]);
+    expect(missing.status).toBe('MISSING');
+    expect(missing.hint).toBeNull();
+    const stale = hintOf([entry('npm')], [run(full('npm_and_yarn'), 10), run(targeted('npm_and_yarn', 'eslint'), 1, 'failure')]);
+    expect(stale.status).toBe('STALE');
+    expect(stale.hint).toMatch(/open-pull-requests-limit/);
+    expect(stale.hint).not.toMatch(/targeted/);
+  });
+
+  it('uses the NEWEST targeted success, whatever order the runs arrive in', () => {
+    const r = hintOf([entry('npm')], [run(targeted('npm_and_yarn', 'eslint'), 20), run(targeted('npm_and_yarn', 'vitest'), 1)]);
+    expect(r.status).toBe('MISSING');
+    expect(r.hint).toMatch(/targeted jobs still succeed/);
+  });
+
   it("another ecosystem's targeted success is not evidence", () => {
     const r = hintOf([entry('npm')], [run(targeted('docker', 'node'), 1)]);
     expect(r.status).toBe('MISSING');
@@ -308,6 +324,9 @@ describe('formatReport', () => {
     expect(hinted).toMatch(/^- npm in \/: no full update job has run since .*open-pull-requests-limit/m);
     const healthy = formatReport(statusOf([entry('npm')], [run(full('npm_and_yarn'), 3)]));
     expect(healthy).not.toMatch(/^- /m);
+    // The lookback footer must not be a lazy continuation of the last bullet.
+    const withFooter = formatReport(statusOf([entry('npm')], [run(full('npm_and_yarn'), 10)]), { lookbackDays: 36 });
+    expect(withFooter).toMatch(/open-pull-requests-limit.*\n\n\(Run history read back 36 days/);
   });
 });
 
@@ -438,7 +457,7 @@ describe('run: the exit code (fetch stubbed)', () => {
     const script = path.join(REPO_ROOT, 'scripts', 'check-dependabot-liveness.cjs');
     // An explicit env without GITHUB_REPOSITORY: CI sets it, and inheriting it would
     // send this case to the live API.
-    const r = spawnSync(process.execPath, [script], { encoding: 'utf8', env: { PATH: process.env.PATH } });
+    const r = spawnSync(process.execPath, [script], { encoding: 'utf8', env: { PATH: process.env.PATH }, timeout: 10000 });
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/GITHUB_REPOSITORY is not set/);
   });
