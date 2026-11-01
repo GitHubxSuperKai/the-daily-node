@@ -7,10 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1] — 2026-10-31
+
+### Changed
+
+- The Docker runtime image moves from `python:3.14-slim` to `python:3.15-slim`. The build stage, which runs `node build.js`, is unchanged.
+
 ### Fixed
 
 - `bitaxe_api.py`'s `/api/miners` lists a miner whose fetch is still running when the server stops waiting as offline, with the error `no response within 4s`, in its configured position, so the dashboard shows it offline and the miner-offline alert can fire. It used to leave that miner out, so the response's `miners` list and `count` came up one short. The server now waits at most 4 seconds (`MINERS_DEADLINE`) for the whole fleet, shared by every miner. It used to wait up to 6 seconds for each hung miner in turn, longer than the dashboard's 5-second limit on that request, so with even one hung miner the dashboard gave up first and kept showing the last good list, if it had one, as stale. A miner that takes more than 4 seconds to answer now shows offline for that poll.
-- `bitaxe_api.py` (miner fetch, firmware lookup, `/api/mempool-proxy`, `/api/rss`) and `history_daemon.py` (its shared fetch helper) close the upstream response carried by an HTTP error status. They used to leave it for the garbage collector, which Python 3.15, the runtime image's version, reports as a `ResourceWarning`. CI now also runs the Python tests on 3.15, alongside 3.11, and a unit test fails if that job's Python version and the Dockerfile's runtime image disagree.
+- `bitaxe_api.py` (miner fetch, firmware lookup, `/api/mempool-proxy`, `/api/rss`) and `history_daemon.py` (its shared fetch helper) close the upstream response carried by an HTTP error status. They used to leave it for the garbage collector, which Python 3.14 and 3.15 report as a `ResourceWarning`. CI now also runs the Python tests on 3.15, alongside 3.11, and a unit test fails if that job's Python version and the Dockerfile's runtime image disagree.
+- `useHistory` aborts its in-flight request when it fetches again and when its component unmounts, and a response that settles after the abort no longer updates its state. Before, a late response could replace the data from a newer request, and one that settled after unmount still called `setState`.
 
 ### Security
 
@@ -309,7 +316,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI: build verification + Pages auto-deploy.
 - Issue templates and PR template for structured triage.
 
-[Unreleased]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.8.1...HEAD
+[1.8.1]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.7.1...v1.8.0
 [1.7.1]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/GitHubxSuperKai/the-daily-node/compare/v1.6.0...v1.7.0
