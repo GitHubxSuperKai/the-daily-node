@@ -357,7 +357,11 @@ assert.deepStrictEqual(codeqlProblems, [],
 // survives in the bundle; the section heading is the one string unique to FeedsThemeSection.
 if (!/RSS FEEDS/.test(html)) { console.error('FAIL: SettingsPanel missing from build'); process.exit(1); }
 if (!/minerOffline/.test(html))       { console.error('FAIL: useAlerts missing from build'); process.exit(1); }
-if (!/checkFeeThreshold/.test(html))  { console.error('FAIL: alertThresholds missing from build'); process.exit(1); }
+// alertThresholds.js has no string literals, and minification renames its ESM export
+// names. The old `checkFeeThreshold` marker only survived as a key in a dead
+// `module.exports = {...}` block. This fragment of checkPriceThreshold
+// (`baseline.usd * 100) >= pctThreshold`) contains no renamed identifiers.
+if (!/\.usd\*100\)>=/.test(html))     { console.error('FAIL: alertThresholds missing from build'); process.exit(1); }
 if (!/dn\.prefs\.v2/.test(html))      { console.error('FAIL: v2prefs PREFS_KEY missing from build'); process.exit(1); }
 
 // Track B assertions
