@@ -216,7 +216,8 @@ describe('evaluate', () => {
   });
 
   it('the scheduled Thursday check flags ONE missed Monday, and stays green when healthy', () => {
-    // Thursday 17:17Z. Monday's npm job runs ~16:05Z, the other ecosystems ~04:15Z.
+    // Thursday 17:17Z. Monday's npm job runs ~16:05Z in PDT (~17:05Z in PST), the other
+    // ecosystems ~04:15Z. The PDT case is the tighter one for the healthy side.
     const thisMonday = 3 + (17 * 60 + 17 - (16 * 60 + 5)) / 1440; // ~3.05d
     const lastMonday = thisMonday + 7; // ~10.05d
     expect(statusOf([entry('npm')], [run(full('npm_and_yarn'), thisMonday)]).ok).toBe(true);
@@ -239,6 +240,58 @@ describe('evaluate', () => {
   });
 });
 
+// The full job stops being scheduled when the open-pull-requests-limit is full (this
+// repo, 2026-07: npm 14 days, github-actions 28 days). The entry must still FAIL; the
+// hint only says why.
+describe('evaluate: not-scheduled hint', () => {
+  const hintOf = (entries, runs) => statusOf(entries, runs).results[0];
+
+  it('stale with no full run since the last success: hinted, still failing', () => {
+    const r = hintOf([entry('npm')], [run(full('npm_and_yarn'), 10)]);
+    expect(r.status).toBe('STALE');
+    expect(r.hint).toMatch(/open-pull-requests-limit/);
+    expect(r.hint).not.toMatch(/targeted/);
+    expect(statusOf([entry('npm')], [run(full('npm_and_yarn'), 10)]).ok).toBe(false);
+  });
+
+  it('a recent targeted success is named as evidence', () => {
+    const r = hintOf([entry('npm')], [run(full('npm_and_yarn'), 10), run(targeted('npm_and_yarn', 'eslint'), 1)]);
+    expect(r.status).toBe('STALE');
+    expect(r.hint).toMatch(/targeted jobs still succeed/);
+  });
+
+  it('stale because later full runs FAILED: no hint (the job ran and broke)', () => {
+    const r = hintOf([entry('docker')], [run(full('docker'), 3, 'failure'), run(full('docker'), 10)]);
+    expect(r.status).toBe('STALE');
+    expect(r.hint).toBeNull();
+  });
+
+  it('failing: no hint, even with targeted successes', () => {
+    const r = hintOf([entry('npm')], [run(full('npm_and_yarn'), 4, 'failure'), run(targeted('npm_and_yarn', 'eslint'), 1)]);
+    expect(r.status).toBe('FAILING');
+    expect(r.hint).toBeNull();
+  });
+
+  it('missing: hinted only when targeted jobs are recent', () => {
+    const withTargeted = hintOf([entry('npm')], [run(targeted('npm_and_yarn', 'eslint'), 1)]);
+    expect(withTargeted.status).toBe('MISSING');
+    expect(withTargeted.hint).toMatch(/targeted jobs still succeed/);
+    const oldTargeted = hintOf([entry('npm')], [run(targeted('npm_and_yarn', 'eslint'), 20)]);
+    expect(oldTargeted.status).toBe('MISSING');
+    expect(oldTargeted.hint).toBeNull();
+  });
+
+  it("another ecosystem's targeted success is not evidence", () => {
+    const r = hintOf([entry('npm')], [run(targeted('docker', 'node'), 1)]);
+    expect(r.status).toBe('MISSING');
+    expect(r.hint).toBeNull();
+  });
+
+  it('healthy: no hint', () => {
+    expect(hintOf([entry('npm')], [run(full('npm_and_yarn'), 3)]).hint).toBeNull();
+  });
+});
+
 describe('formatReport', () => {
   it('lists every entry and states the verdict', () => {
     const v = statusOf([entry('npm'), entry('pip')], [run(full('npm_and_yarn'), 3), run(full('pip'), 66, 'failure')]);
@@ -246,6 +299,13 @@ describe('formatReport', () => {
     expect(out).toMatch(/\| OK \| npm \| \/ \|/);
     expect(out).toMatch(/\| FAILING \| pip \| \/ \|/);
     expect(out).toMatch(/NO successful update run/);
+  });
+
+  it('prints the hint under the table, and nothing extra when there is none', () => {
+    const hinted = formatReport(statusOf([entry('npm')], [run(full('npm_and_yarn'), 10)]));
+    expect(hinted).toMatch(/^- npm in \/: no full update job has run since .*open-pull-requests-limit/m);
+    const healthy = formatReport(statusOf([entry('npm')], [run(full('npm_and_yarn'), 3)]));
+    expect(healthy).not.toMatch(/^- /m);
   });
 });
 
@@ -298,3 +358,4 @@ describe('fetchRuns (fetch stubbed)', () => {
     await expect(fetchRuns({ repo: 'o/r', sinceMs: 0 })).rejects.toThrow(/HTTP 403/);
   });
 });
+

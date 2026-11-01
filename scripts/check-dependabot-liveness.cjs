@@ -44,15 +44,21 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 // Max age, in days, of the last successful full run before an entry is flagged.
 //
-// weekly = 9. A weekly job's successes are ~7 days apart; this repo's real runs show
-// up to 7d 7h between successes when Dependabot starts a run late (2026-10-05 04:16Z ->
-// 10-12 11:37Z). 9 days keeps ~1.7 days of headroom over that, so a manual dispatch on
-// any day of the week stays green while healthy. The scheduled check runs Thursday
-// 17:17 UTC (see the workflow): healthy entries are then ~3-3.5 days old, and ONE
-// missed Monday makes them ~10-10.5 days old -- over 9 with a day to spare, so a single
-// missed week is flagged at the first scheduled check after it. 8 would leave a
-// dispatch on a late Monday barely green; 10 would let a missed week of the 16:00Z npm
-// job slip to the following Thursday.
+// weekly = 9. A weekly job's successes are ~7 days apart. The largest gap between
+// successful full runs in this repo's history when nothing was wrong is 8.13 days: npm's
+// Monday job ran on a Tuesday (2026-10-05 16:05Z -> 10-13 19:09Z). 9 days leaves ~0.9
+// days of headroom over that, so a manual dispatch can go red only in the day or so
+// after a job that ran a day late. The scheduled check runs Thursday 17:17 UTC (see the
+// workflow): healthy entries are then ~3-3.5 days old, and ONE missed Monday makes them
+// ~10-10.5 days old -- over 9 with a day to spare, so a single missed week is flagged at
+// the first scheduled check after it. (npm's job runs 09:00 America/Los_Angeles: ~16:05Z
+// in PDT, ~17:05Z in PST. Both sides of 9 hold in either.)
+//
+// Longer gaps HAVE happened, and are meant to fail: npm went 14 days (06-29 -> 07-13) and
+// github-actions 28 days (06-22 -> 07-20) because their open-pull-requests-limit was
+// full. With the limit reached Dependabot does not schedule the full job at all, so the
+// entry reads STALE. That is a real stall (updates stop until PRs are merged or closed),
+// but it is not a broken job, so evaluate() attaches a hint saying which it likely is.
 // daily = 2 (one missed day plus jitter). monthly = 33 (longest month plus 2 days).
 // Anything else (cron, quarterly, ...) is unsupported and throws: guessing a threshold
 // for it would be a silent pass in waiting.
@@ -211,17 +217,19 @@ function parseRunName(name) {
 //   lastSuccessAt, ageDays, lastRun, fullRunCount }] }.
 // status: OK | STALE (last success too old) | FAILING (full runs seen, none
 // succeeded) | MISSING (no full runs at all for this entry).
+// hint: set when the evidence says the full job is not being SCHEDULED, rather than
+// running and failing -- see notScheduledHint(). It never changes the status.
 function evaluate({ entries, runs, now = Date.now() }) {
-  const parsed = runs.map(r => ({ run: r, id: parseRunName(r.name) })).filter(x => x.id && x.id.full);
+  const named = runs.map(r => ({ run: r, id: parseRunName(r.name) })).filter(x => x.id);
+  const isSuccess = r => r.status === 'completed' && r.conclusion === 'success';
+  const newestFirst = (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at);
   const results = entries.map(entry => {
     const want = runEcosystemName(entry.ecosystem);
     const dir = normDir(entry.directory);
     const thresholdDays = THRESHOLD_DAYS[entry.interval];
-    const mine = parsed
-      .filter(x => x.id.ecosystem === want && x.id.directory === dir)
-      .map(x => x.run)
-      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
-    const success = mine.find(r => r.status === 'completed' && r.conclusion === 'success');
+    const forEntry = named.filter(x => x.id.ecosystem === want && x.id.directory === dir);
+    const mine = forEntry.filter(x => x.id.full).map(x => x.run).sort(newestFirst);
+    const success = mine.find(isSuccess);
     const lastRun = mine[0] || null;
     const lastSuccessAt = success ? success.created_at : null;
     const ageDays = success ? (now - Date.parse(success.created_at)) / DAY_MS : null;
@@ -230,6 +238,11 @@ function evaluate({ entries, runs, now = Date.now() }) {
     else if (!success) status = 'FAILING';
     else if (!(ageDays <= thresholdDays)) status = 'STALE';
     else status = 'OK';
+    // Targeted jobs never count as liveness (see the header), but a recent targeted
+    // success is evidence that Dependabot is running for this entry at all.
+    const targeted = forEntry.filter(x => !x.id.full).map(x => x.run).filter(isSuccess).sort(newestFirst)[0];
+    const targetedRecent = Boolean(targeted) && (now - Date.parse(targeted.created_at)) / DAY_MS <= thresholdDays;
+    const hint = notScheduledHint({ status, lastRun, success, targetedRecent });
     return {
       ecosystem: entry.ecosystem,
       directory: entry.directory,
@@ -245,10 +258,26 @@ function evaluate({ entries, runs, now = Date.now() }) {
         html_url: lastRun.html_url,
       },
       fullRunCount: mine.length,
+      hint,
     };
   });
   // Zero entries is never a pass: a check that checked nothing proves nothing.
   return { ok: results.length > 0 && results.every(r => r.status === 'OK'), results };
+}
+
+// When the open-pull-requests-limit is full, Dependabot stops scheduling the full job,
+// so the last full run stays the old success (STALE) or ages out of the history
+// (MISSING) while targeted jobs (PR refreshes) can keep running. FAILING is never
+// hinted: there the full job ran and broke. The hint is a likely cause, not a proof:
+// in this repo's 2026-07 stall npm's targeted jobs kept succeeding, but
+// github-actions had none for its first 19 days, so the STALE case does not require
+// them.
+function notScheduledHint({ status, lastRun, success, targetedRecent }) {
+  const noFullRunSince = status === 'STALE' && lastRun === success;
+  if (!noFullRunSince && !(status === 'MISSING' && targetedRecent)) return null;
+  const since = success ? `since ${success.created_at}` : 'in the run history';
+  const evidence = targetedRecent ? ' while targeted jobs still succeed' : '';
+  return `no full update job has run ${since}${evidence}: the open-pull-requests-limit is likely full (merge or close Dependabot PRs), or Dependabot is paused`;
 }
 
 function formatReport({ ok, results }, { lookbackDays } = {}) {
@@ -265,6 +294,7 @@ function formatReport({ ok, results }, { lookbackDays } = {}) {
     ok
       ? 'All configured Dependabot entries have a recent successful update run.'
       : 'One or more Dependabot entries have NO successful update run within threshold.',
+    ...results.filter(r => r.hint).map(r => `- ${r.ecosystem} in ${r.directory}: ${r.hint}`),
   ];
   if (lookbackDays) lines.push(`(Run history read back ${lookbackDays} days; "-" means none in that window.)`);
   return lines.join('\n');
@@ -319,7 +349,8 @@ async function main() {
     fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Dependabot liveness\n\n${report}\n`);
   }
   for (const r of verdict.results.filter(x => x.status !== 'OK')) {
-    console.log(`::error title=Dependabot ${r.status}::${r.ecosystem} in ${r.directory}: no successful update run within ${r.thresholdDays} days`);
+    const why = r.hint || `no successful update run within ${r.thresholdDays} days`;
+    console.log(`::error title=Dependabot ${r.status}::${r.ecosystem} in ${r.directory}: ${why}`);
   }
   return verdict.ok ? 0 : 1;
 }

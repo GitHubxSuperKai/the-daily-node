@@ -6,7 +6,7 @@ name: Dependabot liveness
 # runs can. Logic, threshold rationale and tests: scripts/check-dependabot-liveness.cjs
 # and tests/unit/checkDependabotLiveness.test.js.
 #
-# Thursday 17:17 UTC: Monday's jobs (~04:15Z and, for npm, ~16:05Z) are then ~3 days
+# Thursday 17:17 UTC: Monday's jobs (~04:15Z and, for npm, ~16:05Z in PDT / ~17:05Z in PST) are then ~3 days
 # old when healthy and ~10 days old after one missed Monday, so the 9-day threshold
 # sits a day clear of both. Re-run from the Actions tab via workflow_dispatch.
 on:
