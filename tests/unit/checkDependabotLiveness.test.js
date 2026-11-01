@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 
 const require = createRequire(import.meta.url);
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -31,6 +32,7 @@ const {
   evaluate,
   formatReport,
   fetchRuns,
+  run: runCheck,
 } = require(path.join(REPO_ROOT, 'scripts', 'check-dependabot-liveness.cjs'));
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -359,3 +361,85 @@ describe('fetchRuns (fetch stubbed)', () => {
   });
 });
 
+// The exit code is the only signal the workflow acts on, so each of its three values
+// is pinned here: a run() that always returned 0 would otherwise pass every case above.
+describe('run: the exit code (fetch stubbed)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const CONFIG = [
+    'version: 2',
+    'updates:',
+    '  - package-ecosystem: npm',
+    '    directory: /',
+    '    schedule:',
+    '      interval: weekly',
+    '  - package-ecosystem: docker',
+    '    directory: /',
+    '    schedule:',
+    '      interval: weekly',
+    '',
+  ].join('\n');
+  const stubRuns = runs => vi.stubGlobal('fetch', vi.fn(async url => ({
+    ok: true,
+    json: async () => (url.includes('/actions/workflows?')
+      ? { workflows: [{ id: 42, path: 'dynamic/dependabot/dependabot-updates' }] }
+      : { workflow_runs: runs }),
+  })));
+  const go = async opts => {
+    const log = vi.fn();
+    const logError = vi.fn();
+    const code = await runCheck({ env: { GITHUB_REPOSITORY: 'o/r' }, configText: CONFIG, now: NOW, log, logError, ...opts });
+    return { code, out: log.mock.calls.map(c => c[0]).join('\n'), err: logError.mock.calls.map(c => c[0]).join('\n') };
+  };
+
+  it('0 when every entry is OK', async () => {
+    stubRuns([run(full('npm_and_yarn'), 3), run(full('docker'), 3)]);
+    const { code, out } = await go();
+    expect(code).toBe(0);
+    expect(out).toMatch(/All configured Dependabot entries/);
+    expect(out).not.toMatch(/::error/);
+  });
+
+  it('1 when an entry fails, with an ::error line naming it', async () => {
+    stubRuns([run(full('npm_and_yarn'), 3)]);
+    const { code, out } = await go();
+    expect(code).toBe(1);
+    expect(out).toMatch(/^::error title=Dependabot MISSING::docker in \/: no successful update run within 9 days$/m);
+    expect(out).not.toMatch(/::error title=Dependabot \w+::npm/);
+  });
+
+  it('1 for a not-scheduled entry, and the ::error line carries the hint', async () => {
+    stubRuns([run(full('npm_and_yarn'), 10), run(full('docker'), 3)]);
+    const { code, out } = await go();
+    expect(code).toBe(1);
+    expect(out).toMatch(/^::error title=Dependabot STALE::npm in \/: no full update job has run since .*open-pull-requests-limit/m);
+  });
+
+  it('2 when the API errors', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 403, text: async () => 'forbidden' })));
+    const { code, err } = await go();
+    expect(code).toBe(2);
+    expect(err).toMatch(/^::error title=Dependabot liveness check broken::.*HTTP 403/);
+  });
+
+  it('2 when the config cannot be read', async () => {
+    stubRuns([run(full('npm_and_yarn'), 3), run(full('docker'), 3)]);
+    const { code, err } = await go({ configText: 'version: 2\nupdates: []\n' });
+    expect(code).toBe(2);
+    expect(err).toMatch(/flow-style updates/);
+  });
+
+  it('2 when GITHUB_REPOSITORY is unset', async () => {
+    const { code } = await go({ env: {} });
+    expect(code).toBe(2);
+  });
+
+  it('the script process exits with run()\'s code (2 here, no network needed)', () => {
+    const script = path.join(REPO_ROOT, 'scripts', 'check-dependabot-liveness.cjs');
+    // An explicit env without GITHUB_REPOSITORY: CI sets it, and inheriting it would
+    // send this case to the live API.
+    const r = spawnSync(process.execPath, [script], { encoding: 'utf8', env: { PATH: process.env.PATH } });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/GITHUB_REPOSITORY is not set/);
+  });
+});

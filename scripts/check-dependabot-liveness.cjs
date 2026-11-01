@@ -333,36 +333,41 @@ async function fetchRuns({ repo, token, sinceMs, api = 'https://api.github.com' 
   return runs;
 }
 
-async function main() {
-  const repo = process.env.GITHUB_REPOSITORY;
+// The parameters exist for the tests; the workflow calls run() with none.
+async function main({ env = process.env, configText, now = Date.now(), log = console.log } = {}) {
+  const repo = env.GITHUB_REPOSITORY;
   if (!repo) throw new Error('GITHUB_REPOSITORY is not set (owner/name)');
-  const entries = parseDependabotConfig(fs.readFileSync(path.join(REPO_ROOT, CONFIG_REL), 'utf8'));
-  const now = Date.now();
+  const entries = parseDependabotConfig(configText ?? fs.readFileSync(path.join(REPO_ROOT, CONFIG_REL), 'utf8'));
   // Read back well past the largest threshold so a STALE entry can still show when it
   // last succeeded. Entries older than this read as FAILING/MISSING -- still a fail.
   const lookbackDays = 4 * Math.max(...entries.map(e => THRESHOLD_DAYS[e.interval]));
-  const runs = await fetchRuns({ repo, token: process.env.GITHUB_TOKEN, sinceMs: now - lookbackDays * DAY_MS });
+  const runs = await fetchRuns({ repo, token: env.GITHUB_TOKEN, sinceMs: now - lookbackDays * DAY_MS });
   const verdict = evaluate({ entries, runs, now });
   const report = formatReport(verdict, { lookbackDays });
-  console.log(report);
-  if (process.env.GITHUB_STEP_SUMMARY) {
-    fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Dependabot liveness\n\n${report}\n`);
+  log(report);
+  if (env.GITHUB_STEP_SUMMARY) {
+    fs.appendFileSync(env.GITHUB_STEP_SUMMARY, `## Dependabot liveness\n\n${report}\n`);
   }
   for (const r of verdict.results.filter(x => x.status !== 'OK')) {
     const why = r.hint || `no successful update run within ${r.thresholdDays} days`;
-    console.log(`::error title=Dependabot ${r.status}::${r.ecosystem} in ${r.directory}: ${why}`);
+    log(`::error title=Dependabot ${r.status}::${r.ecosystem} in ${r.directory}: ${why}`);
   }
   return verdict.ok ? 0 : 1;
 }
 
+// The process exit code is the only thing the workflow acts on: 0 every entry OK,
+// 1 an entry failed, 2 the check itself broke (API error, a config it cannot read).
+async function run({ logError = console.error, ...opts } = {}) {
+  try {
+    return await main(opts);
+  } catch (err) {
+    logError(`::error title=Dependabot liveness check broken::${err.message}`);
+    return 2;
+  }
+}
+
 if (require.main === module) {
-  main().then(
-    code => process.exit(code),
-    err => {
-      console.error(`::error title=Dependabot liveness check broken::${err.message}`);
-      process.exit(2);
-    },
-  );
+  run().then(code => process.exit(code));
 }
 
 module.exports = {
@@ -375,4 +380,6 @@ module.exports = {
   evaluate,
   formatReport,
   fetchRuns,
+  main,
+  run,
 };
