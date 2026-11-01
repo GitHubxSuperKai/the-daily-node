@@ -1,3 +1,4 @@
+import io
 import os
 import sqlite3
 import sys
@@ -5,10 +6,12 @@ import tempfile
 import time
 import unittest
 import unittest.mock
+import urllib.error
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from history_daemon import (
     ensure_schema,
+    fetch_json,
     parse_chain_response,
     parse_price_response,
     poll_forever,
@@ -154,6 +157,18 @@ class TestPollerSurvival(unittest.TestCase):
             with self.assertRaises(Stop):
                 poll_forever(fn, 60)
         self.assertEqual(len(calls), 2, 'the loop died on the first exception')
+
+
+
+class TestFetchJsonHTTPError(unittest.TestCase):
+    def test_an_error_status_is_closed_and_reraised(self):
+        # Every poller drops the error in an `except Exception`, so fetch_json closes it.
+        err = urllib.error.HTTPError('http://192.0.2.1/x', 503, 'busy', {}, io.BytesIO(b'x'))
+        with unittest.mock.patch('history_daemon.urllib.request.urlopen', side_effect=err):
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                fetch_json('http://192.0.2.1/x')
+        self.assertIs(ctx.exception, err)
+        self.assertTrue(err.fp.closed)
 
 
 if __name__ == '__main__':

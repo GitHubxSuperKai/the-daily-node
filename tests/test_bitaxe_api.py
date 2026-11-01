@@ -1,3 +1,4 @@
+import io
 import os
 import re
 import sys
@@ -6,6 +7,7 @@ import threading
 import time
 import unittest
 import unittest.mock
+import urllib.error
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -140,6 +142,19 @@ class FetchAllMinersTests(unittest.TestCase):
 
         self.assertFalse(miners[1]['online'])
         self.assertLess(elapsed, client_budget)
+
+
+
+class FetchMinerHTTPErrorTests(unittest.TestCase):
+    def test_an_error_status_is_closed_and_reported_offline(self):
+        # An HTTPError holds the miner's response open; Python 3.14 and 3.15 warn when
+        # one is left for the garbage collector.
+        err = urllib.error.HTTPError('http://192.0.2.1/api/system/info', 500, 'boom', {}, io.BytesIO(b'x'))
+        with unittest.mock.patch.object(bitaxe_api.urllib.request, 'urlopen', side_effect=err):
+            result = bitaxe_api.fetch_miner('192.0.2.1')
+        self.assertEqual(result['online'], False)
+        self.assertIn('500', result['error'])
+        self.assertTrue(err.fp.closed)
 
 
 if __name__ == '__main__':

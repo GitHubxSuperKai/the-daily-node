@@ -41,7 +41,8 @@ def _get(port, path, origin=None):
         with urllib.request.urlopen(req) as r:
             return r.status, r.headers
     except urllib.error.HTTPError as e:
-        return e.code, e.headers
+        with e:
+            return e.code, e.headers
 
 
 class BitaxeCatchAll404CORSTest(unittest.TestCase):
