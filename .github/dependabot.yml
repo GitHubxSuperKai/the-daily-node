@@ -31,13 +31,6 @@ updates:
       day: monday
     open-pull-requests-limit: 3
 
-  - package-ecosystem: pip
-    directory: /
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 3
-
   - package-ecosystem: docker
     directory: /
     schedule:
