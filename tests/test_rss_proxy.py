@@ -125,7 +125,8 @@ class RssProxyTestBase(unittest.TestCase):
             with urllib.request.urlopen(req, timeout=5) as resp:
                 return resp.status, resp.headers, resp.read()
         except urllib.error.HTTPError as e:
-            return e.code, e.headers, e.read()
+            with e:
+                return e.code, e.headers, e.read()
 
 
 class HappyPathTest(RssProxyTestBase):

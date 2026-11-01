@@ -156,7 +156,8 @@ class FirmwareRouteTests(unittest.TestCase):
             with urllib.request.urlopen(req, timeout=5) as r:
                 return r.status, r.read()
         except urllib.error.HTTPError as e:
-            return e.code, e.read()
+            with e:
+                return e.code, e.read()
 
     def test_serves_latest_as_json(self):
         with unittest.mock.patch.object(bitaxe_api, 'latest_firmware', return_value='v2.15.3'):

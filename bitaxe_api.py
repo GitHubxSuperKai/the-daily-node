@@ -403,7 +403,11 @@ def _refresh_firmware(now):
             raise ValueError('unexpected tag_name')
         _firmware_cache['latest'] = tag
         _firmware_cache['next_check'] = now + FIRMWARE_TTL
-    except Exception:
+    except Exception as e:
+        # An HTTPError holds the upstream response open; Python 3.15 warns if it is
+        # left for the garbage collector.
+        if isinstance(e, urllib.error.HTTPError):
+            e.close()
         _firmware_cache['next_check'] = now + FIRMWARE_RETRY
 
 
@@ -609,6 +613,7 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(body)
             except urllib.error.HTTPError as e:
+                e.close()  # holds the upstream response open (see _refresh_firmware)
                 # A 3xx here means _NoRedirect refused to follow a redirect (SSRF guard);
                 # surface it as an upstream error, not a client-actionable bare redirect.
                 status = 502 if 300 <= e.code < 400 else e.code
@@ -682,6 +687,8 @@ class BitaxeAPIHandler(BaseHTTPRequestHandler):
             try:
                 body = _fetch_feed(target)
             except Exception as e:
+                if isinstance(e, urllib.error.HTTPError):
+                    e.close()  # holds the upstream response open (see _refresh_firmware)
                 error = f'upstream {e.code}' if isinstance(e, urllib.error.HTTPError) else f'feed fetch failed: {e}'
                 # Re-read: another thread may have cached a good copy while this fetch
                 # was failing, and the entry read before the fetch must not replace it.

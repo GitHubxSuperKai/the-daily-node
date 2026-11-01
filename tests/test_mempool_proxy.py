@@ -106,7 +106,8 @@ class MempoolProxyTestBase(unittest.TestCase):
             with urllib.request.urlopen(req, timeout=5) as resp:
                 return resp.status, resp.read()
         except urllib.error.HTTPError as e:
-            return e.code, e.read()
+            with e:
+                return e.code, e.read()
 
 
 class SanityTest(MempoolProxyTestBase):
