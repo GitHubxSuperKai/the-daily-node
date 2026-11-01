@@ -109,7 +109,8 @@ jobs:
   # tests on 3.11. This job runs the same Python tests on the runtime's version.
   # A separate job, not a matrix on `build`: a matrix renames the job to
   # `build (3.11)`, and `build` is a required context that would then never report.
-  # Keep python-version in step with the Dockerfile's FROM line.
+  # tests/unit/pythonRuntimeVersion.test.js fails when python-version and the
+  # Dockerfile's runtime FROM line disagree.
   python-runtime:
     permissions:
       contents: read
@@ -121,6 +122,9 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: '3.15'
+          # The image's python:3.15-slim tracks the newest patch; the runner's cached
+          # 3.15 can trail it.
+          check-latest: true
 
       # Same ResourceWarning scan as the build job's Python step; see the comment there.
       - name: Run python tests
