@@ -105,6 +105,36 @@ jobs:
             exit 1
           fi
 
+  # The Docker runtime image is python:3.15-slim (Dockerfile), while the build job
+  # tests on 3.11. This job runs the same Python tests on the runtime's version.
+  # A separate job, not a matrix on `build`: a matrix renames the job to
+  # `build (3.11)`, and `build` is a required context that would then never report.
+  # Keep python-version in step with the Dockerfile's FROM line.
+  python-runtime:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.15'
+
+      # Same ResourceWarning scan as the build job's Python step; see the comment there.
+      - name: Run python tests
+        shell: bash
+        env:
+          PYTHONWARNINGS: default,always::ResourceWarning
+        run: |
+          python --version
+          npm run test:py 2>&1 | tee "$RUNNER_TEMP/py-tests.log"
+          if grep -nF 'ResourceWarning: ' "$RUNNER_TEMP/py-tests.log"; then
+            echo "::error::Python tests leaked a resource; see the ResourceWarning lines above"
+            exit 1
+          fi
+
   # check:secrets reads the STAGED set, which is empty in a normal CI checkout —
   # a bare `npm run check:secrets` step would report "checked 0 staged files" and
   # pass unconditionally. Staging the diff under review first gives it something
