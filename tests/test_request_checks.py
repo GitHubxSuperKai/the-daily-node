@@ -10,7 +10,6 @@ from http.server import ThreadingHTTPServer
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import bitaxe_api  # noqa: E402
-from bitaxe_api import is_host_allowed  # noqa: E402
 
 POLL_INTERVAL = 0.05
 DEFAULT_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000']
@@ -28,28 +27,29 @@ READ_PATHS = [
 class TestIsHostAllowed(unittest.TestCase):
     def test_ip_literals(self):
         for host in ('127.0.0.1:3001', '10.0.0.5:3001', '[::1]:3001', '127.0.0.1'):
-            self.assertTrue(is_host_allowed(host, []), host)
+            self.assertTrue(bitaxe_api.is_host_allowed(host, []), host)
 
     def test_localhost(self):
-        self.assertTrue(is_host_allowed('localhost:3001', []))
-        self.assertTrue(is_host_allowed('LOCALHOST:3001', []))
+        self.assertTrue(bitaxe_api.is_host_allowed('localhost:3001', []))
+        self.assertTrue(bitaxe_api.is_host_allowed('LOCALHOST:3001', []))
 
     def test_missing_host(self):
-        self.assertTrue(is_host_allowed(None, []))
-        self.assertTrue(is_host_allowed('', []))
+        self.assertTrue(bitaxe_api.is_host_allowed(None, []))
+        self.assertTrue(bitaxe_api.is_host_allowed('', []))
 
     def test_name_needs_allowlisted_origin(self):
-        self.assertFalse(is_host_allowed('node.example:3001', DEFAULT_ORIGINS))
+        self.assertFalse(bitaxe_api.is_host_allowed('node.example:3001', DEFAULT_ORIGINS))
         # Any port: the dashboard may be served on 3000 and the API on 3001.
-        self.assertTrue(is_host_allowed('node.example:3001', ['http://node.example:3000']))
+        self.assertTrue(
+            bitaxe_api.is_host_allowed('node.example:3001', ['http://node.example:3000']))
 
     def test_malformed(self):
         for host in (':3001', '[', '[::1', 'a]:1'):
-            self.assertFalse(is_host_allowed(host, DEFAULT_ORIGINS), host)
+            self.assertFalse(bitaxe_api.is_host_allowed(host, DEFAULT_ORIGINS), host)
 
     def test_bracketed_ipv6_allowed(self):
         for host in ('[::1]:3001', '[::ffff:127.0.0.1]:3001', '[::1]'):
-            self.assertTrue(is_host_allowed(host, []), host)
+            self.assertTrue(bitaxe_api.is_host_allowed(host, []), host)
 
     def test_bracket_content_that_is_not_ipv6_refused(self):
         # Brackets are for IPv6 literals only: a name or IPv4 address inside them is
@@ -57,13 +57,13 @@ class TestIsHostAllowed(unittest.TestCase):
         allowlist = DEFAULT_ORIGINS + ['http://node.example:3000']
         for host in ('[node.example]:3001', '[localhost]:3001', '[127.0.0.1]:3001',
                      '[other.example]', '[]:3001'):
-            self.assertFalse(is_host_allowed(host, allowlist), host)
+            self.assertFalse(bitaxe_api.is_host_allowed(host, allowlist), host)
 
     def test_text_around_brackets_refused(self):
         # Checked before urlparse, whose patch releases differ here (3.12.0 reads '::1').
         for host in ('[::1]x:3001', 'x[::1]:3001', '[::1]:x', '[::1]:3001x', '[::1]]:3001',
                      '[[::1]:3001', '[::1]:30:01', 'localhost:3001]'):
-            self.assertFalse(is_host_allowed(host, DEFAULT_ORIGINS), host)
+            self.assertFalse(bitaxe_api.is_host_allowed(host, DEFAULT_ORIGINS), host)
 
     def test_userinfo_path_query_fragment_refused(self):
         # urlparse would read the host after '@' or before '/', '?' or '#'; the host must
@@ -72,11 +72,11 @@ class TestIsHostAllowed(unittest.TestCase):
         for host in ('other.example@127.0.0.1:3001', '@localhost', 'node.example@node.example',
                      '127.0.0.1/x', 'localhost:3001/', '[::1]:3001/x', '127.0.0.1?x',
                      'localhost#x', 'node.example:3000?', '[::1]#'):
-            self.assertFalse(is_host_allowed(host, allowlist), host)
+            self.assertFalse(bitaxe_api.is_host_allowed(host, allowlist), host)
 
     def test_bracketed_ipv6_port_forms_allowed(self):
         for host in ('[::1]:3001', '[::1]', '[::1]:'):
-            self.assertTrue(is_host_allowed(host, []), host)
+            self.assertTrue(bitaxe_api.is_host_allowed(host, []), host)
 
 
 class TestRequestChecks(unittest.TestCase):
