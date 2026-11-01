@@ -329,6 +329,8 @@ def fetch_miner(ip):
             data = json.loads(resp.read().decode())
             return {'ip': ip, 'online': True, 'data': data}
     except Exception as e:
+        if isinstance(e, urllib.error.HTTPError):
+            e.close()  # holds the miner's response open (see _refresh_firmware)
         return {'ip': ip, 'online': False, 'error': str(e)}
 
 

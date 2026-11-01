@@ -13,6 +13,7 @@ import sqlite3
 import sys
 import threading
 import time
+import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -127,8 +128,14 @@ def poll_purge(db_path):
 
 def fetch_json(url, timeout=10):
     req = urllib.request.Request(url, headers={'User-Agent': 'daily-node/2.0'})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode())
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        # It holds the upstream response open, and every caller drops it in an
+        # `except Exception`; Python 3.15 warns if it is left for the garbage collector.
+        e.close()
+        raise
 
 
 # ─── Poll functions ────────────────────────────────────────────
