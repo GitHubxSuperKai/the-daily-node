@@ -34,7 +34,3 @@ function checkPriceThreshold(currentUsd, historyPoints, pctThreshold, windowSeco
 }
 
 export { BLOCK_TIME_ALERT_MIN, checkFeeThreshold, checkBlockTimeThreshold, msSinceLastBlockFor, checkMinerOfflineThreshold, checkPriceThreshold };
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { BLOCK_TIME_ALERT_MIN, checkFeeThreshold, checkBlockTimeThreshold, msSinceLastBlockFor, checkMinerOfflineThreshold, checkPriceThreshold };
-}
