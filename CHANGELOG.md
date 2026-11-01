@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `bitaxe_api.py`'s `/api/miners` lists a miner whose fetch is still running when the server stops waiting as offline, with the error `no response within 4s`, in its configured position, so the dashboard shows it offline and the miner-offline alert can fire. It used to leave that miner out, so the response's `miners` list and `count` came up one short. The server now waits at most 4 seconds (`MINERS_DEADLINE`) for the whole fleet, shared by every miner. It used to wait up to 6 seconds for each hung miner in turn, longer than the dashboard's 5-second limit on that request, so with even one hung miner the dashboard gave up first and kept showing the last good list, if it had one, as stale. A miner that takes more than 4 seconds to answer now shows offline for that poll.
+- `bitaxe_api.py` closes the upstream response carried by an HTTP error status in its firmware lookup, `/api/mempool-proxy` and `/api/rss`. It used to leave each one for the garbage collector, which Python 3.15, the runtime image's version, reports as a `ResourceWarning`. CI now also runs the Python tests on 3.15, alongside 3.11.
 
 ### Security
 
