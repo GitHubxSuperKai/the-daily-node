@@ -406,8 +406,8 @@ def _refresh_firmware(now):
         _firmware_cache['latest'] = tag
         _firmware_cache['next_check'] = now + FIRMWARE_TTL
     except Exception as e:
-        # An HTTPError holds the upstream response open; Python 3.15 warns if it is
-        # left for the garbage collector.
+        # An HTTPError holds the upstream response open; Python 3.14 and 3.15 warn if
+        # it is left for the garbage collector.
         if isinstance(e, urllib.error.HTTPError):
             e.close()
         _firmware_cache['next_check'] = now + FIRMWARE_RETRY

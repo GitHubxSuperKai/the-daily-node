@@ -133,7 +133,8 @@ def fetch_json(url, timeout=10):
             return json.loads(r.read().decode())
     except urllib.error.HTTPError as e:
         # It holds the upstream response open, and every caller drops it in an
-        # `except Exception`; Python 3.15 warns if it is left for the garbage collector.
+        # `except Exception`; Python 3.14 and 3.15 warn if it is left for the garbage
+        # collector.
         e.close()
         raise
 
