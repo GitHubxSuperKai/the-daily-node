@@ -91,7 +91,7 @@ export default [
     },
   },
   {
-    // Test files (vitest + jsdom) — concat globals plus Node globals.
+    // Test files (vitest + jsdom) — browser plus Node globals.
     files: ['tests/**/*.{js,jsx}'],
     languageOptions: {
       ecmaVersion: 2022,
@@ -102,7 +102,6 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.node,
-        ...concatGlobals,
       },
     },
     plugins: {
