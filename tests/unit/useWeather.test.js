@@ -44,9 +44,6 @@ const wxOk = {
 describe('useWeather', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    // useWeather references wmoDesc as a build-time global (concatenated from
-    // src/utils/formatting.js by build.js). Stub it for unit tests.
-    globalThis.wmoDesc = (code) => `code-${code}`;
   });
 
   it('exposes current weather + sunset times', async () => {
