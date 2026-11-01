@@ -121,3 +121,42 @@ describe('useHistory — request settling after unmount', () => {
     expect(errors.map(String)).toEqual([]);
   });
 });
+
+// Guards `ctrlRef.current?.abort()` at the top of fetchHistory. A refetch (here
+// a range change; reset() and the interval take the same path) must abort the
+// earlier request so its late response never overwrites the newer state. The
+// hook stays mounted throughout, so the unmount-abort effect cannot be what
+// makes this pass.
+describe('useHistory — refetch aborts the previous request', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('a late first response does not overwrite the refetch result', async () => {
+    const pending = [];
+    const spy = vi.spyOn(global, 'fetch').mockImplementation(
+      () => new Promise((resolve) => { pending.push(resolve); }),
+    );
+    const ok = (data) => ({ ok: true, json: async () => data });
+    const first  = [{ ts: 1700000000, usd: 11111, vol: 1 }];
+    const second = [{ ts: 1700003600, usd: 22222, vol: 2 }];
+
+    const { result, rerender } = renderHook(
+      ({ range }) => useHistory('price', range),
+      { initialProps: { range: '24h' } },
+    );
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    rerender({ range: '7d' });  // refetch while the first request is still open
+    expect(spy).toHaveBeenCalledTimes(2);
+    const [firstSignal, secondSignal] = spy.mock.calls.map(([, init]) => init?.signal);
+    expect(firstSignal?.aborted).toBe(true);
+    expect(secondSignal?.aborted).toBe(false);
+
+    await act(async () => { pending[1](ok(second)); });
+    expect(result.current.data).toEqual(second);
+
+    await act(async () => { pending[0](ok(first)); });  // stale response lands last
+    expect(result.current.data).toEqual(second);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+});
