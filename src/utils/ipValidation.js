@@ -11,7 +11,3 @@ export function isValidLanIp(ip) {
   if (o[0] === 127) return true;
   return false;
 }
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { isValidLanIp };
-}

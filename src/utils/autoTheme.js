@@ -37,7 +37,3 @@ function shouldBeDarkAt(now, wx) {
 }
 
 export { themeFlipDecision, shouldBeDarkAt };
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { themeFlipDecision, shouldBeDarkAt };
-}

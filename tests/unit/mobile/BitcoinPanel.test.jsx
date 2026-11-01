@@ -1,5 +1,4 @@
 import React from 'react';
-globalThis.React = React;
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';

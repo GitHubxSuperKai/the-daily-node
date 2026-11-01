@@ -27,11 +27,6 @@ const feedResp = (count, prefix = 'a') => ({
 describe('useRSS', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    // useRSS references classifyTopic + timeAgo as build-time globals (concatenated
-    // from src/utils/formatting.js by build.js). Tests run the source directly, so
-    // stub the names the hook expects.
-    globalThis.classifyTopic = () => 'BITCOIN';
-    globalThis.timeAgo = () => '1m';
   });
 
   it('flattens items from all feeds and exposes leadStory + items', async () => {
