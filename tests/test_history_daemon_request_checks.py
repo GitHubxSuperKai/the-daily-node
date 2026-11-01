@@ -13,11 +13,6 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import bitaxe_api  # noqa: E402
 import history_daemon  # noqa: E402
-from history_daemon import (  # noqa: E402
-    HistoryHandler,
-    ensure_schema,
-    resolve_allowed_origins,
-)
 
 POLL_INTERVAL = 0.05
 DASHBOARD = 'http://node.example:3001'
@@ -33,15 +28,15 @@ class TestHistoryDaemonHost(unittest.TestCase):
         db_path = os.path.join(tmpdir, 'test.db')
         conn = sqlite3.connect(db_path)
         try:
-            ensure_schema(conn)
+            history_daemon.ensure_schema(conn)
         finally:
             conn.close()
-        cls.addClassCleanup(setattr, HistoryHandler, 'db_path', HistoryHandler.db_path)
-        cls.addClassCleanup(setattr, HistoryHandler, 'allowed_origins',
-                            HistoryHandler.allowed_origins)
-        HistoryHandler.db_path = db_path
-        HistoryHandler.allowed_origins = resolve_allowed_origins([DASHBOARD])
-        cls.server = history_daemon.SERVER_CLASS(('127.0.0.1', 0), HistoryHandler)
+        handler = history_daemon.HistoryHandler
+        cls.addClassCleanup(setattr, handler, 'db_path', handler.db_path)
+        cls.addClassCleanup(setattr, handler, 'allowed_origins', handler.allowed_origins)
+        handler.db_path = db_path
+        handler.allowed_origins = history_daemon.resolve_allowed_origins([DASHBOARD])
+        cls.server = history_daemon.SERVER_CLASS(('127.0.0.1', 0), handler)
         cls.addClassCleanup(cls.server.server_close)
         cls.port = cls.server.server_address[1]
         cls.thread = threading.Thread(
@@ -106,9 +101,9 @@ class TestHistoryDaemonHost(unittest.TestCase):
 
     def test_name_needs_an_allowed_origin(self):
         # The default (localhost) allowlist has no host names, so a name is refused.
-        saved = HistoryHandler.allowed_origins
-        self.addCleanup(setattr, HistoryHandler, 'allowed_origins', saved)
-        HistoryHandler.allowed_origins = resolve_allowed_origins(None)
+        saved = history_daemon.HistoryHandler.allowed_origins
+        self.addCleanup(setattr, history_daemon.HistoryHandler, 'allowed_origins', saved)
+        history_daemon.HistoryHandler.allowed_origins = history_daemon.resolve_allowed_origins(None)
         status, _, body = self._request('GET', '/history/price', {
             'Host': f'node.example:{self.port}'})
         self.assertEqual(status, 403)
