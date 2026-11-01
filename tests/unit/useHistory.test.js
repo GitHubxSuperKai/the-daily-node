@@ -1,6 +1,3 @@
-import React from 'react';
-globalThis.React = React;
-
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useHistory } from '../../src/hooks/useHistory.js';
