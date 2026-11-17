@@ -18,7 +18,7 @@ export function NewsColumn({ newsItems, rssErr, loaded, hasLead }) {
   }, []);
 
   return (
-    <div style={{ borderRight: `1px solid ${T.rule2}`, paddingRight: u(24), overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+    <div data-testid="news-column" style={{ borderRight: `1px solid ${T.rule2}`, paddingRight: u(24), overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <Kicker>Bitcoin news</Kicker>
         {rssErr && <Kicker color={T.red}>feed error</Kicker>}

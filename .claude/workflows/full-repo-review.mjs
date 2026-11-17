@@ -326,6 +326,10 @@ with no must-pass controls.`,
       'tests/e2e/summary-reporter.cjs',
       'tests/e2e/harness/harness.spec.js',
       'tests/e2e/fixtures/load.js',
+      'tests/e2e/flows/chart-range.spec.js',
+      'tests/e2e/flows/settings-toggle.spec.js',
+      'tests/e2e/flows/theme.spec.js',
+      'tests/e2e/flows/rss-feed-off.spec.js',
     ],
     context: `These are Playwright Test files for npm run verify, not React
 components. Ignore the React, hook, styling and localStorage guidance above.
