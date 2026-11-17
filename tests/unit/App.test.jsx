@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, screen, cleanup, fireEvent } from '@testing-library/react';
 import { LIGHT, DARK } from '../../src/theme.js';
