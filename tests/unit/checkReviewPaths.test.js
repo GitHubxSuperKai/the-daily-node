@@ -32,12 +32,14 @@ const GUARD_REL = 'scripts/check-review-paths.cjs';
 const WORKFLOW_REL = '.claude/workflows/full-repo-review.mjs';
 
 // The guard's hard-coded EXCLUDED entries must exist under a covered root, or it fails
-// with a stale-exclusion error, so every fixture carries them.
-const VENDOR = [
-  'src/vendor/react.production.min.js',
-  'src/vendor/react-dom.production.min.js',
-  'src/vendor/MANIFEST.md',
-];
+// with a stale-exclusion error, so every fixture carries them. Read from the guard's own
+// source, so an entry added there (each verify fixture module under tests/e2e/fixtures/
+// is one) needs no second edit here; the first describe block checks the read worked.
+// \r?: a Windows checkout with core.autocrlf has CRLF in the working tree.
+const EXCLUDED_BLOCK = /\nconst EXCLUDED = \{\r?\n([\s\S]*?)\r?\n\};/.exec(GUARD_SRC);
+const GUARD_EXCLUDED = EXCLUDED_BLOCK
+  ? [...EXCLUDED_BLOCK[1].matchAll(/^ {2}'([^']+)':/gm)].map(m => m[1])
+  : [];
 
 const tmpDirs = [];
 afterAll(() => {
@@ -59,14 +61,14 @@ function makeRepo({ files = {}, listed, groups, guard = GUARD_SRC, workflow } = 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dn-review-paths-'));
   tmpDirs.push(dir);
   const all = { 'src/a.js': 'a\n', 'tests/a.test.js': 'a\n', ...files };
-  for (const v of VENDOR) all[v] = 'vendor\n';
+  for (const v of GUARD_EXCLUDED) all[v] = 'excluded\n';
   for (const [rel, contents] of Object.entries(all)) {
     fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
     fs.writeFileSync(path.join(dir, rel), contents);
   }
   fs.mkdirSync(path.join(dir, 'scripts'), { recursive: true });
   fs.writeFileSync(path.join(dir, GUARD_REL), guard);
-  const defaultListed = Object.keys(all).filter(f => !VENDOR.includes(f)
+  const defaultListed = Object.keys(all).filter(f => !GUARD_EXCLUDED.includes(f)
     && /^(src|tests|scripts)\//.test(f)).concat(GUARD_REL);
   const g = groups ?? [{ key: 'all', label: 'All', files: listed ?? defaultListed }];
   fs.mkdirSync(path.join(dir, '.claude', 'workflows'), { recursive: true });
@@ -106,6 +108,16 @@ const SPACE_NAME = 'src/with space.js';
 const ACCENT_NAME = `src/caf${String.fromCharCode(0xe9)}.js`;
 
 describe('check-review-paths: must-PASS controls', () => {
+  it("reads the guard's EXCLUDED entries (every fixture repo below carries them)", () => {
+    expect(GUARD_EXCLUDED).toEqual(expect.arrayContaining([
+      'src/vendor/react.production.min.js',
+      'src/vendor/react-dom.production.min.js',
+      'src/vendor/MANIFEST.md',
+      'tests/e2e/fixtures/recorded-at.json',
+    ]));
+    expect(new Set(GUARD_EXCLUDED).size).toBe(GUARD_EXCLUDED.length);
+  });
+
   it('passes on a fixture where every file under the three roots is listed', () => {
     expectPass(runGuard(makeRepo()));
   });

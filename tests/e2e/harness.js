@@ -22,10 +22,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { test as base, expect } from '@playwright/test';
+import FIXTURES from './fixtures/load.js';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SRC_DIR = path.join(REPO_ROOT, 'src');
 const LIVE = process.env.VERIFY_MODE === 'live';
+
+// The default clock: 5 minutes after the public fixtures were recorded, so recorded
+// timestamps (the mempool tip, news dates, the weather hours) read as recent. A flow
+// that needs a particular time of day sets `now` itself.
+const RECORDED_AT = JSON.parse(
+  fs.readFileSync(path.join(__dirname, 'fixtures', 'recorded-at.json'), 'utf8'),
+).recordedAt;
+const DEFAULT_NOW = new Date(Date.parse(RECORDED_AT) + 5 * 60 * 1000).toISOString();
 
 // 1x1 transparent PNG.
 const BLANK_PNG = Buffer.from(
@@ -80,9 +89,10 @@ const LIVE_ORIGINS = liveOrigins();
 const ERROR_BOUNDARY_MARKERS = errorBoundaryMarkers();
 
 export const test = base.extend({
-  fixtures: [[], { option: true }],
+  // Every module under fixtures/public and fixtures/backend (fixtures/load.js).
+  fixtures: [FIXTURES, { option: true }],
   allowConsoleErrors: [[], { option: true }],
-  now: ['2026-06-15T15:00:00Z', { option: true }],
+  now: [DEFAULT_NOW, { option: true }],
   backend: ['docker', { option: true }],
   enforce: [true, { option: true }],
 

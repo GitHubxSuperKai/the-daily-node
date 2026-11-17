@@ -79,6 +79,15 @@ export default [
     },
   },
   {
+    // Recorded API bodies (scripts/verify-refresh-fixtures.cjs) carry upstream floats
+    // printed in their shortest round-trip form, which can be 17 significant digits;
+    // this rule reads some of those as imprecise although they parse back exactly.
+    files: ['tests/e2e/fixtures/public/*.js'],
+    rules: {
+      'no-loss-of-precision': 'off',
+    },
+  },
+  {
     // Node-side scripts (CommonJS).
     files: ['scripts/**/*.cjs', 'tests/**/*.cjs', 'build.js', 'server.js', 'playwright.config.js'],
     languageOptions: {

@@ -151,6 +151,7 @@ const GROUPS = [
       'scripts/smoke-build.cjs',
       'scripts/verify-vendor.cjs',
       'scripts/verify.cjs',
+      'scripts/verify-refresh-fixtures.cjs',
       'scripts/capture-mobile.cjs',
       'scripts/repro-vpn.cjs',
     ],
@@ -163,7 +164,11 @@ silently skips, a parse it can get partially right and still exit 0, a path
 read without -z, a catch that swallows a failure into a success line, a
 success message that claims more coverage than was checked. verify.cjs is the
 \`npm run verify\` wrapper: its one summary line must never read \`verify: pass\`
-unless Playwright exited 0 AND this run's summary.json says passed. capture-mobile and
+unless Playwright exited 0 AND this run's summary.json says passed.
+verify-refresh-fixtures.cjs is hand-run, never in CI, and writes recorded API data
+into this public repo: look for a path that records a real location (weather must be
+0,0), keeps an article body or an image URL, or writes an error response as a fixture.
+capture-mobile and
 repro-vpn are manual developer utilities (Playwright), not gates; review them
 for correctness only.`,
   },
@@ -249,6 +254,7 @@ for correctness only.`,
       'tests/unit/checkReviewPaths.test.js',
       'tests/unit/checkDependabotLiveness.test.js',
       'tests/unit/verifyPort.test.js',
+      'tests/unit/verifyFixtures.test.js',
     ],
     // Its own group rather than a line in tests-harness: this reviews repo tooling,
     // not the dashboard, so the shared React brief would frame it wrongly — and a
@@ -303,7 +309,12 @@ threshold maths that only hold on the fixture's chosen timestamps.
 
 verifyPort.test.js tests tests/e2e/port.cjs, the free-port helper behind npm run
 verify. Same frame. Look for a case that would pass against a helper returning a
-fixed or already-bound port.`,
+fixed or already-bound port.
+
+verifyFixtures.test.js tests the verify fixtures and tests/e2e/fixtures/load.js. Same
+frame. Look for a coverage check that passes with a fixture deleted, a privacy scan
+(addresses, coordinates) with no case proving it can fail, and a catch-all case list
+with no must-pass controls.`,
   },
   {
     key: 'e2e-verify',
@@ -314,6 +325,7 @@ fixed or already-bound port.`,
       'tests/e2e/port.cjs',
       'tests/e2e/summary-reporter.cjs',
       'tests/e2e/harness/harness.spec.js',
+      'tests/e2e/fixtures/load.js',
     ],
     context: `These are Playwright Test files for npm run verify, not React
 components. Ignore the React, hook, styling and localStorage guidance above.
@@ -324,7 +336,10 @@ Review adversarially: a request class that reaches the network without landing
 in the unstubbed list, a rule-order slip that lets a fixture or the live allow-list
 shadow a guard, a guard whose test.fail() self-test would still pass with the
 guard deleted, a summary.json the reporter can leave stale or write as passed
-when a flow failed, and anything time- or timezone-dependent left unpinned.`,
+when a flow failed, and anything time- or timezone-dependent left unpinned.
+fixtures/load.js collects the fixture modules (the modules themselves are data,
+excluded from review): look for a pattern its catch-all check lets through that
+would answer every request, and an order that differs between machines.`,
   },
   {
     key: 'tests-python',

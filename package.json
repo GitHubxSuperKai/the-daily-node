@@ -16,6 +16,7 @@
     "check:docker-smoke": "node scripts/check-docker-smoke.cjs",
     "check:secrets": "node scripts/check-secrets.cjs",
     "verify": "node scripts/verify.cjs",
+    "verify:refresh-fixtures": "node scripts/verify-refresh-fixtures.cjs",
     "verify:vendor": "node scripts/verify-vendor.cjs"
   },
   "engines": {
