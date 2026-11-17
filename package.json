@@ -15,6 +15,7 @@
     "check:codeql": "node scripts/check-codeql-config.cjs",
     "check:docker-smoke": "node scripts/check-docker-smoke.cjs",
     "check:secrets": "node scripts/check-secrets.cjs",
+    "verify": "node scripts/verify.cjs",
     "verify:vendor": "node scripts/verify-vendor.cjs"
   },
   "engines": {
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.64.1",
     "@testing-library/react": "16.3.3",
     "esbuild": "0.28.2",
     "eslint": "^10.13.0",

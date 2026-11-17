@@ -150,6 +150,7 @@ const GROUPS = [
       'scripts/check-secrets.cjs',
       'scripts/smoke-build.cjs',
       'scripts/verify-vendor.cjs',
+      'scripts/verify.cjs',
       'scripts/capture-mobile.cjs',
       'scripts/repro-vpn.cjs',
     ],
@@ -160,7 +161,9 @@ check-docker-smoke, check-review-paths (the guard on this very list),
 smoke-build and verify-vendor. Review each gate adversarially: an input it
 silently skips, a parse it can get partially right and still exit 0, a path
 read without -z, a catch that swallows a failure into a success line, a
-success message that claims more coverage than was checked. capture-mobile and
+success message that claims more coverage than was checked. verify.cjs is the
+\`npm run verify\` wrapper: its one summary line must never read \`verify: pass\`
+unless Playwright exited 0 AND this run's summary.json says passed. capture-mobile and
 repro-vpn are manual developer utilities (Playwright), not gates; review them
 for correctness only.`,
   },
@@ -245,6 +248,7 @@ for correctness only.`,
       'tests/unit/pythonRuntimeVersion.test.js',
       'tests/unit/checkReviewPaths.test.js',
       'tests/unit/checkDependabotLiveness.test.js',
+      'tests/unit/verifyPort.test.js',
     ],
     // Its own group rather than a line in tests-harness: this reviews repo tooling,
     // not the dashboard, so the shared React brief would frame it wrongly — and a
@@ -295,7 +299,32 @@ frame. Its core property is fail-closed: a config entry with no matching runs mu
 fail. Look for: a fail case with no paired must-pass control, a run-name format the
 matcher accepts that counts a targeted (PR refresh / security) job as liveness, a
 config shape the hand-written YAML reader silently mis-reads instead of throwing, and
-threshold maths that only hold on the fixture's chosen timestamps.`,
+threshold maths that only hold on the fixture's chosen timestamps.
+
+verifyPort.test.js tests tests/e2e/port.cjs, the free-port helper behind npm run
+verify. Same frame. Look for a case that would pass against a helper returning a
+fixed or already-bound port.`,
+  },
+  {
+    key: 'e2e-verify',
+    label: 'E2E Verify Harness & Flows (Playwright config / harness / reporter / specs)',
+    files: [
+      'playwright.config.js',
+      'tests/e2e/harness.js',
+      'tests/e2e/port.cjs',
+      'tests/e2e/summary-reporter.cjs',
+      'tests/e2e/harness/harness.spec.js',
+    ],
+    context: `These are Playwright Test files for npm run verify, not React
+components. Ignore the React, hook, styling and localStorage guidance above.
+harness.js routes every request through an ordered rule list, fixes the clock,
+and fails a test on an unstubbed URL, an unlisted console error or a rendered
+ErrorBoundary fallback; harness.spec.js tests those guards against themselves.
+Review adversarially: a request class that reaches the network without landing
+in the unstubbed list, a rule-order slip that lets a fixture or the live allow-list
+shadow a guard, a guard whose test.fail() self-test would still pass with the
+guard deleted, a summary.json the reporter can leave stale or write as passed
+when a flow failed, and anything time- or timezone-dependent left unpinned.`,
   },
   {
     key: 'tests-python',

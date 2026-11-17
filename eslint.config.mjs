@@ -71,8 +71,16 @@ export default [
     },
   },
   {
+    // Playwright fixtures take their callback as `use`, which rules-of-hooks reads
+    // as a React hook call. Nothing under tests/e2e/ is React.
+    files: ['tests/e2e/**/*.js'],
+    rules: {
+      'react-hooks/rules-of-hooks': 'off',
+    },
+  },
+  {
     // Node-side scripts (CommonJS).
-    files: ['scripts/**/*.cjs', 'build.js', 'server.js'],
+    files: ['scripts/**/*.cjs', 'tests/**/*.cjs', 'build.js', 'server.js', 'playwright.config.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'commonjs',
