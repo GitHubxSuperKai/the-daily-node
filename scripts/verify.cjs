@@ -6,6 +6,9 @@
 //   verify: fail (<comma-separated flow names>)
 //   verify: fail (setup)      -- the build failed, Playwright never produced a passing
 //                                summary, or it failed with no flow to name
+//   verify: fail (live: no external requests)
+//                             -- --live only: Playwright passed, but summary.json's
+//                                externalRequests is 0, so the run never left fixtures
 //
 // `pass` needs BOTH Playwright's exit code 0 and a fresh summary.json with status
 // 'passed'. The old summary.json is deleted first, so a run that dies before the
@@ -36,7 +39,25 @@ function readSummary() {
   }
 }
 
-(async () => {
+// The summary line and exit code for Playwright's exit `code` and the summary.json it
+// left (null when missing or unreadable). Exported for
+// tests/unit/verifySummaryReporter.test.js.
+function verdict(code, summary, live) {
+  if (code === 0 && summary && summary.status === 'passed') {
+    // A --live run that fetched nothing for real ran on fixtures. A missing count
+    // counts as none.
+    if (live && !(summary.externalRequests > 0)) return ['verify: fail (live: no external requests)', 1];
+    return ['verify: pass', 0];
+  }
+  const failed = summary && Array.isArray(summary.failed) ? summary.failed : [];
+  const line = failed.length > 0 ? `verify: fail (${failed.join(', ')})` : 'verify: fail (setup)';
+  return [line, code === 0 ? 1 : code];
+}
+
+module.exports = { verdict };
+
+// Run only as a script: tests/unit/verifySummaryReporter.test.js requires this file.
+if (require.main === module) (async () => {
   fs.rmSync(SUMMARY, { force: true });
 
   const build = spawnSync(process.execPath, ['build.js'], { cwd: ROOT, stdio: 'inherit' });
@@ -58,11 +79,7 @@ function readSummary() {
   });
   const code = run.status === null ? 1 : run.status;
 
-  const summary = readSummary();
-  if (code === 0 && summary && summary.status === 'passed') finish('verify: pass', 0);
-  const failed = summary && Array.isArray(summary.failed) ? summary.failed : [];
-  const line = failed.length > 0 ? `verify: fail (${failed.join(', ')})` : 'verify: fail (setup)';
-  finish(line, code === 0 ? 1 : code);
+  finish(...verdict(code, readSummary(), LIVE));
 })().catch(err => {
   console.error(err);
   finish('verify: fail (setup)', 1);

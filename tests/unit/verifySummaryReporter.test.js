@@ -67,3 +67,37 @@ describe('summary-reporter', () => {
     expect(summary).toEqual({ status: 'failed', failed: ['a'], externalRequests: 0, externalOrigins: [] });
   });
 });
+
+// scripts/verify.cjs turns Playwright's exit code and this summary into the summary
+// line. A --live run that passed but fetched nothing for real ran on fixtures, so it
+// must not read as a live pass.
+const { verdict } = require(path.join(REPO_ROOT, 'scripts', 'verify.cjs'));
+
+describe('verify.cjs verdict', () => {
+  const passed = externalRequests => ({ status: 'passed', failed: [], externalRequests, externalOrigins: [] });
+
+  it('fails a passing --live run that made no external requests', () => {
+    expect(verdict(0, passed(0), true)).toEqual(['verify: fail (live: no external requests)', 1]);
+  });
+
+  it('fails a passing --live run whose summary has no request count', () => {
+    expect(verdict(0, { status: 'passed', failed: [] }, true)).toEqual(['verify: fail (live: no external requests)', 1]);
+  });
+
+  it('passes a --live run that reached the network', () => {
+    expect(verdict(0, passed(3), true)).toEqual(['verify: pass', 0]);
+  });
+
+  it('passes a fixture run with zero external requests', () => {
+    expect(verdict(0, passed(0), false)).toEqual(['verify: pass', 0]);
+  });
+
+  it('still names the failed flow on a --live run', () => {
+    expect(verdict(1, { status: 'failed', failed: ['theme'], externalRequests: 0 }, true))
+      .toEqual(['verify: fail (theme)', 1]);
+  });
+
+  it('reports setup when there is no summary', () => {
+    expect(verdict(0, null, false)).toEqual(['verify: fail (setup)', 1]);
+  });
+});
