@@ -41,3 +41,4 @@ test('fresh session starts on the default range', async ({ page }, testInfo) => 
     await expect(rangeButton(page, label)).toHaveAttribute('aria-pressed', 'false');
   }
 });
+// verify-map positive control (throwaway PR, do not merge)
