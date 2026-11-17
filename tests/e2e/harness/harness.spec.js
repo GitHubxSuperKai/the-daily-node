@@ -28,6 +28,10 @@ const ERROR_BOUNDARY_PAGE = {
 
 const UNSTUBBED_URL = 'https://unstubbed.example/x';
 
+// Chromium's text, verbatim, for a frame-ancestors directive in a <meta> CSP.
+const FRAME_ANCESTORS_WARNING =
+  "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element.";
+
 test.describe('harness', { tag: '@harness' }, () => {
   // Pinned so a later change to the harness default cannot move these assertions.
   test.use({ now: '2026-06-15T15:00:00Z', fixtures: [HARNESS_PAGE] });
@@ -76,6 +80,26 @@ test.describe('harness', { tag: '@harness' }, () => {
       test.fail();
       await page.goto('/__harness');
       await page.evaluate(() => console.error('boom'));
+    });
+  });
+
+  // The harness allows one browser message on every test: Chromium's warning that the
+  // app's meta-tag CSP carries frame-ancestors (see BUILTIN_ALLOWED_CONSOLE_ERRORS).
+  test.describe('built-in console allow-list', () => {
+    test.use({ enforce: true });
+    test('the meta-CSP frame-ancestors warning passes', async ({ page, consoleErrors }) => {
+      await page.goto('/__harness');
+      await page.evaluate(m => console.error(m), FRAME_ANCESTORS_WARNING);
+      await expect.poll(() => consoleErrors).toContain(FRAME_ANCESTORS_WARNING);
+    });
+
+    // A near miss (another directive, same sentence) must still fail: the built-in
+    // entry is anchored to the one message, not to CSP warnings in general.
+    test('another CSP warning still fails the test', async ({ page }) => {
+      test.fail();
+      await page.goto('/__harness');
+      await page.evaluate(m => console.error(m),
+        FRAME_ANCESTORS_WARNING.replace("'frame-ancestors'", "'sandbox'"));
     });
   });
 

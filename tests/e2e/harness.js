@@ -18,7 +18,8 @@
 //
 // After each test, unless `enforce` is off (harness self-tests only), it fails the test
 // on any unstubbed URL, any console error or page error not matched by
-// `allowConsoleErrors`, and any rendered ErrorBoundary fallback.
+// `allowConsoleErrors` (or the one built-in entry below), and any rendered
+// ErrorBoundary fallback.
 import fs from 'node:fs';
 import path from 'node:path';
 import { test as base, expect } from '@playwright/test';
@@ -35,6 +36,16 @@ const RECORDED_AT = JSON.parse(
   fs.readFileSync(path.join(__dirname, 'fixtures', 'recorded-at.json'), 'utf8'),
 ).recordedAt;
 const DEFAULT_NOW = new Date(Date.parse(RECORDED_AT) + 5 * 60 * 1000).toISOString();
+
+// Console errors allowed in every test, on top of each test's `allowConsoleErrors`.
+// Only one: Chromium logs this as an error because src/index.html's meta-tag CSP
+// carries frame-ancestors, a directive browsers ignore in a <meta> (it works only as
+// an HTTP header), so the warning reports a no-op. The app's CSP is out of scope here.
+// Anchored to the whole message so no other CSP or console error rides on it; the
+// harness self-tests check both directions.
+const BUILTIN_ALLOWED_CONSOLE_ERRORS = [
+  /^The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element\.$/,
+];
 
 // 1x1 transparent PNG.
 const BLANK_PNG = Buffer.from(
@@ -167,7 +178,8 @@ export const test = base.extend({
     const problems = [];
     for (const url of unstubbed) problems.push(`unstubbed request: ${url}`);
     for (const message of consoleErrors) {
-      if (!allowConsoleErrors.some(pattern => message.search(pattern) !== -1)) {
+      const allowed = [...BUILTIN_ALLOWED_CONSOLE_ERRORS, ...allowConsoleErrors];
+      if (!allowed.some(pattern => message.search(pattern) !== -1)) {
         problems.push(`console error: ${message}`);
       }
     }
