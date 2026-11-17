@@ -250,7 +250,7 @@ for correctness only.`,
   },
   {
     key: 'tests-repo-tooling',
-    label: 'Test Suite — Repo Tooling (secrets scanner, CodeQL config guard, docker smoke guard, review-path guard)',
+    label: 'Test Suite — Repo Tooling (secrets scanner, CodeQL config guard, docker smoke guard, review-path guard, verify tooling)',
     files: [
       'tests/unit/checkSecrets.test.js',
       'tests/unit/checkCodeqlConfig.test.js',
@@ -325,8 +325,10 @@ frame. Look for a coverage check that passes with a fixture deleted, a privacy s
 with no must-pass controls.
 
 verifySummaryReporter.test.js tests tests/e2e/summary-reporter.cjs, which writes the
-summary.json behind the verify summary line. Same frame. Look for a case that would
-pass with the externalRequests sum or the externalOrigins union dropped.
+summary.json behind the verify summary line, and verdict() in scripts/verify.cjs,
+which turns that summary into the line. Same frame. Look for a case that would
+pass with the externalRequests sum or the externalOrigins union dropped, or with
+the --live zero-request failure removed from verdict().
 
 verifyMap.test.js tests listRubricChanges in scripts/verify-map.cjs against throwaway
 git repos. Same frame. Look for a rubric path or script key with no must-report case,
@@ -355,8 +357,9 @@ would still pass if the diff were two-dot instead of three-dot.`,
     context: `These are Playwright Test files for npm run verify, not React
 components. Ignore the React, hook, styling and localStorage guidance above.
 harness.js routes every request through an ordered rule list, fixes the clock,
-and fails a test on an unstubbed URL, an unlisted console error or a rendered
-ErrorBoundary fallback; harness.spec.js tests those guards against themselves.
+and fails a test on an unstubbed URL, an ambiguous fixture (two or more fixture
+globs matching one request, so none of them answers it), an unlisted console error or a
+rendered ErrorBoundary fallback; harness.spec.js tests those guards against themselves.
 Review adversarially: a request class that reaches the network without landing
 in the unstubbed list, a rule-order slip that lets a fixture or the live allow-list
 shadow a guard, a guard whose test.fail() self-test would still pass with the
