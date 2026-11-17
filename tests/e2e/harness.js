@@ -20,6 +20,13 @@
 // on any unstubbed URL, any console error or page error not matched by
 // `allowConsoleErrors` (or the one built-in entry below), and any rendered
 // ErrorBoundary fallback.
+//
+// `allowConsoleErrors` is a list of RegExp, matched against each message. To list two
+// or more in test.use, wrap the list: `allowConsoleErrors: [[/a/, /b/], { option: true }]`.
+// test.use reads any array whose second entry is an object (a RegExp is one) as the
+// fixture tuple [value, options], so a bare `[/a/, /b/]` would keep only /a/. The
+// fixture throws unless the value it gets is an array of RegExp, so that slip fails
+// the test instead of quietly changing the allow-list. A one-entry `[/a/]` is safe.
 import fs from 'node:fs';
 import path from 'node:path';
 import { test as base, expect } from '@playwright/test';
@@ -96,6 +103,20 @@ function errorBoundaryMarkers() {
   return [...markers];
 }
 
+// Throws unless `value` is an array whose entries are all RegExp (see the header note
+// on the test.use tuple). Exported for harness.spec.js.
+export function checkAllowConsoleErrors(value) {
+  if (Array.isArray(value) && value.every(pattern => pattern instanceof RegExp)) return;
+  const got = Array.isArray(value)
+    ? `an array holding ${value.map(p => (p instanceof RegExp ? 'RegExp' : typeof p)).join(', ')}`
+    : value instanceof RegExp ? `a single RegExp ${value}` : typeof value;
+  throw new Error(
+    `harness: allowConsoleErrors must be an array of RegExp, got ${got}. In test.use, `
+    + 'wrap a list of two or more as allowConsoleErrors: [[/a/, /b/], { option: true }]: '
+    + 'test.use reads [/a/, /b/] as [value, options] and keeps only /a/.',
+  );
+}
+
 const LIVE_ORIGINS = liveOrigins();
 const ERROR_BOUNDARY_MARKERS = errorBoundaryMarkers();
 
@@ -115,6 +136,7 @@ export const test = base.extend({
   context: async ({
     context, baseURL, fixtures, now, backend, enforce, allowConsoleErrors, unstubbed, consoleErrors,
   }, use, testInfo) => {
+    checkAllowConsoleErrors(allowConsoleErrors);
     const site = new URL(baseURL);
     const historyOrigin = `${site.protocol}//${site.hostname}:3002`;
     let externalRequests = 0;

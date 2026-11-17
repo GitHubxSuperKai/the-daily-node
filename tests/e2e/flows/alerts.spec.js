@@ -35,7 +35,12 @@ test('a crossed miner-offline threshold lists its alert @fixtures-only', async (
 
   await expect(alerts.getByText('1 in 24h · 1 new', { exact: true })).toBeVisible();
   // The row's label, and its message with the "Miner offline: " prefix dropped
-  // (AlertsPanel shortMessage).
+  // (AlertsPanel shortMessage). Presence, not visibility: the row is the hidden one
+  // useFitRows keeps for measuring (see WHY). A taller viewport does not make room:
+  // index.html scales a fixed 1920x1080 canvas to the width, so at 1440 wide the
+  // Alerts region measured 33.125px tall at every height from 900 to 1600, short of
+  // the 16px header plus one 31.5px row. So a panel that laid rows out and never
+  // displayed them would still pass here.
   await expect(alerts.getByText('Miner offline', { exact: true })).toHaveCount(1);
   await expect(alerts.getByText('192.0.2.12', { exact: true })).toHaveCount(1);
 });

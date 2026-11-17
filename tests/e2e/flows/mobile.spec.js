@@ -35,22 +35,24 @@ test('the bottom bar reaches each section', async ({ page }, testInfo) => {
   await expect(tab(page, 'Home')).toHaveAttribute('aria-current', 'page');
   await expect(page.getByTestId('btc-tile')).toBeVisible();
 
-  // What only that section renders: BitcoinPanel's range buttons, MinersPanel's
-  // "Miners" list heading under the fleet summary, NewsPanel's "Bitcoin News" heading,
-  // HomePanel's BTC tile.
+  // A marker for each section: BitcoinPanel's range buttons, MinersPanel's fleet
+  // summary line ("2/3 online · ..."), NewsPanel's "Bitcoin News" heading, HomePanel's
+  // BTC tile. The fleet line is not unique: HomePanel's fleet tile prints the same
+  // "N/M online · " text, so the Miners step also checks that the Home tile is gone.
   const steps = [
     ['Bitcoin', page.getByRole('group', { name: 'Chart range' })],
-    ['Miners', page.getByText(/^\d+\/\d+ online · /)],
+    ['Miners', page.getByText(/^\d+\/\d+ online · /), page.getByTestId('fleet-tile')],
     ['News', page.getByText('Bitcoin News', { exact: true })],
     ['Home', page.getByTestId('btc-tile')],
   ];
-  for (const [label, marker] of steps) {
+  for (const [label, marker, absent] of steps) {
     await tab(page, label).click();
     await expect(tab(page, label)).toHaveAttribute('aria-current', 'page');
     for (const [other] of steps) {
       if (other !== label) await expect(tab(page, other)).not.toHaveAttribute('aria-current', 'page');
     }
     await expect(marker).toBeVisible();
+    if (absent) await expect(absent).toHaveCount(0);
   }
 });
 

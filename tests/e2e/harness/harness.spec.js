@@ -10,7 +10,7 @@
 // Each test loads /__harness, a fixture page with no CSP, so the app's CSP cannot
 // block the probes before they reach the router. These tests are tagged @harness and
 // are excluded from --live runs.
-import { test, expect } from '../harness.js';
+import { test, expect, checkAllowConsoleErrors } from '../harness.js';
 
 const HARNESS_PAGE = {
   match: '**/__harness',
@@ -80,6 +80,40 @@ test.describe('harness', { tag: '@harness' }, () => {
       test.fail();
       await page.goto('/__harness');
       await page.evaluate(() => console.error('boom'));
+    });
+  });
+
+  // A list of two or more patterns has to be wrapped as [[...], { option: true }]: a
+  // bare [/a/, /b/] reaches the fixture as the single RegExp /a/ (Playwright reads it
+  // as [value, options]), and the harness refuses any value that is not an array of
+  // RegExp (checkAllowConsoleErrors).
+  test.describe('allow-list shape', () => {
+    test.describe('wrapped two-pattern list', () => {
+      test.use({ enforce: true, allowConsoleErrors: [[/^alpha$/, /^beta$/], { option: true }] });
+      test('a wrapped two-pattern list keeps both patterns', async ({ page, consoleErrors }) => {
+        await page.goto('/__harness');
+        await page.evaluate(() => { console.error('alpha'); console.error('beta'); });
+        await expect.poll(() => consoleErrors).toEqual(['alpha', 'beta']);
+      });
+    });
+
+    test.describe('bare two-pattern list', () => {
+      test.use({ enforce: true, allowConsoleErrors: [/^alpha$/, /^beta$/] });
+      // Declared with test.fail(title, body): the shape check throws while the context
+      // is set up, before the body runs, so a test.fail() call inside it would never run.
+      // The page logs nothing, so the shape check is the only possible failure.
+      test.fail('a bare two-pattern list fails the test', async ({ page }) => {
+        await page.goto('/__harness');
+      });
+    });
+
+    test('the shape check names the problem and the fix', () => {
+      for (const ok of [[], [/a/], [/a/, /b/]]) expect(() => checkAllowConsoleErrors(ok)).not.toThrow();
+      const fix = 'allowConsoleErrors: [[/a/, /b/], { option: true }]';
+      expect(() => checkAllowConsoleErrors(/^alpha$/))
+        .toThrow(`harness: allowConsoleErrors must be an array of RegExp, got a single RegExp /^alpha$/. In test.use, wrap a list of two or more as ${fix}`);
+      expect(() => checkAllowConsoleErrors(['boom'])).toThrow('got an array holding string');
+      expect(() => checkAllowConsoleErrors('boom')).toThrow('got string');
     });
   });
 
