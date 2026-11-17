@@ -6,7 +6,9 @@
 // request through one rule list (first match wins, in this order):
 //   1. backend 'pages': same-origin /api/* answers 404; the history daemon (:3002) is aborted.
 //   2. VERIFY_MODE=live: an origin on the live allow-list (the public https origins in
-//      src/index.html's connect-src) continues, and is counted.
+//      src/index.html's connect-src) is answered from the real API. A GET is fetched
+//      once per process and then served from LIVE_RESPONSES (see there); anything
+//      else continues. Each real fetch is counted and its origin recorded.
 //   3. a `fixtures` entry whose `match` (Playwright route glob) matches is fulfilled from it.
 //   4. same-origin requests outside /api/ continue.
 //   5. images and fonts get a 1x1 transparent PNG or an empty font body.
@@ -117,6 +119,34 @@ export function checkAllowConsoleErrors(value) {
   );
 }
 
+// The --live response cache: GET responses from the allow-listed public APIs, keyed
+// by method and exact URL, kept for the whole worker process. scripts/verify.cjs runs
+// --live with one worker, but Playwright still starts one worker per project, and a
+// fresh one after a failed test, so a run holds one cache per such process (at least
+// one per project), not one in total. Every test is a fresh context that
+// loads the whole app, so without it a run repeats each call once per test, and
+// keyless public APIs rate-limit that: CoinGecko answered every call after the first
+// with a 429 and no CORS header, which the page reports as a failed fetch. Each URL
+// is still fetched for real once per worker process, so live stays real data. The
+// response is cached whatever its status, a 429 included. Unused in fixture mode.
+const LIVE_RESPONSES = new Map();
+
+// Answers `key` from `cache`, calling `fetchEntry` only on a miss. In-flight fetches
+// are shared; a fetch that throws is dropped from the cache, so the next request
+// retries it. `fetched` is true only for the caller whose call did the real fetch.
+// Exported for harness.spec.js.
+export async function liveFetch(cache, key, fetchEntry) {
+  if (cache.has(key)) return { entry: await cache.get(key), fetched: false };
+  const pending = fetchEntry();
+  cache.set(key, pending);
+  try {
+    return { entry: await pending, fetched: true };
+  } catch (err) {
+    cache.delete(key);
+    throw err;
+  }
+}
+
 const LIVE_ORIGINS = liveOrigins();
 const ERROR_BOUNDARY_MARKERS = errorBoundaryMarkers();
 
@@ -140,6 +170,7 @@ export const test = base.extend({
     const site = new URL(baseURL);
     const historyOrigin = `${site.protocol}//${site.hostname}:3002`;
     let externalRequests = 0;
+    const externalOrigins = new Set();
 
     context.on('console', msg => {
       if (msg.type() === 'error') consoleErrors.push(msg.text());
@@ -181,19 +212,49 @@ export const test = base.extend({
         }
         if (url.origin === historyOrigin) return route.abort();
       }
-      if (LIVE && LIVE_ORIGINS.has(url.origin)) {
-        externalRequests += 1;
-        return route.continue();
-      }
+      if (LIVE && LIVE_ORIGINS.has(url.origin)) return answerLive(route, url);
       return route.fallback();
     });
 
+    // Rule 2's live answer. Only allow-listed https origins get here, so /api/* and
+    // :3002 never do: they stay on fixtures (or rule 1) in live mode too.
+    const countLive = url => {
+      externalRequests += 1;
+      externalOrigins.add(url.origin);
+    };
+    async function answerLive(route, url) {
+      const request = route.request();
+      if (request.method() !== 'GET') {
+        countLive(url);
+        return route.continue();
+      }
+      let result;
+      try {
+        result = await liveFetch(LIVE_RESPONSES, `GET ${request.url()}`, async () => {
+          const response = await route.fetch();
+          // The body comes back decoded, so the encoding and length headers no longer
+          // describe it.
+          const headers = { ...response.headers() };
+          for (const name of ['content-encoding', 'content-length', 'transfer-encoding']) delete headers[name];
+          return { status: response.status(), headers, body: await response.body() };
+        });
+      } catch {
+        return route.abort();
+      }
+      if (result.fetched) countLive(url);
+      return route.fulfill(result.entry);
+    }
+
     await use(context);
 
-    // Read by tests/e2e/summary-reporter.cjs.
+    // Read by tests/e2e/summary-reporter.cjs. Origins only, never full URLs.
     await testInfo.attach('verify-external-requests', {
       body: String(externalRequests),
       contentType: 'text/plain',
+    });
+    await testInfo.attach('verify-external-origins', {
+      body: JSON.stringify([...externalOrigins].sort()),
+      contentType: 'application/json',
     });
 
     if (!enforce) return;

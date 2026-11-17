@@ -255,6 +255,7 @@ for correctness only.`,
       'tests/unit/checkDependabotLiveness.test.js',
       'tests/unit/verifyPort.test.js',
       'tests/unit/verifyFixtures.test.js',
+      'tests/unit/verifySummaryReporter.test.js',
     ],
     // Its own group rather than a line in tests-harness: this reviews repo tooling,
     // not the dashboard, so the shared React brief would frame it wrongly — and a
@@ -314,7 +315,11 @@ fixed or already-bound port.
 verifyFixtures.test.js tests the verify fixtures and tests/e2e/fixtures/load.js. Same
 frame. Look for a coverage check that passes with a fixture deleted, a privacy scan
 (addresses, coordinates) with no case proving it can fail, and a catch-all case list
-with no must-pass controls.`,
+with no must-pass controls.
+
+verifySummaryReporter.test.js tests tests/e2e/summary-reporter.cjs, which writes the
+summary.json behind the verify summary line. Same frame. Look for a case that would
+pass with the externalRequests sum or the externalOrigins union dropped.`,
   },
   {
     key: 'e2e-verify',

@@ -45,7 +45,11 @@ function readSummary() {
   const port = await getFreePort();
   const cli = require.resolve('@playwright/test/cli');
   const args = [cli, 'test', '--config', 'playwright.config.js'];
-  if (LIVE) args.push('--grep-invert', '@fixtures-only|@harness');
+  // --live runs one worker at a time, so the harness's live response cache
+  // (tests/e2e/harness.js LIVE_RESPONSES) is shared by every test in a worker process.
+  // Playwright still uses a separate worker per project, so each public API URL is
+  // fetched about once per project per run, not once per test.
+  if (LIVE) args.push('--grep-invert', '@fixtures-only|@harness', '--workers', '1');
 
   const run = spawnSync(process.execPath, args, {
     cwd: ROOT,

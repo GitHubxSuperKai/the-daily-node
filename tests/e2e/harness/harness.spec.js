@@ -10,7 +10,7 @@
 // Each test loads /__harness, a fixture page with no CSP, so the app's CSP cannot
 // block the probes before they reach the router. These tests are tagged @harness and
 // are excluded from --live runs.
-import { test, expect, checkAllowConsoleErrors } from '../harness.js';
+import { test, expect, checkAllowConsoleErrors, liveFetch } from '../harness.js';
 
 const HARNESS_PAGE = {
   match: '**/__harness',
@@ -155,5 +155,51 @@ test.describe('harness', { tag: '@harness' }, () => {
     expect(iso.startsWith('2026-06-15T15:00')).toBe(true);
     expect(hour).toBe(15);
     expect(zone).toBe('UTC');
+  });
+
+  // The --live response cache (liveFetch): one real fetch per key per process, so a
+  // run cannot trip a keyless API's rate limit with its own repeat calls. These run
+  // the helper directly with a counting fetcher; no network is involved.
+  test.describe('live response cache', () => {
+    const ENTRY = { status: 200, headers: { 'content-type': 'application/json' }, body: Buffer.from('{}') };
+
+    test('the first request fetches and later ones are served from the cache', async () => {
+      const cache = new Map();
+      let calls = 0;
+      const fetchEntry = async () => { calls += 1; return ENTRY; };
+      const first = await liveFetch(cache, 'GET https://a.example/x', fetchEntry);
+      const second = await liveFetch(cache, 'GET https://a.example/x', fetchEntry);
+      expect(calls).toBe(1);
+      expect(first).toEqual({ entry: ENTRY, fetched: true });
+      expect(second).toEqual({ entry: ENTRY, fetched: false });
+    });
+
+    test('concurrent requests for one key share one fetch', async () => {
+      const cache = new Map();
+      let calls = 0;
+      const fetchEntry = async () => { calls += 1; return ENTRY; };
+      const results = await Promise.all([1, 2, 3].map(() => liveFetch(cache, 'GET https://a.example/x', fetchEntry)));
+      expect(calls).toBe(1);
+      expect(results.map(r => r.fetched)).toEqual([true, false, false]);
+    });
+
+    test('different keys fetch separately', async () => {
+      const cache = new Map();
+      let calls = 0;
+      const fetchEntry = async () => { calls += 1; return ENTRY; };
+      await liveFetch(cache, 'GET https://a.example/x', fetchEntry);
+      await liveFetch(cache, 'GET https://a.example/x?y=1', fetchEntry);
+      expect(calls).toBe(2);
+    });
+
+    test('a failed fetch is not cached', async () => {
+      const cache = new Map();
+      let calls = 0;
+      const failing = async () => { calls += 1; throw new Error('boom'); };
+      await expect(liveFetch(cache, 'GET https://a.example/x', failing)).rejects.toThrow('boom');
+      const retried = await liveFetch(cache, 'GET https://a.example/x', async () => { calls += 1; return ENTRY; });
+      expect(calls).toBe(2);
+      expect(retried.fetched).toBe(true);
+    });
   });
 });
