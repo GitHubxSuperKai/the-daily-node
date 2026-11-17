@@ -109,6 +109,9 @@ export default [
       'docs/**',
       '.worktrees/**',
       '.claude/**',
+      // npm run verify output: a failed run copies the trace viewer's bundle here.
+      'test-results/**',
+      'playwright-report/**',
     ],
   },
 ];
