@@ -14,6 +14,7 @@ import http from 'node:http';
 import { test, expect, checkAllowConsoleErrors, liveFetch, fetchLiveEntry } from '../harness.js';
 
 const HARNESS_PAGE = {
+  file: 'harness.spec.js',
   match: '**/__harness',
   status: 200,
   contentType: 'text/html',
@@ -143,6 +144,44 @@ test.describe('harness', { tag: '@harness' }, () => {
     test('ErrorBoundary fallback fails the test', async ({ page }) => {
       test.fail();
       await page.goto('/__harness');
+    });
+  });
+
+  // Two fixtures whose globs both match one URL: neither may answer it, or an added
+  // fixture file could quietly replace the data an existing one serves. The probe is a
+  // fetch, not the page, so the after-test check is the only possible failure. Each
+  // list is wrapped as [value, options]: test.use would read a bare [HARNESS_PAGE, X]
+  // as that tuple (see the allowConsoleErrors note in harness.js).
+  const OVERLAP_PATH = '/__overlap';
+  const OVERLAP_A = { file: 'backend/overlap-a.js', match: '**/__overlap', status: 200, contentType: 'text/plain', body: 'a' };
+  const OVERLAP_B = { file: 'public/overlap-b.js', match: '**/__over*', status: 200, contentType: 'text/plain', body: 'b' };
+
+  test.describe('ambiguous fixture is recorded', () => {
+    test.use({ enforce: false, fixtures: [[HARNESS_PAGE, OVERLAP_A, OVERLAP_B], { option: true }] });
+    test('ambiguous fixture is recorded, naming both files', async ({ page, baseURL, ambiguous }) => {
+      await page.goto('/__harness');
+      await page.evaluate(p => fetch(p).catch(() => {}), OVERLAP_PATH);
+      expect(ambiguous).toEqual([
+        `ambiguous fixture: ${baseURL}${OVERLAP_PATH} (backend/overlap-a.js, public/overlap-b.js)`,
+      ]);
+    });
+  });
+
+  test.describe('ambiguous fixture fails the test', () => {
+    test.use({ enforce: true, allowConsoleErrors: [/.*/], fixtures: [[HARNESS_PAGE, OVERLAP_A, OVERLAP_B], { option: true }] });
+    test('ambiguous fixture fails the test', async ({ page }) => {
+      test.fail();
+      await page.goto('/__harness');
+      await page.evaluate(p => fetch(p).catch(() => {}), OVERLAP_PATH);
+    });
+  });
+
+  test.describe('single matching fixture', () => {
+    test.use({ enforce: true, fixtures: [[HARNESS_PAGE, OVERLAP_A], { option: true }] });
+    test('a single matching fixture still fulfils', async ({ page }) => {
+      await page.goto('/__harness');
+      const body = await page.evaluate(p => fetch(p).then(r => r.text()), OVERLAP_PATH);
+      expect(body).toBe('a');
     });
   });
 

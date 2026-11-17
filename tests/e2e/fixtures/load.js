@@ -7,11 +7,16 @@
 // where `match` is a Playwright route glob. Adding a fixture is adding a file: nothing
 // here or in the harness needs editing.
 //
-// Modules load in file-path order, so the order is the same on every machine. Two
-// guards stop an added file from changing what the other fixtures mean:
-//   - a duplicate `match` throws: the harness would serve whichever registered first;
+// Modules load in file-path order, so the order is the same on every machine. Each
+// entry is the module's fields plus `file`, its path under fixtures/ (`backend/miners.js`).
+// Two guards here refuse the plainest mistakes when the fixtures load:
+//   - a duplicate `match` throws;
 //   - a catch-all `match` throws: it would answer every request, silencing the
 //     harness's unstubbed-request guard.
+// They do not stop an overlap: two different globs can both match one URL. What stops
+// an added file from overriding an existing one is the harness's ambiguous-fixture
+// check (tests/e2e/harness.js rule 3), which fails any request two fixtures match and
+// names both files.
 // tests/unit/verifyFixtures.test.js checks the shape, the guards and the coverage.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -55,7 +60,8 @@ export function loadFixtures(dirs) {
       throw new Error(`fixtures: ${byMatch.get(fixture.match)} and ${file} have the same match '${fixture.match}'`);
     }
     byMatch.set(fixture.match, file);
-    return fixture;
+    // A copy: the module object is shared through the require cache.
+    return { ...fixture, file: path.relative(path.dirname(path.dirname(file)), file).split(path.sep).join('/') };
   });
 }
 

@@ -68,10 +68,15 @@ describe('fixture modules', () => {
     }
   });
 
-  it('load.js default-exports every module, sorted by file path', () => {
+  // Each entry also carries `file`, its path under fixtures/ with forward slashes, which
+  // the harness names when two fixtures match one request.
+  it('load.js default-exports every module, sorted by file path, with its file name', () => {
     const files = moduleFiles().map(rel).sort();
     expect(FIXTURES.length).toBe(files.length);
-    expect(FIXTURES).toEqual(files.map(f => require(path.join(REPO_ROOT, f))));
+    expect(FIXTURES).toEqual(files.map(f => ({
+      ...require(path.join(REPO_ROOT, f)),
+      file: f.replace('tests/e2e/fixtures/', ''),
+    })));
   });
 
   it('recorded-at.json holds the recording time as an ISO instant', () => {
@@ -104,6 +109,15 @@ describe('load.js guards', () => {
   it('loads distinct, specific patterns in file-path order', () => {
     const dir = fixtureDir({ b: '**/api/miners', a: 'https://api.kraken.com/0/public/Ticker?pair=XBTUSD' });
     expect(loadFixtures([dir]).map(f => f.body)).toEqual(['a', 'b']);
+  });
+
+  it('names each entry by its directory and file, and leaves the module untouched', () => {
+    const dir = fixtureDir({ a: '**/api/miners' });
+    const [entry] = loadFixtures([dir]);
+    expect(entry.file).toBe(`${path.basename(dir)}/a.js`);
+    expect(Object.keys(require(path.join(dir, 'a.js'))).sort()).toEqual(['body', 'contentType', 'match', 'status']);
+    // A second load must pass the exact-keys guard again.
+    expect(() => loadFixtures([dir])).not.toThrow();
   });
 
   it('throws on two modules with the same match, naming both files', () => {

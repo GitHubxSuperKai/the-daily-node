@@ -9,17 +9,20 @@
 //      src/index.html's connect-src) is answered from the real API. A GET is fetched
 //      once per process and then served from LIVE_RESPONSES (see there); anything
 //      else continues. Each real fetch is counted and its origin recorded.
-//   3. a `fixtures` entry whose `match` (Playwright route glob) matches is fulfilled from it.
+//   3. the `fixtures` entries whose `match` (Playwright route glob) matches: exactly
+//      one is fulfilled from; two or more are recorded in `ambiguous` (naming each
+//      entry's `file`) and aborted, so an added fixture cannot override an existing one.
 //   4. same-origin requests outside /api/ continue.
 //   5. images and fonts get a 1x1 transparent PNG or an empty font body.
 //   6. fonts.googleapis.com gets an empty stylesheet.
 //   7. anything else is recorded in `unstubbed` and aborted.
-// Rules 1-2 and 4-7 are two catch-all handlers registered around the fixture routes;
-// Playwright runs the last-registered handler first and route.fallback() hands on to
-// the next, so fixture globs are matched by Playwright itself.
+// Rules 1-2, rule 3's decision and rules 4-7 are three catch-all handlers registered
+// around the fixture routes. Playwright runs the last-registered handler first and
+// route.fallback() hands on to the next, so each fixture route only notes that its glob
+// matched and falls back: fixture globs are matched by Playwright itself.
 //
 // After each test, unless `enforce` is off (harness self-tests only), it fails the test
-// on any unstubbed URL, any console error or page error not matched by
+// on any unstubbed URL, any ambiguous fixture, any console error or page error not matched by
 // `allowConsoleErrors` (or the one built-in entry below), and any rendered
 // ErrorBoundary fallback.
 //
@@ -184,10 +187,12 @@ export const test = base.extend({
   // eslint-disable-next-line no-empty-pattern
   unstubbed: async ({}, use) => { await use([]); },
   // eslint-disable-next-line no-empty-pattern
+  ambiguous: async ({}, use) => { await use([]); },
+  // eslint-disable-next-line no-empty-pattern
   consoleErrors: async ({}, use) => { await use([]); },
 
   context: async ({
-    context, baseURL, fixtures, now, backend, enforce, allowConsoleErrors, unstubbed, consoleErrors,
+    context, baseURL, fixtures, now, backend, enforce, allowConsoleErrors, unstubbed, ambiguous, consoleErrors,
   }, use, testInfo) => {
     checkAllowConsoleErrors(allowConsoleErrors);
     const site = new URL(baseURL);
@@ -217,13 +222,30 @@ export const test = base.extend({
       return route.abort();
     });
 
-    // Rule 3. Reversed so the first entry is the last registered, and wins.
+    // Rule 3, decided here once every fixture route has had its turn: exactly one
+    // matching fixture answers; two or more are recorded in `ambiguous` and aborted,
+    // so no fixture can quietly override another; none falls back to rules 4-7.
+    const fixtureHits = new WeakMap();
+    await context.route('**/*', route => {
+      const hits = fixtureHits.get(route.request()) || [];
+      if (hits.length === 0) return route.fallback();
+      if (hits.length > 1) {
+        ambiguous.push(`ambiguous fixture: ${route.request().url()} (${hits.map(f => f.file).join(', ')})`);
+        return route.abort();
+      }
+      const [fixture] = hits;
+      return route.fulfill({ status: fixture.status, contentType: fixture.contentType, body: fixture.body });
+    });
+
+    // Rule 3's matching: each fixture route whose glob matches notes itself and falls
+    // back, so Playwright's own matcher decides which globs match. Reversed so the
+    // first entry runs first and `hits` lists files in path order.
     for (const fixture of [...fixtures].reverse()) {
-      await context.route(fixture.match, route => route.fulfill({
-        status: fixture.status,
-        contentType: fixture.contentType,
-        body: fixture.body,
-      }));
+      await context.route(fixture.match, route => {
+        const request = route.request();
+        fixtureHits.set(request, [...(fixtureHits.get(request) || []), fixture]);
+        return route.fallback();
+      });
     }
 
     // Registered last, so it runs first: rules 1-2.
@@ -277,6 +299,7 @@ export const test = base.extend({
     if (!enforce) return;
     const problems = [];
     for (const url of unstubbed) problems.push(`unstubbed request: ${url}`);
+    problems.push(...ambiguous);
     for (const message of consoleErrors) {
       const allowed = [...BUILTIN_ALLOWED_CONSOLE_ERRORS, ...allowConsoleErrors];
       if (!allowed.some(pattern => message.search(pattern) !== -1)) {
