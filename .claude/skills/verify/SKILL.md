@@ -17,19 +17,20 @@ Find the line matching `^verify: `:
 - `verify: pass`
 - `verify: fail (<flow names joined by ', '>)`
 - `verify: fail (setup)`: the build, the server or the run itself failed before any flow could be judged.
+- `verify: fail (harness)`: a harness self-test caught a broken guard. That is a rubric problem, not an app bug.
 
 ## On a failure
 
-Read the failing flow's error, then `playwright-report/` and the screenshots and traces under `test-results/verify/`. Fix the cause and re-run at most 3 times. Then stop and report the failing flow with its screenshot path and console output.
+Read the failing flow's error, then `playwright-report/` and the screenshots and traces under `test-results/verify/`. Fix the cause and re-run: at most 3 runs in total, the first included. Then stop and report the failing flow with its screenshot path and console output.
 
-A flow that fails only sometimes is a bug. No retries, sleeps, skips or `test.only` (`forbidOnly` refuses it). With no root cause, report it. Deleting or skipping a flow is the maintainer's call.
+A flow that fails only sometimes is a bug. No retries, sleeps, skips or `test.only` (`forbidOnly` refuses it). With no root cause, report it. Deleting or skipping a flow is the maintainer's call. The per-project skips in the output (14 on a green run, from tests that run on one project only) are by design, not skips in this sense.
 
 ## Rubric (do not edit to make a run pass)
 
 - Everything under `tests/e2e/`, any `playwright.config.*`, `scripts/verify.cjs`, `scripts/verify-map.cjs`, `scripts/verify-refresh-fixtures.cjs`.
 - The `package.json` keys `verify` and `verify:refresh-fixtures`.
 
-Editing or deleting an existing rubric file needs the maintainer's approval and must be named in the PR body. CI's non-required `verify-map` job flags it. Adding a flow or fixture file for a new feature is fine. Changes to this `SKILL.md` must also be named in the PR body.
+Editing or deleting an existing rubric file, or adding a `playwright.config.*`, needs the maintainer's approval and must be named in the PR body. CI's non-required `verify-map` job flags each of these. Adding a flow or fixture file for a new feature is fine, except a fixture whose `match` overlaps an existing fixture's: that counts as editing it and needs the same approval (the run fails on an overlap anyway). Changes to this `SKILL.md` must also be named in the PR body.
 
 ## New files and new hosts
 
