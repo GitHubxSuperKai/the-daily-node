@@ -24,7 +24,7 @@ Find the line matching `^verify: `:
 
 Read the failing flow's error, then `playwright-report/` and the screenshots and traces under `test-results/verify/`. Fix the cause and re-run: at most 3 runs in total, the first included. Then stop and report the failing flow with its screenshot path and console output.
 
-A flow that fails only sometimes is a bug. No retries, sleeps, skips or `test.only` (`forbidOnly` refuses it). With no root cause, report it. Deleting or skipping a flow is the maintainer's call. The per-project skips in the output (about 14 on a green run, from tests that run on one project only) are by design, not skips in this sense.
+A flow that fails only sometimes is a bug. No retries, sleeps, skips or `test.only` (`forbidOnly` refuses it). With no root cause, report it. Deleting or skipping a flow is the maintainer's call. The per-project skips in the output (about 14 on a green fixture run, fewer under `--live`, which filters out the `@fixtures-only` tests before they run; all are tests that run on one project only) are by design, not skips in this sense.
 
 ## Rubric (do not edit to make a run pass)
 
