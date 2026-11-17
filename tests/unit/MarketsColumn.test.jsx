@@ -382,7 +382,8 @@ describe('MarketsColumn — lead image and summary layout', () => {
     const img = container.querySelector('img');
     expect(img.style.height).toBe('auto');
     expect(img.style.objectFit).toBe('cover');
-    expect(img.style.objectPosition).toBe('top');
+    // jsdom 31 serializes the one-value 'top' as 'center top'; both mean the same crop.
+    expect(['top', 'center top']).toContain(img.style.objectPosition);
     expect(img.style.minHeight).toBe('calc(var(--u) * 160)');
     expect(img.style.maxHeight).toBe('calc(var(--u) * 270)');
     expect(img.style.flex).toBe('0 1000 auto');

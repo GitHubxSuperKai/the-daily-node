@@ -11,7 +11,7 @@
 //      else continues. Each real fetch is counted and its origin recorded.
 //   3. the `fixtures` entries whose `match` (Playwright route glob) matches: exactly
 //      one is fulfilled from; two or more are recorded in `ambiguous` (naming each
-//      entry's `file`) and aborted, so an added fixture cannot override an existing one.
+//      entry's `file`, or its glob when it has none) and aborted, so an added fixture cannot override an existing one.
 //   4. same-origin requests outside /api/ continue.
 //   5. images and fonts get a 1x1 transparent PNG or an empty font body.
 //   6. fonts.googleapis.com gets an empty stylesheet.
@@ -230,7 +230,10 @@ export const test = base.extend({
       const hits = fixtureHits.get(route.request()) || [];
       if (hits.length === 0) return route.fallback();
       if (hits.length > 1) {
-        ambiguous.push(`ambiguous fixture: ${route.request().url()} (${hits.map(f => f.file).join(', ')})`);
+        // A test-supplied fixture may carry no `file`, which join() would render as an
+        // empty name; name it by its glob instead.
+        const names = hits.map(f => f.file || `test fixture ${f.match}`);
+        ambiguous.push(`ambiguous fixture: ${route.request().url()} (${names.join(', ')})`);
         return route.abort();
       }
       const [fixture] = hits;

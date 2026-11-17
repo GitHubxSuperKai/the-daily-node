@@ -6,6 +6,10 @@
 // array). The summary sums the counts and lists the union of origins, sorted, so a
 // live run shows which public hosts it actually reached. fs writes are intercepted:
 // the test never touches the real summary.json.
+//
+// The second describe block tests verdict() in scripts/verify.cjs, which turns the exit
+// code and that summary into the `verify: ` line, including the --live failure when
+// externalRequests is 0.
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
