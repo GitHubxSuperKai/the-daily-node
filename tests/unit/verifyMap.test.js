@@ -32,10 +32,12 @@ function git(args, cwd) {
   return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: 'pipe' }).trim();
 }
 
+const IDENTITY = ['-c', 'user.email=t@example.invalid', '-c', 'user.name=tester', '-c', 'commit.gpgsign=false',
+  '-c', 'core.hooksPath='];
+
 function commit(dir, message) {
   git(['add', '-A', '-f', '.'], dir);
-  git(['-c', 'user.email=t@example.invalid', '-c', 'user.name=tester', '-c', 'commit.gpgsign=false',
-    '-c', 'core.hooksPath=', 'commit', '-q', '--allow-empty', '-m', message], dir);
+  git([...IDENTITY, 'commit', '-q', '--allow-empty', '-m', message], dir);
   return git(['rev-parse', 'HEAD'], dir);
 }
 
@@ -209,5 +211,25 @@ describe('verify-map listRubricChanges', () => {
     apply(dir, { 'tests/e2e/flows/chart.spec.js': 'main moved on\n' });
     const mainSha = commit(dir, 'main change');
     expect(listRubricChanges(mainSha, headSha, dir)).toEqual(NONE);
+  });
+
+  it('CI shape: head is a --no-ff merge commit and base its first parent, so main\'s later rubric edit is not reported', () => {
+    // On pull_request, actions/checkout puts HEAD on the PR's merge commit, and build.yml
+    // passes HEAD^1 (the main commit it merged onto) as the base, not base.sha.
+    const { dir, baseSha: branchPoint } = makeRepo(BASE, {});
+    git(['checkout', '-q', '-b', 'pr'], dir);
+    apply(dir, { 'src/a.js': 'pr\n' });
+    commit(dir, 'pr change');
+    git(['checkout', '-q', branchPoint], dir);
+    apply(dir, { 'tests/e2e/flows/chart.spec.js': 'main moved on\n' });
+    const mainTip = commit(dir, 'main change');
+    git([...IDENTITY, 'merge', '-q', '--no-ff', '-m', 'merge pr', 'pr'], dir);
+    const mergeSha = git(['rev-parse', 'HEAD'], dir);
+    expect(git(['rev-parse', 'HEAD^1'], dir)).toBe(mainTip);
+    expect(listRubricChanges(mainTip, mergeSha, dir)).toEqual(NONE);
+    // Paired control: a stale base.sha (the branch point) DOES report main's own edit as
+    // the PR's, which is the failure the HEAD^1 base avoids.
+    expect(listRubricChanges(branchPoint, mergeSha, dir))
+      .toEqual({ ...NONE, modified: ['tests/e2e/flows/chart.spec.js'] });
   });
 });

@@ -270,9 +270,13 @@ jobs:
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
-      # Mirrors the secrets job's base selection; see the comments there. The push arm
-      # is unreachable while the job-level `if:` holds, and is kept so the two blocks
-      # stay identical.
+      # Based on the secrets job's base selection (see the comments there), with one
+      # difference: on pull_request the base is HEAD^1, not pull_request.base.sha. HEAD
+      # is the merge commit actions/checkout made, and its first parent is the main
+      # commit the PR was actually merged onto. base.sha can be older, and then main's
+      # own newer rubric edits would read as the PR's and an older rubric would run
+      # against newer code. A mismatch is surfaced as a warning. The push arm is
+      # unreachable while the job-level `if:` holds.
       - name: Choose the base
         id: base
         env:
@@ -285,7 +289,10 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$EVENT" = "pull_request" ]; then
-            BASE="$PR_BASE"
+            BASE=$(git rev-parse HEAD^1)
+            if [ "$BASE" != "$PR_BASE" ]; then
+              echo "::warning::pull_request base.sha ${PR_BASE:0:7} is not the merge commit's first parent ${BASE:0:7}; comparing against ${BASE:0:7}"
+            fi
           elif [ "$EVENT" = "merge_group" ]; then
             BASE="$QUEUE_BASE"
           else
