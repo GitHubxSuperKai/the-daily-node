@@ -35,21 +35,40 @@ const RSS2JSON_TITLES = FIXTURES
   .filter(f => f.match.startsWith('https://api.rss2json.com/'))
   .flatMap(f => JSON.parse(f.body).items.map(item => item.title));
 
-test('without a backend the page degrades cleanly', async ({ page, baseURL }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop');
+// Records the traffic the two allow-listed messages stand for, so the allow-list cannot
+// hide anything else: a 404 from anywhere but same-origin /api/*, or a failed request
+// anywhere but the history daemon, is collected as `stray` and fails the flow.
+function watchTraffic(page, baseURL) {
   const site = new URL(baseURL);
-  const apiResponses = [];
-  const historyFailures = [];
+  const traffic = { api: [], history: [], stray: [] };
   page.on('response', response => {
     const url = new URL(response.url());
     if (url.origin === site.origin && url.pathname.startsWith('/api/')) {
-      apiResponses.push(`${response.status()} ${url.pathname}`);
+      traffic.api.push(`${response.status()} ${url.pathname}`);
+    } else if (response.status() === 404) {
+      traffic.stray.push(`404 ${response.url()}`);
     }
   });
   page.on('requestfailed', request => {
     const url = new URL(request.url());
-    if (url.hostname === site.hostname && url.port === '3002') historyFailures.push(url.pathname);
+    if (url.hostname === site.hostname && url.port === '3002') traffic.history.push(url.pathname);
+    else traffic.stray.push(`${request.failure()?.errorText} ${request.url()}`);
   });
+  return traffic;
+}
+
+// The mode really was Pages: the backend routes were asked for and every one got 404,
+// the history daemon was asked for and never answered, and nothing else failed.
+async function expectPagesTraffic(traffic) {
+  await expect.poll(() => traffic.api.some(r => r.endsWith(' /api/miners'))).toBe(true);
+  await expect.poll(() => traffic.history.length).toBeGreaterThan(0);
+  expect(traffic.api.filter(r => !r.startsWith('404 '))).toEqual([]);
+  expect(traffic.stray).toEqual([]);
+}
+
+test('without a backend the page degrades cleanly', async ({ page, baseURL }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop');
+  const traffic = watchTraffic(page, baseURL);
 
   await page.goto('/');
   await expect(page.getByText('No miners connected', { exact: true })).toBeVisible();
@@ -60,20 +79,18 @@ test('without a backend the page degrades cleanly', async ({ page, baseURL }, te
   await dialog.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(dialog).toBeHidden();
 
-  // The mode really was Pages: the backend routes were asked for and every one got 404,
-  // and the history daemon was asked for and never answered.
-  await expect.poll(() => apiResponses.some(r => r.endsWith(' /api/miners'))).toBe(true);
-  expect(apiResponses.filter(r => !r.startsWith('404 '))).toEqual([]);
-  await expect.poll(() => historyFailures.length).toBeGreaterThan(0);
+  await expectPagesTraffic(traffic);
 });
 
-test('without a backend news falls back to rss2json @fixtures-only', async ({ page }, testInfo) => {
+test('without a backend news falls back to rss2json @fixtures-only', async ({ page, baseURL }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop');
   expect(RSS2JSON_TITLES.length).toBeGreaterThan(0);
+  const traffic = watchTraffic(page, baseURL);
   await page.goto('/');
   const news = page.getByTestId('news-column');
   await expect.poll(async () => {
     const text = await news.innerText();
     return RSS2JSON_TITLES.filter(title => text.includes(title)).length;
   }).toBeGreaterThan(0);
+  await expectPagesTraffic(traffic);
 });
