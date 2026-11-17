@@ -18,12 +18,13 @@ Find the line matching `^verify: `:
 - `verify: fail (<flow names joined by ', '>)`
 - `verify: fail (setup)`: the build, the server or the run itself failed before any flow could be judged.
 - `verify: fail (harness)`: a harness self-test caught a broken guard. That is a rubric problem, not an app bug.
+- `verify: fail (live: no external requests)`: a `--live` run reached no external host, so it ran on fixtures and proved nothing about the real APIs.
 
 ## On a failure
 
 Read the failing flow's error, then `playwright-report/` and the screenshots and traces under `test-results/verify/`. Fix the cause and re-run: at most 3 runs in total, the first included. Then stop and report the failing flow with its screenshot path and console output.
 
-A flow that fails only sometimes is a bug. No retries, sleeps, skips or `test.only` (`forbidOnly` refuses it). With no root cause, report it. Deleting or skipping a flow is the maintainer's call. The per-project skips in the output (14 on a green run, from tests that run on one project only) are by design, not skips in this sense.
+A flow that fails only sometimes is a bug. No retries, sleeps, skips or `test.only` (`forbidOnly` refuses it). With no root cause, report it. Deleting or skipping a flow is the maintainer's call. The per-project skips in the output (about 14 on a green run, from tests that run on one project only) are by design, not skips in this sense.
 
 ## Rubric (do not edit to make a run pass)
 
@@ -42,7 +43,7 @@ Editing or deleting an existing rubric file, or adding a `playwright.config.*`, 
 - Hits the real public APIs. Miners, firmware, setup and history stay synthetic.
 - Skips `@fixtures-only` and `@harness` tests, so it does not check the rss2json fallback.
 - Wait 1-2 minutes between live runs: keyless APIs (CoinGecko) rate-limit, and the response cache is per worker process.
-- `test-results/verify/summary.json` `externalRequests > 0` shows live reached the network. `externalOrigins` lists the hosts reached, which are allow-listed by construction, so it is not an independent allow-list check.
+- The wrapper fails a live run whose `test-results/verify/summary.json` has `externalRequests` at 0 (the `live: no external requests` line above), so a live `verify: pass` already means the network was reached. `externalOrigins` lists the hosts reached, which are allow-listed by construction, so it is not an independent allow-list check.
 
 ## `npm run verify:refresh-fixtures`
 
