@@ -87,7 +87,7 @@ jobs:
 
       # --with-deps installs the OS libraries too; those are not in the cache.
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
 
       # The PR's own rubric judges the PR's code. The verify-map job below runs main's.
       - name: Verify (end-to-end)
@@ -268,7 +268,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
 
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
 
       # Based on the secrets job's base selection (see the comments there), with one
       # difference: on pull_request the base is HEAD^1, not pull_request.base.sha. HEAD
