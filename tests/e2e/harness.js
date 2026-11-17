@@ -128,8 +128,31 @@ export function checkAllowConsoleErrors(value) {
 // keyless public APIs rate-limit that: CoinGecko answered every call after the first
 // with a 429 and no CORS header, which the page reports as a failed fetch. Each URL
 // is still fetched for real once per worker process, so live stays real data. The
-// response is cached whatever its status, a 429 included. Unused in fixture mode.
+// request is made from Node, not the browser, so fetchLiveEntry restores the two
+// browser checks that would otherwise be lost: a redirect is not followed (the browser
+// follows Location as a new request, back through routing and CSP), and a cross-origin
+// answer with no CORS header is refused and not cached (the browser would block it).
+// Any other response is cached whatever its status. Unused in fixture mode.
 const LIVE_RESPONSES = new Map();
+
+// Makes one live request through `fetchResponse(options)` (route.fetch, or an
+// APIRequestContext call in harness.spec.js) and returns the entry to fulfil with:
+// { status, headers, body }. Redirects come back unfollowed (maxRedirects: 0). A
+// non-redirect answer to a cross-origin request with no access-control-allow-origin
+// header throws, which rule 2 turns into an abort. Exported for harness.spec.js.
+export async function fetchLiveEntry(fetchResponse, pageOrigin, url) {
+  const response = await fetchResponse({ maxRedirects: 0 });
+  const status = response.status();
+  const headers = { ...response.headers() };
+  const redirect = status >= 300 && status < 400;
+  if (!redirect && new URL(url).origin !== pageOrigin && !headers['access-control-allow-origin']) {
+    throw new Error(`harness: live ${status} from ${new URL(url).origin} has no access-control-allow-origin header`);
+  }
+  // The body comes back decoded, so the encoding and length headers no longer
+  // describe it.
+  for (const name of ['content-encoding', 'content-length', 'transfer-encoding']) delete headers[name];
+  return { status, headers, body: await response.body() };
+}
 
 // Answers `key` from `cache`, calling `fetchEntry` only on a miss. In-flight fetches
 // are shared; a fetch that throws is dropped from the cache, so the next request
@@ -230,14 +253,8 @@ export const test = base.extend({
       }
       let result;
       try {
-        result = await liveFetch(LIVE_RESPONSES, `GET ${request.url()}`, async () => {
-          const response = await route.fetch();
-          // The body comes back decoded, so the encoding and length headers no longer
-          // describe it.
-          const headers = { ...response.headers() };
-          for (const name of ['content-encoding', 'content-length', 'transfer-encoding']) delete headers[name];
-          return { status: response.status(), headers, body: await response.body() };
-        });
+        result = await liveFetch(LIVE_RESPONSES, `GET ${request.url()}`,
+          () => fetchLiveEntry(options => route.fetch(options), site.origin, request.url()));
       } catch {
         return route.abort();
       }

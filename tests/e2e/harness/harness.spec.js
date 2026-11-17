@@ -10,7 +10,8 @@
 // Each test loads /__harness, a fixture page with no CSP, so the app's CSP cannot
 // block the probes before they reach the router. These tests are tagged @harness and
 // are excluded from --live runs.
-import { test, expect, checkAllowConsoleErrors, liveFetch } from '../harness.js';
+import http from 'node:http';
+import { test, expect, checkAllowConsoleErrors, liveFetch, fetchLiveEntry } from '../harness.js';
 
 const HARNESS_PAGE = {
   match: '**/__harness',
@@ -200,6 +201,69 @@ test.describe('harness', { tag: '@harness' }, () => {
       const retried = await liveFetch(cache, 'GET https://a.example/x', async () => { calls += 1; return ENTRY; });
       expect(calls).toBe(2);
       expect(retried.fetched).toBe(true);
+    });
+  });
+
+  // fetchLiveEntry makes the live request from Node, where the browser's per-hop CSP
+  // and CORS checks do not run. It must hand a redirect back to the browser unfollowed
+  // and refuse a cross-origin answer with no CORS header. Checked against a local
+  // server through Playwright's request context, the same fetch options route.fetch takes.
+  test.describe('live fetch keeps browser semantics', () => {
+    let server;
+    let serverOrigin;
+    const hits = [];
+
+    test.beforeAll(async () => {
+      server = http.createServer((req, res) => {
+        hits.push(req.url);
+        if (req.url === '/redirect') {
+          // No CORS header: a redirect is handed back whatever its headers.
+          res.writeHead(302, { Location: '/target' });
+        } else if (req.url === '/no-cors') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+        } else {
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        }
+        res.end('{}');
+      });
+      await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+      serverOrigin = `http://127.0.0.1:${server.address().port}`;
+    });
+
+    test.afterAll(async () => {
+      await new Promise(resolve => server.close(resolve));
+    });
+
+    test.beforeEach(() => { hits.length = 0; });
+
+    // A page origin other than the server's, so every request here is cross-origin.
+    const PAGE_ORIGIN = 'http://page.invalid';
+
+    test('a redirect is cached as-is and never followed', async ({ request }) => {
+      const cache = new Map();
+      const url = `${serverOrigin}/redirect`;
+      const { fetched } = await liveFetch(cache, `GET ${url}`,
+        () => fetchLiveEntry(options => request.fetch(url, options), PAGE_ORIGIN, url));
+      const entry = await cache.get(`GET ${url}`);
+      expect(fetched).toBe(true);
+      expect(entry.status).toBe(302);
+      expect(entry.headers.location).toBe('/target');
+      expect(hits).toEqual(['/redirect']);
+    });
+
+    test('a cross-origin answer with no CORS header is refused and not cached', async ({ request }) => {
+      const cache = new Map();
+      const url = `${serverOrigin}/no-cors`;
+      await expect(liveFetch(cache, `GET ${url}`,
+        () => fetchLiveEntry(options => request.fetch(url, options), PAGE_ORIGIN, url))).rejects.toThrow(/access-control-allow-origin/);
+      expect(cache.has(`GET ${url}`)).toBe(false);
+    });
+
+    test('a cross-origin answer with a CORS header is kept', async ({ request }) => {
+      const url = `${serverOrigin}/ok`;
+      const entry = await fetchLiveEntry(options => request.fetch(url, options), PAGE_ORIGIN, url);
+      expect(entry.status).toBe(200);
+      expect(entry.body.toString()).toBe('{}');
     });
   });
 });
