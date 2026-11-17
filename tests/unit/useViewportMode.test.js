@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useViewportMode } from '../../src/hooks/useViewportMode.js';
