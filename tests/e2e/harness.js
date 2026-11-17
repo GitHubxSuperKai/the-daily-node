@@ -230,7 +230,9 @@ export const test = base.extend({
       const hits = fixtureHits.get(route.request()) || [];
       if (hits.length === 0) return route.fallback();
       if (hits.length > 1) {
-        ambiguous.push(`ambiguous fixture: ${route.request().url()} (${hits.map(f => f.file).join(', ')})`);
+        // A test-supplied fixture may carry no `file`; name it by its glob instead.
+        const names = hits.map(f => f.file || `test fixture ${f.match}`);
+        ambiguous.push(`ambiguous fixture: ${route.request().url()} (${names.join(', ')})`);
         return route.abort();
       }
       const [fixture] = hits;
