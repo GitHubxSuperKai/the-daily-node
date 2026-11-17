@@ -11,7 +11,7 @@
 // Every case builds a throwaway git repo in os.tmpdir() with a base commit and a head
 // commit, and passes that repo's path as `cwd` explicitly. Each asserts the WHOLE result,
 // so a change landing in the wrong array, or a stray extra entry, fails too.
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -103,8 +103,10 @@ function changes(base, head) {
 }
 
 describe('verify-map listRubricChanges', () => {
-  it('runs with no GIT_DIR or GIT_WORK_TREE in the environment', () => {
-    // Either one would point every git call below at the real repo instead of the temp one.
+  // A gate, not a case: either variable would point every git call below (init, add,
+  // commit) at the real repo instead of the temp one, and a failing `it` would not stop
+  // the cases after it. A failing beforeAll runs none of them.
+  beforeAll(() => {
     expect(process.env.GIT_DIR).toBeUndefined();
     expect(process.env.GIT_WORK_TREE).toBeUndefined();
   });

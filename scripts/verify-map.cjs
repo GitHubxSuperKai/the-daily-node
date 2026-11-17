@@ -52,13 +52,10 @@ function git(args, cwd) {
   });
 }
 
+// Non-empty output means the path is in that commit's tree. A git failure throws rather
+// than reading as "absent", which would skip a checkout or the bootstrap guard silently.
 function existsAt(sha, rel, cwd) {
-  try {
-    execFileSync('git', ['cat-file', '-e', `${sha}:${rel}`], { cwd, stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
-  }
+  return git(['ls-tree', '-z', '--name-only', sha, '--', rel], cwd) !== '';
 }
 
 function configsAt(sha, cwd) {
