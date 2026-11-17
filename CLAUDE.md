@@ -21,6 +21,9 @@ npm run serve              # build + serve in one step
 npm test                   # run smoke + unit tests
 npm run test:smoke         # build smoke test only
 npm run test:unit          # vitest unit tests only
+npm run verify             # Playwright e2e on a free port; prints one `verify: ` summary line
+npm run verify -- --live   # same flows against the real public APIs (by hand only, never gates)
+npm run verify:refresh-fixtures  # re-record public API fixtures (by hand only; review the diff)
 ```
 
 Preview tool server ID: `the-daily-node`
@@ -32,6 +35,7 @@ Preview tool server ID: `the-daily-node`
 ## Build/Test Gotchas
 
 - **Smoke assertions run against the MINIFIED bundle** (`index.html`), so assert on tokens that survive minification — string literals and object-property keys, not mangled function/var names. Recurring traps: use `createElement` not `React.createElement` (esbuild jsxFactory output); match the version as `"v${version}"`; the Docker HTML check (`.github/workflows/docker.yml`) must match `<!doctype html>` case-insensitively. Read the comments in `scripts/smoke-build.cjs` before changing a marker.
+- **`npm run verify` (Playwright e2e, see `.claude/skills/verify/SKILL.md`):** it serves on a free port the wrapper picks, never 3002, so run it directly and do not start a server for it. An unstubbed request fails the run and names the URL: a new external API needs a fixture module under `tests/e2e/fixtures/public/` (recorded) or `backend/` (synthetic). New e2e files must be registered: harness, spec and script files in `.claude/workflows/full-repo-review.mjs` `GROUPS`, fixture data files only in `EXCLUDED` in `scripts/check-review-paths.cjs`, or `npm test` fails.
 - **Don't reintroduce stale build claims in docs.** `README.md` / `docs/ARCHITECTURE.md` must NOT describe in-browser Babel, `type="text/babel"`, CDN/unpkg React, or any runtime transpiler — JSX is transformed at build time by esbuild and React/ReactDOM are vendored locally from `src/vendor/`. Verify build/dependency statements against `build.js` and `src/index.html` before writing them; treat any such existing claim as stale and correct it.
 
 ## Architecture
