@@ -233,10 +233,25 @@ function forbiddenIps(text) {
 // A coordinate anywhere other than 0 (0.0 and -0.0 included). JSON keys and query
 // parameters both, since a recorded body or a match glob could carry either.
 function nonZeroCoordinates(text) {
-  const pattern = /("(?:latitude|longitude)"\s*:\s*|\b(?:lat|lon|latitude|longitude)=)(-?[\d.]+)/g;
+  const pattern = /("(?:lat|lon|lng|latitude|longitude)"\s*:\s*|\b(?:lat|lon|lng|latitude|longitude)=)(-?[\d.]+)/g;
   return [...text.matchAll(pattern)]
     .filter(m => Number(m[2]) !== 0)
     .map(m => m[0]);
+}
+
+// Both scans over a fixture file's text and, for a module, over the body it serves.
+// The body is what reaches the page, and a hand-written module may build it from a JS
+// literal with unquoted keys (`latitude: 34.05`) that the text patterns cannot see;
+// JSON.stringify output always quotes them. load.js (the only .js file directly under
+// fixtures/) is code, not a module, and recorded-at.json is plain JSON.
+function scanFixtureFile(file) {
+  const texts = [fs.readFileSync(file, 'utf8')];
+  if (file.endsWith('.js') && path.dirname(file) !== FIXTURES_DIR) texts.push(require(file).body);
+  const unique = list => [...new Set(list)];
+  return {
+    ips: unique(texts.flatMap(forbiddenIps)),
+    coordinates: unique(texts.flatMap(nonZeroCoordinates)),
+  };
 }
 
 // Private addresses for the cases below, assembled at runtime so this file stays clean
@@ -262,17 +277,55 @@ describe('fixture privacy', () => {
     ['"latitude": 0, "longitude": 0.0', 0],
     ['"latitude":-0.0,"longitude":0', 0],
     ['latitude=0&longitude=0', 0],
+    ['"lat": 34.05', 1],
+    ['?lng=-118.2', 1],
+    ['"lng": 0', 0],
   ])('nonZeroCoordinates(%j)', (text, count) => {
     expect(nonZeroCoordinates(text)).toHaveLength(count);
   });
 
+  // A hand-written module can spell a key unquoted (`latitude: 34.05`), which the text
+  // patterns above do not see; its served `body` is JSON, where every key is quoted.
+  describe('scanFixtureFile reads the served body too', () => {
+    const tmpDirs = [];
+    afterAll(() => {
+      for (const dir of tmpDirs) fs.rmSync(dir, { recursive: true, force: true });
+    });
+
+    function tempModule(source) {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dn-verify-privacy-'));
+      tmpDirs.push(dir);
+      const file = path.join(dir, 'm.js');
+      fs.writeFileSync(file, source);
+      return file;
+    }
+
+    it('flags an unquoted non-zero coordinate in a module body', () => {
+      const file = tempModule("module.exports = { match: '**/x', status: 200, contentType: 'application/json',\n"
+        + '  body: JSON.stringify({ results: [{ latitude: 34.05, longitude: -118.24 }] }) };\n');
+      expect(scanFixtureFile(file).coordinates).toHaveLength(2);
+    });
+
+    it('flags a private address assembled in a module body', () => {
+      const file = tempModule("module.exports = { match: '**/x', status: 200, contentType: 'application/json',\n"
+        + "  body: JSON.stringify({ ip: ['10', '1', '2', '3'].join('.') }) };\n");
+      expect(scanFixtureFile(file).ips).toEqual([RFC1918_A]);
+    });
+
+    it('passes an unquoted zero coordinate', () => {
+      const file = tempModule("module.exports = { match: '**/x', status: 200, contentType: 'application/json',\n"
+        + '  body: JSON.stringify({ latitude: 0, longitude: 0 }) };\n');
+      expect(scanFixtureFile(file)).toEqual({ ips: [], coordinates: [] });
+    });
+  });
+
   it('no fixture contains an IPv4 outside 192.0.2.0/24 or 127.0.0.1', () => {
-    const hits = allFixtureFiles().flatMap(f => forbiddenIps(fs.readFileSync(f, 'utf8')).map(ip => `${rel(f)}: ${ip}`));
+    const hits = allFixtureFiles().flatMap(f => scanFixtureFile(f).ips.map(ip => `${rel(f)}: ${ip}`));
     expect(hits).toEqual([]);
   });
 
   it('no fixture contains a latitude or longitude other than 0', () => {
-    const hits = allFixtureFiles().flatMap(f => nonZeroCoordinates(fs.readFileSync(f, 'utf8')).map(c => `${rel(f)}: ${c}`));
+    const hits = allFixtureFiles().flatMap(f => scanFixtureFile(f).coordinates.map(c => `${rel(f)}: ${c}`));
     expect(hits).toEqual([]);
   });
 });
