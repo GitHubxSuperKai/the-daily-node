@@ -23,6 +23,7 @@ updates:
           - "@testing-library/*"
           - "jsdom"
           - "playwright"
+          - "@playwright/test"
 
   - package-ecosystem: github-actions
     directory: /

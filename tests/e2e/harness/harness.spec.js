@@ -1,0 +1,308 @@
+// Harness self-tests: the guards in tests/e2e/harness.js, checked against themselves.
+//
+// Every flow relies on the harness to fail a run that reaches an unstubbed host,
+// logs a console error, or renders the ErrorBoundary fallback. A guard that never
+// fires passes every flow, so each one is exercised here both ways: recorded (with
+// enforcement off) and failing the test (with enforcement on, wrapped in test.fail()).
+// The test.fail() cases make no assertions of their own on purpose -- the after-test
+// check is their only possible failure, so an unexpected pass means that check is off.
+//
+// Each test loads /__harness, a fixture page with no CSP, so the app's CSP cannot
+// block the probes before they reach the router. These tests are tagged @harness and
+// are excluded from --live runs.
+import http from 'node:http';
+import { test, expect, checkAllowConsoleErrors, liveFetch, fetchLiveEntry } from '../harness.js';
+
+const HARNESS_PAGE = {
+  file: 'harness.spec.js',
+  match: '**/__harness',
+  status: 200,
+  contentType: 'text/html',
+  body: '<!doctype html><title>h</title>',
+};
+
+// Copied from src/components/ErrorBoundary.jsx: the fallback renders
+// `${label} unavailable`, or 'Section unavailable' with no label.
+const ERROR_BOUNDARY_PAGE = {
+  ...HARNESS_PAGE,
+  body: '<!doctype html><title>h</title><div>Section unavailable</div>',
+};
+
+const UNSTUBBED_URL = 'https://unstubbed.example/x';
+
+// Chromium's text, verbatim, for a frame-ancestors directive in a <meta> CSP.
+const FRAME_ANCESTORS_WARNING =
+  "The Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta> element.";
+
+test.describe('harness', { tag: '@harness' }, () => {
+  // Pinned so a later change to the harness default cannot move these assertions.
+  test.use({ now: '2026-06-15T15:00:00Z', fixtures: [HARNESS_PAGE] });
+
+  test.describe('unstubbed request is recorded', () => {
+    test.use({ enforce: false });
+    test('unstubbed request is recorded', async ({ page, unstubbed }) => {
+      await page.goto('/__harness');
+      await page.evaluate(url => fetch(url).catch(() => {}), UNSTUBBED_URL);
+      expect(unstubbed).toEqual([UNSTUBBED_URL]);
+    });
+  });
+
+  test.describe('unstubbed request fails the test', () => {
+    test.use({ enforce: true, allowConsoleErrors: [/.*/] });
+    test('unstubbed request fails the test', async ({ page }) => {
+      test.fail();
+      await page.goto('/__harness');
+      await page.evaluate(url => fetch(url).catch(() => {}), UNSTUBBED_URL);
+    });
+  });
+
+  test.describe('console error is recorded and allow-listed', () => {
+    test.describe('recorded', () => {
+      test.use({ enforce: false });
+      test('console error is recorded', async ({ page, consoleErrors }) => {
+        await page.goto('/__harness');
+        await page.evaluate(() => console.error('boom'));
+        await expect.poll(() => consoleErrors).toContain('boom');
+      });
+    });
+
+    test.describe('allow-listed', () => {
+      test.use({ enforce: true, allowConsoleErrors: [/boom/] });
+      test('allow-listed console error passes', async ({ page, consoleErrors }) => {
+        await page.goto('/__harness');
+        await page.evaluate(() => console.error('boom'));
+        await expect.poll(() => consoleErrors).toContain('boom');
+      });
+    });
+  });
+
+  test.describe('unlisted console error fails the test', () => {
+    test.use({ enforce: true });
+    test('unlisted console error fails the test', async ({ page }) => {
+      test.fail();
+      await page.goto('/__harness');
+      await page.evaluate(() => console.error('boom'));
+    });
+  });
+
+  // A list of two or more patterns has to be wrapped as [[...], { option: true }]: a
+  // bare [/a/, /b/] reaches the fixture as the single RegExp /a/ (Playwright reads it
+  // as [value, options]), and the harness refuses any value that is not an array of
+  // RegExp (checkAllowConsoleErrors).
+  test.describe('allow-list shape', () => {
+    test.describe('wrapped two-pattern list', () => {
+      test.use({ enforce: true, allowConsoleErrors: [[/^alpha$/, /^beta$/], { option: true }] });
+      test('a wrapped two-pattern list keeps both patterns', async ({ page, consoleErrors }) => {
+        await page.goto('/__harness');
+        await page.evaluate(() => { console.error('alpha'); console.error('beta'); });
+        await expect.poll(() => consoleErrors).toEqual(['alpha', 'beta']);
+      });
+    });
+
+    test.describe('bare two-pattern list', () => {
+      test.use({ enforce: true, allowConsoleErrors: [/^alpha$/, /^beta$/] });
+      // Declared with test.fail(title, body): the shape check throws while the context
+      // is set up, before the body runs, so a test.fail() call inside it would never run.
+      // The page logs nothing, so the shape check is the only possible failure.
+      test.fail('a bare two-pattern list fails the test', async ({ page }) => {
+        await page.goto('/__harness');
+      });
+    });
+
+    test('the shape check names the problem and the fix', () => {
+      for (const ok of [[], [/a/], [/a/, /b/]]) expect(() => checkAllowConsoleErrors(ok)).not.toThrow();
+      const fix = 'allowConsoleErrors: [[/a/, /b/], { option: true }]';
+      expect(() => checkAllowConsoleErrors(/^alpha$/))
+        .toThrow(`harness: allowConsoleErrors must be an array of RegExp, got a single RegExp /^alpha$/. In test.use, wrap a list of two or more as ${fix}`);
+      expect(() => checkAllowConsoleErrors(['boom'])).toThrow('got an array holding string');
+      expect(() => checkAllowConsoleErrors('boom')).toThrow('got string');
+    });
+  });
+
+  // The harness allows one browser message on every test: Chromium's warning that the
+  // app's meta-tag CSP carries frame-ancestors (see BUILTIN_ALLOWED_CONSOLE_ERRORS).
+  test.describe('built-in console allow-list', () => {
+    test.use({ enforce: true });
+    test('the meta-CSP frame-ancestors warning passes', async ({ page, consoleErrors }) => {
+      await page.goto('/__harness');
+      await page.evaluate(m => console.error(m), FRAME_ANCESTORS_WARNING);
+      await expect.poll(() => consoleErrors).toContain(FRAME_ANCESTORS_WARNING);
+    });
+
+    // A near miss (another directive, same sentence) must still fail: the built-in
+    // entry is anchored to the one message, not to CSP warnings in general.
+    test('another CSP warning still fails the test', async ({ page }) => {
+      test.fail();
+      await page.goto('/__harness');
+      await page.evaluate(m => console.error(m),
+        FRAME_ANCESTORS_WARNING.replace("'frame-ancestors'", "'sandbox'"));
+    });
+  });
+
+  test.describe('ErrorBoundary fallback fails the test', () => {
+    test.use({ enforce: true, fixtures: [ERROR_BOUNDARY_PAGE] });
+    test('ErrorBoundary fallback fails the test', async ({ page }) => {
+      test.fail();
+      await page.goto('/__harness');
+    });
+  });
+
+  // Two fixtures whose globs both match one URL: neither may answer it, or an added
+  // fixture file could quietly replace the data an existing one serves. The probe is a
+  // fetch, not the page, so the after-test check is the only possible failure. Each
+  // list is wrapped as [value, options]: test.use would read a bare [HARNESS_PAGE, X]
+  // as that tuple (see the allowConsoleErrors note in harness.js).
+  const OVERLAP_PATH = '/__overlap';
+  const OVERLAP_A = { file: 'backend/overlap-a.js', match: '**/__overlap', status: 200, contentType: 'text/plain', body: 'a' };
+  const OVERLAP_B = { file: 'public/overlap-b.js', match: '**/__over*', status: 200, contentType: 'text/plain', body: 'b' };
+
+  test.describe('ambiguous fixture is recorded', () => {
+    test.use({ enforce: false, fixtures: [[HARNESS_PAGE, OVERLAP_A, OVERLAP_B], { option: true }] });
+    test('ambiguous fixture is recorded, naming both files', async ({ page, baseURL, ambiguous }) => {
+      await page.goto('/__harness');
+      await page.evaluate(p => fetch(p).catch(() => {}), OVERLAP_PATH);
+      expect(ambiguous).toEqual([
+        `ambiguous fixture: ${baseURL}${OVERLAP_PATH} (backend/overlap-a.js, public/overlap-b.js)`,
+      ]);
+    });
+  });
+
+  test.describe('ambiguous fixture fails the test', () => {
+    test.use({ enforce: true, allowConsoleErrors: [/.*/], fixtures: [[HARNESS_PAGE, OVERLAP_A, OVERLAP_B], { option: true }] });
+    test('ambiguous fixture fails the test', async ({ page }) => {
+      test.fail();
+      await page.goto('/__harness');
+      await page.evaluate(p => fetch(p).catch(() => {}), OVERLAP_PATH);
+    });
+  });
+
+  test.describe('single matching fixture', () => {
+    test.use({ enforce: true, fixtures: [[HARNESS_PAGE, OVERLAP_A], { option: true }] });
+    test('a single matching fixture still fulfils', async ({ page }) => {
+      await page.goto('/__harness');
+      const body = await page.evaluate(p => fetch(p).then(r => r.text()), OVERLAP_PATH);
+      expect(body).toBe('a');
+    });
+  });
+
+  test('clock and timezone are fixed', async ({ page }) => {
+    await page.goto('/__harness');
+    const [iso, hour, zone] = await page.evaluate(() => [
+      new Date().toISOString(),
+      new Date().getHours(),
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+    ]);
+    expect(iso.startsWith('2026-06-15T15:00')).toBe(true);
+    expect(hour).toBe(15);
+    expect(zone).toBe('UTC');
+  });
+
+  // The --live response cache (liveFetch): one real fetch per key per process, so a
+  // run cannot trip a keyless API's rate limit with its own repeat calls. These run
+  // the helper directly with a counting fetcher; no network is involved.
+  test.describe('live response cache', () => {
+    const ENTRY = { status: 200, headers: { 'content-type': 'application/json' }, body: Buffer.from('{}') };
+
+    test('the first request fetches and later ones are served from the cache', async () => {
+      const cache = new Map();
+      let calls = 0;
+      const fetchEntry = async () => { calls += 1; return ENTRY; };
+      const first = await liveFetch(cache, 'GET https://a.example/x', fetchEntry);
+      const second = await liveFetch(cache, 'GET https://a.example/x', fetchEntry);
+      expect(calls).toBe(1);
+      expect(first).toEqual({ entry: ENTRY, fetched: true });
+      expect(second).toEqual({ entry: ENTRY, fetched: false });
+    });
+
+    test('concurrent requests for one key share one fetch', async () => {
+      const cache = new Map();
+      let calls = 0;
+      const fetchEntry = async () => { calls += 1; return ENTRY; };
+      const results = await Promise.all([1, 2, 3].map(() => liveFetch(cache, 'GET https://a.example/x', fetchEntry)));
+      expect(calls).toBe(1);
+      expect(results.map(r => r.fetched)).toEqual([true, false, false]);
+    });
+
+    test('different keys fetch separately', async () => {
+      const cache = new Map();
+      let calls = 0;
+      const fetchEntry = async () => { calls += 1; return ENTRY; };
+      await liveFetch(cache, 'GET https://a.example/x', fetchEntry);
+      await liveFetch(cache, 'GET https://a.example/x?y=1', fetchEntry);
+      expect(calls).toBe(2);
+    });
+
+    test('a failed fetch is not cached', async () => {
+      const cache = new Map();
+      let calls = 0;
+      const failing = async () => { calls += 1; throw new Error('boom'); };
+      await expect(liveFetch(cache, 'GET https://a.example/x', failing)).rejects.toThrow('boom');
+      const retried = await liveFetch(cache, 'GET https://a.example/x', async () => { calls += 1; return ENTRY; });
+      expect(calls).toBe(2);
+      expect(retried.fetched).toBe(true);
+    });
+  });
+
+  // fetchLiveEntry makes the live request from Node, where the browser's per-hop CSP
+  // and CORS checks do not run. It must hand a redirect back to the browser unfollowed
+  // and refuse a cross-origin answer with no CORS header. Checked against a local
+  // server through Playwright's request context, the same fetch options route.fetch takes.
+  test.describe('live fetch keeps browser semantics', () => {
+    let server;
+    let serverOrigin;
+    const hits = [];
+
+    test.beforeAll(async () => {
+      server = http.createServer((req, res) => {
+        hits.push(req.url);
+        if (req.url === '/redirect') {
+          // No CORS header: a redirect is handed back whatever its headers.
+          res.writeHead(302, { Location: '/target' });
+        } else if (req.url === '/no-cors') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+        } else {
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        }
+        res.end('{}');
+      });
+      await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+      serverOrigin = `http://127.0.0.1:${server.address().port}`;
+    });
+
+    test.afterAll(async () => {
+      await new Promise(resolve => server.close(resolve));
+    });
+
+    test.beforeEach(() => { hits.length = 0; });
+
+    // A page origin other than the server's, so every request here is cross-origin.
+    const PAGE_ORIGIN = 'http://page.invalid';
+
+    test('a redirect is cached as-is and never followed', async ({ request }) => {
+      const cache = new Map();
+      const url = `${serverOrigin}/redirect`;
+      const { fetched } = await liveFetch(cache, `GET ${url}`,
+        () => fetchLiveEntry(options => request.fetch(url, options), PAGE_ORIGIN, url));
+      const entry = await cache.get(`GET ${url}`);
+      expect(fetched).toBe(true);
+      expect(entry.status).toBe(302);
+      expect(entry.headers.location).toBe('/target');
+      expect(hits).toEqual(['/redirect']);
+    });
+
+    test('a cross-origin answer with no CORS header is refused and not cached', async ({ request }) => {
+      const cache = new Map();
+      const url = `${serverOrigin}/no-cors`;
+      await expect(liveFetch(cache, `GET ${url}`,
+        () => fetchLiveEntry(options => request.fetch(url, options), PAGE_ORIGIN, url))).rejects.toThrow(/access-control-allow-origin/);
+      expect(cache.has(`GET ${url}`)).toBe(false);
+    });
+
+    test('a cross-origin answer with a CORS header is kept', async ({ request }) => {
+      const url = `${serverOrigin}/ok`;
+      const entry = await fetchLiveEntry(options => request.fetch(url, options), PAGE_ORIGIN, url);
+      expect(entry.status).toBe(200);
+      expect(entry.body.toString()).toBe('{}');
+    });
+  });
+});

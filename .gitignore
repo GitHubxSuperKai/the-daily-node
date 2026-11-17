@@ -1,6 +1,10 @@
 # Dev dependencies
 node_modules/
 
+# npm run verify output (Playwright results, screenshots, traces, HTML report)
+test-results/
+playwright-report/
+
 # Python bytecode
 __pycache__/
 *.pyc

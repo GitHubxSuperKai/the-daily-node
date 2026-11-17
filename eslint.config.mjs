@@ -71,8 +71,25 @@ export default [
     },
   },
   {
+    // Playwright fixtures take their callback as `use`, which rules-of-hooks reads
+    // as a React hook call. Nothing under tests/e2e/ is React.
+    files: ['tests/e2e/**/*.js'],
+    rules: {
+      'react-hooks/rules-of-hooks': 'off',
+    },
+  },
+  {
+    // Recorded API bodies (scripts/verify-refresh-fixtures.cjs) carry upstream floats
+    // printed in their shortest round-trip form, which can be 17 significant digits;
+    // this rule reads some of those as imprecise although they parse back exactly.
+    files: ['tests/e2e/fixtures/public/*.js'],
+    rules: {
+      'no-loss-of-precision': 'off',
+    },
+  },
+  {
     // Node-side scripts (CommonJS).
-    files: ['scripts/**/*.cjs', 'build.js', 'server.js'],
+    files: ['scripts/**/*.cjs', 'tests/**/*.cjs', 'build.js', 'server.js', 'playwright.config.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'commonjs',
@@ -101,6 +118,9 @@ export default [
       'docs/**',
       '.worktrees/**',
       '.claude/**',
+      // npm run verify output: a failed run copies the trace viewer's bundle here.
+      'test-results/**',
+      'playwright-report/**',
     ],
   },
 ];

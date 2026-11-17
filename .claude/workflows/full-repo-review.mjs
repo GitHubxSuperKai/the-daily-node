@@ -150,6 +150,9 @@ const GROUPS = [
       'scripts/check-secrets.cjs',
       'scripts/smoke-build.cjs',
       'scripts/verify-vendor.cjs',
+      'scripts/verify.cjs',
+      'scripts/verify-map.cjs',
+      'scripts/verify-refresh-fixtures.cjs',
       'scripts/capture-mobile.cjs',
       'scripts/repro-vpn.cjs',
     ],
@@ -160,7 +163,18 @@ check-docker-smoke, check-review-paths (the guard on this very list),
 smoke-build and verify-vendor. Review each gate adversarially: an input it
 silently skips, a parse it can get partially right and still exit 0, a path
 read without -z, a catch that swallows a failure into a success line, a
-success message that claims more coverage than was checked. capture-mobile and
+success message that claims more coverage than was checked. verify.cjs is the
+\`npm run verify\` wrapper: its one summary line must never read \`verify: pass\`
+unless Playwright exited 0 AND this run's summary.json says passed.
+verify-map.cjs is the non-required verify-map CI job: it names rubric files a PR
+modifies or deletes and runs the base's rubric against the PR's code. Look for a
+rubric path it never compares, a git or parse failure that still prints
+\`verify-map: clean\`, a PR-controlled file name that reaches a workflow command
+unescaped, and a checkout that drops files the PR added.
+verify-refresh-fixtures.cjs is hand-run, never in CI, and writes recorded API data
+into this public repo: look for a path that records a real location (weather must be
+0,0), keeps an article body or an image URL, or writes an error response as a fixture.
+capture-mobile and
 repro-vpn are manual developer utilities (Playwright), not gates; review them
 for correctness only.`,
   },
@@ -245,6 +259,10 @@ for correctness only.`,
       'tests/unit/pythonRuntimeVersion.test.js',
       'tests/unit/checkReviewPaths.test.js',
       'tests/unit/checkDependabotLiveness.test.js',
+      'tests/unit/verifyPort.test.js',
+      'tests/unit/verifyFixtures.test.js',
+      'tests/unit/verifySummaryReporter.test.js',
+      'tests/unit/verifyMap.test.js',
     ],
     // Its own group rather than a line in tests-harness: this reviews repo tooling,
     // not the dashboard, so the shared React brief would frame it wrongly — and a
@@ -295,7 +313,58 @@ frame. Its core property is fail-closed: a config entry with no matching runs mu
 fail. Look for: a fail case with no paired must-pass control, a run-name format the
 matcher accepts that counts a targeted (PR refresh / security) job as liveness, a
 config shape the hand-written YAML reader silently mis-reads instead of throwing, and
-threshold maths that only hold on the fixture's chosen timestamps.`,
+threshold maths that only hold on the fixture's chosen timestamps.
+
+verifyPort.test.js tests tests/e2e/port.cjs, the free-port helper behind npm run
+verify. Same frame. Look for a case that would pass against a helper returning a
+fixed or already-bound port.
+
+verifyFixtures.test.js tests the verify fixtures and tests/e2e/fixtures/load.js. Same
+frame. Look for a coverage check that passes with a fixture deleted, a privacy scan
+(addresses, coordinates) with no case proving it can fail, and a catch-all case list
+with no must-pass controls.
+
+verifySummaryReporter.test.js tests tests/e2e/summary-reporter.cjs, which writes the
+summary.json behind the verify summary line. Same frame. Look for a case that would
+pass with the externalRequests sum or the externalOrigins union dropped.
+
+verifyMap.test.js tests listRubricChanges in scripts/verify-map.cjs against throwaway
+git repos. Same frame. Look for a rubric path or script key with no must-report case,
+a must-report case with no paired must-not-report control, and a merge-base case that
+would still pass if the diff were two-dot instead of three-dot.`,
+  },
+  {
+    key: 'e2e-verify',
+    label: 'E2E Verify Harness & Flows (Playwright config / harness / reporter / specs)',
+    files: [
+      'playwright.config.js',
+      'tests/e2e/harness.js',
+      'tests/e2e/port.cjs',
+      'tests/e2e/summary-reporter.cjs',
+      'tests/e2e/harness/harness.spec.js',
+      'tests/e2e/fixtures/load.js',
+      'tests/e2e/flows/chart-range.spec.js',
+      'tests/e2e/flows/settings-toggle.spec.js',
+      'tests/e2e/flows/theme.spec.js',
+      'tests/e2e/flows/rss-feed-off.spec.js',
+      'tests/e2e/flows/miners.spec.js',
+      'tests/e2e/flows/alerts.spec.js',
+      'tests/e2e/flows/mobile.spec.js',
+      'tests/e2e/flows/pages-mode.spec.js',
+    ],
+    context: `These are Playwright Test files for npm run verify, not React
+components. Ignore the React, hook, styling and localStorage guidance above.
+harness.js routes every request through an ordered rule list, fixes the clock,
+and fails a test on an unstubbed URL, an unlisted console error or a rendered
+ErrorBoundary fallback; harness.spec.js tests those guards against themselves.
+Review adversarially: a request class that reaches the network without landing
+in the unstubbed list, a rule-order slip that lets a fixture or the live allow-list
+shadow a guard, a guard whose test.fail() self-test would still pass with the
+guard deleted, a summary.json the reporter can leave stale or write as passed
+when a flow failed, and anything time- or timezone-dependent left unpinned.
+fixtures/load.js collects the fixture modules (the modules themselves are data,
+excluded from review): look for a pattern its catch-all check lets through that
+would answer every request, and an order that differs between machines.`,
   },
   {
     key: 'tests-python',

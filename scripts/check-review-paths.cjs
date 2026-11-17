@@ -180,8 +180,8 @@ if (dupes.length > 0) {
 // this check's ✓ must never be read as "the whole repo is covered". scripts/ holds
 // the repo's own gates (this file included), so a guard added there without a
 // GROUPS line would be the one kind of file guaranteed never to be reviewed.
-// Outside these roots GROUPS lists build.js, server.js, bitaxe_api.py and
-// history_daemon.py by hand. Everything else outside them is
+// Outside these roots GROUPS lists build.js, server.js, bitaxe_api.py,
+// history_daemon.py and playwright.config.js by hand. Everything else outside them is
 // reviewed by nobody and enforced by nothing -- notably vitest.config.js,
 // eslint.config.mjs, the Dockerfile, the .github/ workflows and the review workflow
 // itself.
@@ -190,6 +190,11 @@ const COVERED_ROOTS = ['src', 'tests', 'scripts'];
 // Files under a covered root that are deliberately not reviewed. Every entry needs
 // a reason. An entry that no longer exists, or that is also listed in GROUPS, fails
 // the check: a stale opt-out is the same silent drift wearing a different hat.
+//
+// The verify fixture modules are data, not code: public/ is rewritten by
+// scripts/verify-refresh-fixtures.cjs and backend/ is hand-written synthetic data.
+// tests/e2e/fixtures/load.js, which reads them, is code and is reviewed.
+const E2E_FIXTURE = 'recorded or synthetic e2e fixture data; checked by tests/unit/verifyFixtures.test.js';
 const EXCLUDED = {
   'src/vendor/react.production.min.js':
     'vendored third-party minified build; integrity is guarded by scripts/verify-vendor.cjs',
@@ -197,6 +202,44 @@ const EXCLUDED = {
     'vendored third-party minified build; integrity is guarded by scripts/verify-vendor.cjs',
   'src/vendor/MANIFEST.md':
     'vendor provenance record for the two files above, not project source',
+  'tests/e2e/fixtures/backend/firmware.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/backend/geocoding.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/backend/history.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/backend/mempool-proxy-blocks.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/backend/mempool-proxy-difficulty-adjustment.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/backend/mempool-proxy-fees-recommended.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/backend/mempool-proxy-hashrate-3d.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/backend/mempool-proxy-mempool-blocks.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/backend/mempool-proxy-mempool.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/backend/mempool-proxy-pool-blocks.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/backend/mempool-proxy-pools-1w.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/backend/mempool-proxy-tip-height.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/backend/miners.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/backend/rss-bitcoinMagazine.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/backend/rss-coindesk.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/backend/rss-newsBitcoin.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/backend/setup.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/api.coingecko.com-bitcoin.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/api.coingecko.com-market-chart.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/api.kraken.com-ohlc-1.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/api.kraken.com-ohlc-1440.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/api.kraken.com-ohlc-5.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/api.kraken.com-ohlc-60.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/api.kraken.com-ticker.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/api.open-meteo.com-forecast.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/api.rss2json.com-bitcoinMagazine.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/api.rss2json.com-coindesk.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/api.rss2json.com-newsBitcoin.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/mempool.space-blocks.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/mempool.space-difficulty-adjustment.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/mempool.space-fees-recommended.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/mempool.space-hashrate-3d.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/mempool.space-mempool-blocks.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/mempool.space-mempool.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/mempool.space-pool-blocks.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/mempool.space-pools-1w.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/public/mempool.space-tip-height.js': E2E_FIXTURE,
+  'tests/e2e/fixtures/recorded-at.json': E2E_FIXTURE,
 };
 
 const rootsLabel = COVERED_ROOTS.map(r => `${r}/`).join(' or ');

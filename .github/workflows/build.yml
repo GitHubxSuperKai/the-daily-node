@@ -72,6 +72,36 @@ jobs:
       - name: Smoke test
         run: npm run test:smoke
 
+      # The browser cache key is the @playwright/test version npm ci actually installed,
+      # read from package-lock.json: each Playwright release pins its own browser build.
+      # Fails the step rather than keying the cache on "undefined".
+      - name: Resolve Playwright version
+        id: playwright
+        run: node -e "const v = require('./package-lock.json').packages['node_modules/@playwright/test'].version; if (!v) throw new Error('no @playwright/test version in package-lock.json'); console.log('version=' + v)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      # --with-deps installs the OS libraries too; those are not in the cache.
+      - name: Install Playwright browser
+        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
+
+      # The PR's own rubric judges the PR's code. The verify-map job below runs main's.
+      - name: Verify (end-to-end)
+        run: npm run verify
+
+      - name: Upload verify report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: verify-report
+          path: |
+            test-results/verify
+            playwright-report
+
       - name: Unit tests
         run: npm run test:unit
 
@@ -198,3 +228,85 @@ jobs:
 
       - name: Secrets scan
         run: npm run check:secrets
+
+  # Runs main's copy of the verify rubric (tests/e2e/, playwright.config.*, the verify
+  # scripts and package.json keys) against this change, and names every rubric file the
+  # change modifies or deletes: scripts/verify-map.cjs. The build job above judges the
+  # change by its OWN rubric, so a change that edits a flow passes there by editing it.
+  #
+  # NOT a required check, on purpose. A red result means the rubric itself is changing
+  # or the change breaks a flow main still expects; ship-it's Touches line turns that
+  # into an explicit merge confirmation. It never runs on push, so an approved rubric
+  # change never turns main red. The PR that introduces verify has no rubric on main,
+  # so it passes vacuously.
+  verify-map:
+    if: github.event_name != 'push'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # the base below must be present in the clone
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Same cache and browser install as the build job; see the comments there.
+      - name: Resolve Playwright version
+        id: playwright
+        run: node -e "const v = require('./package-lock.json').packages['node_modules/@playwright/test'].version; if (!v) throw new Error('no @playwright/test version in package-lock.json'); console.log('version=' + v)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Playwright browser
+        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
+
+      # Based on the secrets job's base selection (see the comments there), with one
+      # difference: on pull_request the base is HEAD^1, not pull_request.base.sha. HEAD
+      # is the merge commit actions/checkout made, and its first parent is the main
+      # commit the PR was actually merged onto. base.sha can be older, and then main's
+      # own newer rubric edits would read as the PR's and an older rubric would run
+      # against newer code. A mismatch is surfaced as a warning. The push arm is
+      # unreachable while the job-level `if:` holds.
+      - name: Choose the base
+        id: base
+        env:
+          # Via env, never inlined into the script: ${{ }} interpolation directly
+          # into `run:` is a command-injection surface.
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BASE: ${{ github.event.before }}
+          QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "pull_request" ]; then
+            BASE=$(git rev-parse HEAD^1)
+            if [ "$BASE" != "$PR_BASE" ]; then
+              echo "::warning::pull_request base.sha ${PR_BASE:0:7} is not the merge commit's first parent ${BASE:0:7}; comparing against ${BASE:0:7}"
+            fi
+          elif [ "$EVENT" = "merge_group" ]; then
+            BASE="$QUEUE_BASE"
+          else
+            BASE="$PUSH_BASE"
+          fi
+          if [ -z "${BASE:-}" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            echo "::warning::Base '$BASE' unreachable; falling back to HEAD~1 as the base"
+            BASE=$(git rev-parse HEAD~1)
+          fi
+          echo "Comparing against ${BASE}"
+          echo "sha=${BASE}" >> "$GITHUB_OUTPUT"
+
+      - name: Run main's rubric against this change
+        env:
+          VERIFY_MAP_BASE: ${{ steps.base.outputs.sha }}
+        run: node scripts/verify-map.cjs
