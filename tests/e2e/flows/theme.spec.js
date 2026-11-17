@@ -3,8 +3,9 @@
 // EXPECT: The switch turns the light page dark. After sunset, Auto renders the dark
 //         theme on its own.
 // WHY: Auto theme compares the browser clock with the weather data's sunrise and
-//      sunset (src/utils/autoTheme.js), and a manual click must not be undone by it.
-//      Both clocks below sit on the weather fixture's first day, 2026-11-17, whose
+//      sunset (src/utils/autoTheme.js), so a regression there or in the switch shows
+//      as the wrong theme. The switch is checked only right after the click, not
+//      whether Auto later overrides it. Both clocks below sit on the weather fixture's first day, 2026-11-17, whose
 //      sunrise is 05:41 and sunset 17:48. Open-Meteo gives them as local times with
 //      utc_offset_seconds 0 and the browser runs in UTC, so they read as UTC.
 import { test, expect } from '../harness.js';
