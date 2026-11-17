@@ -13,6 +13,10 @@ on:
 
 jobs:
   build:
+    # Read-only token: checkout needs only contents. actions/cache and
+    # actions/upload-artifact authenticate with the runtime token, not GITHUB_TOKEN.
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
