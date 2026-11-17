@@ -168,7 +168,7 @@ test.describe('harness', { tag: '@harness' }, () => {
   });
 
   // A fixture passed inline by a test has no `file`: the message names it by its glob,
-  // never as `undefined`.
+  // never as an empty name (join() renders a missing `file` as '', not 'undefined').
   test.describe('ambiguous fixture without a file is named by its glob', () => {
     const OVERLAP_B_NO_FILE = { ...OVERLAP_B, file: undefined };
     test.use({ enforce: false, fixtures: [[HARNESS_PAGE, OVERLAP_A, OVERLAP_B_NO_FILE], { option: true }] });
@@ -178,7 +178,8 @@ test.describe('harness', { tag: '@harness' }, () => {
       expect(ambiguous).toEqual([
         `ambiguous fixture: ${baseURL}${OVERLAP_PATH} (backend/overlap-a.js, test fixture **/__over*)`,
       ]);
-      expect(ambiguous.join('\n')).not.toContain('undefined');
+      // No empty slot in the name list: no "(, ", ", ," or ", )".
+      expect(ambiguous[0]).not.toMatch(/\(\s*,|,\s*,|,\s*\)/);
     });
   });
 

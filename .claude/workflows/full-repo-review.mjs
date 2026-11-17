@@ -358,7 +358,7 @@ would still pass if the diff were two-dot instead of three-dot.`,
 components. Ignore the React, hook, styling and localStorage guidance above.
 harness.js routes every request through an ordered rule list, fixes the clock,
 and fails a test on an unstubbed URL, an ambiguous fixture (two or more fixture
-globs matching one request, so neither answers it), an unlisted console error or a
+globs matching one request, so none of them answers it), an unlisted console error or a
 rendered ErrorBoundary fallback; harness.spec.js tests those guards against themselves.
 Review adversarially: a request class that reaches the network without landing
 in the unstubbed list, a rule-order slip that lets a fixture or the live allow-list
