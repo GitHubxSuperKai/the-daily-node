@@ -151,6 +151,7 @@ const GROUPS = [
       'scripts/smoke-build.cjs',
       'scripts/verify-vendor.cjs',
       'scripts/verify.cjs',
+      'scripts/verify-map.cjs',
       'scripts/verify-refresh-fixtures.cjs',
       'scripts/capture-mobile.cjs',
       'scripts/repro-vpn.cjs',
@@ -165,6 +166,11 @@ read without -z, a catch that swallows a failure into a success line, a
 success message that claims more coverage than was checked. verify.cjs is the
 \`npm run verify\` wrapper: its one summary line must never read \`verify: pass\`
 unless Playwright exited 0 AND this run's summary.json says passed.
+verify-map.cjs is the non-required verify-map CI job: it names rubric files a PR
+modifies or deletes and runs the base's rubric against the PR's code. Look for a
+rubric path it never compares, a git or parse failure that still prints
+\`verify-map: clean\`, a PR-controlled file name that reaches a workflow command
+unescaped, and a checkout that drops files the PR added.
 verify-refresh-fixtures.cjs is hand-run, never in CI, and writes recorded API data
 into this public repo: look for a path that records a real location (weather must be
 0,0), keeps an article body or an image URL, or writes an error response as a fixture.
@@ -256,6 +262,7 @@ for correctness only.`,
       'tests/unit/verifyPort.test.js',
       'tests/unit/verifyFixtures.test.js',
       'tests/unit/verifySummaryReporter.test.js',
+      'tests/unit/verifyMap.test.js',
     ],
     // Its own group rather than a line in tests-harness: this reviews repo tooling,
     // not the dashboard, so the shared React brief would frame it wrongly — and a
@@ -319,7 +326,12 @@ with no must-pass controls.
 
 verifySummaryReporter.test.js tests tests/e2e/summary-reporter.cjs, which writes the
 summary.json behind the verify summary line. Same frame. Look for a case that would
-pass with the externalRequests sum or the externalOrigins union dropped.`,
+pass with the externalRequests sum or the externalOrigins union dropped.
+
+verifyMap.test.js tests listRubricChanges in scripts/verify-map.cjs against throwaway
+git repos. Same frame. Look for a rubric path or script key with no must-report case,
+a must-report case with no paired must-not-report control, and a merge-base case that
+would still pass if the diff were two-dot instead of three-dot.`,
   },
   {
     key: 'e2e-verify',
