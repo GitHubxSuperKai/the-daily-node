@@ -62,8 +62,9 @@ export function useRSS(feedsKey = '') {
     // Every feed switched off: nothing failed, there is just nothing to show. Clear the
     // old stories and count it as a good round, so the column reads "No Bitcoin
     // headlines" rather than "feed error" or "Loading".
+    // hadErrRef is left as it is: no fresh fetch happened, so an outage before this
+    // still clears the failed lead images on the next fresh fetch.
     if (feeds.length === 0) {
-      hadErrRef.current = false;
       setPool([]);
       setErr(false);
       setLastOk(Date.now());
