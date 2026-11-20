@@ -210,6 +210,54 @@ describe('useRSS', () => {
     }
   });
 
+  it('a fetch still in flight at Save cannot bring back a feed the Save switched off', async () => {
+    const saved = CONFIG.RSS_FEEDS;
+    try {
+      const feed = key => ({ key, url: CONFIG_FEED_URL(key) });
+      CONFIG.RSS_FEEDS = [feed('coindesk'), feed('bitcoinMagazine')];
+      let hold = false;
+      const held = [];
+      global.fetch = vi.fn().mockImplementation(async (url) => {
+        const u = new URL(String(url), 'http://localhost');
+        if (u.pathname === '/api/rss') return { ok: false, status: 404 };
+        const resp = feedResp(3, u.searchParams.get('rss_url'));
+        if (!hold) return resp;
+        return new Promise(res => held.push(() => res(resp)));
+      });
+      const { result, rerender } = renderHook(({ keys }) => useRSS(keys), {
+        initialProps: { keys: 'coindesk,bitcoinMagazine' },
+      });
+      await waitFor(() => expect(result.current.leadStory).not.toBeNull());
+      const coindeskUrl = CONFIG_FEED_URL('coindesk');
+      const all = () => result.current.items.concat(result.current.leadStory || []);
+      expect(all().some(it => it.hed.startsWith(coindeskUrl))).toBe(true);
+
+      // A refresh starts with both feeds on and hangs on the network.
+      hold = true;
+      act(() => { result.current.refresh(); });
+      await waitFor(() => expect(held.length).toBe(2));
+
+      // Settings saved with CoinDesk off; the new fetch answers first.
+      hold = false;
+      CONFIG.RSS_FEEDS = [feed('bitcoinMagazine')];
+      rerender({ keys: 'bitcoinMagazine' });
+      await waitFor(() => {
+        expect(all().length).toBeGreaterThan(0);
+        expect(all().some(it => it.hed.startsWith(coindeskUrl))).toBe(false);
+      });
+
+      // Then the old fetch lands.
+      await act(async () => {
+        held.forEach(release => release());
+        await new Promise(r => setTimeout(r, 50));
+      });
+      expect(all().length).toBeGreaterThan(0);
+      expect(all().some(it => it.hed.startsWith(coindeskUrl))).toBe(false);
+    } finally {
+      CONFIG.RSS_FEEDS = saved;
+    }
+  });
+
   it('falls back to rss2json per feed when /api/rss is unavailable', async () => {
     global.fetch = vi.fn().mockImplementation(async (url) => {
       const u = new URL(String(url), 'http://localhost');

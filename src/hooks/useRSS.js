@@ -95,6 +95,13 @@ export function useRSS(feedsKey = '') {
       })
     );
 
+    // Settings saved a different feed list while this fetch was out: its results would
+    // bring back a feed that was just switched off, so leave state to the newer fetch.
+    // Compares the lists, not a fetch counter, so slow fetches that overlap an interval
+    // tick with the same feeds still land.
+    const keysOf = list => (list || []).map(f => f.key).join(',');
+    if (keysOf(feeds) !== keysOf(CONFIG.RSS_FEEDS)) return;
+
     const all = results
       .filter(r => r.status === 'fulfilled')
       .flatMap(r => r.value.items)
