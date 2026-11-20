@@ -5,7 +5,7 @@ description: Run the Playwright end-to-end check (npm run verify) before committ
 
 # verify
 
-Builds `index.html`, serves it on a free port (never 3002) and runs the flows in `tests/e2e/flows/` on desktop and mobile. All public and backend requests are stubbed from `tests/e2e/fixtures/`.
+Builds `index.html`, serves it on a free port (never 3002) and runs the flows in `tests/e2e/flows/` on desktop and mobile. By default every public and backend request is stubbed from `tests/e2e/fixtures/`; under `--live` the public APIs are real (see `--live` below).
 
 ## Run
 

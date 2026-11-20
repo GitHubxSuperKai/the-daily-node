@@ -11,7 +11,8 @@
 //      else continues. Each real fetch is counted and its origin recorded.
 //   3. the `fixtures` entries whose `match` (Playwright route glob) matches: exactly
 //      one is fulfilled from; two or more are recorded in `ambiguous` (naming each
-//      entry's `file`, or its glob when it has none) and aborted, so an added fixture cannot override an existing one.
+//      entry's `file`, or its glob when it has none) and aborted, so an added fixture
+//      cannot override an existing one.
 //   4. same-origin requests outside /api/ continue.
 //   5. images and fonts get a 1x1 transparent PNG or an empty font body.
 //   6. fonts.googleapis.com gets an empty stylesheet.
