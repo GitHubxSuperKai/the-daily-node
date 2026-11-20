@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Saving Settings with a news feed turned on or off now refetches the news at once. Before, Save itself fetched nothing: the new feed list applied at the next news fetch (the news interval, 5 minutes by default, or a refresh on tab refocus or network restore) or a reload, so a feed just switched off kept showing until then.
+- Saving Settings with a news feed turned on or off now refetches the news at once. Before, a Save that changed only the feed list fetched nothing: the new list applied at the next news fetch (the news interval, 5 minutes by default; a refresh when the tab comes back after 30 s hidden or the network returns; or a Save that also changed the news interval) or a reload, so a feed just switched off kept showing until then.
 
 ### Changed
 
