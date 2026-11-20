@@ -250,7 +250,7 @@ for correctness only.`,
   },
   {
     key: 'tests-repo-tooling',
-    label: 'Test Suite — Repo Tooling (secrets scanner, CodeQL config guard, docker smoke guard, review-path guard, verify tooling)',
+    label: 'Test Suite — Repo Tooling (secrets scanner, CodeQL config guard, docker smoke guard, Dockerfile healthcheck, Python runtime version, review-path guard, Dependabot liveness, verify tooling)',
     files: [
       'tests/unit/checkSecrets.test.js',
       'tests/unit/checkCodeqlConfig.test.js',

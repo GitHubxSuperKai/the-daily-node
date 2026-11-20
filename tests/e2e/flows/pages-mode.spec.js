@@ -15,7 +15,7 @@ import FIXTURES from '../fixtures/load.js';
 // Chromium logs every failed resource load as a console error, and this mode fails
 // them on purpose. Neither message names its URL, so each entry covers every request
 // of its kind; the response and requestfailed checks below pin which requests those
-// are. Anchored to the whole message, like the harness's built-in entry.
+// are. Each is anchored to the whole message.
 const ALLOWED_CONSOLE_ERRORS = [
   // Each /api/* request answering 404 (/api/miners, /api/firmware, /api/rss per feed).
   /^Failed to load resource: the server responded with a status of 404 \(Not Found\)$/,

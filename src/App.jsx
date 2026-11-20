@@ -23,8 +23,10 @@ import { RSS_FEED_MAP } from './config.js';
 const MIN_INTERVAL_MS = 5_000;
 const toMs = v => { const ms = Number(v) * 1000; return Number.isFinite(ms) && ms > 0 ? Math.max(MIN_INTERVAL_MS, ms) : MIN_INTERVAL_MS; };
 
+const enabledFeeds = p => RSS_FEED_MAP.filter(f => p.feeds[f.key] ?? f.on);
+
 function applyV2ToConfig(p) {
-  CONFIG.RSS_FEEDS = RSS_FEED_MAP.filter(f => p.feeds[f.key] ?? f.on).map(({ key, url }) => ({ key, url }));
+  CONFIG.RSS_FEEDS = enabledFeeds(p).map(({ key, url }) => ({ key, url }));
   CONFIG.REFRESH_INTERVALS.price   = toMs(p.intervals.price);
   CONFIG.REFRESH_INTERVALS.chain   = toMs(p.intervals.chain);
   CONFIG.REFRESH_INTERVALS.weather = toMs(p.intervals.weather);
@@ -84,7 +86,7 @@ function App() {
   const chain = useChain(v2prefs.mempool);
   const bitaxe = useBitaxe();
   const weather = useWeather(prefs.lat, prefs.lng, prefs.tempUnit);
-  const rss = useRSS();
+  const rss = useRSS(enabledFeeds(v2prefs).map(f => f.key).join(','));
   const range = resolveRange(v2prefs);
   const chart = useChartRange(range);
   const feedHealth = useFeedHealth(feedHealthInputs({ btc, chain, weather, rss, bitaxe }));

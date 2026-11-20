@@ -5,7 +5,7 @@ description: Run the Playwright end-to-end check (npm run verify) before committ
 
 # verify
 
-Builds `index.html`, serves it on a free port (never 3002) and runs the flows in `tests/e2e/flows/` on desktop and mobile. All public and backend requests are stubbed from `tests/e2e/fixtures/`.
+Builds `index.html`, serves it on a free port (never 3002) and runs the flows in `tests/e2e/flows/` on desktop and mobile. By default, data requests are answered from `tests/e2e/fixtures/` (the pages-mode flow instead has the harness answer `/api/*` with 404), and images, fonts and the Google Fonts stylesheet get placeholders from the harness; under `--live` the public data APIs are real (see `--live` below).
 
 ## Run
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { RSS_FEED_MAP } from '../../src/config.js';
+import CONFIG, { RSS_FEED_MAP } from '../../src/config.js';
 
 const CONFIG_FEED_URL = key => RSS_FEED_MAP.find(f => f.key === key).url;
 import { useRSS } from '../../src/hooks/useRSS.js';
@@ -116,6 +116,66 @@ describe('useRSS', () => {
     // Per-feed cap of 10 (rss2json parity): items 10 and 11 of each feed are dropped,
     // and those are each feed's two NEWEST, so the lead must be item 9.
     expect(result.current.leadStory.hed).toMatch(/ 9$/);
+  });
+
+  it('refetches at once when the enabled feeds change, without waiting for the interval', async () => {
+    const saved = CONFIG.RSS_FEEDS;
+    try {
+      const feed = key => ({ key, url: CONFIG_FEED_URL(key) });
+      CONFIG.RSS_FEEDS = [feed('coindesk'), feed('bitcoinMagazine')];
+      global.fetch = vi.fn().mockImplementation(async (url) => {
+        const u = new URL(String(url), 'http://localhost');
+        if (u.pathname === '/api/rss') return { ok: false, status: 404 };
+        return feedResp(3, u.searchParams.get('rss_url'));
+      });
+      const { result, rerender } = renderHook(({ keys }) => useRSS(keys), {
+        initialProps: { keys: 'coindesk,bitcoinMagazine' },
+      });
+      await waitFor(() => expect(result.current.leadStory).not.toBeNull());
+      const coindeskUrl = CONFIG_FEED_URL('coindesk');
+      expect(result.current.items.concat(result.current.leadStory).some(it => it.hed.startsWith(coindeskUrl))).toBe(true);
+
+      // Settings saved with CoinDesk off: App rewrites CONFIG.RSS_FEEDS, then re-renders.
+      CONFIG.RSS_FEEDS = [feed('bitcoinMagazine')];
+      rerender({ keys: 'bitcoinMagazine' });
+      await waitFor(() => {
+        const all = result.current.items.concat(result.current.leadStory || []);
+        expect(all.length).toBeGreaterThan(0);
+        expect(all.some(it => it.hed.startsWith(coindeskUrl))).toBe(false);
+      });
+    } finally {
+      CONFIG.RSS_FEEDS = saved;
+    }
+  });
+
+  it('a new news interval with the same feeds fetches once, not twice', async () => {
+    const savedFeeds = CONFIG.RSS_FEEDS;
+    const savedInterval = CONFIG.REFRESH_INTERVALS.news;
+    try {
+      CONFIG.RSS_FEEDS = [{ key: 'coindesk', url: CONFIG_FEED_URL('coindesk') }];
+      // Proxy 404s, so one round is two requests: /api/rss, then rss2json.
+      global.fetch = vi.fn().mockImplementation(async (url) => {
+        const u = new URL(String(url), 'http://localhost');
+        if (u.pathname === '/api/rss') return { ok: false, status: 404 };
+        return feedResp(3);
+      });
+      const { result, rerender } = renderHook(({ keys }) => useRSS(keys), {
+        initialProps: { keys: 'coindesk' },
+      });
+      await waitFor(() => expect(result.current.leadStory).not.toBeNull());
+      const before = global.fetch.mock.calls.length;
+      expect(before).toBe(2);
+
+      // Settings saved with only the news interval changed.
+      CONFIG.REFRESH_INTERVALS.news = savedInterval * 2;
+      rerender({ keys: 'coindesk' });
+      await waitFor(() => expect(global.fetch.mock.calls.length).toBeGreaterThan(before));
+      await new Promise(r => setTimeout(r, 50));
+      expect(global.fetch.mock.calls.length - before).toBe(2);
+    } finally {
+      CONFIG.RSS_FEEDS = savedFeeds;
+      CONFIG.REFRESH_INTERVALS.news = savedInterval;
+    }
   });
 
   it('falls back to rss2json per feed when /api/rss is unavailable', async () => {

@@ -36,7 +36,10 @@ async function fetchViaRss2json(feedUrl) {
   return { title: j.feed.title, items: j.items.map(it => ({ ...it, pubDate: rss2jsonDate(it.pubDate) })) };
 }
 
-export function useRSS() {
+// feedsKey names the enabled feeds (App passes them joined by ','). fetchRSS reads the
+// list from CONFIG.RSS_FEEDS, which App rewrites on Save; a new key refetches at once
+// instead of waiting out the news interval.
+export function useRSS(feedsKey = '') {
   // Every Bitcoin-relevant item, newest first; lead and list are derived from it.
   const [pool, setPool] = useState([]);
   // Lead images that failed to load this session; pickLead skips their stories.
@@ -118,6 +121,16 @@ export function useRSS() {
   }, [clearFailedImgs]);
 
   const { reset: resetRSS } = useResettableInterval(fetchRSS, CONFIG.REFRESH_INTERVALS.news);
+
+  // Refetch when the feed list changes (Settings saved). Compares against the last key
+  // rather than keying on resetRSS: resetRSS also changes with the interval, and
+  // useResettableInterval already refetches then (and on mount).
+  const lastFeedsKey = useRef(feedsKey);
+  useEffect(() => {
+    if (lastFeedsKey.current === feedsKey) return;
+    lastFeedsKey.current = feedsKey;
+    resetRSS();
+  }, [feedsKey, resetRSS]);
 
   // The browser saw the connection drop and return (covers blips between fetches).
   useEffect(() => {
