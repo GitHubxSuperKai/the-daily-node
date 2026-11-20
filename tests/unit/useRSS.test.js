@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { RSS_FEED_MAP } from '../../src/config.js';
+import CONFIG, { RSS_FEED_MAP } from '../../src/config.js';
 
 const CONFIG_FEED_URL = key => RSS_FEED_MAP.find(f => f.key === key).url;
 import { useRSS } from '../../src/hooks/useRSS.js';
@@ -116,6 +116,36 @@ describe('useRSS', () => {
     // Per-feed cap of 10 (rss2json parity): items 10 and 11 of each feed are dropped,
     // and those are each feed's two NEWEST, so the lead must be item 9.
     expect(result.current.leadStory.hed).toMatch(/ 9$/);
+  });
+
+  it('refetches at once when the enabled feeds change, without waiting for the interval', async () => {
+    const saved = CONFIG.RSS_FEEDS;
+    try {
+      const feed = key => ({ key, url: CONFIG_FEED_URL(key) });
+      CONFIG.RSS_FEEDS = [feed('coindesk'), feed('bitcoinMagazine')];
+      global.fetch = vi.fn().mockImplementation(async (url) => {
+        const u = new URL(String(url), 'http://localhost');
+        if (u.pathname === '/api/rss') return { ok: false, status: 404 };
+        return feedResp(3, u.searchParams.get('rss_url'));
+      });
+      const { result, rerender } = renderHook(({ keys }) => useRSS(keys), {
+        initialProps: { keys: 'coindesk,bitcoinMagazine' },
+      });
+      await waitFor(() => expect(result.current.leadStory).not.toBeNull());
+      const coindeskUrl = CONFIG_FEED_URL('coindesk');
+      expect(result.current.items.concat(result.current.leadStory).some(it => it.hed.startsWith(coindeskUrl))).toBe(true);
+
+      // Settings saved with CoinDesk off: App rewrites CONFIG.RSS_FEEDS, then re-renders.
+      CONFIG.RSS_FEEDS = [feed('bitcoinMagazine')];
+      rerender({ keys: 'bitcoinMagazine' });
+      await waitFor(() => {
+        const all = result.current.items.concat(result.current.leadStory || []);
+        expect(all.length).toBeGreaterThan(0);
+        expect(all.some(it => it.hed.startsWith(coindeskUrl))).toBe(false);
+      });
+    } finally {
+      CONFIG.RSS_FEEDS = saved;
+    }
   });
 
   it('falls back to rss2json per feed when /api/rss is unavailable', async () => {

@@ -1,10 +1,9 @@
-// FLOW: On desktop, open Settings, untick the CoinDesk feed, Save, and reload.
-// EXPECT: None of CoinDesk's headlines are left in the Bitcoin news column, while the
-//         other default feeds' headlines still are.
+// FLOW: On desktop, open Settings, untick the CoinDesk feed, and Save.
+// EXPECT: Without a reload, none of CoinDesk's headlines are left in the Bitcoin news
+//         column, while the other default feeds' headlines still are.
 // WHY: The feed list in v2 prefs decides which feeds are fetched (applyV2ToConfig in
-//      src/App.jsx). A feed the user turned off must stop showing up.
-//      Saving does not refetch the news: the new feed list applies at the next fetch,
-//      so the flow reloads instead of waiting out the 5-minute news interval.
+//      src/App.jsx). A feed the user turned off must stop showing up, and Save must
+//      refetch the news at once rather than at the next 5-minute news interval.
 import { test, expect } from '../harness.js';
 
 // Headlines from tests/e2e/fixtures/backend/rss-coindesk.js and rss-newsBitcoin.js.
@@ -28,7 +27,6 @@ test('a feed turned off leaves the news column @fixtures-only', async ({ page },
   await dialog.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(dialog).toBeHidden();
 
-  await page.reload();
   await expect(news.getByText(NEWS_BITCOIN, { exact: true })).toBeVisible();
   await expect(news.getByText(COINDESK)).toHaveCount(0);
 });
