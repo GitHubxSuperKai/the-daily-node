@@ -6,7 +6,8 @@ import { log } from '../utils/log.js';
 
 /**
  * useBTC Hook
- * Fetches BTC price from Kraken (primary) and market cap from CoinGecko market_chart (silent-fail).
+ * Fetches BTC price from Kraken (primary) and market cap from CoinGecko market_chart.
+ * A market_chart failure is logged (log.error) but does not set `error`; only a Kraken price failure does.
  * The chart line itself comes from useChartRange (Kraken OHLC); chartPts is still
  * returned but no component draws it.
  *
