@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A Settings Save that changes both the news feeds and the news interval fetches the news once. It used to fetch twice.
+- A news fetch already running when a Save switched a feed off no longer puts that feed's stories back when it finishes after the refetch. A fetch whose feed list a Save has since changed is now dropped.
+- Switching every news feed off empties the news column, which then reads "No Bitcoin headlines right now". It used to keep the old stories and show "feed error"; a load with every feed off showed "All feeds unavailable".
+- The Settings intervals hint read "Reload page to apply." Intervals already applied on Save, so it now reads "Applied on Save."
 - Saving Settings with a news feed turned on or off now refetches the news at once. Before, a Save that changed only the feed list fetched nothing: the new list applied at the next news fetch (the news interval, 5 minutes by default; a refresh when the tab comes back after 30 s hidden or the network returns; or a Save that also changed the news interval) or a reload, so a feed just switched off kept showing until then.
 
 ### Changed
