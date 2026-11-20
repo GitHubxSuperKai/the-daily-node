@@ -122,11 +122,13 @@ export function useRSS(feedsKey = '') {
 
   const { reset: resetRSS } = useResettableInterval(fetchRSS, CONFIG.REFRESH_INTERVALS.news);
 
-  // Refetch when the feed list changes (Settings saved). Skips the mount, which
-  // useResettableInterval already fetches.
-  const isFirstRender = useRef(true);
+  // Refetch when the feed list changes (Settings saved). Compares against the last key
+  // rather than keying on resetRSS: resetRSS also changes with the interval, and
+  // useResettableInterval already refetches then (and on mount).
+  const lastFeedsKey = useRef(feedsKey);
   useEffect(() => {
-    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    if (lastFeedsKey.current === feedsKey) return;
+    lastFeedsKey.current = feedsKey;
     resetRSS();
   }, [feedsKey, resetRSS]);
 
