@@ -7,7 +7,7 @@ export function IntervalsDataSection({ v2get, setV2Path, v2local }) {
   return (
     <>
       <span style={{ fontFamily: T.display || T.sans, fontSize: 11, letterSpacing: '0.08em', color: T.ink3, marginBottom: 4, display: 'block', marginTop: 8 }}>REFRESH INTERVALS</span>
-      <div style={{ fontSize: 11, color: T.ink3, marginBottom: 6 }}>Values in seconds. Reload page to apply.</div>
+      <div style={{ fontSize: 11, color: T.ink3, marginBottom: 6 }}>Values in seconds. Applied on Save.</div>
       <TweaksSection T={T}>
         {[
           { key: 'intervals.price',   label: 'BTC price',    min: 15,  max: 300  },
