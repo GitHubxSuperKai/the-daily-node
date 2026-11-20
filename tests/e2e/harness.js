@@ -24,8 +24,7 @@
 //
 // After each test, unless `enforce` is off (harness self-tests only), it fails the test
 // on any unstubbed URL, any ambiguous fixture, any console error or page error not matched by
-// `allowConsoleErrors`, and any rendered
-// ErrorBoundary fallback.
+// `allowConsoleErrors`, and any rendered ErrorBoundary fallback.
 //
 // `allowConsoleErrors` is a list of RegExp, matched against each message. To list two
 // or more in test.use, wrap the list: `allowConsoleErrors: [[/a/, /b/], { option: true }]`.
