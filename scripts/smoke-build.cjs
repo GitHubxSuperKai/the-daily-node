@@ -119,8 +119,9 @@ for (const source of REQUIRED_CSP_SOURCES) {
   assert.ok(connectTokens.includes(source),
     `CSP missing required connect-src source: ${source}`);
 }
-assert.ok(/(?:^|;)\s*frame-ancestors /.test(csp),
-  'CSP missing frame-ancestors directive');
+// frame-ancestors is ignored in a <meta> CSP (header-only), so it must not come back here.
+assert.ok(!/(?:^|;)\s*frame-ancestors /.test(csp),
+  'CSP meta tag carries frame-ancestors, which browsers ignore outside an HTTP header');
 
 // 10b. viewport-fit=cover and the safe-area insets it needs ship together. Without
 // cover, env(safe-area-inset-*) is 0 on notched iPhones; with cover but no insets, the
