@@ -187,7 +187,7 @@ export function makeProps(overrides = {}) {
     // leadStory is disjoint from items — see the LEAD_STORY note above.
     rss: {
       items: NEWS_ITEMS, leadStory: LEAD_STORY,
-      err: false, lastOk: Date.now(), interval: 300000, refresh: vi.fn(), skipLead: vi.fn(),
+      err: false, lastOk: Date.now(), interval: 300000, feedsOff: false, refresh: vi.fn(), skipLead: vi.fn(),
     },
     // useFeedHealth returns a STRING, which App passes straight through.
     // DesktopTicker compares it with ===, so an object silently disables its
@@ -229,7 +229,7 @@ export function makeDownProps(overrides = {}) {
       latestFirmware: null,
     },
     weather: { data: null, err: true, lastOk: null, interval: 900000, refresh: vi.fn() },
-    rss: { items: [], leadStory: null, err: true, lastOk: null, interval: 300000, refresh: vi.fn(), skipLead: vi.fn() },
+    rss: { items: [], leadStory: null, err: true, lastOk: null, interval: 300000, feedsOff: false, refresh: vi.fn(), skipLead: vi.fn() },
     feedHealth: 'offline',
     // With the fetch failing and nothing cached, useChartRange has no series to
     // show: points and domain stay null and failed is true.

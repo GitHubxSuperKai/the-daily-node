@@ -271,12 +271,14 @@ describe('useRSS', () => {
         initialProps: { keys: 'coindesk' },
       });
       await waitFor(() => expect(result.current.leadStory).not.toBeNull());
+      expect(result.current.feedsOff).toBe(false);
 
       CONFIG.RSS_FEEDS = [];
       rerender({ keys: '' });
       await waitFor(() => expect(result.current.leadStory).toBeNull());
       expect(result.current.items).toEqual([]);
       expect(result.current.err).toBe(false);
+      expect(result.current.feedsOff).toBe(true);
     } finally {
       CONFIG.RSS_FEEDS = saved;
     }

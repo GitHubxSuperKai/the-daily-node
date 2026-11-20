@@ -95,6 +95,14 @@ describe('CommandCenter — desktop smoke render', () => {
     expect(screen.getByText('No lead story right now')).toBeDefined();
   });
 
+  it('every news feed switched off reads as fine in the status rows, not down', () => {
+    const base = makeProps();
+    renderCC({ rss: { ...base.rss, items: [], leadStory: null, feedsOff: true, err: false, lastOk: Date.now() } });
+    const row = screen.getAllByText((_, el) => el.tagName === 'SPAN' && el.textContent === '●rss')[0];
+    const hex = LIGHT.green.match(/^#(..)(..)(..)$/).slice(1).map(h => parseInt(h, 16));
+    expect(row.firstChild.style.color).toBe(`rgb(${hex.join(', ')})`);
+  });
+
   it('survives a fully degraded feed set — every source null or erroring', () => {
     // The all-APIs-down path, exercising the derived-value block (halvings,
     // blockReward, mempoolMB, the sys array) with nothing to derive from.

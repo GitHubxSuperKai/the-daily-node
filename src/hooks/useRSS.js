@@ -182,6 +182,9 @@ export function useRSS(feedsKey = '') {
     err,
     lastOk,
     interval: CONFIG.REFRESH_INTERVALS.news,
+    // Every feed switched off in Settings. The status rows count this as having data,
+    // so a deliberate empty column does not read as a down source.
+    feedsOff: (CONFIG.RSS_FEEDS || []).length === 0,
     refresh: resetRSS,
     skipLead,
   };

@@ -42,7 +42,7 @@ function HomePanel({ clock, btc, chain, bitaxe, weather, rss, prefs, onNavigate 
     { id: 'chain',   label: 'Chain',   state: sourceFreshness({ hasData: !!chain.data, err: chain.error, lastOk: chain.lastOk, interval: CONFIG.REFRESH_INTERVALS.chain, contentAgeMs: lastBlockTs ? freshNow - lastBlockTs * 1000 : null, contentMaxMs: CONFIG.CONTENT_STALE.chain }, freshNow) },
     { id: 'miners',  label: 'Miners',  state: sourceFreshness({ hasData: onlineCountForFeed > 0, err: bitaxe.err, lastOk: bitaxe.lastOk, interval: bitaxe.interval }, freshNow) },
     { id: 'weather', label: 'Weather', state: sourceFreshness({ hasData: !!weather.data, err: weather.err, lastOk: weather.lastOk, interval: weather.interval }, freshNow) },
-    { id: 'rss',     label: 'RSS',     state: sourceFreshness({ hasData: rss.items && rss.items.length > 0, err: rss.err, lastOk: rss.lastOk, interval: rss.interval }, freshNow) },
+    { id: 'rss',     label: 'RSS',     state: sourceFreshness({ hasData: (rss.items && rss.items.length > 0) || !!rss.feedsOff, err: rss.err, lastOk: rss.lastOk, interval: rss.interval }, freshNow) },
   ];
   const dotColor = (state) => (state === 'fresh' ? T.green : state === 'stale' ? T.orange : state === 'pending' ? T.ink4 : T.red);
 

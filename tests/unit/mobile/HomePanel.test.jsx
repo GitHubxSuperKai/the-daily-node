@@ -39,6 +39,14 @@ function wrap(ui) {
 }
 
 describe('HomePanel', () => {
+  it('every news feed switched off reads as fine in the Feeds tile, not down', () => {
+    const rss = { leadStory: null, items: [], err: false, lastOk: Date.now(), interval: 300000, feedsOff: true };
+    wrap(<HomePanel {...baseProps} rss={rss} onNavigate={() => {}} />);
+    const dot = screen.getByText('RSS').previousSibling;
+    const hex = LIGHT.green.match(/^#(..)(..)(..)$/).slice(1).map(h => parseInt(h, 16));
+    expect(dot.style.background).toBe(`rgb(${hex.join(', ')})`);
+  });
+
   it('renders BTC, Fleet summary, and Lead headline tiles', () => {
     wrap(<HomePanel {...baseProps} onNavigate={() => {}} />);
     expect(screen.getByText(/BTC \/ USD/i)).toBeDefined();
