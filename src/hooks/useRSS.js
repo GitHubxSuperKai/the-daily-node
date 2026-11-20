@@ -59,6 +59,17 @@ export function useRSS(feedsKey = '') {
   const fetchRSS = useCallback(async () => {
     const feeds = CONFIG.RSS_FEEDS || [];
 
+    // Every feed switched off: nothing failed, there is just nothing to show. Clear the
+    // old stories and count it as a good round, so the column reads "No Bitcoin
+    // headlines" rather than "feed error" or "Loading".
+    if (feeds.length === 0) {
+      hadErrRef.current = false;
+      setPool([]);
+      setErr(false);
+      setLastOk(Date.now());
+      return;
+    }
+
     const results = await Promise.allSettled(
       feeds.map(async feed => {
         let j;

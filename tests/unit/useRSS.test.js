@@ -258,6 +258,46 @@ describe('useRSS', () => {
     }
   });
 
+  it('switching every feed off empties the column without flagging a feed error', async () => {
+    const saved = CONFIG.RSS_FEEDS;
+    try {
+      CONFIG.RSS_FEEDS = [{ key: 'coindesk', url: CONFIG_FEED_URL('coindesk') }];
+      global.fetch = vi.fn().mockImplementation(async (url) => {
+        const u = new URL(String(url), 'http://localhost');
+        if (u.pathname === '/api/rss') return { ok: false, status: 404 };
+        return feedResp(3);
+      });
+      const { result, rerender } = renderHook(({ keys }) => useRSS(keys), {
+        initialProps: { keys: 'coindesk' },
+      });
+      await waitFor(() => expect(result.current.leadStory).not.toBeNull());
+
+      CONFIG.RSS_FEEDS = [];
+      rerender({ keys: '' });
+      await waitFor(() => expect(result.current.leadStory).toBeNull());
+      expect(result.current.items).toEqual([]);
+      expect(result.current.err).toBe(false);
+    } finally {
+      CONFIG.RSS_FEEDS = saved;
+    }
+  });
+
+  it('a load with every feed off fetches nothing and is not stuck loading', async () => {
+    const saved = CONFIG.RSS_FEEDS;
+    try {
+      CONFIG.RSS_FEEDS = [];
+      global.fetch = vi.fn();
+      const { result } = renderHook(() => useRSS(''));
+      // NewsColumn shows "Loading headlines" until lastOk is set.
+      await waitFor(() => expect(result.current.lastOk).toBeGreaterThan(0));
+      expect(result.current.err).toBe(false);
+      expect(result.current.items).toEqual([]);
+      expect(global.fetch).not.toHaveBeenCalled();
+    } finally {
+      CONFIG.RSS_FEEDS = saved;
+    }
+  });
+
   it('falls back to rss2json per feed when /api/rss is unavailable', async () => {
     global.fetch = vi.fn().mockImplementation(async (url) => {
       const u = new URL(String(url), 'http://localhost');
