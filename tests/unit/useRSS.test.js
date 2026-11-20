@@ -284,6 +284,34 @@ describe('useRSS', () => {
     }
   });
 
+  it('switching feeds back on reads as loading until the new fetch lands, not as an empty good round', async () => {
+    const saved = CONFIG.RSS_FEEDS;
+    try {
+      CONFIG.RSS_FEEDS = [];
+      const held = [];
+      global.fetch = vi.fn().mockImplementation(async (url) => {
+        const u = new URL(String(url), 'http://localhost');
+        if (u.pathname === '/api/rss') return { ok: false, status: 404 };
+        return new Promise(res => held.push(() => res(feedResp(3))));
+      });
+      const { result, rerender } = renderHook(({ keys }) => useRSS(keys), { initialProps: { keys: '' } });
+      await waitFor(() => expect(result.current.lastOk).toBeGreaterThan(0));
+
+      CONFIG.RSS_FEEDS = [{ key: 'coindesk', url: CONFIG_FEED_URL('coindesk') }];
+      rerender({ keys: 'coindesk' });
+      await waitFor(() => expect(held.length).toBe(1));
+      // NewsColumn and the status rows read lastOk null with no err as loading/pending.
+      expect(result.current.lastOk).toBeNull();
+      expect(result.current.feedsOff).toBe(false);
+
+      await act(async () => { held.forEach(release => release()); });
+      await waitFor(() => expect(result.current.leadStory).not.toBeNull());
+      expect(result.current.lastOk).toBeGreaterThan(0);
+    } finally {
+      CONFIG.RSS_FEEDS = saved;
+    }
+  });
+
   it('a load with every feed off fetches nothing and is not stuck loading', async () => {
     const saved = CONFIG.RSS_FEEDS;
     try {

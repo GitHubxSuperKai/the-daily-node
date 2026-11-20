@@ -152,6 +152,9 @@ export function useRSS(feedsKey = '') {
     const intervalChanged = lastInterval.current !== newsInterval;
     lastInterval.current = newsInterval;
     if (lastFeedsKey.current === feedsKey) return;
+    // Feeds back on after all were off: the empty "good round" no longer describes
+    // anything, so read as loading until the refetch lands, not as an empty column.
+    if (lastFeedsKey.current === '') setLastOk(null);
     lastFeedsKey.current = feedsKey;
     if (!intervalChanged) resetRSS();
   }, [feedsKey, newsInterval, resetRSS]);
