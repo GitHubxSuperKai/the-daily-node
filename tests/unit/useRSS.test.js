@@ -178,6 +178,38 @@ describe('useRSS', () => {
     }
   });
 
+  it('a Save that changes both the feeds and the news interval fetches once, not twice', async () => {
+    const savedFeeds = CONFIG.RSS_FEEDS;
+    const savedInterval = CONFIG.REFRESH_INTERVALS.news;
+    try {
+      const feed = key => ({ key, url: CONFIG_FEED_URL(key) });
+      CONFIG.RSS_FEEDS = [feed('coindesk')];
+      // Proxy 404s, so one round of one feed is two requests: /api/rss, then rss2json.
+      global.fetch = vi.fn().mockImplementation(async (url) => {
+        const u = new URL(String(url), 'http://localhost');
+        if (u.pathname === '/api/rss') return { ok: false, status: 404 };
+        return feedResp(3);
+      });
+      const { result, rerender } = renderHook(({ keys }) => useRSS(keys), {
+        initialProps: { keys: 'coindesk' },
+      });
+      await waitFor(() => expect(result.current.leadStory).not.toBeNull());
+      const before = global.fetch.mock.calls.length;
+      expect(before).toBe(2);
+
+      // One Save: CoinDesk swapped for Bitcoin Magazine and the interval changed.
+      CONFIG.RSS_FEEDS = [feed('bitcoinMagazine')];
+      CONFIG.REFRESH_INTERVALS.news = savedInterval * 2;
+      rerender({ keys: 'bitcoinMagazine' });
+      await waitFor(() => expect(global.fetch.mock.calls.length).toBeGreaterThan(before));
+      await new Promise(r => setTimeout(r, 50));
+      expect(global.fetch.mock.calls.length - before).toBe(2);
+    } finally {
+      CONFIG.RSS_FEEDS = savedFeeds;
+      CONFIG.REFRESH_INTERVALS.news = savedInterval;
+    }
+  });
+
   it('falls back to rss2json per feed when /api/rss is unavailable', async () => {
     global.fetch = vi.fn().mockImplementation(async (url) => {
       const u = new URL(String(url), 'http://localhost');

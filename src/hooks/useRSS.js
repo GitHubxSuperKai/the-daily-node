@@ -124,13 +124,18 @@ export function useRSS(feedsKey = '') {
 
   // Refetch when the feed list changes (Settings saved). Compares against the last key
   // rather than keying on resetRSS: resetRSS also changes with the interval, and
-  // useResettableInterval already refetches then (and on mount).
+  // useResettableInterval already refetches then (and on mount). So a Save that changes
+  // the interval too is left to useResettableInterval, which reads the new feed list.
+  const newsInterval = CONFIG.REFRESH_INTERVALS.news;
   const lastFeedsKey = useRef(feedsKey);
+  const lastInterval = useRef(newsInterval);
   useEffect(() => {
+    const intervalChanged = lastInterval.current !== newsInterval;
+    lastInterval.current = newsInterval;
     if (lastFeedsKey.current === feedsKey) return;
     lastFeedsKey.current = feedsKey;
-    resetRSS();
-  }, [feedsKey, resetRSS]);
+    if (!intervalChanged) resetRSS();
+  }, [feedsKey, newsInterval, resetRSS]);
 
   // The browser saw the connection drop and return (covers blips between fetches).
   useEffect(() => {
