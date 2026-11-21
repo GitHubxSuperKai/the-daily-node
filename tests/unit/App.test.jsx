@@ -288,8 +288,8 @@ describe('App — theme on mount', () => {
 
 describe('App — Settings Save applies intervals', () => {
   // One request URL per user-set interval, each fetched by that interval's own
-  // useResettableInterval round (the defaults are all 60 s or more, so no timer
-  // fires during the test; a new request right after Save is the restart).
+  // useResettableInterval round (the shortest default is 30 s, so no timer fires
+  // during the test; a new request right after Save is the restart).
   const ENDPOINTS = {
     price:   'api.kraken.com/0/public/Ticker',
     chain:   '/api/blocks/tip/height',

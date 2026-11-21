@@ -145,6 +145,13 @@ describe('CommandCenter — desktop smoke render', () => {
     expect(minersRowColor()).toBe(rgb(LIGHT.ink4));
   });
 
+  it('no miners configured, then a failed fetch, reads stale (kept answer), not down', () => {
+    // useBitaxe keeps the last list and lastOk on a failed fetch and sets err.
+    const base = makeProps();
+    renderCC({ bitaxe: { ...base.bitaxe, miners: [], err: true, fetchFailed: true, loading: false, lastOk: Date.now() } });
+    expect(minersRowColor()).toBe(rgb(LIGHT.orange));
+  });
+
   it('survives a fully degraded feed set — every source null or erroring', () => {
     // The all-APIs-down path, exercising the derived-value block (halvings,
     // blockReward, mempoolMB, the sys array) with nothing to derive from.
