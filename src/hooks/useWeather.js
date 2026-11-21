@@ -3,6 +3,10 @@ import CONFIG from '../config.js';
 import { useResettableInterval } from './useResettableInterval.js';
 import { wmoDesc } from '../utils/formatting.js';
 
+// One key per location + units, built in one place so the render-time key and a
+// fetch's own key can never drift apart (a mismatch would drop every fetch).
+const locKeyOf = (lat, lng, tempUnit) => `${lat},${lng},${tempUnit}`;
+
 /**
  * useWeather Hook
  * Fetches weather from Open-Meteo API
@@ -21,12 +25,12 @@ export function useWeather(lat, lng, tempUnit) {
 
   // The location the dashboard shows now. A fetch drops its result, or its error,
   // if a Save changed the location while it was out.
-  const locKey = `${lat},${lng},${tempUnit}`;
+  const locKey = locKeyOf(lat, lng, tempUnit);
   const currentLoc = useRef(locKey);
   currentLoc.current = locKey;
 
   const fetchWeather = useCallback(async () => {
-    const fetchedFor = `${lat},${lng},${tempUnit}`;
+    const fetchedFor = locKeyOf(lat, lng, tempUnit);
     try {
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,wind_gusts_10m,pressure_msl,dew_point_2m&hourly=temperature_2m,weather_code,precipitation_probability,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,uv_index_max,wind_speed_10m_max&temperature_unit=${tempUnit}&wind_speed_unit=mph&forecast_days=2&timezone=auto`;
       const r = await fetch(url, { signal: AbortSignal.timeout(CONFIG.FETCH_TIMEOUT) });
@@ -111,7 +115,7 @@ export function useWeather(lat, lng, tempUnit) {
     data,
     err,
     lastOk,
-    interval: CONFIG.REFRESH_INTERVALS.weather,
+    interval: weatherInterval,
     refresh: resetWeather,
   };
 }

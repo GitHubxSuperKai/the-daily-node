@@ -5,6 +5,10 @@ import { fetchChainStats, fetchMiningPools, fetchPoolBlocks, fetchRecentBlocks, 
 import { fmtMempoolMB, nextHalving, circulatingBTC } from '../utils/formatting.js';
 import { log } from '../utils/log.js';
 
+// One key per set of mempool prefs, built in one place so the render-time key and
+// a fetch's own key can never drift apart (a mismatch would drop every fetch).
+const prefsKeyOf = (baseUrl, fallbackToPublic) => JSON.stringify([baseUrl, fallbackToPublic]);
+
 /**
  * useChain Hook
  * Fetches Bitcoin chain vitals from Mempool.space
@@ -33,14 +37,14 @@ export function useChain(mempoolPrefs = {}) {
 
   // The mempool prefs the dashboard uses now. A fetch drops its result if a Save
   // changed them while it was out. The api.js fetchers catch their own errors and
-  // return defaults, so a stale fetch reaches the catch blocks below only through
-  // code after these checks.
-  const prefsKey = JSON.stringify([mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic]);
+  // return defaults, so for the string baseUrl Settings stores, a stale fetch
+  // reaches the catch blocks below only through code after these checks.
+  const prefsKey = prefsKeyOf(mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic);
   const currentPrefs = React.useRef(prefsKey);
   currentPrefs.current = prefsKey;
 
   const fetchChain = React.useCallback(async () => {
-    const fetchedFor = JSON.stringify([mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic]);
+    const fetchedFor = prefsKeyOf(mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic);
     try {
       const chainData = await fetchChainStats({
         baseUrl: mempoolPrefs.baseUrl,
@@ -71,7 +75,7 @@ export function useChain(mempoolPrefs = {}) {
   }, [mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic]);
 
   const fetchExtended = React.useCallback(async () => {
-    const fetchedFor = JSON.stringify([mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic]);
+    const fetchedFor = prefsKeyOf(mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic);
     try {
       const [poolsResult, recentResult, mempoolBlocks] = await Promise.all([
         fetchMiningPools({ baseUrl: mempoolPrefs.baseUrl, fallbackToPublic: mempoolPrefs.fallbackToPublic }),

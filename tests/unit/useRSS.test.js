@@ -338,8 +338,11 @@ describe('useRSS', () => {
       await waitFor(() => expect(held.length).toBe(1));
       expect(result.current.lastOk).toBe(firstOk);
 
+      // The new feed's round lands and replaces the old stories.
+      const bmUrl = CONFIG_FEED_URL('bitcoinMagazine');
       await act(async () => { held.forEach(release => release()); });
-      await waitFor(() => expect(result.current.lastOk).toBeGreaterThanOrEqual(firstOk));
+      await waitFor(() => expect(result.current.items.concat(result.current.leadStory || [])
+        .every(it => it.hed.startsWith(bmUrl))).toBe(true));
     } finally {
       CONFIG.RSS_FEEDS = saved;
     }
