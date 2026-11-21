@@ -312,6 +312,39 @@ describe('useRSS', () => {
     }
   });
 
+  it('a Save from one feed list to another keeps lastOk while the new fetch is out', async () => {
+    // Only a Save coming out of all-off clears lastOk; swapping feeds keeps the
+    // old stories and their timestamp on screen until the new round lands.
+    const saved = CONFIG.RSS_FEEDS;
+    try {
+      const feed = key => ({ key, url: CONFIG_FEED_URL(key) });
+      CONFIG.RSS_FEEDS = [feed('coindesk')];
+      let hold = false;
+      const held = [];
+      global.fetch = vi.fn().mockImplementation(async (url) => {
+        const u = new URL(String(url), 'http://localhost');
+        if (u.pathname === '/api/rss') return { ok: false, status: 404 };
+        const resp = feedResp(3, u.searchParams.get('rss_url'));
+        if (!hold) return resp;
+        return new Promise(res => held.push(() => res(resp)));
+      });
+      const { result, rerender } = renderHook(({ keys }) => useRSS(keys), { initialProps: { keys: 'coindesk' } });
+      await waitFor(() => expect(result.current.lastOk).toBeGreaterThan(0));
+      const firstOk = result.current.lastOk;
+
+      hold = true;
+      CONFIG.RSS_FEEDS = [feed('bitcoinMagazine')];
+      rerender({ keys: 'bitcoinMagazine' });
+      await waitFor(() => expect(held.length).toBe(1));
+      expect(result.current.lastOk).toBe(firstOk);
+
+      await act(async () => { held.forEach(release => release()); });
+      await waitFor(() => expect(result.current.lastOk).toBeGreaterThanOrEqual(firstOk));
+    } finally {
+      CONFIG.RSS_FEEDS = saved;
+    }
+  });
+
   it('a load with every feed off fetches nothing and is not stuck loading', async () => {
     const saved = CONFIG.RSS_FEEDS;
     try {
