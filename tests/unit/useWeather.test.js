@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { useWeather } from '../../src/hooks/useWeather.js';
+import CONFIG from '../../src/config.js';
 
 const hourlyTimes = Array.from({ length: 48 }, (_, i) => {
   const d = new Date(2026, 4, 26, i, 0, 0);
@@ -78,6 +79,58 @@ describe('useWeather', () => {
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
     for (const [, init] of global.fetch.mock.calls) {
       expect(init?.signal, 'fetch called without a signal').toBeInstanceOf(AbortSignal);
+    }
+  });
+
+  // A response whose temperature is the request's latitude, so a test can tell
+  // which location's fetch landed.
+  const wxFor = async (url) => {
+    const lat = Number(new URL(String(url)).searchParams.get('latitude'));
+    const body = await wxOk.json();
+    return { ok: true, json: async () => ({ ...body, current: { ...body.current, temperature_2m: lat } }) };
+  };
+
+  it('a Save that changes both the location and the weather interval fetches once, not twice', async () => {
+    const savedInterval = CONFIG.REFRESH_INTERVALS.weather;
+    try {
+      global.fetch = vi.fn().mockImplementation(wxFor);
+      const { result, rerender } = renderHook(({ lat }) => useWeather(lat, -122.4, 'fahrenheit'), {
+        initialProps: { lat: 37 },
+      });
+      await waitFor(() => expect(result.current.data?.temp).toBe(37));
+      const before = global.fetch.mock.calls.length;
+      expect(before).toBe(1);
+
+      // One Save: new location and new interval.
+      CONFIG.REFRESH_INTERVALS.weather = savedInterval * 2;
+      rerender({ lat: 40 });
+      await waitFor(() => expect(result.current.data?.temp).toBe(40));
+      await new Promise(r => setTimeout(r, 50));
+      expect(global.fetch.mock.calls.length - before).toBe(1);
+    } finally {
+      CONFIG.REFRESH_INTERVALS.weather = savedInterval;
+    }
+  });
+
+  it('after an interval-only Save, a location-only Save still fetches the new location', async () => {
+    const savedInterval = CONFIG.REFRESH_INTERVALS.weather;
+    try {
+      global.fetch = vi.fn().mockImplementation(wxFor);
+      const { result, rerender } = renderHook(({ lat }) => useWeather(lat, -122.4, 'fahrenheit'), {
+        initialProps: { lat: 37 },
+      });
+      await waitFor(() => expect(result.current.data?.temp).toBe(37));
+
+      CONFIG.REFRESH_INTERVALS.weather = savedInterval * 2;
+      rerender({ lat: 37 });
+      await waitFor(() => expect(global.fetch.mock.calls.length).toBe(2));
+
+      const before = global.fetch.mock.calls.length;
+      rerender({ lat: 40 });
+      await waitFor(() => expect(result.current.data?.temp).toBe(40));
+      expect(global.fetch.mock.calls.length - before).toBe(1);
+    } finally {
+      CONFIG.REFRESH_INTERVALS.weather = savedInterval;
     }
   });
 });

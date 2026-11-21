@@ -80,14 +80,24 @@ export function useWeather(lat, lng, tempUnit) {
     }
   }, [lat, lng, tempUnit]);
 
-  const { reset: resetWeather } = useResettableInterval(fetchWeather, CONFIG.REFRESH_INTERVALS.weather);
+  const weatherInterval = CONFIG.REFRESH_INTERVALS.weather;
+  const { reset: resetWeather } = useResettableInterval(fetchWeather, weatherInterval);
 
-  // Re-fetch immediately when location or units change (preserves original behavior)
-  const hasMountedRef = useRef(false);
+  // Re-fetch immediately when location or units change. When the same Save also
+  // changed the interval, useResettableInterval has already fetched with the new
+  // location, so skip the second fetch. The effect also runs on interval-only
+  // Saves, and records the interval before the early return, so lastInterval
+  // never goes stale.
+  const locKey = `${lat},${lng},${tempUnit}`;
+  const lastLocKey = useRef(locKey);
+  const lastInterval = useRef(weatherInterval);
   useEffect(() => {
-    if (!hasMountedRef.current) { hasMountedRef.current = true; return; }
-    resetWeather();
-  }, [lat, lng, tempUnit]); // eslint-disable-line react-hooks/exhaustive-deps
+    const intervalChanged = lastInterval.current !== weatherInterval;
+    lastInterval.current = weatherInterval;
+    if (lastLocKey.current === locKey) return;
+    lastLocKey.current = locKey;
+    if (!intervalChanged) resetWeather();
+  }, [locKey, weatherInterval, resetWeather]);
 
   return {
     data,
