@@ -5,6 +5,10 @@ import { fetchChainStats, fetchMiningPools, fetchPoolBlocks, fetchRecentBlocks, 
 import { fmtMempoolMB, nextHalving, circulatingBTC } from '../utils/formatting.js';
 import { log } from '../utils/log.js';
 
+// One key per set of mempool prefs, built in one place so the render-time key and
+// a fetch's own key can never drift apart (a mismatch would drop every fetch).
+const prefsKeyOf = (baseUrl, fallbackToPublic) => JSON.stringify([baseUrl, fallbackToPublic]);
+
 /**
  * useChain Hook
  * Fetches Bitcoin chain vitals from Mempool.space
@@ -31,12 +35,22 @@ export function useChain(mempoolPrefs = {}) {
   const [error, setError] = React.useState(false);
   const [lastOk, setLastOk] = React.useState(null);
 
+  // The mempool prefs the dashboard uses now. A fetch drops its result if a Save
+  // changed them while it was out. The api.js fetchers catch their own errors and
+  // return defaults, so for the string baseUrl Settings stores, a stale fetch
+  // reaches the catch blocks below only through code after these checks.
+  const prefsKey = prefsKeyOf(mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic);
+  const currentPrefs = React.useRef(prefsKey);
+  currentPrefs.current = prefsKey;
+
   const fetchChain = React.useCallback(async () => {
+    const fetchedFor = prefsKeyOf(mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic);
     try {
       const chainData = await fetchChainStats({
         baseUrl: mempoolPrefs.baseUrl,
         fallbackToPublic: mempoolPrefs.fallbackToPublic,
       });
+      if (currentPrefs.current !== fetchedFor) return;
 
       if (Object.keys(chainData).length === 0) {
         throw new Error('fetchChainStats returned empty');
@@ -61,12 +75,14 @@ export function useChain(mempoolPrefs = {}) {
   }, [mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic]);
 
   const fetchExtended = React.useCallback(async () => {
+    const fetchedFor = prefsKeyOf(mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic);
     try {
       const [poolsResult, recentResult, mempoolBlocks] = await Promise.all([
         fetchMiningPools({ baseUrl: mempoolPrefs.baseUrl, fallbackToPublic: mempoolPrefs.fallbackToPublic }),
         fetchRecentBlocks({ baseUrl: mempoolPrefs.baseUrl, fallbackToPublic: mempoolPrefs.fallbackToPublic }),
         fetchMempoolBlocks({ baseUrl: mempoolPrefs.baseUrl, fallbackToPublic: mempoolPrefs.fallbackToPublic }),
       ]);
+      if (currentPrefs.current !== fetchedFor) return;
 
       const pools = poolsResult;
       const recentBlocks = recentResult.blocks;
@@ -75,6 +91,7 @@ export function useChain(mempoolPrefs = {}) {
       let topPoolBlocks = [];
       if (pools.length > 0) {
         topPoolBlocks = await fetchPoolBlocks(pools[0].slug, { baseUrl: mempoolPrefs.baseUrl, fallbackToPublic: mempoolPrefs.fallbackToPublic });
+        if (currentPrefs.current !== fetchedFor) return;
       }
 
       setExtData({ pools, topPoolBlocks, recentBlocks, mempoolBlocks });
@@ -84,19 +101,29 @@ export function useChain(mempoolPrefs = {}) {
     }
   }, [mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic]);
 
-  const { reset: resetChain    } = useResettableInterval(fetchChain,    CONFIG.REFRESH_INTERVALS.chain);
-  const { reset: resetExtended } = useResettableInterval(fetchExtended, CONFIG.REFRESH_INTERVALS.pools);
+  const chainInterval = CONFIG.REFRESH_INTERVALS.chain;
+  const poolsInterval = CONFIG.REFRESH_INTERVALS.pools;
+  const { reset: resetChain    } = useResettableInterval(fetchChain,    chainInterval);
+  const { reset: resetExtended } = useResettableInterval(fetchExtended, poolsInterval);
 
   // Re-fetch immediately when mempoolPrefs change (new baseUrl saved in settings).
-  // fetchChain/fetchExtended get new references only when baseUrl or fallbackToPublic
-  // changes, so this effect fires exactly then — skipping the initial mount since
-  // useResettableInterval already handles that.
-  const isFirstRender = React.useRef(true);
+  // The mount fetch is useResettableInterval's. When the same Save also changed an
+  // interval, that interval's useResettableInterval has already fetched with the new
+  // prefs, so skip that fetch here. The intervals are recorded before the early
+  // return, so an interval-only Save does not leave the refs stale.
+  const lastPrefsKey = React.useRef(prefsKey);
+  const lastChainInterval = React.useRef(chainInterval);
+  const lastPoolsInterval = React.useRef(poolsInterval);
   React.useEffect(() => {
-    if (isFirstRender.current) { isFirstRender.current = false; return; }
-    fetchChain();
-    fetchExtended();
-  }, [fetchChain, fetchExtended]);
+    const chainChanged = lastChainInterval.current !== chainInterval;
+    const poolsChanged = lastPoolsInterval.current !== poolsInterval;
+    lastChainInterval.current = chainInterval;
+    lastPoolsInterval.current = poolsInterval;
+    if (lastPrefsKey.current === prefsKey) return;
+    lastPrefsKey.current = prefsKey;
+    if (!chainChanged) fetchChain();
+    if (!poolsChanged) fetchExtended();
+  }, [prefsKey, chainInterval, poolsInterval, fetchChain, fetchExtended]);
 
   const refresh = React.useCallback(() => {
     resetChain();
@@ -111,6 +138,6 @@ export function useChain(mempoolPrefs = {}) {
     error,
     lastOk,
     refresh,
-    interval: CONFIG.REFRESH_INTERVALS.chain,
+    interval: chainInterval,
   };
 }

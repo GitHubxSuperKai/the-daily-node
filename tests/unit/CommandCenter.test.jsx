@@ -103,6 +103,16 @@ describe('CommandCenter — desktop smoke render', () => {
     expect(row.firstChild.style.color).toBe(`rgb(${hex.join(', ')})`);
   });
 
+  it('a cold load with every news feed off reads as pending until the first round lands', () => {
+    // Before useRSS sets lastOk, feedsOff alone must not count as data: that read as
+    // stale (orange) for a frame.
+    const base = makeProps();
+    renderCC({ rss: { ...base.rss, items: [], leadStory: null, feedsOff: true, err: false, lastOk: null } });
+    const row = screen.getAllByText((_, el) => el.tagName === 'SPAN' && el.textContent === '●rss')[0];
+    const hex = LIGHT.ink4.match(/^#(..)(..)(..)$/).slice(1).map(h => parseInt(h, 16));
+    expect(row.firstChild.style.color).toBe(`rgb(${hex.join(', ')})`);
+  });
+
   it('survives a fully degraded feed set — every source null or erroring', () => {
     // The all-APIs-down path, exercising the derived-value block (halvings,
     // blockReward, mempoolMB, the sys array) with nothing to derive from.

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { useWeather } from '../../src/hooks/useWeather.js';
+import CONFIG from '../../src/config.js';
 
 const hourlyTimes = Array.from({ length: 48 }, (_, i) => {
   const d = new Date(2026, 4, 26, i, 0, 0);
@@ -79,5 +80,109 @@ describe('useWeather', () => {
     for (const [, init] of global.fetch.mock.calls) {
       expect(init?.signal, 'fetch called without a signal').toBeInstanceOf(AbortSignal);
     }
+  });
+
+  // A response whose temperature is the request's latitude, so a test can tell
+  // which location's fetch landed.
+  const wxFor = async (url) => {
+    const lat = Number(new URL(String(url)).searchParams.get('latitude'));
+    const body = await wxOk.json();
+    return { ok: true, json: async () => ({ ...body, current: { ...body.current, temperature_2m: lat } }) };
+  };
+
+  it('a Save that changes both the location and the weather interval fetches once, not twice', async () => {
+    const savedInterval = CONFIG.REFRESH_INTERVALS.weather;
+    try {
+      global.fetch = vi.fn().mockImplementation(wxFor);
+      const { result, rerender } = renderHook(({ lat }) => useWeather(lat, -122.4, 'fahrenheit'), {
+        initialProps: { lat: 37 },
+      });
+      await waitFor(() => expect(result.current.data?.temp).toBe(37));
+      const before = global.fetch.mock.calls.length;
+      expect(before).toBe(1);
+
+      // One Save: new location and new interval.
+      CONFIG.REFRESH_INTERVALS.weather = savedInterval * 2;
+      rerender({ lat: 40 });
+      await waitFor(() => expect(result.current.data?.temp).toBe(40));
+      await new Promise(r => setTimeout(r, 50));
+      expect(global.fetch.mock.calls.length - before).toBe(1);
+    } finally {
+      CONFIG.REFRESH_INTERVALS.weather = savedInterval;
+    }
+  });
+
+  it('after an interval-only Save, a location-only Save still fetches the new location', async () => {
+    const savedInterval = CONFIG.REFRESH_INTERVALS.weather;
+    try {
+      global.fetch = vi.fn().mockImplementation(wxFor);
+      const { result, rerender } = renderHook(({ lat }) => useWeather(lat, -122.4, 'fahrenheit'), {
+        initialProps: { lat: 37 },
+      });
+      await waitFor(() => expect(result.current.data?.temp).toBe(37));
+
+      CONFIG.REFRESH_INTERVALS.weather = savedInterval * 2;
+      rerender({ lat: 37 });
+      await waitFor(() => expect(global.fetch.mock.calls.length).toBe(2));
+
+      const before = global.fetch.mock.calls.length;
+      rerender({ lat: 40 });
+      await waitFor(() => expect(result.current.data?.temp).toBe(40));
+      expect(global.fetch.mock.calls.length - before).toBe(1);
+    } finally {
+      CONFIG.REFRESH_INTERVALS.weather = savedInterval;
+    }
+  });
+
+  it('a fetch for the old location still in flight at Save cannot overwrite the new location', async () => {
+    let hold = false;
+    const held = [];
+    global.fetch = vi.fn().mockImplementation(async (url) => {
+      const resp = await wxFor(url);
+      if (!hold) return resp;
+      return new Promise(res => held.push(() => res(resp)));
+    });
+    const { result, rerender } = renderHook(({ lat }) => useWeather(lat, -122.4, 'fahrenheit'), {
+      initialProps: { lat: 37 },
+    });
+    await waitFor(() => expect(result.current.data?.temp).toBe(37));
+
+    // A refresh for the old location hangs on the network.
+    hold = true;
+    act(() => { result.current.refresh(); });
+    await waitFor(() => expect(held.length).toBe(1));
+
+    // Save a new location; its fetch answers at once.
+    hold = false;
+    rerender({ lat: 40 });
+    await waitFor(() => expect(result.current.data?.temp).toBe(40));
+
+    // The old-location answer lands late.
+    await act(async () => { held[0](); await new Promise(r => setTimeout(r, 20)); });
+    expect(result.current.data.temp).toBe(40);
+  });
+
+  it('a late failure from the old location does not mark the new location as failed', async () => {
+    let hold = false;
+    const held = [];
+    global.fetch = vi.fn().mockImplementation(async (url) => {
+      if (!hold) return wxFor(url);
+      return new Promise((_, rej) => held.push(() => rej(new TypeError('network'))));
+    });
+    const { result, rerender } = renderHook(({ lat }) => useWeather(lat, -122.4, 'fahrenheit'), {
+      initialProps: { lat: 37 },
+    });
+    await waitFor(() => expect(result.current.data?.temp).toBe(37));
+
+    hold = true;
+    act(() => { result.current.refresh(); });
+    await waitFor(() => expect(held.length).toBe(1));
+
+    hold = false;
+    rerender({ lat: 40 });
+    await waitFor(() => expect(result.current.data?.temp).toBe(40));
+
+    await act(async () => { held[0](); await new Promise(r => setTimeout(r, 20)); });
+    expect(result.current.err).toBe(false);
   });
 });

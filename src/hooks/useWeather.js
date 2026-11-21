@@ -3,6 +3,10 @@ import CONFIG from '../config.js';
 import { useResettableInterval } from './useResettableInterval.js';
 import { wmoDesc } from '../utils/formatting.js';
 
+// One key per location + units, built in one place so the render-time key and a
+// fetch's own key can never drift apart (a mismatch would drop every fetch).
+const locKeyOf = (lat, lng, tempUnit) => `${lat},${lng},${tempUnit}`;
+
 /**
  * useWeather Hook
  * Fetches weather from Open-Meteo API
@@ -19,12 +23,20 @@ export function useWeather(lat, lng, tempUnit) {
   const [err, setErr] = useState(false);
   const [lastOk, setLastOk] = useState(null);
 
+  // The location the dashboard shows now. A fetch drops its result, or its error,
+  // if a Save changed the location while it was out.
+  const locKey = locKeyOf(lat, lng, tempUnit);
+  const currentLoc = useRef(locKey);
+  currentLoc.current = locKey;
+
   const fetchWeather = useCallback(async () => {
+    const fetchedFor = locKeyOf(lat, lng, tempUnit);
     try {
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,wind_gusts_10m,pressure_msl,dew_point_2m&hourly=temperature_2m,weather_code,precipitation_probability,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,uv_index_max,wind_speed_10m_max&temperature_unit=${tempUnit}&wind_speed_unit=mph&forecast_days=2&timezone=auto`;
       const r = await fetch(url, { signal: AbortSignal.timeout(CONFIG.FETCH_TIMEOUT) });
       if (!r.ok) throw new Error('weather');
       const j = await r.json();
+      if (currentLoc.current !== fetchedFor) return;
 
       const cur = j.current;
       const windDirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -76,24 +88,34 @@ export function useWeather(lat, lng, tempUnit) {
       setErr(false);
       setLastOk(Date.now());
     } catch {
+      if (currentLoc.current !== fetchedFor) return;
       setErr(true);
     }
   }, [lat, lng, tempUnit]);
 
-  const { reset: resetWeather } = useResettableInterval(fetchWeather, CONFIG.REFRESH_INTERVALS.weather);
+  const weatherInterval = CONFIG.REFRESH_INTERVALS.weather;
+  const { reset: resetWeather } = useResettableInterval(fetchWeather, weatherInterval);
 
-  // Re-fetch immediately when location or units change (preserves original behavior)
-  const hasMountedRef = useRef(false);
+  // Re-fetch immediately when location or units change. When the same Save also
+  // changed the interval, useResettableInterval has already fetched with the new
+  // location, so skip the second fetch. The effect also runs on interval-only
+  // Saves, and records the interval before the early return, so lastInterval
+  // never goes stale.
+  const lastLocKey = useRef(locKey);
+  const lastInterval = useRef(weatherInterval);
   useEffect(() => {
-    if (!hasMountedRef.current) { hasMountedRef.current = true; return; }
-    resetWeather();
-  }, [lat, lng, tempUnit]); // eslint-disable-line react-hooks/exhaustive-deps
+    const intervalChanged = lastInterval.current !== weatherInterval;
+    lastInterval.current = weatherInterval;
+    if (lastLocKey.current === locKey) return;
+    lastLocKey.current = locKey;
+    if (!intervalChanged) resetWeather();
+  }, [locKey, weatherInterval, resetWeather]);
 
   return {
     data,
     err,
     lastOk,
-    interval: CONFIG.REFRESH_INTERVALS.weather,
+    interval: weatherInterval,
     refresh: resetWeather,
   };
 }
