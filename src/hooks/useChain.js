@@ -84,19 +84,30 @@ export function useChain(mempoolPrefs = {}) {
     }
   }, [mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic]);
 
-  const { reset: resetChain    } = useResettableInterval(fetchChain,    CONFIG.REFRESH_INTERVALS.chain);
-  const { reset: resetExtended } = useResettableInterval(fetchExtended, CONFIG.REFRESH_INTERVALS.pools);
+  const chainInterval = CONFIG.REFRESH_INTERVALS.chain;
+  const poolsInterval = CONFIG.REFRESH_INTERVALS.pools;
+  const { reset: resetChain    } = useResettableInterval(fetchChain,    chainInterval);
+  const { reset: resetExtended } = useResettableInterval(fetchExtended, poolsInterval);
 
   // Re-fetch immediately when mempoolPrefs change (new baseUrl saved in settings).
-  // fetchChain/fetchExtended get new references only when baseUrl or fallbackToPublic
-  // changes, so this effect fires exactly then — skipping the initial mount since
-  // useResettableInterval already handles that.
-  const isFirstRender = React.useRef(true);
+  // The mount fetch is useResettableInterval's. When the same Save also changed an
+  // interval, that interval's useResettableInterval has already fetched with the new
+  // prefs, so skip that fetch here. The intervals are recorded before the early
+  // return, so an interval-only Save does not leave the refs stale.
+  const prefsKey = JSON.stringify([mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic]);
+  const lastPrefsKey = React.useRef(prefsKey);
+  const lastChainInterval = React.useRef(chainInterval);
+  const lastPoolsInterval = React.useRef(poolsInterval);
   React.useEffect(() => {
-    if (isFirstRender.current) { isFirstRender.current = false; return; }
-    fetchChain();
-    fetchExtended();
-  }, [fetchChain, fetchExtended]);
+    const chainChanged = lastChainInterval.current !== chainInterval;
+    const poolsChanged = lastPoolsInterval.current !== poolsInterval;
+    lastChainInterval.current = chainInterval;
+    lastPoolsInterval.current = poolsInterval;
+    if (lastPrefsKey.current === prefsKey) return;
+    lastPrefsKey.current = prefsKey;
+    if (!chainChanged) fetchChain();
+    if (!poolsChanged) fetchExtended();
+  }, [prefsKey, chainInterval, poolsInterval, fetchChain, fetchExtended]);
 
   const refresh = React.useCallback(() => {
     resetChain();
@@ -111,6 +122,6 @@ export function useChain(mempoolPrefs = {}) {
     error,
     lastOk,
     refresh,
-    interval: CONFIG.REFRESH_INTERVALS.chain,
+    interval: chainInterval,
   };
 }

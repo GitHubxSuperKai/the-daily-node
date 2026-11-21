@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { useChain } from '../../src/hooks/useChain.js';
+import CONFIG from '../../src/config.js';
 
 const ok = (body) => ({ ok: true, json: async () => body });
 
@@ -63,5 +64,86 @@ describe('useChain', () => {
     const calls = global.fetch.mock.calls.map(([u]) => String(u));
     expect(calls.some(u => u.includes('/api/mempool-proxy'))).toBe(true);
     expect(calls.some(u => u.includes('mempool.space'))).toBe(false);
+  });
+
+  // Two self-hosted nodes. Requests go through /api/mempool-proxy with the node in
+  // `base` and the mempool path in `path`; each node answers with its own tip
+  // height and top pool, so a test can tell whose answer landed.
+  const NODE_A = 'https://node-a.example';
+  const NODE_B = 'https://node-b.example';
+  const TIP = { [NODE_A]: 800001, [NODE_B]: 800002 };
+  const nodeRouter = (url) => {
+    const u = new URL(String(url), 'http://localhost');
+    const base = u.searchParams.get('base');
+    const path = u.searchParams.get('path') || String(url);
+    if (path.includes('/api/blocks/tip/height')) return ok(TIP[base]);
+    if (path.includes('/api/v1/mining/pools/1w'))
+      return ok({ blockCount: 10, pools: [{ name: `Pool ${base}`, slug: 'foundry', blockCount: 5 }] });
+    return defaultRouter(path);
+  };
+  const countPath = (needle) =>
+    global.fetch.mock.calls.filter(([u]) => decodeURIComponent(String(u)).includes(needle)).length;
+  const prefs = base => ({ baseUrl: base, fallbackToPublic: false });
+
+  it('a Save that changes both the mempool URL and the chain interval fetches chain stats once', async () => {
+    const savedInterval = CONFIG.REFRESH_INTERVALS.chain;
+    try {
+      global.fetch = vi.fn().mockImplementation(async url => nodeRouter(url));
+      const { result, rerender } = renderHook(({ p }) => useChain(p), { initialProps: { p: prefs(NODE_A) } });
+      await waitFor(() => expect(result.current.data?.height).toBe(TIP[NODE_A]));
+      const before = countPath('/api/blocks/tip/height');
+      expect(before).toBe(1);
+
+      CONFIG.REFRESH_INTERVALS.chain = savedInterval * 2;
+      rerender({ p: prefs(NODE_B) });
+      await waitFor(() => expect(result.current.data?.height).toBe(TIP[NODE_B]));
+      await new Promise(r => setTimeout(r, 50));
+      expect(countPath('/api/blocks/tip/height') - before).toBe(1);
+    } finally {
+      CONFIG.REFRESH_INTERVALS.chain = savedInterval;
+    }
+  });
+
+  it('a Save that changes both the mempool URL and the pools interval fetches the pools once', async () => {
+    const savedInterval = CONFIG.REFRESH_INTERVALS.pools;
+    try {
+      global.fetch = vi.fn().mockImplementation(async url => nodeRouter(url));
+      const { result, rerender } = renderHook(({ p }) => useChain(p), { initialProps: { p: prefs(NODE_A) } });
+      await waitFor(() => expect(result.current.pools[0]?.name).toBe(`Pool ${NODE_A}`));
+      const before = countPath('/api/v1/mining/pools/1w');
+      expect(before).toBe(1);
+
+      CONFIG.REFRESH_INTERVALS.pools = savedInterval * 2;
+      rerender({ p: prefs(NODE_B) });
+      await waitFor(() => expect(result.current.pools[0]?.name).toBe(`Pool ${NODE_B}`));
+      await new Promise(r => setTimeout(r, 50));
+      expect(countPath('/api/v1/mining/pools/1w') - before).toBe(1);
+    } finally {
+      CONFIG.REFRESH_INTERVALS.pools = savedInterval;
+    }
+  });
+
+  it('after an interval-only Save, a URL-only Save still fetches both from the new node', async () => {
+    const saved = { ...CONFIG.REFRESH_INTERVALS };
+    try {
+      global.fetch = vi.fn().mockImplementation(async url => nodeRouter(url));
+      const { result, rerender } = renderHook(({ p }) => useChain(p), { initialProps: { p: prefs(NODE_A) } });
+      await waitFor(() => expect(result.current.pools.length).toBe(1));
+
+      CONFIG.REFRESH_INTERVALS.chain = saved.chain * 2;
+      CONFIG.REFRESH_INTERVALS.pools = saved.pools * 2;
+      rerender({ p: prefs(NODE_A) });
+      await waitFor(() => expect(countPath('/api/v1/mining/pools/1w')).toBe(2));
+
+      const chainBefore = countPath('/api/blocks/tip/height');
+      const poolsBefore = countPath('/api/v1/mining/pools/1w');
+      rerender({ p: prefs(NODE_B) });
+      await waitFor(() => expect(result.current.data?.height).toBe(TIP[NODE_B]));
+      await waitFor(() => expect(result.current.pools[0]?.name).toBe(`Pool ${NODE_B}`));
+      expect(countPath('/api/blocks/tip/height') - chainBefore).toBe(1);
+      expect(countPath('/api/v1/mining/pools/1w') - poolsBefore).toBe(1);
+    } finally {
+      Object.assign(CONFIG.REFRESH_INTERVALS, saved);
+    }
   });
 });
