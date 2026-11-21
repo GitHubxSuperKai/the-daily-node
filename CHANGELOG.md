@@ -9,10 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- With no miners configured, the miners status dot read red (down) on the desktop status rows and the mobile Feeds tile. It now reads green once `/api/miners` has answered.
 - A Settings Save that changed the weather location and the weather interval together fetched the weather twice; it now fetches once. The same holds for the mempool URL with the chain interval.
 - A weather fetch already running when a Save changed the location could finish after the new location's fetch and show the old location's weather, or mark the new one as failed. A chain or pools fetch running when a Save changed the mempool URL could likewise show the old node's height, pools or stale flag. Such late answers are now dropped.
 - A news fetch already running when a Save switched a feed off no longer puts that feed's stories back when it finishes after the refetch. A fetch whose feed list a Save has since changed is now dropped.
-- Switching every news feed off empties the news column, which then reads "No Bitcoin headlines right now". It used to keep the old stories and show "feed error"; a load with every feed off showed "All feeds unavailable".
+- Switching every news feed off empties the news column, which then reads "No Bitcoin headlines right now", and the desktop rss status row reads "feeds off". It used to keep the old stories and show "feed error"; a load with every feed off showed "All feeds unavailable".
 - The Settings intervals hint read "Reload page to apply." Intervals already applied on Save, so it now reads "Applied on Save."
 - Saving Settings with a news feed turned on or off now refetches the news at once. Before, a Save that changed only the feed list fetched nothing: the new list applied at the next news fetch (the news interval, 5 minutes by default; a refresh when the tab comes back after 30 s hidden or the network returns; or a Save that also changed the news interval) or a reload, so a feed just switched off kept showing until then.
 
