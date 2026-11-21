@@ -132,7 +132,7 @@ export function CommandCenter({
     {
       k: 'rss',
       state: sourceFreshness({ hasData: rss.items.length > 0 || (!!rss.feedsOff && !!rss.lastOk), err: rss.err, lastOk: rss.lastOk, interval: rss.interval }, freshNow),
-      d: withAge(sysAgeOf(rss.lastOk), rss.items.length > 0 ? `${rss.items.length} stories` : '—'),
+      d: withAge(sysAgeOf(rss.lastOk), rss.items.length > 0 ? `${rss.items.length} stories` : rss.feedsOff ? 'feeds off' : '—'),
     },
   ];
 

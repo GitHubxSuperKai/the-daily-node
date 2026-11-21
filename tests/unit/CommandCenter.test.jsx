@@ -113,6 +113,20 @@ describe('CommandCenter — desktop smoke render', () => {
     expect(row.firstChild.style.color).toBe(`rgb(${hex.join(', ')})`);
   });
 
+  it('every news feed switched off says so in the rss status detail, not a dash', () => {
+    const base = makeProps();
+    renderCC({ rss: { ...base.rss, items: [], leadStory: null, feedsOff: true, err: false, lastOk: Date.now() } });
+    const row = screen.getAllByText((_, el) => el.tagName === 'SPAN' && el.textContent === '●rss')[0];
+    expect(row.nextSibling.textContent).toBe('feeds off');
+  });
+
+  it('feeds on but no stories yet keeps the dash in the rss status detail', () => {
+    const base = makeProps();
+    renderCC({ rss: { ...base.rss, items: [], leadStory: null, feedsOff: false, err: false, lastOk: null } });
+    const row = screen.getAllByText((_, el) => el.tagName === 'SPAN' && el.textContent === '●rss')[0];
+    expect(row.nextSibling.textContent).toBe('—');
+  });
+
   // A fleet with no miners configured is a deliberate setting, like every feed off:
   // once /api/miners has answered (an empty list), the row reads fine, not down.
   const minersRowColor = () =>
