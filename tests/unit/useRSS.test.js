@@ -178,6 +178,156 @@ describe('useRSS', () => {
     }
   });
 
+  it('a Save that changes both the feeds and the news interval fetches once, not twice', async () => {
+    const savedFeeds = CONFIG.RSS_FEEDS;
+    const savedInterval = CONFIG.REFRESH_INTERVALS.news;
+    try {
+      const feed = key => ({ key, url: CONFIG_FEED_URL(key) });
+      CONFIG.RSS_FEEDS = [feed('coindesk')];
+      // Proxy 404s, so one round of one feed is two requests: /api/rss, then rss2json.
+      global.fetch = vi.fn().mockImplementation(async (url) => {
+        const u = new URL(String(url), 'http://localhost');
+        if (u.pathname === '/api/rss') return { ok: false, status: 404 };
+        return feedResp(3);
+      });
+      const { result, rerender } = renderHook(({ keys }) => useRSS(keys), {
+        initialProps: { keys: 'coindesk' },
+      });
+      await waitFor(() => expect(result.current.leadStory).not.toBeNull());
+      const before = global.fetch.mock.calls.length;
+      expect(before).toBe(2);
+
+      // One Save: CoinDesk swapped for Bitcoin Magazine and the interval changed.
+      CONFIG.RSS_FEEDS = [feed('bitcoinMagazine')];
+      CONFIG.REFRESH_INTERVALS.news = savedInterval * 2;
+      rerender({ keys: 'bitcoinMagazine' });
+      await waitFor(() => expect(global.fetch.mock.calls.length).toBeGreaterThan(before));
+      await new Promise(r => setTimeout(r, 50));
+      expect(global.fetch.mock.calls.length - before).toBe(2);
+    } finally {
+      CONFIG.RSS_FEEDS = savedFeeds;
+      CONFIG.REFRESH_INTERVALS.news = savedInterval;
+    }
+  });
+
+  it('a fetch still in flight at Save cannot bring back a feed the Save switched off', async () => {
+    const saved = CONFIG.RSS_FEEDS;
+    try {
+      const feed = key => ({ key, url: CONFIG_FEED_URL(key) });
+      CONFIG.RSS_FEEDS = [feed('coindesk'), feed('bitcoinMagazine')];
+      let hold = false;
+      const held = [];
+      global.fetch = vi.fn().mockImplementation(async (url) => {
+        const u = new URL(String(url), 'http://localhost');
+        if (u.pathname === '/api/rss') return { ok: false, status: 404 };
+        const resp = feedResp(3, u.searchParams.get('rss_url'));
+        if (!hold) return resp;
+        return new Promise(res => held.push(() => res(resp)));
+      });
+      const { result, rerender } = renderHook(({ keys }) => useRSS(keys), {
+        initialProps: { keys: 'coindesk,bitcoinMagazine' },
+      });
+      await waitFor(() => expect(result.current.leadStory).not.toBeNull());
+      const coindeskUrl = CONFIG_FEED_URL('coindesk');
+      const all = () => result.current.items.concat(result.current.leadStory || []);
+      expect(all().some(it => it.hed.startsWith(coindeskUrl))).toBe(true);
+
+      // A refresh starts with both feeds on and hangs on the network.
+      hold = true;
+      act(() => { result.current.refresh(); });
+      await waitFor(() => expect(held.length).toBe(2));
+
+      // Settings saved with CoinDesk off; the new fetch answers first.
+      hold = false;
+      CONFIG.RSS_FEEDS = [feed('bitcoinMagazine')];
+      rerender({ keys: 'bitcoinMagazine' });
+      await waitFor(() => {
+        expect(all().length).toBeGreaterThan(0);
+        expect(all().some(it => it.hed.startsWith(coindeskUrl))).toBe(false);
+      });
+
+      // Then the old fetch lands.
+      await act(async () => {
+        held.forEach(release => release());
+        await new Promise(r => setTimeout(r, 50));
+      });
+      expect(all().length).toBeGreaterThan(0);
+      expect(all().some(it => it.hed.startsWith(coindeskUrl))).toBe(false);
+    } finally {
+      CONFIG.RSS_FEEDS = saved;
+    }
+  });
+
+  it('switching every feed off empties the column without flagging a feed error', async () => {
+    const saved = CONFIG.RSS_FEEDS;
+    try {
+      CONFIG.RSS_FEEDS = [{ key: 'coindesk', url: CONFIG_FEED_URL('coindesk') }];
+      global.fetch = vi.fn().mockImplementation(async (url) => {
+        const u = new URL(String(url), 'http://localhost');
+        if (u.pathname === '/api/rss') return { ok: false, status: 404 };
+        return feedResp(3);
+      });
+      const { result, rerender } = renderHook(({ keys }) => useRSS(keys), {
+        initialProps: { keys: 'coindesk' },
+      });
+      await waitFor(() => expect(result.current.leadStory).not.toBeNull());
+      expect(result.current.feedsOff).toBe(false);
+
+      CONFIG.RSS_FEEDS = [];
+      rerender({ keys: '' });
+      await waitFor(() => expect(result.current.leadStory).toBeNull());
+      expect(result.current.items).toEqual([]);
+      expect(result.current.err).toBe(false);
+      expect(result.current.feedsOff).toBe(true);
+    } finally {
+      CONFIG.RSS_FEEDS = saved;
+    }
+  });
+
+  it('switching feeds back on reads as loading until the new fetch lands, not as an empty good round', async () => {
+    const saved = CONFIG.RSS_FEEDS;
+    try {
+      CONFIG.RSS_FEEDS = [];
+      const held = [];
+      global.fetch = vi.fn().mockImplementation(async (url) => {
+        const u = new URL(String(url), 'http://localhost');
+        if (u.pathname === '/api/rss') return { ok: false, status: 404 };
+        return new Promise(res => held.push(() => res(feedResp(3))));
+      });
+      const { result, rerender } = renderHook(({ keys }) => useRSS(keys), { initialProps: { keys: '' } });
+      await waitFor(() => expect(result.current.lastOk).toBeGreaterThan(0));
+
+      CONFIG.RSS_FEEDS = [{ key: 'coindesk', url: CONFIG_FEED_URL('coindesk') }];
+      rerender({ keys: 'coindesk' });
+      await waitFor(() => expect(held.length).toBe(1));
+      // NewsColumn and the status rows read lastOk null with no err as loading/pending.
+      expect(result.current.lastOk).toBeNull();
+      expect(result.current.feedsOff).toBe(false);
+
+      await act(async () => { held.forEach(release => release()); });
+      await waitFor(() => expect(result.current.leadStory).not.toBeNull());
+      expect(result.current.lastOk).toBeGreaterThan(0);
+    } finally {
+      CONFIG.RSS_FEEDS = saved;
+    }
+  });
+
+  it('a load with every feed off fetches nothing and is not stuck loading', async () => {
+    const saved = CONFIG.RSS_FEEDS;
+    try {
+      CONFIG.RSS_FEEDS = [];
+      global.fetch = vi.fn();
+      const { result } = renderHook(() => useRSS(''));
+      // NewsColumn shows "Loading headlines" until lastOk is set.
+      await waitFor(() => expect(result.current.lastOk).toBeGreaterThan(0));
+      expect(result.current.err).toBe(false);
+      expect(result.current.items).toEqual([]);
+      expect(global.fetch).not.toHaveBeenCalled();
+    } finally {
+      CONFIG.RSS_FEEDS = saved;
+    }
+  });
+
   it('falls back to rss2json per feed when /api/rss is unavailable', async () => {
     global.fetch = vi.fn().mockImplementation(async (url) => {
       const u = new URL(String(url), 'http://localhost');

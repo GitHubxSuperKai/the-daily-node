@@ -48,6 +48,21 @@ describe('useResettableInterval', () => {
     expect(cb).toHaveBeenCalledTimes(1);
   });
 
+  // Settings Save relies on this: App rewrites CONFIG.REFRESH_INTERVALS and re-renders,
+  // so each data hook passes a new delay and its timer restarts without a page reload.
+  it('a new delay fetches at once and replaces the old cadence', () => {
+    const cb = vi.fn();
+    const { rerender } = renderHook(({ d }) => useResettableInterval(cb, d), { initialProps: { d: 1000 } });
+    act(() => { vi.advanceTimersByTime(500); });
+    cb.mockClear();
+    rerender({ d: 3000 });
+    expect(cb).toHaveBeenCalledTimes(1);
+    act(() => { vi.advanceTimersByTime(2999); });
+    expect(cb).toHaveBeenCalledTimes(1);
+    act(() => { vi.advanceTimersByTime(1); });
+    expect(cb).toHaveBeenCalledTimes(2);
+  });
+
   it('reset() fires callback immediately and restarts interval with valid delay', () => {
     const cb = vi.fn();
     const { result } = renderHook(() => useResettableInterval(cb, 1000));

@@ -32,7 +32,8 @@ function applyV2ToConfig(p) {
   CONFIG.REFRESH_INTERVALS.weather = toMs(p.intervals.weather);
   CONFIG.REFRESH_INTERVALS.news    = toMs(p.intervals.rss);
   CONFIG.REFRESH_INTERVALS.bitaxe  = toMs(p.intervals.bitaxe);
-  // Running hooks capture their interval on mount; changes take effect on next reload.
+  // Each data hook reads its interval here on every render, and useResettableInterval
+  // restarts (with a fetch) when it changes, so a Save applies new intervals at once.
 }
 
 function App() {

@@ -59,6 +59,18 @@ export function useRSS(feedsKey = '') {
   const fetchRSS = useCallback(async () => {
     const feeds = CONFIG.RSS_FEEDS || [];
 
+    // Every feed switched off: nothing failed, there is just nothing to show. Clear the
+    // old stories and count it as a good round, so the column reads "No Bitcoin
+    // headlines" rather than "feed error" or "Loading".
+    // hadErrRef is left as it is: no fresh fetch happened, so an outage before this
+    // still clears the failed lead images on the next fresh fetch.
+    if (feeds.length === 0) {
+      setPool([]);
+      setErr(false);
+      setLastOk(Date.now());
+      return;
+    }
+
     const results = await Promise.allSettled(
       feeds.map(async feed => {
         let j;
@@ -95,6 +107,13 @@ export function useRSS(feedsKey = '') {
       })
     );
 
+    // Settings saved a different feed list while this fetch was out: its results would
+    // bring back a feed that was just switched off, so leave state to the newer fetch.
+    // Compares the lists, not a fetch counter, so slow fetches that overlap an interval
+    // tick with the same feeds still land.
+    const keysOf = list => (list || []).map(f => f.key).join(',');
+    if (keysOf(feeds) !== keysOf(CONFIG.RSS_FEEDS)) return;
+
     const all = results
       .filter(r => r.status === 'fulfilled')
       .flatMap(r => r.value.items)
@@ -124,13 +143,21 @@ export function useRSS(feedsKey = '') {
 
   // Refetch when the feed list changes (Settings saved). Compares against the last key
   // rather than keying on resetRSS: resetRSS also changes with the interval, and
-  // useResettableInterval already refetches then (and on mount).
+  // useResettableInterval already refetches then (and on mount). So a Save that changes
+  // the interval too is left to useResettableInterval, which reads the new feed list.
+  const newsInterval = CONFIG.REFRESH_INTERVALS.news;
   const lastFeedsKey = useRef(feedsKey);
+  const lastInterval = useRef(newsInterval);
   useEffect(() => {
+    const intervalChanged = lastInterval.current !== newsInterval;
+    lastInterval.current = newsInterval;
     if (lastFeedsKey.current === feedsKey) return;
+    // Feeds back on after all were off: the empty "good round" no longer describes
+    // anything, so read as loading until the refetch lands, not as an empty column.
+    if (lastFeedsKey.current === '') setLastOk(null);
     lastFeedsKey.current = feedsKey;
-    resetRSS();
-  }, [feedsKey, resetRSS]);
+    if (!intervalChanged) resetRSS();
+  }, [feedsKey, newsInterval, resetRSS]);
 
   // The browser saw the connection drop and return (covers blips between fetches).
   useEffect(() => {
@@ -159,6 +186,9 @@ export function useRSS(feedsKey = '') {
     err,
     lastOk,
     interval: CONFIG.REFRESH_INTERVALS.news,
+    // Every feed switched off in Settings. The status rows count this as having data,
+    // so a deliberate empty column does not read as a down source.
+    feedsOff: (CONFIG.RSS_FEEDS || []).length === 0,
     refresh: resetRSS,
     skipLead,
   };
