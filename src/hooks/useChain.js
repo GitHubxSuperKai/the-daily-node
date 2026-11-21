@@ -31,12 +31,22 @@ export function useChain(mempoolPrefs = {}) {
   const [error, setError] = React.useState(false);
   const [lastOk, setLastOk] = React.useState(null);
 
+  // The mempool prefs the dashboard uses now. A fetch drops its result if a Save
+  // changed them while it was out. The api.js fetchers catch their own errors and
+  // return defaults, so a stale fetch reaches the catch blocks below only through
+  // code after these checks.
+  const prefsKey = JSON.stringify([mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic]);
+  const currentPrefs = React.useRef(prefsKey);
+  currentPrefs.current = prefsKey;
+
   const fetchChain = React.useCallback(async () => {
+    const fetchedFor = JSON.stringify([mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic]);
     try {
       const chainData = await fetchChainStats({
         baseUrl: mempoolPrefs.baseUrl,
         fallbackToPublic: mempoolPrefs.fallbackToPublic,
       });
+      if (currentPrefs.current !== fetchedFor) return;
 
       if (Object.keys(chainData).length === 0) {
         throw new Error('fetchChainStats returned empty');
@@ -61,12 +71,14 @@ export function useChain(mempoolPrefs = {}) {
   }, [mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic]);
 
   const fetchExtended = React.useCallback(async () => {
+    const fetchedFor = JSON.stringify([mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic]);
     try {
       const [poolsResult, recentResult, mempoolBlocks] = await Promise.all([
         fetchMiningPools({ baseUrl: mempoolPrefs.baseUrl, fallbackToPublic: mempoolPrefs.fallbackToPublic }),
         fetchRecentBlocks({ baseUrl: mempoolPrefs.baseUrl, fallbackToPublic: mempoolPrefs.fallbackToPublic }),
         fetchMempoolBlocks({ baseUrl: mempoolPrefs.baseUrl, fallbackToPublic: mempoolPrefs.fallbackToPublic }),
       ]);
+      if (currentPrefs.current !== fetchedFor) return;
 
       const pools = poolsResult;
       const recentBlocks = recentResult.blocks;
@@ -75,6 +87,7 @@ export function useChain(mempoolPrefs = {}) {
       let topPoolBlocks = [];
       if (pools.length > 0) {
         topPoolBlocks = await fetchPoolBlocks(pools[0].slug, { baseUrl: mempoolPrefs.baseUrl, fallbackToPublic: mempoolPrefs.fallbackToPublic });
+        if (currentPrefs.current !== fetchedFor) return;
       }
 
       setExtData({ pools, topPoolBlocks, recentBlocks, mempoolBlocks });
@@ -94,7 +107,6 @@ export function useChain(mempoolPrefs = {}) {
   // interval, that interval's useResettableInterval has already fetched with the new
   // prefs, so skip that fetch here. The intervals are recorded before the early
   // return, so an interval-only Save does not leave the refs stale.
-  const prefsKey = JSON.stringify([mempoolPrefs.baseUrl, mempoolPrefs.fallbackToPublic]);
   const lastPrefsKey = React.useRef(prefsKey);
   const lastChainInterval = React.useRef(chainInterval);
   const lastPoolsInterval = React.useRef(poolsInterval);

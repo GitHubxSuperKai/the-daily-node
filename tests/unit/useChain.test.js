@@ -79,6 +79,11 @@ describe('useChain', () => {
     if (path.includes('/api/blocks/tip/height')) return ok(TIP[base]);
     if (path.includes('/api/v1/mining/pools/1w'))
       return ok({ blockCount: 10, pools: [{ name: `Pool ${base}`, slug: 'foundry', blockCount: 5 }] });
+    if (path.includes('/api/v1/blocks')) {
+      // Node A's newest block is two hours old, so A's answer reads as stale.
+      const ageS = base === NODE_A ? 7200 : 0;
+      return ok([{ height: TIP[base], timestamp: Date.now() / 1000 - ageS, tx_count: 3000, size: 1_000_000, weight: 4_000_000, extras: { medianFee: 5, pool: { name: 'Foundry' } } }]);
+    }
     return defaultRouter(path);
   };
   const countPath = (needle) =>
@@ -145,5 +150,55 @@ describe('useChain', () => {
     } finally {
       Object.assign(CONFIG.REFRESH_INTERVALS, saved);
     }
+  });
+
+  // A refresh against node A hangs on the network, a Save switches to node B and
+  // B answers at once, then A's answers land late. `fail` makes A's answers errors;
+  // `only` holds back just the requests whose path contains it.
+  async function lateOldNode({ fail = false, only = '' } = {}) {
+    let hold = false;
+    const held = [];
+    global.fetch = vi.fn().mockImplementation(async (url) => {
+      const resp = nodeRouter(url);
+      if (!hold || !decodeURIComponent(String(url)).includes(only)) return resp;
+      return new Promise((res, rej) => held.push(() => (fail ? rej(new TypeError('network')) : res(resp))));
+    });
+    const hook = renderHook(({ p }) => useChain(p), { initialProps: { p: prefs(NODE_A) } });
+    const { result, rerender } = hook;
+    await waitFor(() => expect(result.current.pools[0]?.name).toBe(`Pool ${NODE_A}`));
+
+    hold = true;
+    act(() => { result.current.refresh(); });
+    await waitFor(() => expect(held.length).toBeGreaterThan(0));
+    await new Promise(r => setTimeout(r, 20));
+
+    hold = false;
+    rerender({ p: prefs(NODE_B) });
+    await waitFor(() => expect(result.current.data?.height).toBe(TIP[NODE_B]));
+    await waitFor(() => expect(result.current.pools[0]?.name).toBe(`Pool ${NODE_B}`));
+
+    await act(async () => { held.forEach(f => f()); await new Promise(r => setTimeout(r, 50)); });
+    return result;
+  }
+
+  it('chain stats from the old node still in flight at Save cannot overwrite the new node', async () => {
+    const result = await lateOldNode();
+    expect(result.current.data.height).toBe(TIP[NODE_B]);
+  });
+
+  it('pools from the old node still in flight at Save cannot overwrite the new node', async () => {
+    const result = await lateOldNode();
+    expect(result.current.pools[0].name).toBe(`Pool ${NODE_B}`);
+    expect(result.current.stale).toBe(false);
+  });
+
+  it('a Save during the old node\'s pool-blocks request cannot overwrite the new node', async () => {
+    const result = await lateOldNode({ only: '/api/v1/mining/pool/foundry/blocks' });
+    expect(result.current.pools[0].name).toBe(`Pool ${NODE_B}`);
+  });
+
+  it('a late failure from the old node does not mark the new node as failed', async () => {
+    const result = await lateOldNode({ fail: true });
+    expect(result.current.error).toBe(false);
   });
 });
