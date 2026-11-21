@@ -113,6 +113,24 @@ describe('CommandCenter — desktop smoke render', () => {
     expect(row.firstChild.style.color).toBe(`rgb(${hex.join(', ')})`);
   });
 
+  // A fleet with no miners configured is a deliberate setting, like every feed off:
+  // once /api/miners has answered (an empty list), the row reads fine, not down.
+  const minersRowColor = () =>
+    screen.getAllByText((_, el) => el.tagName === 'SPAN' && el.textContent === '●miners')[0].firstChild.style.color;
+  const rgb = hexColor => `rgb(${hexColor.match(/^#(..)(..)(..)$/).slice(1).map(h => parseInt(h, 16)).join(', ')})`;
+
+  it('no miners configured reads as fine in the status rows once /api/miners answered', () => {
+    const base = makeProps();
+    renderCC({ bitaxe: { ...base.bitaxe, miners: [], err: false, fetchFailed: false, loading: false, lastOk: Date.now() } });
+    expect(minersRowColor()).toBe(rgb(LIGHT.green));
+  });
+
+  it('no miners configured reads as pending before /api/miners has answered', () => {
+    const base = makeProps();
+    renderCC({ bitaxe: { ...base.bitaxe, miners: [], err: false, fetchFailed: false, loading: true, lastOk: null } });
+    expect(minersRowColor()).toBe(rgb(LIGHT.ink4));
+  });
+
   it('survives a fully degraded feed set — every source null or erroring', () => {
     // The all-APIs-down path, exercising the derived-value block (halvings,
     // blockReward, mempoolMB, the sys array) with nothing to derive from.
