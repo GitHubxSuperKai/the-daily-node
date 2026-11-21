@@ -302,8 +302,9 @@ describe('App — Settings Save applies intervals', () => {
     const urls = global.fetch.mock.calls.map(([u]) => String(u));
     return Object.fromEntries(Object.entries(ENDPOINTS).map(([k, frag]) => [k, urls.filter(u => u.includes(frag)).length]));
   };
-  // Settings also has a "Miners" section heading, so look only inside the
-  // intervals block: the parent of the uniquely labelled "BTC price" row.
+  // Look only inside the intervals block (the parent of the uniquely labelled
+  // "BTC price" row), so no other "Miners" element in Settings, such as its
+  // section heading, can match.
   const intervalInput = (label) => {
     const block = screen.getByText('BTC price').parentElement.parentElement;
     const span = [...block.querySelectorAll('span')].find(el => el.textContent === label);
