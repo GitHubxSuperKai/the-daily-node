@@ -285,3 +285,48 @@ describe('App — theme on mount', () => {
     expect(document.body.style.background).toBe(toRgb(DARK.paper));
   });
 });
+
+describe('App — Settings Save applies intervals', () => {
+  // One request URL per user-set interval, each fetched by that interval's own
+  // useResettableInterval round (the defaults are all 60 s or more, so no timer
+  // fires during the test; a new request right after Save is the restart).
+  const ENDPOINTS = {
+    price:   'api.kraken.com/0/public/Ticker',
+    chain:   '/api/blocks/tip/height',
+    weather: 'api.open-meteo.com',
+    news:    '/api/rss',
+    miners:  '/api/miners',
+  };
+  const LABELS = ['BTC price', 'Chain vitals', 'Weather', 'News', 'Miners'];
+  const counts = () => {
+    const urls = global.fetch.mock.calls.map(([u]) => String(u));
+    return Object.fromEntries(Object.entries(ENDPOINTS).map(([k, frag]) => [k, urls.filter(u => u.includes(frag)).length]));
+  };
+  // Settings has more than one "Miners" row, so look only inside the intervals
+  // block: the parent of the uniquely labelled "BTC price" row.
+  const intervalInput = (label) => {
+    const block = screen.getByText('BTC price').parentElement.parentElement;
+    const span = [...block.querySelectorAll('span')].find(el => el.textContent === label);
+    return span.parentElement.querySelector('input[type="number"]');
+  };
+
+  it('one Save with new intervals restarts all five interval hooks at once', async () => {
+    await bootApp();
+    const before = counts();
+    for (const k of Object.keys(ENDPOINTS)) expect(before[k], `${k} fetched on mount`).toBeGreaterThan(0);
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /settings/i })); });
+    for (const label of LABELS) {
+      const input = intervalInput(label);
+      fireEvent.change(input, { target: { value: String(Number(input.value) + 7) } });
+    }
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Save' })); });
+    await act(async () => {});
+
+    const after = counts();
+    for (const k of Object.keys(ENDPOINTS)) {
+      expect(after[k] - before[k], `${k} refetched on Save`).toBeGreaterThan(0);
+    }
+    expectNoActWarnings();
+  });
+});
