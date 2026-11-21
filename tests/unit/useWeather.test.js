@@ -133,4 +133,56 @@ describe('useWeather', () => {
       CONFIG.REFRESH_INTERVALS.weather = savedInterval;
     }
   });
+
+  it('a fetch for the old location still in flight at Save cannot overwrite the new location', async () => {
+    let hold = false;
+    const held = [];
+    global.fetch = vi.fn().mockImplementation(async (url) => {
+      const resp = await wxFor(url);
+      if (!hold) return resp;
+      return new Promise(res => held.push(() => res(resp)));
+    });
+    const { result, rerender } = renderHook(({ lat }) => useWeather(lat, -122.4, 'fahrenheit'), {
+      initialProps: { lat: 37 },
+    });
+    await waitFor(() => expect(result.current.data?.temp).toBe(37));
+
+    // A refresh for the old location hangs on the network.
+    hold = true;
+    act(() => { result.current.refresh(); });
+    await waitFor(() => expect(held.length).toBe(1));
+
+    // Save a new location; its fetch answers at once.
+    hold = false;
+    rerender({ lat: 40 });
+    await waitFor(() => expect(result.current.data?.temp).toBe(40));
+
+    // The old-location answer lands late.
+    await act(async () => { held[0](); await new Promise(r => setTimeout(r, 20)); });
+    expect(result.current.data.temp).toBe(40);
+  });
+
+  it('a late failure from the old location does not mark the new location as failed', async () => {
+    let hold = false;
+    const held = [];
+    global.fetch = vi.fn().mockImplementation(async (url) => {
+      if (!hold) return wxFor(url);
+      return new Promise((_, rej) => held.push(() => rej(new TypeError('network'))));
+    });
+    const { result, rerender } = renderHook(({ lat }) => useWeather(lat, -122.4, 'fahrenheit'), {
+      initialProps: { lat: 37 },
+    });
+    await waitFor(() => expect(result.current.data?.temp).toBe(37));
+
+    hold = true;
+    act(() => { result.current.refresh(); });
+    await waitFor(() => expect(held.length).toBe(1));
+
+    hold = false;
+    rerender({ lat: 40 });
+    await waitFor(() => expect(result.current.data?.temp).toBe(40));
+
+    await act(async () => { held[0](); await new Promise(r => setTimeout(r, 20)); });
+    expect(result.current.err).toBe(false);
+  });
 });
