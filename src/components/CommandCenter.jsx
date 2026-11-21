@@ -104,7 +104,9 @@ export function CommandCenter({
   const sys = [
     {
       k: 'miners',
-      state: sourceFreshness({ hasData: onlineCount > 0, err: bitaxe.err, lastOk: bitaxe.lastOk, interval: bitaxe.interval }, freshNow),
+      // No miners configured is a setting, not an outage: once /api/miners has
+      // answered with an empty list, count it as data so the row reads fine.
+      state: sourceFreshness({ hasData: onlineCount > 0 || (minerCount === 0 && !!bitaxe.lastOk), err: bitaxe.err, lastOk: bitaxe.lastOk, interval: bitaxe.interval }, freshNow),
       d: withAge(sysAgeOf(bitaxe.lastOk), bitaxe.loading ? 'connecting' : `${onlineCount}/${minerCount} online`),
     },
     {
@@ -130,7 +132,7 @@ export function CommandCenter({
     {
       k: 'rss',
       state: sourceFreshness({ hasData: rss.items.length > 0 || (!!rss.feedsOff && !!rss.lastOk), err: rss.err, lastOk: rss.lastOk, interval: rss.interval }, freshNow),
-      d: withAge(sysAgeOf(rss.lastOk), rss.items.length > 0 ? `${rss.items.length} stories` : '—'),
+      d: withAge(sysAgeOf(rss.lastOk), rss.items.length > 0 ? `${rss.items.length} stories` : rss.feedsOff ? 'feeds off' : '—'),
     },
   ];
 

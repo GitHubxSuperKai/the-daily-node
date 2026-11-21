@@ -550,6 +550,35 @@ describe('useRSS failed lead images after a network blip', () => {
     expect(result.current.leadStory).not.toBeNull();
   });
 
+  it('an outage, then every feed off, then feeds back on still retries the failed images', async () => {
+    // The all-off round is not a fresh fetch, so it must leave the outage flag alone:
+    // the first fresh fetch after the feeds come back on still clears the failures.
+    const saved = CONFIG.RSS_FEEDS;
+    const keysOf = list => list.map(f => f.key).join(',');
+    try {
+      global.fetch = up();
+      const { result, rerender } = renderHook(({ keys }) => useRSS(keys), { initialProps: { keys: keysOf(saved) } });
+      await waitFor(() => expect(result.current.leadStory).not.toBeNull());
+      failEveryLead(result);
+
+      global.fetch = vi.fn().mockRejectedValue(new TypeError('network'));
+      await act(async () => { result.current.refresh(); });
+      await waitFor(() => expect(result.current.err).toBe(true));
+
+      CONFIG.RSS_FEEDS = [];
+      rerender({ keys: '' });
+      await waitFor(() => expect(result.current.feedsOff).toBe(true));
+      await waitFor(() => expect(result.current.err).toBe(false));
+
+      global.fetch = up();
+      CONFIG.RSS_FEEDS = saved;
+      rerender({ keys: keysOf(saved) });
+      await waitFor(() => expect(result.current.leadStory).not.toBeNull());
+    } finally {
+      CONFIG.RSS_FEEDS = saved;
+    }
+  });
+
   it('clears once per outage: a later success with no outage keeps skipping', async () => {
     const { result } = await mountLoaded();
     failEveryLead(result);

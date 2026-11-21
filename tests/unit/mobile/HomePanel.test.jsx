@@ -55,6 +55,30 @@ describe('HomePanel', () => {
     expect(dot.style.background).toBe(`rgb(${hex.join(', ')})`);
   });
 
+  it('no miners configured reads as fine in the Feeds tile once /api/miners answered', () => {
+    const bitaxe = { miners: [], err: false, fetchFailed: false, loading: false, lastOk: Date.now(), interval: 30000 };
+    wrap(<HomePanel {...baseProps} bitaxe={bitaxe} onNavigate={() => {}} />);
+    const dot = screen.getByText('Miners').previousSibling;
+    const hex = LIGHT.green.match(/^#(..)(..)(..)$/).slice(1).map(h => parseInt(h, 16));
+    expect(dot.style.background).toBe(`rgb(${hex.join(', ')})`);
+  });
+
+  it('no miners configured reads as pending in the Feeds tile before /api/miners has answered', () => {
+    const bitaxe = { miners: [], err: false, fetchFailed: false, loading: true, lastOk: null, interval: 30000 };
+    wrap(<HomePanel {...baseProps} bitaxe={bitaxe} onNavigate={() => {}} />);
+    const dot = screen.getByText('Miners').previousSibling;
+    const hex = LIGHT.ink4.match(/^#(..)(..)(..)$/).slice(1).map(h => parseInt(h, 16));
+    expect(dot.style.background).toBe(`rgb(${hex.join(', ')})`);
+  });
+
+  it('no miners configured, then a failed fetch, reads stale in the Feeds tile, not down', () => {
+    const bitaxe = { miners: [], err: true, fetchFailed: true, loading: false, lastOk: Date.now(), interval: 30000 };
+    wrap(<HomePanel {...baseProps} bitaxe={bitaxe} onNavigate={() => {}} />);
+    const dot = screen.getByText('Miners').previousSibling;
+    const hex = LIGHT.orange.match(/^#(..)(..)(..)$/).slice(1).map(h => parseInt(h, 16));
+    expect(dot.style.background).toBe(`rgb(${hex.join(', ')})`);
+  });
+
   it('renders BTC, Fleet summary, and Lead headline tiles', () => {
     wrap(<HomePanel {...baseProps} onNavigate={() => {}} />);
     expect(screen.getByText(/BTC \/ USD/i)).toBeDefined();
